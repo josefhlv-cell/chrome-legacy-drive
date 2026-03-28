@@ -4,10 +4,11 @@ import { Search, Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 
 const navItems = [
-  { label: "Skladové vozy", path: "/vozidla" },
+  { label: "Nabídka vozidel", path: "/vozidla" },
+  { label: "Náhradní díly", path: "/servis" },
   { label: "Dovoz", path: "/dovoz" },
   { label: "Výkup", path: "/vykup" },
-  { label: "Servis", path: "/servis" },
+  { label: "Autoservis", path: "/servis" },
   { label: "O nás", path: "/o-nas" },
   { label: "Kontakt", path: "/kontakt" },
 ];

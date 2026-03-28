@@ -32,18 +32,18 @@ const Footer = () => (
         <div>
           <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4">Kontakt</h4>
           <div className="flex flex-col gap-3 text-sm text-muted-foreground">
-            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 123 456 789</div>
-            <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> info@chrysler.cz</div>
-            <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Praha, Česká republika</div>
+            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767</div>
+            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> Servis: +420 603 372 911</div>
+            <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> obchod@chrysler.cz</div>
+            <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Pardubice, Česká republika</div>
           </div>
         </div>
 
         <div>
           <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4">Otevírací doba</h4>
           <div className="flex flex-col gap-1 text-sm text-muted-foreground">
-            <p>Po–Pá: 9:00 – 18:00</p>
-            <p>So: 9:00 – 13:00</p>
-            <p>Ne: Zavřeno</p>
+            <p>Po–Pá: 8:00 – 11:30 a 12:30 – 17:00</p>
+            <p>So–Ne: Zavřeno</p>
           </div>
         </div>
       </div>

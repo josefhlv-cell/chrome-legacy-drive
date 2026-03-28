@@ -27,7 +27,7 @@ const HeroSection = () => (
         </h1>
         <blockquote className="border-l-2 border-primary/50 pl-4 mb-10 max-w-lg">
           <p className="text-sm md:text-base text-muted-foreground italic leading-relaxed">
-            Management firmy Chrysler Pardubice si dovoluje prezentovat v těchto stránkách názory ve vztahu k vozům Chrysler Voyager, Grand Voyager, Lancia Voyager, Town &amp; Country, Dodge — získané na základě pragmatických zkušeností za dobu naší praxe s touto exkluzivní značkou.
+            Vítejte na stránkách www.chrysler.cz. Představujeme Vám tímto firmu, která bezesporu patří mezi ty, jež se snaží být vždy firmou průhlednou, legitimní a ve svém přístupu ke klientům vždy korektní. Ve snaze být autentičtí, musíme psát sami o sobě.
           </p>
         </blockquote>
         <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />

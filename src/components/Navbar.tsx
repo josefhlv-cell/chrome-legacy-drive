@@ -7,6 +7,7 @@ const navItems = [
   { label: "Skladové vozy", path: "/vozidla" },
   { label: "Dovoz", path: "/dovoz" },
   { label: "Výkup", path: "/vykup" },
+  { label: "Servis", path: "/servis" },
   { label: "O nás", path: "/o-nas" },
   { label: "Kontakt", path: "/kontakt" },
 ];

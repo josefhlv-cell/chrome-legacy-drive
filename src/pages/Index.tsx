@@ -4,6 +4,7 @@ import StockTicker from "@/components/StockTicker";
 import FeaturedVehicles from "@/components/FeaturedVehicles";
 import MottoSection from "@/components/MottoSection";
 import FamilyAdvantage from "@/components/FamilyAdvantage";
+import AppShowcase from "@/components/AppShowcase";
 import Footer from "@/components/Footer";
 
 const Index = () => (
@@ -12,6 +13,7 @@ const Index = () => (
     <HeroSection />
     <StockTicker />
     <FeaturedVehicles />
+    <AppShowcase />
     <MottoSection />
     <FamilyAdvantage />
     <Footer />

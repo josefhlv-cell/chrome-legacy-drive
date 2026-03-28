@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Wrench, Fuel, Cog, Send, ShieldCheck, Clock, Phone } from "lucide-react";
+import { Wrench, Fuel, Cog, Send, ShieldCheck, Clock, Phone, Award, Paintbrush, Car, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
@@ -84,6 +84,60 @@ const ServicePage = () => {
                 <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
               </motion.div>
             ))}
+          </div>
+
+          {/* Detailed Service Categories */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">
+            {/* Category 1 */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0 }} className="glass-card p-6 space-y-3">
+              <Award className="w-8 h-8 text-primary" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Odborný servis vozidel</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Chrysler, Dodge, Lancia</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Individuální přístup k zákazníkům</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autorizace FCA</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Více než 20letá zkušenost</li>
+              </ul>
+            </motion.div>
+
+            {/* Category 2 */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-3">
+              <Cog className="w-8 h-8 text-primary" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Technické vybavení</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Opravy automatických převodovek</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Moderně vybavené autodílny</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Diagnostické pomůcky</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Kamerový monitoring motorů</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Tlakové zkoušky všech systémů</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Diagnostika a plnění klimatizací</li>
+              </ul>
+            </motion.div>
+
+            {/* Category 3 */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="glass-card p-6 space-y-3">
+              <Paintbrush className="w-8 h-8 text-primary" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Nadstandardní služby</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autolakovna</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Smluvní partner pojišťoven</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Zastoupení při dopravních nehodách</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Čištění a renovace laku</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autokosmetika, keramika laku</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Mobilní čištění přímo u Vás doma</li>
+              </ul>
+            </motion.div>
+
+            {/* Category 4 */}
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="glass-card p-6 space-y-3">
+              <Car className="w-8 h-8 text-primary" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Zajišťujeme</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground">
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> STK, ME, Homologace</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Výjimky MDČR</li>
+                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Profesionální mechanici s více než 20letou praxí</li>
+              </ul>
+            </motion.div>
           </div>
 
           {/* LPG Calculator */}

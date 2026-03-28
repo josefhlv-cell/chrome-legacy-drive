@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Filter } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -15,13 +15,16 @@ const sortOptions = [
   { label: "Cena ↓", value: "price-desc" },
 ];
 
+const PAGE_SIZE = 9;
+
 const VehiclesPage = () => {
   const [fuel, setFuel] = useState("Vše");
   const [year, setYear] = useState("Vše");
   const [sort, setSort] = useState("newest");
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { data: dbVehicles, isLoading } = useVehicles();
+  const lastCardRef = useRef<HTMLDivElement>(null);
 
-  // Use DB vehicles if available, fall back to mock data
   const sourceVehicles = useMemo(() => {
     if (dbVehicles && dbVehicles.length > 0) {
       return dbVehicles.map((v) => ({
@@ -62,6 +65,24 @@ const VehiclesPage = () => {
     return result;
   }, [sourceVehicles, fuel, year, sort]);
 
+  // Reset visible count when filters change
+  useMemo(() => {
+    setVisibleCount(PAGE_SIZE);
+  }, [fuel, year, sort]);
+
+  const visibleVehicles = filtered.slice(0, visibleCount);
+  const hasMore = visibleCount < filtered.length;
+
+  const handleLoadMore = useCallback(() => {
+    // Mark the scroll position of the last visible card
+    const scrollTarget = lastCardRef.current;
+    setVisibleCount((prev) => prev + PAGE_SIZE);
+    // After state update and render, scroll to where the user was
+    requestAnimationFrame(() => {
+      scrollTarget?.scrollIntoView({ block: "start", behavior: "instant" });
+    });
+  }, []);
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -69,7 +90,7 @@ const VehiclesPage = () => {
         <div className="container mx-auto px-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10">
             <h1 className="section-heading">Skladové vozy</h1>
-            <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler připravené k předání</p>
+            <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler & Dodge připravené k předání</p>
           </motion.div>
 
           <div className="glass-card p-4 mb-8 flex flex-wrap items-center gap-4">
@@ -89,10 +110,20 @@ const VehiclesPage = () => {
           {isLoading && <p className="text-center text-muted-foreground py-10">Načítání vozidel...</p>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filtered.map((vehicle, i) => (
-              <VehicleCard key={vehicle.id} vehicle={vehicle} index={i} />
+            {visibleVehicles.map((vehicle, i) => (
+              <div key={vehicle.id} ref={i === visibleVehicles.length - PAGE_SIZE ? lastCardRef : undefined}>
+                <VehicleCard vehicle={vehicle} index={i < PAGE_SIZE ? i : 0} />
+              </div>
             ))}
           </div>
+
+          {hasMore && (
+            <div className="text-center mt-10">
+              <button onClick={handleLoadMore} className="chrome-button inline-flex items-center gap-2">
+                Načíst další ({filtered.length - visibleCount} zbývá)
+              </button>
+            </div>
+          )}
 
           {filtered.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádné vozy neodpovídají zvoleným filtrům.</p>

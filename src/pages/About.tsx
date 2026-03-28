@@ -20,7 +20,7 @@ const milestones = [
   { year: "2008", text: "Partnerství s Chrysler Club CZ — stáváme se oficiálním partnerem největší české komunity majitelů." },
   { year: "2012", text: "Rozšíření servisu o diagnostiku automatických převodovek a přestavby na LPG." },
   { year: "2018", text: "Autorizace FCA (Fiat Chrysler Automobiles) — certifikovaní mechanici s přístupem k originální diagnostice." },
-  { year: "2024", text: "Spuštění digitální platformy Chrysler & Dodge Pardubice — katalog dílů, servisní knížka a AI diagnostika v jedné aplikaci." },
+  { year: "2026", text: "Spuštění digitální platformy Chrysler & Dodge Pardubice — katalog dílů, servisní knížka a AI diagnostika v jedné aplikaci." },
 ];
 
 const reviews = [

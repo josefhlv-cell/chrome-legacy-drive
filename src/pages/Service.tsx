@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Wrench, Fuel, Cog, Send, ShieldCheck, Clock, Phone } from "lucide-react";
+import { Wrench, Fuel, Cog, Send, ShieldCheck, Clock, Phone, Award, Paintbrush, Car, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";

@@ -14,16 +14,157 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      leads: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          message: string
+          metadata: Json | null
+          name: string
+          phone: string
+          type: string
+          vehicle_model: string
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          name: string
+          phone?: string
+          type: string
+          vehicle_model?: string
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          name?: string
+          phone?: string
+          type?: string
+          vehicle_model?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
+      vehicles: {
+        Row: {
+          carfax_enabled: boolean
+          carfax_url: string
+          color: string
+          created_at: string
+          description: string
+          engine: string
+          fuel: string
+          id: string
+          image_url: string
+          lpg_description: string
+          lpg_enabled: boolean
+          mileage: number
+          name: string
+          power: string
+          price_with_vat: number
+          show_vat: boolean
+          status: Database["public"]["Enums"]["vehicle_status"]
+          transmission: string
+          updated_at: string
+          video_enabled: boolean
+          video_id: string
+          vin: string
+          warranty_enabled: boolean
+          year: number
+        }
+        Insert: {
+          carfax_enabled?: boolean
+          carfax_url?: string
+          color?: string
+          created_at?: string
+          description?: string
+          engine?: string
+          fuel?: string
+          id?: string
+          image_url?: string
+          lpg_description?: string
+          lpg_enabled?: boolean
+          mileage?: number
+          name: string
+          power?: string
+          price_with_vat: number
+          show_vat?: boolean
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          transmission?: string
+          updated_at?: string
+          video_enabled?: boolean
+          video_id?: string
+          vin?: string
+          warranty_enabled?: boolean
+          year: number
+        }
+        Update: {
+          carfax_enabled?: boolean
+          carfax_url?: string
+          color?: string
+          created_at?: string
+          description?: string
+          engine?: string
+          fuel?: string
+          id?: string
+          image_url?: string
+          lpg_description?: string
+          lpg_enabled?: boolean
+          mileage?: number
+          name?: string
+          power?: string
+          price_with_vat?: number
+          show_vat?: boolean
+          status?: Database["public"]["Enums"]["vehicle_status"]
+          transmission?: string
+          updated_at?: string
+          video_enabled?: boolean
+          video_id?: string
+          vin?: string
+          warranty_enabled?: boolean
+          year?: number
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
+      vehicle_status: "skladem" | "na-ceste" | "rezervovano" | "prodano"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +291,9 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+      vehicle_status: ["skladem", "na-ceste", "rezervovano", "prodano"],
+    },
   },
 } as const

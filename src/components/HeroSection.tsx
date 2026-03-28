@@ -30,7 +30,7 @@ const HeroSection = () => (
             Management firmy Chrysler Pardubice si dovoluje prezentovat v těchto stránkách názory ve vztahu k vozům Chrysler Voyager, Grand Voyager, Lancia Voyager, Town &amp; Country, Dodge — získané na základě pragmatických zkušeností za dobu naší praxe s touto exkluzivní značkou.
           </p>
         </blockquote>
-        <img src={heroImage.replace("hero-chrysler", "logo-pardubice").replace(".jpg", ".png")} alt="Chrysler & Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" style={{display: 'none'}} />
+        <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
         <div className="flex flex-wrap gap-4">
           <Link to="/vozidla" className="chrome-button inline-block text-center">
             Prohlédnout vozy

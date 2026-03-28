@@ -1,6 +1,7 @@
 import { motion } from "framer-motion";
-import { Package, Wrench, Gem, CalendarDays, Smartphone } from "lucide-react";
+import { Package, Wrench, Gem, CalendarDays } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.png";
+import appScreenshot from "@/assets/app-screenshot.png";
 
 const APP_URL = "https://chryslerpardubice.site/";
 
@@ -16,20 +17,22 @@ const AppShowcase = () => (
     <div className="absolute inset-0 bg-gradient-to-b from-background via-secondary/30 to-background" />
     <div className="container mx-auto px-4 relative z-10">
       <div className="glass-card p-8 md:p-12 flex flex-col md:flex-row items-center gap-10">
-        {/* Phone mockup */}
+        {/* Phone mockup with real screenshot */}
         <motion.div
           initial={{ opacity: 0, x: -40 }}
           whileInView={{ opacity: 1, x: 0 }}
           viewport={{ once: true }}
           className="shrink-0"
         >
-          <div className="relative w-56 h-[420px] rounded-[2.5rem] border-2 border-primary/30 bg-secondary/80 shadow-2xl flex items-center justify-center overflow-hidden">
-            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-background rounded-b-2xl" />
-            <div className="flex flex-col items-center gap-4 p-6">
-              <Smartphone className="w-12 h-12 text-primary" />
-              <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="w-32 drop-shadow-lg" />
-              <p className="text-xs text-muted-foreground text-center">Vaše digitální garáž</p>
-            </div>
+          <div className="relative w-56 h-[420px] rounded-[2.5rem] border-2 border-primary/30 bg-black shadow-2xl overflow-hidden">
+            {/* Notch */}
+            <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-black rounded-b-2xl z-10" />
+            {/* Real screenshot */}
+            <img
+              src={appScreenshot}
+              alt="Chrysler & Dodge Pardubice – aplikace"
+              className="w-full h-full object-cover object-top"
+            />
           </div>
         </motion.div>
 

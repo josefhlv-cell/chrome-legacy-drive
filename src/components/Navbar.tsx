@@ -1,14 +1,14 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
-import { Search, Menu, X } from "lucide-react";
+import { Menu, X } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import logoPardubice from "@/assets/logo-pardubice.png";
 
 const navItems = [
   { label: "Nabídka vozidel", path: "/vozidla" },
-  { label: "Náhradní díly", path: "/servis" },
   { label: "Dovoz", path: "/dovoz" },
   { label: "Výkup", path: "/vykup" },
-  { label: "Autoservis", path: "/servis" },
+  { label: "Servis & LPG", path: "/servis" },
   { label: "O nás", path: "/o-nas" },
   { label: "Kontakt", path: "/kontakt" },
 ];
@@ -21,10 +21,7 @@ const Navbar = () => {
     <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="flex items-center gap-2">
-          <span className="text-xl font-bold tracking-[0.3em] text-primary font-montserrat">
-            CHRYSLER
-          </span>
-          <span className="text-xs text-muted-foreground tracking-widest">.CZ</span>
+          <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 w-auto drop-shadow-lg" />
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
@@ -39,9 +36,6 @@ const Navbar = () => {
               {item.label}
             </Link>
           ))}
-          <button className="text-muted-foreground hover:text-primary transition-colors">
-            <Search className="w-4 h-4" />
-          </button>
         </div>
 
         <button

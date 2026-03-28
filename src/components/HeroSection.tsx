@@ -5,7 +5,7 @@ import heroImage from "@/assets/hero-chrysler.jpg";
 const HeroSection = () => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     <div className="absolute inset-0">
-      <img src={heroImage} alt="Chrysler Pacifica" className="w-full h-full object-cover" width={1920} height={1080} />
+      <img src={heroImage} alt="Chrysler & Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} />
       <div className="absolute inset-0 bg-gradient-to-r from-background via-background/80 to-background/40" />
       <div className="absolute inset-0 bg-gradient-to-t from-background via-transparent to-background/30" />
     </div>
@@ -18,12 +18,14 @@ const HeroSection = () => (
         className="max-w-2xl"
       >
         <h1 className="text-5xl md:text-7xl font-black tracking-wider text-foreground leading-tight mb-6">
-          American Luxury.
+          Americká síla
+          <br />
+          a luxus.
           <br />
           <span className="text-primary">Nyní skladem v ČR.</span>
         </h1>
         <p className="text-lg text-muted-foreground font-light leading-relaxed mb-10 max-w-lg">
-          Objevte pohodlí, výkon a technologie, které definují novou éru rodinného cestování.
+          Chrysler & Dodge — objevte pohodlí, výkon a technologie, které definují novou éru amerického cestování.
         </p>
         <div className="flex flex-wrap gap-4">
           <Link to="/vozidla" className="chrome-button inline-block text-center">

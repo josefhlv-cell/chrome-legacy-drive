@@ -1,14 +1,15 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin } from "lucide-react";
+import logoPardubice from "@/assets/logo-pardubice.png";
 
 const Footer = () => (
   <footer className="bg-card border-t border-border">
     <div className="container mx-auto px-4 py-16">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
         <div>
-          <h3 className="text-lg font-bold tracking-[0.3em] text-primary mb-4">CHRYSLER.CZ</h3>
+          <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-16 w-auto mb-4 drop-shadow-lg" />
           <p className="text-sm text-muted-foreground leading-relaxed">
-            U nás prodejem cesta teprve začíná. Vítejte v rodině Chrysler.
+            U nás prodejem cesta teprve začíná. Vítejte v rodině Chrysler & Dodge.
           </p>
         </div>
 
@@ -19,7 +20,7 @@ const Footer = () => (
               { label: "Skladové vozy", path: "/vozidla" },
               { label: "Dovoz na zakázku", path: "/dovoz" },
               { label: "Výkup vozidel", path: "/vykup" },
-              { label: "Servis", path: "/servis" },
+              { label: "Servis & LPG", path: "/servis" },
               { label: "O nás", path: "/o-nas" },
             ].map((item) => (
               <Link key={item.path} to={item.path} className="text-sm text-muted-foreground hover:text-primary transition-colors">
@@ -49,7 +50,7 @@ const Footer = () => (
       </div>
 
       <div className="mt-12 pt-6 border-t border-border text-center text-xs text-muted-foreground">
-        © {new Date().getFullYear()} Chrysler.cz — Všechna práva vyhrazena.
+        © {new Date().getFullYear()} Chrysler & Dodge Pardubice — Všechna práva vyhrazena.
       </div>
     </div>
   </footer>

@@ -1,7 +1,8 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff, Plus, Trash2, Edit, Save, X, LogIn, LogOut } from "lucide-react";
+import { Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff, Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/hooks/useAuth";
 import { useVehicles, useCreateVehicle, useUpdateVehicle, useDeleteVehicle, type DbVehicle } from "@/hooks/useVehicles";
 import { formatPrice, statusLabels } from "@/data/vehicles";
@@ -9,10 +10,11 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
+import logoPardubice from "@/assets/logo-pardubice.png";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 
-const statusStyles: Record<VehicleStatus, string> = {
+const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
   "na-ceste": "status-na-ceste",
   rezervovano: "status-rezervovano",
@@ -26,6 +28,8 @@ const emptyVehicle: TablesInsert<"vehicles"> = {
   video_enabled: false, video_id: "", warranty_enabled: false,
   engine: "", transmission: "", power: "", color: "", description: "",
 };
+
+const SITE_URL = "https://chryslerpardubice.site";
 
 const AdminPage = () => {
   const { user, isAdmin, loading: authLoading, signIn, signOut } = useAuth();
@@ -43,6 +47,7 @@ const AdminPage = () => {
   const [editData, setEditData] = useState<TablesUpdate<"vehicles">>({});
   const [showNew, setShowNew] = useState(false);
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
+  const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -88,6 +93,29 @@ const AdminPage = () => {
     deleteVehicle.mutate(id, {
       onSuccess: () => toast({ title: "Smazáno" }),
     });
+  };
+
+  const handlePrintQR = (vehicleId: string) => {
+    setQrVehicleId(vehicleId);
+  };
+
+  const downloadQR = (vehicleId: string, vehicleName: string) => {
+    const svg = document.getElementById(`qr-${vehicleId}`);
+    if (!svg) return;
+    const svgData = new XMLSerializer().serializeToString(svg);
+    const canvas = document.createElement("canvas");
+    canvas.width = 400;
+    canvas.height = 400;
+    const ctx = canvas.getContext("2d");
+    const img = new Image();
+    img.onload = () => {
+      ctx?.drawImage(img, 0, 0, 400, 400);
+      const link = document.createElement("a");
+      link.download = `QR-${vehicleName.replace(/\s+/g, "_")}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
   if (authLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Načítání...</p></div>;
@@ -139,11 +167,11 @@ const AdminPage = () => {
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-8 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <Settings className="w-8 h-8 text-primary" />
+            <div className="flex items-center gap-4">
+              <img src={logoPardubice} alt="Autorizovaný přístup" className="h-14 w-auto drop-shadow-lg" />
               <div>
                 <h1 className="section-heading text-2xl">Správa vozidel</h1>
-                <p className="text-xs text-muted-foreground">{user.email}</p>
+                <p className="text-xs text-muted-foreground">{user.email} · Autorizovaný přístup</p>
               </div>
             </div>
             <div className="flex gap-3">
@@ -200,12 +228,15 @@ const AdminPage = () => {
                         <select
                           value={vehicle.status}
                           onChange={(e) => handleToggle(vehicle, "status", e.target.value)}
-                          className={`${statusStyles[vehicle.status as VehicleStatus]} text-xs font-semibold px-3 py-1.5 rounded-full bg-transparent`}
+                          className={`${statusStylesMap[vehicle.status as VehicleStatus]} text-xs font-semibold px-3 py-1.5 rounded-full bg-transparent`}
                         >
                           {(Object.keys(statusLabels) as VehicleStatus[]).map((s) => (
                             <option key={s} value={s} className="bg-card text-foreground">{statusLabels[s]}</option>
                           ))}
                         </select>
+                        <button onClick={() => handlePrintQR(vehicle.id)} className="p-2 text-muted-foreground hover:text-primary transition-colors" title="QR kód pro tisk">
+                          <QrCode className="w-4 h-4" />
+                        </button>
                         <button onClick={() => editingId === vehicle.id ? setEditingId(null) : startEdit(vehicle)} className="p-2 text-muted-foreground hover:text-primary transition-colors">
                           <Edit className="w-4 h-4" />
                         </button>
@@ -214,6 +245,31 @@ const AdminPage = () => {
                         </button>
                       </div>
                     </div>
+
+                    {/* QR Code Modal */}
+                    {qrVehicleId === vehicle.id && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 p-4 bg-foreground rounded-lg flex flex-col items-center gap-3">
+                        <p className="text-xs text-background font-semibold uppercase tracking-wider">QR kód pro tisk — {vehicle.name}</p>
+                        <QRCodeSVG
+                          id={`qr-${vehicle.id}`}
+                          value={`${SITE_URL}/vozidla/${vehicle.id}`}
+                          size={200}
+                          bgColor="#ffffff"
+                          fgColor="#000000"
+                          level="H"
+                          includeMargin
+                        />
+                        <p className="text-xs text-background/60">{SITE_URL}/vozidla/{vehicle.id}</p>
+                        <div className="flex gap-2">
+                          <button onClick={() => downloadQR(vehicle.id, vehicle.name)} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md flex items-center gap-1.5">
+                            <Download className="w-3 h-3" /> Stáhnout PNG
+                          </button>
+                          <button onClick={() => setQrVehicleId(null)} className="text-xs text-background/60 hover:text-background px-3 py-1.5">
+                            Zavřít
+                          </button>
+                        </div>
+                      </motion.div>
+                    )}
 
                     {editingId === vehicle.id && (
                       <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

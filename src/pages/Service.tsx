@@ -5,12 +5,13 @@ import { useToast } from "@/hooks/use-toast";
 import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import LPGCalculator from "@/components/LPGCalculator";
 
 const services = [
   {
     icon: Wrench,
     title: "Pravidelná údržba",
-    desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler.",
+    desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler & Dodge.",
   },
   {
     icon: Fuel,
@@ -64,7 +65,7 @@ const ServicePage = () => {
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="section-heading">Servis</h1>
+            <h1 className="section-heading">Servis & LPG</h1>
             <p className="section-subheading mt-2">Odborná péče o vaše americké vozy Chrysler, Dodge a Jeep</p>
           </motion.div>
 
@@ -84,6 +85,9 @@ const ServicePage = () => {
               </motion.div>
             ))}
           </div>
+
+          {/* LPG Calculator */}
+          <LPGCalculator />
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-16">
             <motion.div initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }}>
@@ -136,7 +140,7 @@ const ServicePage = () => {
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Servisní linka</p>
-                    <p className="text-muted-foreground text-sm">+420 123 456 790</p>
+                    <p className="text-muted-foreground text-sm">+420 603 372 911</p>
                   </div>
                 </div>
                 <div className="mt-6 p-4 bg-gold/10 border border-gold/20 rounded-lg">

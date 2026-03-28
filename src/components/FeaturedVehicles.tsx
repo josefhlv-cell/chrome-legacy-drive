@@ -4,7 +4,7 @@ import VehicleCard from "./VehicleCard";
 import { mockVehicles } from "@/data/vehicles";
 
 const FeaturedVehicles = () => {
-  const featured = mockVehicles.filter((v) => v.status !== "prodano").slice(0, 3);
+  const featured = mockVehicles.filter((v) => v.status !== "prodano").slice(0, 6);
 
   return (
     <section className="py-24 bg-background">

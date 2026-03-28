@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import heroImage from "@/assets/hero-chrysler.jpg";
+import logoPardubice from "@/assets/logo-pardubice.png";
 
 const HeroSection = () => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -17,16 +18,19 @@ const HeroSection = () => (
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="max-w-2xl"
       >
-        <h1 className="text-5xl md:text-7xl font-black tracking-wider text-foreground leading-tight mb-6">
-          Americká síla
+        <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-wide text-foreground leading-tight mb-6 italic">
+          „Nejsme jen prodejci,
           <br />
-          a luxus.
+          jsme vaši <span className="text-primary">partneři</span>
           <br />
-          <span className="text-primary">Nyní skladem v ČR.</span>
+          na každém kilometru vaší cesty."
         </h1>
-        <p className="text-lg text-muted-foreground font-light leading-relaxed mb-10 max-w-lg">
-          Chrysler & Dodge — objevte pohodlí, výkon a technologie, které definují novou éru amerického cestování.
-        </p>
+        <blockquote className="border-l-2 border-primary/50 pl-4 mb-10 max-w-lg">
+          <p className="text-sm md:text-base text-muted-foreground italic leading-relaxed">
+            Management firmy Chrysler Pardubice si dovoluje prezentovat v těchto stránkách názory ve vztahu k vozům Chrysler Voyager, Grand Voyager, Lancia Voyager, Town &amp; Country, Dodge — získané na základě pragmatických zkušeností za dobu naší praxe s touto exkluzivní značkou.
+          </p>
+        </blockquote>
+        <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
         <div className="flex flex-wrap gap-4">
           <Link to="/vozidla" className="chrome-button inline-block text-center">
             Prohlédnout vozy

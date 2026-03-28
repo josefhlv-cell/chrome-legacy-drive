@@ -14,6 +14,7 @@ import Contact from "./pages/Contact.tsx";
 import Service from "./pages/Service.tsx";
 import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
+import AppBanner from "./components/AppBanner.tsx";
 
 const queryClient = new QueryClient();
 

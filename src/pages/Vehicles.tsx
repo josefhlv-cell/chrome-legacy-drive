@@ -7,8 +7,8 @@ import VehicleCard from "@/components/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 import { mockVehicles } from "@/data/vehicles";
 
-const fuelOptions = ["Vše", "Benzín", "Benzín + LPG", "Plug-in Hybrid"];
-const yearOptions = ["Vše", "2024", "2023", "2022"];
+const fuelOptions = ["Vše", "Ba 95", "BA 95 LPG", "Diesel", "BA95 Hybrid Plug-in", "Ba 95 E85"];
+const yearOptions = ["Vše", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2012", "2011", "2009", "2008"];
 const sortOptions = [
   { label: "Nejnovější", value: "newest" },
   { label: "Cena ↑", value: "price-asc" },

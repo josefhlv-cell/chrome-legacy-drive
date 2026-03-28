@@ -50,21 +50,22 @@ const ContactPage = () => {
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Telefon</p>
-                    <p className="text-muted-foreground text-sm">+420 123 456 789</p>
+                    <p className="text-muted-foreground text-sm">+420 603 559 767</p>
+                    <p className="text-muted-foreground text-sm mt-1">Servis: +420 603 372 911</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
                   <Mail className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">E-mail</p>
-                    <p className="text-muted-foreground text-sm">info@chrysler.cz</p>
+                    <p className="text-muted-foreground text-sm">obchod@chrysler.cz</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">
                   <MapPin className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Adresa</p>
-                    <p className="text-muted-foreground text-sm">Praha, Česká republika</p>
+                    <p className="text-muted-foreground text-sm">Pardubice, Česká republika</p>
                   </div>
                 </div>
               </div>
@@ -72,9 +73,8 @@ const ContactPage = () => {
               <div className="glass-card p-6 mt-6">
                 <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-3">Otevírací doba</h3>
                 <div className="space-y-1 text-sm text-muted-foreground">
-                  <p>Pondělí – Pátek: 9:00 – 18:00</p>
-                  <p>Sobota: 9:00 – 13:00</p>
-                  <p>Neděle: Zavřeno</p>
+                  <p>Pondělí – Pátek: 8:00 – 11:30 a 12:30 – 17:00</p>
+                  <p>Sobota – Neděle: Zavřeno</p>
                 </div>
               </div>
             </motion.div>

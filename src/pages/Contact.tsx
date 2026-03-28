@@ -2,21 +2,35 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Send, Phone, Mail, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const ContactPage = () => {
   const { toast } = useToast();
+  const createLead = useCreateLead();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+
+    try {
+      await createLead.mutateAsync({
+        type: "contact",
+        name: fd.get("name") as string,
+        email: fd.get("email") as string,
+        message: `Předmět: ${fd.get("subject") || "—"}\n${fd.get("message")}`,
+      });
       toast({ title: "Zpráva odeslána", description: "Děkujeme, ozveme se vám co nejdříve." });
-      (e.target as HTMLFormElement).reset();
-    }, 1000);
+      form.reset();
+    } catch {
+      toast({ title: "Chyba", description: "Nepodařilo se odeslat. Zkuste to znovu.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -70,20 +84,20 @@ const ContactPage = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Jméno *</label>
-                    <input required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                    <input name="name" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                   </div>
                   <div>
                     <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">E-mail *</label>
-                    <input type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                    <input name="email" type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                   </div>
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Předmět</label>
-                  <input className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="subject" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Zpráva *</label>
-                  <textarea required rows={5} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
+                  <textarea name="message" required rows={5} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
                 </div>
                 <button type="submit" disabled={loading} className="chrome-button w-full flex items-center justify-center gap-2">
                   <Send className="w-4 h-4" /> {loading ? "Odesílám..." : "Odeslat zprávu"}

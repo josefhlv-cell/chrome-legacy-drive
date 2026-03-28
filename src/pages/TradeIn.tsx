@@ -2,23 +2,40 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Send, DollarSign, Upload } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const TradeInPage = () => {
   const { toast } = useToast();
+  const createLead = useCreateLead();
   const [loading, setLoading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+
+    try {
+      await createLead.mutateAsync({
+        type: "trade-in",
+        name: fd.get("name") as string,
+        email: fd.get("email") as string,
+        phone: fd.get("phone") as string,
+        vehicle_model: fd.get("model") as string,
+        message: `Rok: ${fd.get("year")}, Tachometr: ${fd.get("mileage")} km, Cena: ${fd.get("price")}, Stav: ${fd.get("notes")}`,
+        metadata: { photos: files.length },
+      });
       toast({ title: "Podklady přijaty", description: "Naši technici provedou nacenění a ozvou se vám." });
-      (e.target as HTMLFormElement).reset();
+      form.reset();
       setFiles([]);
-    }, 1000);
+    } catch {
+      toast({ title: "Chyba", description: "Nepodařilo se odeslat. Zkuste to znovu.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -37,40 +54,40 @@ const TradeInPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Jméno *</label>
-                  <input required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="name" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">E-mail *</label>
-                  <input type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="email" type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Telefon *</label>
-                <input type="tel" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                <input name="phone" type="tel" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Značka a model *</label>
-                  <input required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="model" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Rok výroby *</label>
-                  <input type="number" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="year" type="number" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Stav tachometru (km) *</label>
-                  <input type="number" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="mileage" type="number" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Očekávaná cena (Kč)</label>
-                  <input type="number" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="price" type="number" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Stav vozu a poznámky</label>
-                <textarea rows={3} placeholder="Popište stav, případné závady, výbavu..." className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none placeholder:text-muted-foreground" />
+                <textarea name="notes" rows={3} placeholder="Popište stav, případné závady, výbavu..." className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none placeholder:text-muted-foreground" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">

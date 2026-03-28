@@ -2,21 +2,37 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Send, Ship } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const ImportPage = () => {
   const { toast } = useToast();
+  const createLead = useCreateLead();
   const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
+    const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
+
+    try {
+      await createLead.mutateAsync({
+        type: "import",
+        name: fd.get("name") as string,
+        email: fd.get("email") as string,
+        phone: fd.get("phone") as string,
+        vehicle_model: fd.get("model") as string,
+        message: `Region: ${fd.get("region")}, Rozpočet: ${fd.get("budget")}, Poznámky: ${fd.get("notes")}`,
+      });
       toast({ title: "Poptávka odeslána", description: "Náš specialista se vám ozve do 24 hodin." });
-      (e.target as HTMLFormElement).reset();
-    }, 1000);
+      form.reset();
+    } catch {
+      toast({ title: "Chyba", description: "Nepodařilo se odeslat. Zkuste to znovu.", variant: "destructive" });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -35,25 +51,25 @@ const ImportPage = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Jméno *</label>
-                  <input required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="name" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">E-mail *</label>
-                  <input type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <input name="email" type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Telefon *</label>
-                <input type="tel" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                <input name="phone" type="tel" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Požadovaný model *</label>
-                <input required placeholder="např. Chrysler Pacifica Hybrid 2024" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none placeholder:text-muted-foreground" />
+                <input name="model" required placeholder="např. Chrysler Pacifica Hybrid 2024" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none placeholder:text-muted-foreground" />
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Region dovozu</label>
-                  <select className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm">
+                  <select name="region" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm">
                     <option>USA</option>
                     <option>EU</option>
                     <option>Kanada</option>
@@ -61,12 +77,12 @@ const ImportPage = () => {
                 </div>
                 <div>
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Rozpočet</label>
-                  <input placeholder="např. do 1 500 000 Kč" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none placeholder:text-muted-foreground" />
+                  <input name="budget" placeholder="např. do 1 500 000 Kč" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none placeholder:text-muted-foreground" />
                 </div>
               </div>
               <div>
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Další požadavky</label>
-                <textarea rows={3} placeholder="Barva, výbava, max. nájezd km..." className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none placeholder:text-muted-foreground" />
+                <textarea name="notes" rows={3} placeholder="Barva, výbava, max. nájezd km..." className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none placeholder:text-muted-foreground" />
               </div>
               <button type="submit" disabled={loading} className="chrome-button w-full flex items-center justify-center gap-2">
                 <Send className="w-4 h-4" /> {loading ? "Odesílám..." : "Odeslat poptávku"}

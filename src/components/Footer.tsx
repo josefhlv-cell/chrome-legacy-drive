@@ -19,6 +19,7 @@ const Footer = () => (
               { label: "Skladové vozy", path: "/vozidla" },
               { label: "Dovoz na zakázku", path: "/dovoz" },
               { label: "Výkup vozidel", path: "/vykup" },
+              { label: "Servis", path: "/servis" },
               { label: "O nás", path: "/o-nas" },
             ].map((item) => (
               <Link key={item.path} to={item.path} className="text-sm text-muted-foreground hover:text-primary transition-colors">

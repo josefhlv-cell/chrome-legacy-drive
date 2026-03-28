@@ -4,6 +4,7 @@ import { Filter } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
+import { useVehicles } from "@/hooks/useVehicles";
 import { mockVehicles } from "@/data/vehicles";
 
 const fuelOptions = ["Vše", "Benzín", "Benzín + LPG", "Plug-in Hybrid"];
@@ -18,16 +19,48 @@ const VehiclesPage = () => {
   const [fuel, setFuel] = useState("Vše");
   const [year, setYear] = useState("Vše");
   const [sort, setSort] = useState("newest");
+  const { data: dbVehicles, isLoading } = useVehicles();
+
+  // Use DB vehicles if available, fall back to mock data
+  const sourceVehicles = useMemo(() => {
+    if (dbVehicles && dbVehicles.length > 0) {
+      return dbVehicles.map((v) => ({
+        id: v.id,
+        name: v.name,
+        year: v.year,
+        priceWithVat: v.price_with_vat,
+        mileage: v.mileage,
+        vin: v.vin,
+        fuel: v.fuel,
+        image: v.image_url,
+        status: v.status as any,
+        showVat: v.show_vat,
+        carfaxEnabled: v.carfax_enabled,
+        carfaxUrl: v.carfax_url,
+        lpgEnabled: v.lpg_enabled,
+        lpgDescription: v.lpg_description,
+        videoEnabled: v.video_enabled,
+        videoId: v.video_id,
+        warrantyEnabled: v.warranty_enabled,
+        engine: v.engine,
+        transmission: v.transmission,
+        power: v.power,
+        color: v.color,
+        description: v.description,
+      }));
+    }
+    return mockVehicles.filter((v) => v.status !== "prodano");
+  }, [dbVehicles]);
 
   const filtered = useMemo(() => {
-    let result = mockVehicles.filter((v) => v.status !== "prodano");
+    let result = [...sourceVehicles];
     if (fuel !== "Vše") result = result.filter((v) => v.fuel === fuel);
     if (year !== "Vše") result = result.filter((v) => v.year.toString() === year);
-    if (sort === "price-asc") result = [...result].sort((a, b) => a.priceWithVat - b.priceWithVat);
-    if (sort === "price-desc") result = [...result].sort((a, b) => b.priceWithVat - a.priceWithVat);
-    if (sort === "newest") result = [...result].sort((a, b) => b.year - a.year);
+    if (sort === "price-asc") result.sort((a, b) => a.priceWithVat - b.priceWithVat);
+    if (sort === "price-desc") result.sort((a, b) => b.priceWithVat - a.priceWithVat);
+    if (sort === "newest") result.sort((a, b) => b.year - a.year);
     return result;
-  }, [fuel, year, sort]);
+  }, [sourceVehicles, fuel, year, sort]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -53,13 +86,15 @@ const VehiclesPage = () => {
             <span className="ml-auto text-xs text-muted-foreground">{filtered.length} vozů</span>
           </div>
 
+          {isLoading && <p className="text-center text-muted-foreground py-10">Načítání vozidel...</p>}
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filtered.map((vehicle, i) => (
               <VehicleCard key={vehicle.id} vehicle={vehicle} index={i} />
             ))}
           </div>
 
-          {filtered.length === 0 && (
+          {filtered.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádné vozy neodpovídají zvoleným filtrům.</p>
           )}
         </div>

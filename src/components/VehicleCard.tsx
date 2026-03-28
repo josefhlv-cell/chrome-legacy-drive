@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import type { Vehicle } from "@/data/vehicles";
 import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import logoPardubice from "@/assets/logo-pardubice.png";
 
 interface VehicleCardProps {
   vehicle: Vehicle;
@@ -26,6 +27,10 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => (
           width={800}
           height={600}
         />
+        {/* Watermark overlay */}
+        <div className="absolute bottom-2 right-2 pointer-events-none opacity-30">
+          <img src={logoPardubice} alt="" className="h-10 w-auto" />
+        </div>
         <div className="absolute top-3 left-3">
           <span className={`${statusStyles[vehicle.status]} text-xs font-semibold px-3 py-1 rounded-full`}>
             {statusLabels[vehicle.status]}

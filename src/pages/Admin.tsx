@@ -356,6 +356,8 @@ const AdminPage = () => {
                 </div>
               </motion.div>
             ))}
+          </div>
+
           {vehicles?.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádná vozidla. Přidejte první vůz tlačítkem výše.</p>
           )}

@@ -23,5 +23,26 @@
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@type": "AutoDealer",
+      "name": "Chrysler & Dodge Pardubice",
+      "description": "Autorizovaný dealer a servis amerických vozů Chrysler a Dodge v Pardubicích.",
+      "url": "https://chrome-legacy-drive.lovable.app",
+      "address": {
+        "@type": "PostalAddress",
+        "addressLocality": "Pardubice",
+        "addressCountry": "CZ"
+      },
+      "makesOffer": {
+        "@type": "Offer",
+        "itemOffered": {
+          "@type": "Vehicle",
+          "brand": ["Chrysler", "Dodge"]
+        }
+      }
+    }
+    </script>
   </body>
 </html>

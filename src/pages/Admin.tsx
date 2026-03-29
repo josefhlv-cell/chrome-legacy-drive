@@ -9,6 +9,7 @@ import { formatPrice, statusLabels } from "@/data/vehicles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { uploadVehicleImage } from "@/hooks/useVehicleGallery";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import logoPardubice from "@/assets/logo-pardubice.png";
 

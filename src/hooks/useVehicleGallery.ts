@@ -4,15 +4,20 @@ import { supabase } from "@/integrations/supabase/client";
 const BUCKET = "vehicles";
 const BASE_URL = `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}`;
 const MIN_VALID_IMAGE_SIZE = 10000;
-const MAX_GALLERY_SCAN = 120;
 
 type FileMeta = {
   size: number;
+  num: number | null; // parsed IMG number, null for non-standard names
 };
 
 // Cache full file metadata so we don't re-fetch on every vehicle
 let fileListCache: Map<string, FileMeta> | null = null;
 let fileListPromise: Promise<Map<string, FileMeta>> | null = null;
+
+const parseImgNum = (name: string): number | null => {
+  const m = name.match(/IMG_(\d+)/i);
+  return m ? parseInt(m[1], 10) : null;
+};
 
 const getFileList = async (): Promise<Map<string, FileMeta>> => {
   if (fileListCache) return fileListCache;
@@ -35,7 +40,10 @@ const getFileList = async (): Promise<Map<string, FileMeta>> => {
           ? f.metadata.size
           : Number(f.metadata?.size ?? 0);
 
-        allFiles.set(f.name, { size: Number.isFinite(size) ? size : 0 });
+        allFiles.set(f.name, {
+          size: Number.isFinite(size) ? size : 0,
+          num: parseImgNum(f.name),
+        });
       }
 
       if (data.length < batchSize) break;
@@ -51,7 +59,9 @@ const getFileList = async (): Promise<Map<string, FileMeta>> => {
 
 /**
  * Given a main image URL like .../IMG_7445.jpg,
- * finds sequential gallery images while skipping broken tiny files.
+ * finds nearby gallery images by proximity of IMG number.
+ * Looks for real images (>10KB) within ±120 of the main image number,
+ * sorted by IMG number ascending.
  */
 export const useVehicleGallery = (mainImageUrl: string | undefined) => {
   const [images, setImages] = useState<string[]>([]);
@@ -68,42 +78,40 @@ export const useVehicleGallery = (mainImageUrl: string | undefined) => {
       setLoading(true);
 
       const filename = mainImageUrl.split("/").pop() || "";
-      const match = filename.match(/IMG_(\d+)/i);
+      const baseNum = parseImgNum(filename);
 
-      if (!match) {
+      if (baseNum === null) {
         setImages([mainImageUrl]);
         setLoading(false);
         return;
       }
 
-      const baseNum = parseInt(match[1], 10);
-
       try {
         const fileMap = await getFileList();
 
-        const gallery: string[] = [mainImageUrl];
-        let missingStreak = 0;
-
-        for (let i = 1; i <= MAX_GALLERY_SCAN; i++) {
-          const nextName = `IMG_${String(baseNum + i).padStart(4, "0")}.jpg`;
-          const meta = fileMap.get(nextName);
-
-          if (!meta) {
-            missingStreak += 1;
-            if (missingStreak >= 8) break;
-            continue;
+        // Find all valid images within ±120 of the base number
+        const nearby: { name: string; num: number }[] = [];
+        for (const [name, meta] of fileMap) {
+          if (meta.num === null) continue;
+          if (meta.size < MIN_VALID_IMAGE_SIZE) continue;
+          if (Math.abs(meta.num - baseNum) <= 120) {
+            nearby.push({ name, num: meta.num });
           }
-
-          missingStreak = 0;
-
-          if (meta.size < MIN_VALID_IMAGE_SIZE) {
-            continue;
-          }
-
-          gallery.push(`${BASE_URL}/${nextName}`);
         }
 
-        setImages(Array.from(new Set(gallery)));
+        // Sort by IMG number
+        nearby.sort((a, b) => a.num - b.num);
+
+        // Build gallery: main image first, then the rest
+        const mainName = filename;
+        const gallery = [mainImageUrl];
+        for (const item of nearby) {
+          if (item.name !== mainName) {
+            gallery.push(`${BASE_URL}/${item.name}`);
+          }
+        }
+
+        setImages(gallery);
       } catch (err) {
         console.error("Gallery fetch error:", err);
         setImages([mainImageUrl]);
@@ -124,5 +132,8 @@ export const uploadVehicleImage = async (file: File, filename?: string) => {
     .from(BUCKET)
     .upload(name, file, { upsert: true, contentType: file.type });
   if (error) throw error;
+  // Invalidate cache so new uploads appear in gallery
+  fileListCache = null;
+  fileListPromise = null;
   return `${BASE_URL}/${name}`;
 };

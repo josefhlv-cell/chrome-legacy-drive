@@ -101,14 +101,33 @@ const AdminPage = () => {
     setQrVehicleId(vehicleId);
   };
 
+  const MIN_UPLOAD_SIZE = 10000; // 10KB minimum
+  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
+
   const handlePhotoUpload = async (vehicleId: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploadingFor(vehicleId);
     try {
+      const validFiles: File[] = [];
+      const rejected: string[] = [];
       for (const file of Array.from(files)) {
+        if (!ALLOWED_TYPES.includes(file.type)) {
+          rejected.push(`${file.name}: nepovolený formát (${file.type})`);
+        } else if (file.size < MIN_UPLOAD_SIZE) {
+          rejected.push(`${file.name}: příliš malý (${(file.size / 1024).toFixed(1)} KB, min 10 KB)`);
+        } else {
+          validFiles.push(file);
+        }
+      }
+      if (rejected.length > 0) {
+        toast({ title: "Odmítnuté soubory", description: rejected.join("; "), variant: "destructive" });
+      }
+      for (const file of validFiles) {
         await uploadVehicleImage(file);
       }
-      toast({ title: `${files.length} foto nahráno` });
+      if (validFiles.length > 0) {
+        toast({ title: `${validFiles.length} foto nahráno` });
+      }
     } catch (err: any) {
       toast({ title: "Chyba nahrávání", description: err.message, variant: "destructive" });
     } finally {

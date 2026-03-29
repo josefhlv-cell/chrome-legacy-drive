@@ -1,6 +1,6 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
-import { Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff, Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download } from "lucide-react";
+import { Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff, Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download, ImagePlus, Images } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/hooks/useAuth";

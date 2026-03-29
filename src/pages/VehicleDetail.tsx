@@ -3,12 +3,14 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import VehicleGallery from "@/components/VehicleGallery";
 import { mockVehicles, formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import { useVehicleGallery } from "@/hooks/useVehicleGallery";
 
 const VehicleDetail = () => {
   const { id } = useParams();
   const vehicle = mockVehicles.find((v) => v.id === id);
+  const { images, loading: galleryLoading } = useVehicleGallery(vehicle?.image);
 
   if (!vehicle) {
     return (
@@ -34,19 +36,21 @@ const VehicleDetail = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="relative">
-              <img src={vehicle.image} alt={vehicle.name} className="w-full rounded-lg object-cover aspect-[4/3]" width={800} height={600} />
-              {/* Watermark */}
-              <div className="absolute bottom-4 right-4 pointer-events-none opacity-30">
-                <img src={logoPardubice} alt="" className="h-14 w-auto" />
-              </div>
-              <div className="absolute top-4 left-4">
-                <span className={`${statusStyles[vehicle.status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
-                  {statusLabels[vehicle.status]}
-                </span>
-              </div>
-              {vehicle.warrantyEnabled && (
-                <div className="absolute top-4 right-4 bg-gold text-gold-foreground text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5">
-                  <Shield className="w-4 h-4" /> Prodloužená záruka v ceně
+              {galleryLoading ? (
+                <div className="w-full rounded-lg bg-secondary animate-pulse aspect-[4/3]" />
+              ) : (
+                <div className="relative">
+                  <VehicleGallery images={images} vehicleName={vehicle.name} />
+                  <div className="absolute top-4 left-4 z-10">
+                    <span className={`${statusStyles[vehicle.status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
+                      {statusLabels[vehicle.status]}
+                    </span>
+                  </div>
+                  {vehicle.warrantyEnabled && (
+                    <div className="absolute top-4 right-4 z-10 bg-gold text-gold-foreground text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5">
+                      <Shield className="w-4 h-4" /> Prodloužená záruka v ceně
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>

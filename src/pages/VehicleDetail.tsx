@@ -1,6 +1,7 @@
+import { useState, useEffect } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play } from "lucide-react";
+import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play, AlertTriangle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleGallery from "@/components/VehicleGallery";
@@ -12,6 +13,19 @@ const VehicleDetail = () => {
   const { id } = useParams();
   const { data: dbVehicle, isLoading, error } = useVehicle(id);
   const { images, loading: galleryLoading } = useVehicleGallery(dbVehicle?.image_url);
+  const [showTimeout, setShowTimeout] = useState(false);
+
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => setShowTimeout(true), 3000);
+      return () => clearTimeout(timer);
+    }
+    setShowTimeout(false);
+  }, [isLoading]);
+
+  if (error) {
+    console.error("Vehicle detail error:", error);
+  }
 
   if (isLoading) {
     return (
@@ -19,6 +33,20 @@ const VehicleDetail = () => {
         <Navbar />
         <div className="pt-24 container mx-auto px-4 text-center py-20">
           <p className="text-muted-foreground">Načítání vozidla...</p>
+          {showTimeout && (
+            <div className="mt-6 space-y-3">
+              <div className="inline-flex items-center gap-2 text-sm text-amber-500">
+                <AlertTriangle className="w-4 h-4" />
+                Načítání trvá déle než obvykle
+              </div>
+              <div>
+                <Link to="/vozidla" className="text-primary hover:underline text-sm">← Zpět na nabídku</Link>
+              </div>
+              <div>
+                <Link to="/" className="text-muted-foreground hover:text-primary text-sm">Zpět na hlavní stranu</Link>
+              </div>
+            </div>
+          )}
         </div>
         <Footer />
       </div>

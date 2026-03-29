@@ -1,10 +1,46 @@
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight } from "lucide-react";
 import VehicleCard from "./VehicleCard";
 import { mockVehicles } from "@/data/vehicles";
+import { useVehicles } from "@/hooks/useVehicles";
 
 const FeaturedVehicles = () => {
-  const featured = mockVehicles.filter((v) => v.status !== "prodano").slice(0, 6);
+  const { data: dbVehicles } = useVehicles();
+
+  const featured = useMemo(() => {
+    if (dbVehicles && dbVehicles.length > 0) {
+      return dbVehicles
+        .filter((v) => v.status !== "prodano")
+        .slice(0, 6)
+        .map((v) => ({
+          id: v.id,
+          name: v.name,
+          year: v.year,
+          priceWithVat: v.price_with_vat,
+          mileage: v.mileage,
+          vin: v.vin,
+          fuel: v.fuel,
+          image: v.image_url,
+          status: v.status as any,
+          showVat: v.show_vat,
+          carfaxEnabled: v.carfax_enabled,
+          carfaxUrl: v.carfax_url,
+          lpgEnabled: v.lpg_enabled,
+          lpgDescription: v.lpg_description,
+          videoEnabled: v.video_enabled,
+          videoId: v.video_id,
+          warrantyEnabled: v.warranty_enabled,
+          engine: v.engine,
+          transmission: v.transmission,
+          power: v.power,
+          color: v.color,
+          description: v.description,
+        }));
+    }
+
+    return mockVehicles.filter((v) => v.status !== "prodano").slice(0, 6);
+  }, [dbVehicles]);
 
   return (
     <section className="py-24 bg-background">

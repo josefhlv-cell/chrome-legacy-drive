@@ -1,33 +1,73 @@
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play, AlertTriangle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleGallery from "@/components/VehicleGallery";
-import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
-import { useVehicle } from "@/hooks/useVehicles";
+import { formatPrice, priceWithoutVat, statusLabels, statusStyles, mockVehicles } from "@/data/vehicles";
+import { useVehicle, type DbVehicle } from "@/hooks/useVehicles";
 import { useVehicleGallery } from "@/hooks/useVehicleGallery";
+
+const mapMockToDbVehicle = (id: string): DbVehicle | null => {
+  const mock = mockVehicles.find((v) => v.id === id);
+  if (!mock) return null;
+
+  const now = new Date().toISOString();
+  return {
+    id: mock.id,
+    name: mock.name,
+    year: mock.year,
+    price_with_vat: mock.priceWithVat,
+    mileage: mock.mileage,
+    vin: mock.vin,
+    fuel: mock.fuel,
+    image_url: mock.image,
+    status: mock.status,
+    show_vat: mock.showVat,
+    carfax_enabled: mock.carfaxEnabled,
+    carfax_url: mock.carfaxUrl,
+    lpg_enabled: mock.lpgEnabled,
+    lpg_description: mock.lpgDescription,
+    video_enabled: mock.videoEnabled,
+    video_id: mock.videoId,
+    warranty_enabled: mock.warrantyEnabled,
+    engine: mock.engine,
+    transmission: mock.transmission,
+    power: mock.power,
+    color: mock.color,
+    description: mock.description,
+    created_at: now,
+    updated_at: now,
+  };
+};
 
 const VehicleDetail = () => {
   const { id } = useParams();
   const { data: dbVehicle, isLoading, error } = useVehicle(id);
-  const { images, loading: galleryLoading } = useVehicleGallery(dbVehicle?.image_url);
   const [showTimeout, setShowTimeout] = useState(false);
 
+  const fallbackVehicle = useMemo(() => {
+    if (!id || dbVehicle) return null;
+    return mapMockToDbVehicle(id);
+  }, [id, dbVehicle]);
+
+  const vehicle = dbVehicle ?? fallbackVehicle;
+  const { images, loading: galleryLoading } = useVehicleGallery(vehicle?.image_url);
+
   useEffect(() => {
-    if (isLoading) {
+    if (isLoading && !fallbackVehicle) {
       const timer = setTimeout(() => setShowTimeout(true), 3000);
       return () => clearTimeout(timer);
     }
     setShowTimeout(false);
-  }, [isLoading]);
+  }, [isLoading, fallbackVehicle]);
 
   if (error) {
-    console.error("Vehicle detail error:", error);
+    console.error("Supabase Error:", error);
   }
 
-  if (isLoading) {
+  if (isLoading && !fallbackVehicle) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -35,10 +75,13 @@ const VehicleDetail = () => {
           <p className="text-muted-foreground">Načítání vozidla...</p>
           {showTimeout && (
             <div className="mt-6 space-y-3">
-              <div className="inline-flex items-center gap-2 text-sm text-amber-500">
+              <div className="inline-flex items-center gap-2 text-sm text-primary">
                 <AlertTriangle className="w-4 h-4" />
                 Načítání trvá déle než obvykle
               </div>
+              <p className="text-xs text-muted-foreground">
+                Stav připojení: {navigator.onLine ? "Online" : "Offline"}
+              </p>
               <div>
                 <Link to="/vozidla" className="text-primary hover:underline text-sm">← Zpět na nabídku</Link>
               </div>
@@ -53,7 +96,7 @@ const VehicleDetail = () => {
     );
   }
 
-  if (error || !dbVehicle) {
+  if (!vehicle) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -66,8 +109,7 @@ const VehicleDetail = () => {
     );
   }
 
-  const vehicle = dbVehicle;
-  const status = vehicle.status as keyof typeof statusLabels;
+  const status = (vehicle.status in statusLabels ? vehicle.status : "skladem") as keyof typeof statusLabels;
 
   return (
     <div className="min-h-screen bg-background">

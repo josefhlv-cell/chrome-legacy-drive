@@ -4,15 +4,28 @@ import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play 
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleGallery from "@/components/VehicleGallery";
-import { mockVehicles, formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleGallery } from "@/hooks/useVehicleGallery";
 
 const VehicleDetail = () => {
   const { id } = useParams();
-  const vehicle = mockVehicles.find((v) => v.id === id);
-  const { images, loading: galleryLoading } = useVehicleGallery(vehicle?.image);
+  const { data: dbVehicle, isLoading, error } = useVehicle(id);
+  const { images, loading: galleryLoading } = useVehicleGallery(dbVehicle?.image_url);
 
-  if (!vehicle) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Navbar />
+        <div className="pt-24 container mx-auto px-4 text-center py-20">
+          <p className="text-muted-foreground">Načítání vozidla...</p>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  if (error || !dbVehicle) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -24,6 +37,9 @@ const VehicleDetail = () => {
       </div>
     );
   }
+
+  const vehicle = dbVehicle;
+  const status = vehicle.status as keyof typeof statusLabels;
 
   return (
     <div className="min-h-screen bg-background">
@@ -42,11 +58,11 @@ const VehicleDetail = () => {
                 <div className="relative">
                   <VehicleGallery images={images} vehicleName={vehicle.name} />
                   <div className="absolute top-4 left-4 z-10">
-                    <span className={`${statusStyles[vehicle.status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
-                      {statusLabels[vehicle.status]}
+                    <span className={`${statusStyles[status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
+                      {statusLabels[status]}
                     </span>
                   </div>
-                  {vehicle.warrantyEnabled && (
+                  {vehicle.warranty_enabled && (
                     <div className="absolute top-4 right-4 z-10 bg-gold text-gold-foreground text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5">
                       <Shield className="w-4 h-4" /> Prodloužená záruka v ceně
                     </div>
@@ -57,12 +73,12 @@ const VehicleDetail = () => {
 
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-wide normal-case">{vehicle.name}</h1>
-              <p className="text-muted-foreground mt-1">{vehicle.year} · VIN: {vehicle.vin}</p>
+              <p className="text-muted-foreground mt-1">{vehicle.year}{vehicle.vin ? ` · VIN: ${vehicle.vin}` : ""}</p>
 
               <div className="mt-6">
-                <p className="text-4xl font-black text-primary">{formatPrice(vehicle.priceWithVat)}</p>
-                {vehicle.showVat && (
-                  <p className="text-sm text-muted-foreground mt-1">Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.priceWithVat))}</p>
+                <p className="text-4xl font-black text-primary">{formatPrice(vehicle.price_with_vat)}</p>
+                {vehicle.show_vat && (
+                  <p className="text-sm text-muted-foreground mt-1">Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}</p>
                 )}
               </div>
 
@@ -80,18 +96,18 @@ const VehicleDetail = () => {
 
               <p className="mt-4 text-sm text-muted-foreground leading-relaxed">{vehicle.description}</p>
 
-              {vehicle.lpgEnabled && (
+              {vehicle.lpg_enabled && (
                 <div className="mt-4 glass-card p-4 border-emerald-500/30 flex items-start gap-3">
                   <Leaf className="w-5 h-5 text-emerald-400 mt-0.5" />
                   <div>
                     <p className="text-sm font-semibold text-emerald-400">LPG Systém</p>
-                    <p className="text-xs text-muted-foreground">{vehicle.lpgDescription}</p>
+                    <p className="text-xs text-muted-foreground">{vehicle.lpg_description}</p>
                   </div>
                 </div>
               )}
 
-              {vehicle.carfaxEnabled && (
-                <a href={vehicle.carfaxUrl} target="_blank" rel="noopener noreferrer" className="mt-4 glass-card p-4 flex items-center gap-3 hover:border-primary/50 transition-colors block">
+              {vehicle.carfax_enabled && vehicle.carfax_url && (
+                <a href={vehicle.carfax_url} target="_blank" rel="noopener noreferrer" className="mt-4 glass-card p-4 flex items-center gap-3 hover:border-primary/50 transition-colors block">
                   <ExternalLink className="w-5 h-5 text-primary" />
                   <div>
                     <p className="text-sm font-semibold text-foreground">Prověřit historii (Carfax)</p>
@@ -106,12 +122,12 @@ const VehicleDetail = () => {
             </motion.div>
           </div>
 
-          {vehicle.videoEnabled && vehicle.videoId && (
+          {vehicle.video_enabled && vehicle.video_id && (
             <div className="mt-12">
               <h2 className="text-xl font-bold text-foreground mb-4 flex items-center gap-2"><Play className="w-5 h-5 text-primary" /> Video prohlídka</h2>
               <div className="aspect-video rounded-lg overflow-hidden glass-card">
                 <iframe
-                  src={`https://www.youtube.com/embed/${vehicle.videoId}`}
+                  src={`https://www.youtube.com/embed/${vehicle.video_id}`}
                   title="Video prohlídka"
                   className="w-full h-full"
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"

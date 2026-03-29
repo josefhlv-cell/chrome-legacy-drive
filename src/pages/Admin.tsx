@@ -101,6 +101,21 @@ const AdminPage = () => {
     setQrVehicleId(vehicleId);
   };
 
+  const handlePhotoUpload = async (vehicleId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingFor(vehicleId);
+    try {
+      for (const file of Array.from(files)) {
+        await uploadVehicleImage(file);
+      }
+      toast({ title: `${files.length} foto nahráno` });
+    } catch (err: any) {
+      toast({ title: "Chyba nahrávání", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingFor(null);
+    }
+  };
+
   const downloadQR = (vehicleId: string, vehicleName: string) => {
     const svg = document.getElementById(`qr-${vehicleId}`);
     if (!svg) return;

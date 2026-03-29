@@ -4,6 +4,38 @@ import { supabase } from "@/integrations/supabase/client";
 const BUCKET = "vehicles";
 const BASE_URL = `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}`;
 
+// Cache the full file list so we don't re-fetch on every vehicle
+let fileListCache: Set<string> | null = null;
+let fileListPromise: Promise<Set<string>> | null = null;
+
+const getFileList = async (): Promise<Set<string>> => {
+  if (fileListCache) return fileListCache;
+  if (fileListPromise) return fileListPromise;
+
+  fileListPromise = (async () => {
+    const allFiles: string[] = [];
+    let offset = 0;
+    const batchSize = 1000;
+
+    // Paginate through all files in the bucket
+    while (true) {
+      const { data } = await supabase.storage
+        .from(BUCKET)
+        .list("", { limit: batchSize, offset });
+
+      if (!data || data.length === 0) break;
+      allFiles.push(...data.map((f) => f.name));
+      if (data.length < batchSize) break;
+      offset += batchSize;
+    }
+
+    fileListCache = new Set(allFiles);
+    return fileListCache;
+  })();
+
+  return fileListPromise;
+};
+
 /**
  * Given a main image URL like .../IMG_7445.jpg,
  * finds all sequential gallery images (IMG_7446, IMG_7447, ...) in the bucket.
@@ -22,7 +54,6 @@ export const useVehicleGallery = (mainImageUrl: string | undefined) => {
     const fetchGallery = async () => {
       setLoading(true);
 
-      // Extract filename from URL (e.g., IMG_7445.jpg)
       const filename = mainImageUrl.split("/").pop() || "";
       const match = filename.match(/IMG_(\d+)/);
 
@@ -34,27 +65,25 @@ export const useVehicleGallery = (mainImageUrl: string | undefined) => {
 
       const baseNum = parseInt(match[1], 10);
 
-      // List all files in bucket
-      const { data: files } = await supabase.storage.from(BUCKET).list("", { limit: 1500 });
+      try {
+        const fileSet = await getFileList();
 
-      if (!files) {
-        setImages([mainImageUrl]);
-        setLoading(false);
-        return;
-      }
-
-      // Find sequential images starting from baseNum
-      const gallery: string[] = [mainImageUrl];
-      for (let i = 1; i <= 35; i++) {
-        const nextName = `IMG_${String(baseNum + i).padStart(4, "0")}.jpg`;
-        if (files.some((f) => f.name === nextName)) {
-          gallery.push(`${BASE_URL}/${nextName}`);
-        } else {
-          break; // Stop at first gap
+        const gallery: string[] = [mainImageUrl];
+        for (let i = 1; i <= 50; i++) {
+          const nextName = `IMG_${String(baseNum + i).padStart(4, "0")}.jpg`;
+          if (fileSet.has(nextName)) {
+            gallery.push(`${BASE_URL}/${nextName}`);
+          } else {
+            break;
+          }
         }
+
+        setImages(gallery);
+      } catch (err) {
+        console.error("Gallery fetch error:", err);
+        setImages([mainImageUrl]);
       }
 
-      setImages(gallery);
       setLoading(false);
     };
 

@@ -328,11 +328,6 @@ const AdminPage = () => {
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
-              </motion.div>
-            ))}
-                    </div>
 
                     {/* Photo upload */}
                     <div className="mt-3 flex items-center gap-3">
@@ -341,11 +336,11 @@ const AdminPage = () => {
                         accept="image/*"
                         multiple
                         className="hidden"
-                        ref={fileInputRef}
+                        id={`file-${vehicle.id}`}
                         onChange={(e) => handlePhotoUpload(vehicle.id, e.target.files)}
                       />
                       <button
-                        onClick={() => fileInputRef.current?.click()}
+                        onClick={() => document.getElementById(`file-${vehicle.id}`)?.click()}
                         disabled={uploadingFor === vehicle.id}
                         className="outline-button inline-flex items-center gap-2 text-xs"
                       >
@@ -357,6 +352,10 @@ const AdminPage = () => {
                         Fotky se načítají automaticky z úložiště
                       </span>
                     </div>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
           {vehicles?.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádná vozidla. Přidejte první vůz tlačítkem výše.</p>
           )}

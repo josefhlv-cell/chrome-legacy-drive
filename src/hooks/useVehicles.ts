@@ -4,6 +4,9 @@ import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase
 
 export type DbVehicle = Tables<"vehicles">;
 
+const UUID_REGEX =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
 export const useVehicles = (includeHidden = false) => {
   return useQuery({
     queryKey: ["vehicles", includeHidden],
@@ -24,16 +27,21 @@ export const useVehicle = (id: string | undefined) => {
     queryKey: ["vehicle", id],
     queryFn: async () => {
       if (!id) return null;
+
+      if (!UUID_REGEX.test(id)) {
+        console.warn("Vehicle detail opened with non-UUID id, using fallback flow:", id);
+        return null;
+      }
+
       const { data, error } = await supabase.from("vehicles").select("*").eq("id", id).maybeSingle();
       if (error) {
-        console.error("Supabase Error fetching vehicle:", error);
+        console.error("Supabase Error:", error);
         throw error;
       }
       if (!data) {
         console.warn("Vehicle not found for id:", id);
       }
-      if (error) throw error;
-      return data as DbVehicle;
+      return data as DbVehicle | null;
     },
     enabled: !!id,
   });

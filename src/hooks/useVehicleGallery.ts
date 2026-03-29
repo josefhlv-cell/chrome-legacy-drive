@@ -3,33 +3,46 @@ import { supabase } from "@/integrations/supabase/client";
 
 const BUCKET = "vehicles";
 const BASE_URL = `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}`;
+const MIN_VALID_IMAGE_SIZE = 10000;
+const MAX_GALLERY_SCAN = 120;
 
-// Cache the full file list so we don't re-fetch on every vehicle
-let fileListCache: Set<string> | null = null;
-let fileListPromise: Promise<Set<string>> | null = null;
+type FileMeta = {
+  size: number;
+};
 
-const getFileList = async (): Promise<Set<string>> => {
+// Cache full file metadata so we don't re-fetch on every vehicle
+let fileListCache: Map<string, FileMeta> | null = null;
+let fileListPromise: Promise<Map<string, FileMeta>> | null = null;
+
+const getFileList = async (): Promise<Map<string, FileMeta>> => {
   if (fileListCache) return fileListCache;
   if (fileListPromise) return fileListPromise;
 
   fileListPromise = (async () => {
-    const allFiles: string[] = [];
+    const allFiles = new Map<string, FileMeta>();
     let offset = 0;
     const batchSize = 1000;
 
-    // Paginate through all files in the bucket
     while (true) {
       const { data } = await supabase.storage
         .from(BUCKET)
         .list("", { limit: batchSize, offset });
 
       if (!data || data.length === 0) break;
-      allFiles.push(...data.map((f) => f.name));
+
+      for (const f of data) {
+        const size = typeof f.metadata?.size === "number"
+          ? f.metadata.size
+          : Number(f.metadata?.size ?? 0);
+
+        allFiles.set(f.name, { size: Number.isFinite(size) ? size : 0 });
+      }
+
       if (data.length < batchSize) break;
       offset += batchSize;
     }
 
-    fileListCache = new Set(allFiles);
+    fileListCache = allFiles;
     return fileListCache;
   })();
 
@@ -38,7 +51,7 @@ const getFileList = async (): Promise<Set<string>> => {
 
 /**
  * Given a main image URL like .../IMG_7445.jpg,
- * finds all sequential gallery images (IMG_7446, IMG_7447, ...) in the bucket.
+ * finds sequential gallery images while skipping broken tiny files.
  */
 export const useVehicleGallery = (mainImageUrl: string | undefined) => {
   const [images, setImages] = useState<string[]>([]);
@@ -55,7 +68,7 @@ export const useVehicleGallery = (mainImageUrl: string | undefined) => {
       setLoading(true);
 
       const filename = mainImageUrl.split("/").pop() || "";
-      const match = filename.match(/IMG_(\d+)/);
+      const match = filename.match(/IMG_(\d+)/i);
 
       if (!match) {
         setImages([mainImageUrl]);
@@ -66,19 +79,31 @@ export const useVehicleGallery = (mainImageUrl: string | undefined) => {
       const baseNum = parseInt(match[1], 10);
 
       try {
-        const fileSet = await getFileList();
+        const fileMap = await getFileList();
 
         const gallery: string[] = [mainImageUrl];
-        for (let i = 1; i <= 50; i++) {
+        let missingStreak = 0;
+
+        for (let i = 1; i <= MAX_GALLERY_SCAN; i++) {
           const nextName = `IMG_${String(baseNum + i).padStart(4, "0")}.jpg`;
-          if (fileSet.has(nextName)) {
-            gallery.push(`${BASE_URL}/${nextName}`);
-          } else {
-            break;
+          const meta = fileMap.get(nextName);
+
+          if (!meta) {
+            missingStreak += 1;
+            if (missingStreak >= 8) break;
+            continue;
           }
+
+          missingStreak = 0;
+
+          if (meta.size < MIN_VALID_IMAGE_SIZE) {
+            continue;
+          }
+
+          gallery.push(`${BASE_URL}/${nextName}`);
         }
 
-        setImages(gallery);
+        setImages(Array.from(new Set(gallery)));
       } catch (err) {
         console.error("Gallery fetch error:", err);
         setImages([mainImageUrl]);

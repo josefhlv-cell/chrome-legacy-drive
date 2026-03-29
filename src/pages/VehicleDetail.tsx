@@ -127,13 +127,13 @@ const VehicleDetail = () => {
               ) : (
                 <div className="relative">
                   <VehicleGallery images={images} vehicleName={vehicle.name} />
-                  <div className="absolute top-4 left-4 z-10">
+                  <div className="absolute top-4 left-4 z-10 pointer-events-none">
                     <span className={`${statusStyles[status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
                       {statusLabels[status]}
                     </span>
                   </div>
                   {vehicle.warranty_enabled && (
-                    <div className="absolute top-4 right-4 z-10 bg-gold text-gold-foreground text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5">
+                    <div className="absolute top-4 right-4 z-10 pointer-events-none bg-gold text-gold-foreground text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5">
                       <Shield className="w-4 h-4" /> Prodloužená záruka v ceně
                     </div>
                   )}

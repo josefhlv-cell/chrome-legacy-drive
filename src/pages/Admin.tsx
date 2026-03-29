@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff, Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download } from "lucide-react";
+import { Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff, Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download, ImagePlus, Images } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { QRCodeSVG } from "qrcode.react";
 import { useAuth } from "@/hooks/useAuth";
@@ -9,6 +9,7 @@ import { formatPrice, statusLabels } from "@/data/vehicles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
+import { uploadVehicleImage } from "@/hooks/useVehicleGallery";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import logoPardubice from "@/assets/logo-pardubice.png";
 
@@ -48,7 +49,8 @@ const AdminPage = () => {
   const [showNew, setShowNew] = useState(false);
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
-
+  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoginLoading(true);
@@ -97,6 +99,21 @@ const AdminPage = () => {
 
   const handlePrintQR = (vehicleId: string) => {
     setQrVehicleId(vehicleId);
+  };
+
+  const handlePhotoUpload = async (vehicleId: string, files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingFor(vehicleId);
+    try {
+      for (const file of Array.from(files)) {
+        await uploadVehicleImage(file);
+      }
+      toast({ title: `${files.length} foto nahráno` });
+    } catch (err: any) {
+      toast({ title: "Chyba nahrávání", description: err.message, variant: "destructive" });
+    } finally {
+      setUploadingFor(null);
+    }
   };
 
   const downloadQR = (vehicleId: string, vehicleName: string) => {
@@ -310,6 +327,30 @@ const AdminPage = () => {
                           <span className="text-muted-foreground">{vehicle.status === "prodano" ? "Skryto" : "Viditelné"}</span>
                         </div>
                       </div>
+                    </div>
+
+                    {/* Photo upload */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        id={`file-${vehicle.id}`}
+                        onChange={(e) => handlePhotoUpload(vehicle.id, e.target.files)}
+                      />
+                      <button
+                        onClick={() => document.getElementById(`file-${vehicle.id}`)?.click()}
+                        disabled={uploadingFor === vehicle.id}
+                        className="outline-button inline-flex items-center gap-2 text-xs"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5" />
+                        {uploadingFor === vehicle.id ? "Nahrávám..." : "Přidat fotky"}
+                      </button>
+                      <span className="text-xs text-muted-foreground">
+                        <Images className="w-3.5 h-3.5 inline mr-1" />
+                        Fotky se načítají automaticky z úložiště
+                      </span>
                     </div>
                   </div>
                 </div>

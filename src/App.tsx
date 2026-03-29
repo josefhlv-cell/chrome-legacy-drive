@@ -12,6 +12,7 @@ import TradeIn from "./pages/TradeIn.tsx";
 import About from "./pages/About.tsx";
 import Contact from "./pages/Contact.tsx";
 import Service from "./pages/Service.tsx";
+import SpareParts from "./pages/SpareParts.tsx";
 import Admin from "./pages/Admin.tsx";
 import NotFound from "./pages/NotFound.tsx";
 import AppBanner from "./components/AppBanner.tsx";
@@ -34,6 +35,7 @@ const App = () => (
             <Route path="/dovoz" element={<ImportPage />} />
             <Route path="/vykup" element={<TradeIn />} />
             <Route path="/servis" element={<Service />} />
+            <Route path="/nahradni-dily" element={<SpareParts />} />
             <Route path="/o-nas" element={<About />} />
             <Route path="/kontakt" element={<Contact />} />
             <Route path="/admin" element={<Admin />} />

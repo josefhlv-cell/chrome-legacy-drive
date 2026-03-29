@@ -332,8 +332,31 @@ const AdminPage = () => {
                 </div>
               </motion.div>
             ))}
-          </div>
+                    </div>
 
+                    {/* Photo upload */}
+                    <div className="mt-3 flex items-center gap-3">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        ref={fileInputRef}
+                        onChange={(e) => handlePhotoUpload(vehicle.id, e.target.files)}
+                      />
+                      <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploadingFor === vehicle.id}
+                        className="outline-button inline-flex items-center gap-2 text-xs"
+                      >
+                        <ImagePlus className="w-3.5 h-3.5" />
+                        {uploadingFor === vehicle.id ? "Nahrávám..." : "Přidat fotky"}
+                      </button>
+                      <span className="text-xs text-muted-foreground">
+                        <Images className="w-3.5 h-3.5 inline mr-1" />
+                        Fotky se načítají automaticky z úložiště
+                      </span>
+                    </div>
           {vehicles?.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádná vozidla. Přidejte první vůz tlačítkem výše.</p>
           )}

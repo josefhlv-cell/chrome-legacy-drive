@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useCallback } from "react";
+import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Filter } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -66,7 +66,7 @@ const VehiclesPage = () => {
   }, [sourceVehicles, fuel, year, sort]);
 
   // Reset visible count when filters change
-  useMemo(() => {
+  useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [fuel, year, sort]);
 

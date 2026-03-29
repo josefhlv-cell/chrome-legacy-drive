@@ -24,7 +24,14 @@ export const useVehicle = (id: string | undefined) => {
     queryKey: ["vehicle", id],
     queryFn: async () => {
       if (!id) return null;
-      const { data, error } = await supabase.from("vehicles").select("*").eq("id", id).single();
+      const { data, error } = await supabase.from("vehicles").select("*").eq("id", id).maybeSingle();
+      if (error) {
+        console.error("Supabase Error fetching vehicle:", error);
+        throw error;
+      }
+      if (!data) {
+        console.warn("Vehicle not found for id:", id);
+      }
       if (error) throw error;
       return data as DbVehicle;
     },

@@ -35,6 +35,7 @@ const App = () => (
             <Route path="/dovoz" element={<ImportPage />} />
             <Route path="/vykup" element={<TradeIn />} />
             <Route path="/servis" element={<Service />} />
+            <Route path="/nahradni-dily" element={<SpareParts />} />
             <Route path="/o-nas" element={<About />} />
             <Route path="/kontakt" element={<Contact />} />
             <Route path="/admin" element={<Admin />} />

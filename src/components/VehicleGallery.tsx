@@ -78,6 +78,8 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
                 alt={`${vehicleName} thumbnail ${i + 1}`}
                 className="w-16 h-12 object-cover"
                 loading="lazy"
+                decoding="async"
+                fetchPriority={i < 6 ? "high" : "low"}
               />
             </button>
           ))}

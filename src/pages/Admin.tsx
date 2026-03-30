@@ -401,4 +401,42 @@ const ToggleItem = ({ icon, label, checked, onChange }: { icon: React.ReactNode;
   </div>
 );
 
+
+const VehicleGalleryManager = ({
+  vehicleId,
+  onDeleteImage,
+  onSetMain,
+}: {
+  vehicleId: string;
+  onDeleteImage: (id: string) => void;
+  onSetMain: (id: string, url: string) => void;
+}) => {
+  const { data: images, isLoading } = useVehicleImages(vehicleId);
+
+  if (isLoading) return <p className="text-xs text-muted-foreground mt-2">Načítání galerie...</p>;
+  if (!images || images.length === 0) return <p className="text-xs text-muted-foreground mt-2">Žádné fotky.</p>;
+
+  return (
+    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3">
+      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">Galerie ({images.length} fotek)</p>
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+        {images.map((img) => (
+          <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${img.is_main ? "border-primary" : "border-border"}`}>
+            <img src={img.image_url} alt="" className="w-full h-16 object-cover" loading="lazy" />
+            {img.is_main && (
+              <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 py-0.5 font-bold">HLAVNÍ</div>
+            )}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+              {!img.is_main && (
+                <button onClick={() => onSetMain(img.id, img.image_url)} className="text-[10px] text-white bg-primary/80 px-1.5 py-0.5 rounded" title="Nastavit jako hlavní">★</button>
+              )}
+              <button onClick={() => onDeleteImage(img.id)} className="text-[10px] text-white bg-destructive/80 px-1.5 py-0.5 rounded" title="Smazat">✕</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
+
 export default AdminPage;

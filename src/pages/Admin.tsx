@@ -9,7 +9,7 @@ import { formatPrice, statusLabels } from "@/data/vehicles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
-import { uploadVehicleImage } from "@/hooks/useVehicleGallery";
+import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage } from "@/hooks/useVehicleImages";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import logoPardubice from "@/assets/logo-pardubice.png";
 
@@ -50,6 +50,10 @@ const AdminPage = () => {
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
+  const addImage = useAddVehicleImage();
+  const deleteImage = useDeleteVehicleImage();
+  const setMainImage = useSetMainImage();
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,33 +105,14 @@ const AdminPage = () => {
     setQrVehicleId(vehicleId);
   };
 
-  const MIN_UPLOAD_SIZE = 10000; // 10KB minimum
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
   const handlePhotoUpload = async (vehicleId: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploadingFor(vehicleId);
     try {
-      const validFiles: File[] = [];
-      const rejected: string[] = [];
       for (const file of Array.from(files)) {
-        if (!ALLOWED_TYPES.includes(file.type)) {
-          rejected.push(`${file.name}: nepovolený formát (${file.type})`);
-        } else if (file.size < MIN_UPLOAD_SIZE) {
-          rejected.push(`${file.name}: příliš malý (${(file.size / 1024).toFixed(1)} KB, min 10 KB)`);
-        } else {
-          validFiles.push(file);
-        }
+        await addImage.mutateAsync({ vehicleId, file });
       }
-      if (rejected.length > 0) {
-        toast({ title: "Odmítnuté soubory", description: rejected.join("; "), variant: "destructive" });
-      }
-      for (const file of validFiles) {
-        await uploadVehicleImage(file);
-      }
-      if (validFiles.length > 0) {
-        toast({ title: `${validFiles.length} foto nahráno` });
-      }
+      toast({ title: `${files.length} foto nahráno a přiřazeno k vozu` });
     } catch (err: any) {
       toast({ title: "Chyba nahrávání", description: err.message, variant: "destructive" });
     } finally {

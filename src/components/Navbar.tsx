@@ -19,7 +19,13 @@ const Navbar = () => {
   const location = useLocation();
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
+    <nav className="fixed top-0 left-0 right-0 z-50" style={{
+      background: 'hsla(218, 50%, 10%, 0.82)',
+      backdropFilter: 'blur(24px) saturate(1.4)',
+      WebkitBackdropFilter: 'blur(24px) saturate(1.4)',
+      borderBottom: '1px solid hsla(210, 15%, 50%, 0.15)',
+      boxShadow: '0 4px 30px -10px hsla(0, 0%, 0%, 0.5)',
+    }}>
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="flex items-center gap-2">
           <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 w-auto drop-shadow-lg" />
@@ -30,8 +36,10 @@ const Navbar = () => {
             <Link
               key={item.path}
               to={item.path}
-              className={`text-sm font-medium tracking-wider uppercase transition-colors hover:text-primary ${
-                location.pathname === item.path ? "text-primary" : "text-muted-foreground"
+              className={`text-xs font-semibold tracking-[0.15em] uppercase transition-colors duration-200 font-montserrat ${
+                location.pathname === item.path
+                  ? "text-primary"
+                  : "text-foreground/70 hover:text-foreground"
               }`}
             >
               {item.label}
@@ -53,7 +61,11 @@ const Navbar = () => {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="md:hidden bg-background/95 backdrop-blur-xl border-b border-border"
+            className="md:hidden border-t border-border/30"
+            style={{
+              background: 'hsla(218, 50%, 8%, 0.95)',
+              backdropFilter: 'blur(24px)',
+            }}
           >
             <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
               {navItems.map((item) => (
@@ -61,7 +73,7 @@ const Navbar = () => {
                   key={item.path}
                   to={item.path}
                   onClick={() => setMobileOpen(false)}
-                  className="text-sm font-medium tracking-wider uppercase text-muted-foreground hover:text-primary transition-colors"
+                  className="text-sm font-semibold tracking-[0.12em] uppercase text-foreground/70 hover:text-primary transition-colors font-montserrat"
                 >
                   {item.label}
                 </Link>

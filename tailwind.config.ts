@@ -15,6 +15,7 @@ export default {
     extend: {
       fontFamily: {
         montserrat: ["Montserrat", "sans-serif"],
+        serif: ["Playfair Display", "Georgia", "Times New Roman", "serif"],
       },
       colors: {
         border: "hsl(var(--border))",
@@ -23,6 +24,11 @@ export default {
         background: "hsl(var(--background))",
         foreground: "hsl(var(--foreground))",
         glass: "var(--glass-border)",
+        "chrysler-blue": {
+          DEFAULT: "hsl(var(--chrysler-blue))",
+          light: "hsl(var(--chrysler-blue-light))",
+        },
+        "chrysler-navy": "hsl(var(--chrysler-navy))",
         gold: {
           DEFAULT: "hsl(var(--gold))",
           foreground: "hsl(var(--gold-foreground))",

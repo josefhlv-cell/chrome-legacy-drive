@@ -14,13 +14,16 @@ const StockTicker = () => {
   const doubled = `${text}  •  ${text}`;
 
   return (
-    <div className="bg-card/80 border-b border-border overflow-hidden py-2.5">
+    <div className="overflow-hidden py-3" style={{
+      background: 'linear-gradient(90deg, hsl(218 50% 8%), hsl(218 45% 11%), hsl(218 50% 8%))',
+      borderBottom: '1px solid hsla(210, 15%, 50%, 0.1)',
+    }}>
       <motion.div
         className="whitespace-nowrap flex"
         animate={{ x: ["0%", "-50%"] }}
         transition={{ duration: 40, repeat: Infinity, ease: "linear" }}
       >
-        <span className="text-xs tracking-wider text-muted-foreground font-medium">
+        <span className="text-xs tracking-widest text-muted-foreground font-medium font-montserrat uppercase">
           {doubled}
         </span>
       </motion.div>

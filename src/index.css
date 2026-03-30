@@ -2,55 +2,65 @@
 @tailwind components;
 @tailwind utilities;
 
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;500;600;700;800;900&family=Montserrat:wght@300;400;500;600;700;800;900&display=swap');
 
 @layer base {
   :root {
-    --background: 222 47% 6%;
-    --foreground: 210 40% 98%;
+    /* Chrysler Deep Navy Heritage */
+    --background: 218 45% 7%;
+    --foreground: 210 30% 95%;
 
-    --card: 222 47% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 218 42% 10%;
+    --card-foreground: 210 30% 95%;
 
-    --popover: 222 47% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 218 42% 10%;
+    --popover-foreground: 210 30% 95%;
 
-    --primary: 210 20% 70%;
-    --primary-foreground: 222 47% 6%;
+    /* Chrysler Blue — extracted from chrysler.cz */
+    --primary: 215 55% 48%;
+    --primary-foreground: 210 30% 98%;
 
-    --secondary: 215 20% 16%;
-    --secondary-foreground: 210 40% 90%;
+    --secondary: 218 35% 15%;
+    --secondary-foreground: 210 30% 90%;
 
-    --muted: 215 20% 14%;
-    --muted-foreground: 215 16% 57%;
+    --muted: 218 30% 13%;
+    --muted-foreground: 215 15% 55%;
 
-    --accent: 38 30% 55%;
-    --accent-foreground: 210 40% 98%;
+    /* Gold/Chrome accent */
+    --accent: 38 45% 58%;
+    --accent-foreground: 218 45% 7%;
 
     --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive-foreground: 210 30% 98%;
 
-    --border: 215 20% 20%;
-    --input: 215 20% 20%;
-    --ring: 210 20% 70%;
+    --border: 218 25% 18%;
+    --input: 218 25% 18%;
+    --ring: 215 55% 48%;
 
-    --radius: 0.75rem;
+    --radius: 0.5rem;
 
-    --chrome: linear-gradient(135deg, hsl(210 10% 75%), hsl(210 15% 55%), hsl(210 10% 75%));
-    --chrome-hover: linear-gradient(135deg, hsl(210 10% 85%), hsl(210 15% 65%), hsl(210 10% 85%));
+    /* Chrysler brand tokens */
+    --chrysler-blue: 215 60% 28%;
+    --chrysler-blue-light: 215 55% 48%;
+    --chrysler-navy: 218 50% 12%;
+    --chrome: linear-gradient(135deg, hsl(210 8% 82%), hsl(210 12% 62%), hsl(210 8% 78%), hsl(210 15% 55%), hsl(210 8% 82%));
+    --chrome-hover: linear-gradient(135deg, hsl(210 8% 90%), hsl(210 12% 72%), hsl(210 8% 86%), hsl(210 15% 65%), hsl(210 8% 90%));
+    --chrome-subtle: linear-gradient(135deg, hsl(210 8% 35%), hsl(210 12% 28%), hsl(210 8% 35%));
     --gold: 38 60% 55%;
-    --gold-foreground: 222 47% 6%;
-    --glass-bg: hsla(222, 47%, 10%, 0.6);
-    --glass-border: hsla(210, 20%, 40%, 0.3);
+    --gold-foreground: 218 45% 7%;
+    --glass-bg: hsla(218, 45%, 10%, 0.75);
+    --glass-border: hsla(210, 20%, 40%, 0.25);
+    --metallic-shadow: 0 4px 30px -5px hsla(215, 55%, 48%, 0.15), 0 1px 3px hsla(0, 0%, 0%, 0.3);
+    --metallic-border: linear-gradient(135deg, hsla(210, 15%, 60%, 0.4), hsla(210, 15%, 40%, 0.1), hsla(210, 15%, 60%, 0.3));
 
-    --sidebar-background: 222 47% 8%;
-    --sidebar-foreground: 210 40% 90%;
-    --sidebar-primary: 210 20% 70%;
-    --sidebar-primary-foreground: 222 47% 6%;
-    --sidebar-accent: 215 20% 14%;
-    --sidebar-accent-foreground: 210 40% 90%;
-    --sidebar-border: 215 20% 20%;
-    --sidebar-ring: 210 20% 70%;
+    --sidebar-background: 218 42% 8%;
+    --sidebar-foreground: 210 30% 90%;
+    --sidebar-primary: 215 55% 48%;
+    --sidebar-primary-foreground: 218 45% 7%;
+    --sidebar-accent: 218 30% 13%;
+    --sidebar-accent-foreground: 210 30% 90%;
+    --sidebar-border: 218 25% 18%;
+    --sidebar-ring: 215 55% 48%;
   }
 }
 
@@ -64,34 +74,68 @@
   }
 
   h1, h2, h3, h4, h5, h6 {
-    @apply font-montserrat font-bold uppercase tracking-wider;
+    font-family: 'Playfair Display', Georgia, 'Times New Roman', serif;
+    @apply font-bold tracking-wide;
   }
 }
 
 @layer components {
+  /* Glass card with metallic edge */
   .glass-card {
-    @apply bg-card/60 backdrop-blur-xl border border-glass rounded-lg;
+    background: hsla(218, 42%, 10%, 0.7);
+    backdrop-filter: blur(20px);
+    border: 1px solid hsla(210, 15%, 50%, 0.15);
+    border-radius: var(--radius);
+    box-shadow: var(--metallic-shadow);
+    position: relative;
   }
 
+  .glass-card::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: var(--metallic-border);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Chrome metallic button */
   .chrome-button {
     background: var(--chrome);
-    @apply text-background font-semibold px-6 py-3 rounded-lg transition-all duration-300 hover:scale-105;
+    background-size: 200% 100%;
+    @apply text-background font-semibold px-7 py-3.5 rounded-md transition-all duration-300 hover:scale-[1.03] uppercase tracking-wider text-sm;
+    box-shadow: 0 2px 15px -3px hsla(210, 15%, 55%, 0.3), inset 0 1px 0 hsla(210, 10%, 90%, 0.2);
   }
 
   .chrome-button:hover {
     background: var(--chrome-hover);
+    box-shadow: 0 4px 20px -3px hsla(210, 15%, 55%, 0.5), inset 0 1px 0 hsla(210, 10%, 90%, 0.3);
   }
 
+  /* Outline button with chrome border */
   .outline-button {
-    @apply border border-primary/50 text-foreground px-6 py-3 rounded-lg transition-all duration-300 hover:border-primary hover:bg-primary/10;
+    @apply text-foreground px-7 py-3.5 rounded-md transition-all duration-300 uppercase tracking-wider text-sm font-medium;
+    border: 1px solid hsla(210, 15%, 55%, 0.35);
+    box-shadow: inset 0 1px 0 hsla(210, 10%, 80%, 0.05);
+  }
+
+  .outline-button:hover {
+    border-color: hsl(var(--primary));
+    background: hsla(215, 55%, 48%, 0.1);
+    box-shadow: 0 0 20px -5px hsla(215, 55%, 48%, 0.2);
   }
 
   .section-heading {
-    @apply text-3xl md:text-4xl font-bold uppercase tracking-widest text-foreground;
+    font-family: 'Playfair Display', Georgia, serif;
+    @apply text-3xl md:text-4xl font-bold tracking-wide text-foreground;
   }
 
   .section-subheading {
-    @apply text-muted-foreground text-lg font-light tracking-wide;
+    @apply text-muted-foreground text-lg font-light tracking-wide font-montserrat;
   }
 
   .status-skladem {
@@ -108,5 +152,11 @@
 
   .status-prodano {
     @apply bg-red-500/20 text-red-400 border border-red-500/30;
+  }
+
+  /* Metallic divider line */
+  .metallic-divider {
+    height: 1px;
+    background: linear-gradient(90deg, transparent, hsla(210, 15%, 55%, 0.4), transparent);
   }
 }

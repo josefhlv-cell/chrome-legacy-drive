@@ -28,39 +28,39 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => (
           height={600}
         />
         {/* Watermark overlay */}
-        <div className="absolute bottom-2 right-2 pointer-events-none opacity-30">
-          <img src={logoPardubice} alt="" className="h-10 w-auto" />
+        <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">
+          <img src={logoPardubice} alt="" className="h-8 w-auto" />
         </div>
         <div className="absolute top-3 left-3">
-          <span className={`${statusStyles[vehicle.status]} text-xs font-semibold px-3 py-1 rounded-full`}>
+          <span className={`${statusStyles[vehicle.status]} text-xs font-semibold px-3 py-1 rounded-full font-montserrat`}>
             {statusLabels[vehicle.status]}
           </span>
         </div>
         {vehicle.warrantyEnabled && (
-          <div className="absolute top-3 right-3 bg-gold/90 text-gold-foreground text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+          <div className="absolute top-3 right-3 bg-primary/90 text-primary-foreground text-xs font-bold px-2 py-1 rounded flex items-center gap-1 font-montserrat">
             <Shield className="w-3 h-3" /> Záruka
           </div>
         )}
         {vehicle.lpgEnabled && (
-          <div className="absolute bottom-3 left-3 bg-emerald-600/90 text-foreground text-xs font-bold px-2 py-1 rounded flex items-center gap-1">
+          <div className="absolute bottom-3 left-3 bg-emerald-600/90 text-foreground text-xs font-bold px-2 py-1 rounded flex items-center gap-1 font-montserrat">
             <Leaf className="w-3 h-3" /> LPG
           </div>
         )}
       </div>
 
       <div className="p-5">
-        <h3 className="text-lg font-bold text-foreground tracking-wide normal-case">{vehicle.name}</h3>
-        <p className="text-sm text-muted-foreground mt-1">{vehicle.year} · {vehicle.engine}</p>
+        <h3 className="text-lg font-bold text-foreground tracking-wide font-serif">{vehicle.name}</h3>
+        <p className="text-sm text-muted-foreground mt-1 font-montserrat">{vehicle.year} · {vehicle.engine}</p>
 
-        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
+        <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground font-montserrat">
           <span className="flex items-center gap-1"><Gauge className="w-3.5 h-3.5" /> {vehicle.mileage.toLocaleString("cs-CZ")} km</span>
           <span className="flex items-center gap-1"><Fuel className="w-3.5 h-3.5" /> {vehicle.fuel}</span>
         </div>
 
-        <div className="mt-4 pt-3 border-t border-border">
-          <p className="text-xl font-bold text-primary">{formatPrice(vehicle.priceWithVat)}</p>
+        <div className="mt-4 pt-3 border-t border-border/50">
+          <p className="text-xl font-bold text-primary font-montserrat">{formatPrice(vehicle.priceWithVat)}</p>
           {vehicle.showVat && (
-            <p className="text-xs text-muted-foreground mt-0.5">
+            <p className="text-xs text-muted-foreground mt-0.5 font-montserrat">
               bez DPH: {formatPrice(priceWithoutVat(vehicle.priceWithVat))}
             </p>
           )}

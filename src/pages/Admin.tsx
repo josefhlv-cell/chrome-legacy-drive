@@ -333,8 +333,8 @@ const AdminPage = () => {
                       </div>
                     </div>
 
-                    {/* Photo upload */}
-                    <div className="mt-3 flex items-center gap-3">
+                    {/* Photo management */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
                       <input
                         type="file"
                         accept="image/*"
@@ -351,11 +351,23 @@ const AdminPage = () => {
                         <ImagePlus className="w-3.5 h-3.5" />
                         {uploadingFor === vehicle.id ? "Nahrávám..." : "Přidat fotky"}
                       </button>
-                      <span className="text-xs text-muted-foreground">
-                        <Images className="w-3.5 h-3.5 inline mr-1" />
-                        Fotky se načítají automaticky z úložiště
-                      </span>
+                      <button
+                        onClick={() => setGalleryVehicleId(galleryVehicleId === vehicle.id ? null : vehicle.id)}
+                        className="outline-button inline-flex items-center gap-2 text-xs"
+                      >
+                        <Images className="w-3.5 h-3.5" />
+                        Správa galerie
+                      </button>
                     </div>
+
+                    {/* Gallery manager inline */}
+                    {galleryVehicleId === vehicle.id && (
+                      <VehicleGalleryManager
+                        vehicleId={vehicle.id}
+                        onDeleteImage={(id) => deleteImage.mutate({ id, vehicleId: vehicle.id })}
+                        onSetMain={(id, url) => setMainImage.mutate({ id, vehicleId: vehicle.id, imageUrl: url })}
+                      />
+                    )}
                   </div>
                 </div>
               </motion.div>

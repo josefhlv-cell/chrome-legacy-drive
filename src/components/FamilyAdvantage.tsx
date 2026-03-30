@@ -25,8 +25,14 @@ const advantages = [
 ];
 
 const FamilyAdvantage = () => (
-  <section className="py-24 bg-card">
-    <div className="container mx-auto px-4">
+  <section className="py-24 bg-card relative overflow-hidden">
+    {/* Subtle metallic grain */}
+    <div className="absolute inset-0 opacity-[0.03]" style={{
+      backgroundImage: 'radial-gradient(circle at 25% 25%, hsl(210 15% 70%) 1px, transparent 1px)',
+      backgroundSize: '40px 40px',
+    }} />
+
+    <div className="container mx-auto px-4 relative z-10">
       <div className="text-center mb-16">
         <h2 className="section-heading">Chrysler Family Advantage</h2>
         <p className="section-subheading mt-3 max-w-2xl mx-auto">
@@ -42,19 +48,23 @@ const FamilyAdvantage = () => (
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.1 }}
-            className="glass-card p-6 text-center group hover:border-gold/40 transition-colors"
+            className="glass-card p-6 text-center group hover:border-primary/30 transition-all duration-300"
           >
-            <div className="w-12 h-12 mx-auto mb-4 rounded-full bg-gold/10 flex items-center justify-center group-hover:bg-gold/20 transition-colors">
-              <item.icon className="w-6 h-6 text-gold" />
+            <div className="w-14 h-14 mx-auto mb-5 rounded-full flex items-center justify-center transition-all duration-300" style={{
+              background: 'linear-gradient(135deg, hsla(215, 55%, 48%, 0.15), hsla(215, 55%, 48%, 0.05))',
+              border: '1px solid hsla(215, 55%, 48%, 0.2)',
+            }}>
+              <item.icon className="w-6 h-6 text-primary" />
             </div>
-            <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2 normal-case">{item.title}</h3>
-            <p className="text-sm text-muted-foreground leading-relaxed">{item.description}</p>
+            <h3 className="text-base font-bold text-foreground mb-2 font-serif">{item.title}</h3>
+            <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">{item.description}</p>
           </motion.div>
         ))}
       </div>
 
       <div className="mt-12 text-center">
-        <p className="text-muted-foreground italic text-sm max-w-xl mx-auto">
+        <div className="metallic-divider max-w-xs mx-auto mb-6" />
+        <p className="text-muted-foreground italic text-sm max-w-xl mx-auto font-serif">
           „Nejsme jen prodejci, jsme vaši partneři na každém kilometru vaší cesty."
         </p>
       </div>

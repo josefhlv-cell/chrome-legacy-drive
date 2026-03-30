@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.png";
 
@@ -7,6 +7,8 @@ interface VehicleGalleryProps {
   images: string[];
   vehicleName: string;
 }
+
+const SWIPE_THRESHOLD = 50;
 
 const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -18,23 +20,43 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
     setSelectedIndex((index + images.length) % images.length);
   };
 
+  const handleDragEnd = (_: any, info: PanInfo) => {
+    if (info.offset.x < -SWIPE_THRESHOLD) goTo(selectedIndex + 1);
+    else if (info.offset.x > SWIPE_THRESHOLD) goTo(selectedIndex - 1);
+  };
+
   return (
     <>
-      {/* Main image */}
-      <div className="relative group cursor-pointer" onClick={() => setLightboxOpen(true)}>
-        <img
-          src={images[selectedIndex]}
-          alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-          className="w-full rounded-lg object-cover aspect-[4/3]"
-          width={800}
-          height={600}
-        />
+      {/* Main image with touch swipe */}
+      <div className="relative group cursor-pointer overflow-hidden rounded-lg" onClick={() => setLightboxOpen(true)}>
+        <AnimatePresence mode="wait">
+          <motion.img
+            key={selectedIndex}
+            src={images[selectedIndex]}
+            alt={`${vehicleName} - foto ${selectedIndex + 1}`}
+            className="w-full object-cover aspect-[4/3] touch-pan-y"
+            width={800}
+            height={600}
+            drag="x"
+            dragConstraints={{ left: 0, right: 0 }}
+            dragElastic={0.2}
+            onDragEnd={handleDragEnd}
+            initial={{ opacity: 0, x: 30 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -30 }}
+            transition={{ duration: 0.2 }}
+            onClick={(e) => {
+              // Don't open lightbox if user was swiping
+              if (Math.abs(e.clientX) < 5) e.stopPropagation();
+            }}
+          />
+        </AnimatePresence>
         {/* Watermark */}
         <div className="absolute bottom-4 right-4 pointer-events-none opacity-30">
           <img src={logoPardubice} alt="" className="h-14 w-auto" />
         </div>
         {/* Zoom hint */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg">
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/20 rounded-lg pointer-events-none">
           <ZoomIn className="w-8 h-8 text-white" />
         </div>
         {/* Nav arrows on main image */}
@@ -42,13 +64,13 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
           <>
             <button
               onClick={(e) => { e.stopPropagation(); goTo(selectedIndex - 1); }}
-              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+              className="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors z-10"
             >
               <ChevronLeft className="w-5 h-5" />
             </button>
             <button
               onClick={(e) => { e.stopPropagation(); goTo(selectedIndex + 1); }}
-              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors"
+              className="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white rounded-full p-1.5 transition-colors z-10"
             >
               <ChevronRight className="w-5 h-5" />
             </button>
@@ -56,7 +78,7 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
         )}
         {/* Counter */}
         {images.length > 1 && (
-          <div className="absolute bottom-4 left-4 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full">
+          <div className="absolute bottom-4 left-4 bg-black/60 text-white text-xs px-2.5 py-1 rounded-full z-10">
             {selectedIndex + 1} / {images.length}
           </div>
         )}
@@ -127,8 +149,12 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
               exit={{ opacity: 0, scale: 0.95 }}
               src={images[selectedIndex]}
               alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg"
+              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg touch-pan-y"
               onClick={(e) => e.stopPropagation()}
+              drag="x"
+              dragConstraints={{ left: 0, right: 0 }}
+              dragElastic={0.2}
+              onDragEnd={handleDragEnd}
             />
 
             <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 text-sm">

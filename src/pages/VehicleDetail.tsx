@@ -5,69 +5,38 @@ import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play,
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleGallery from "@/components/VehicleGallery";
-import { formatPrice, priceWithoutVat, statusLabels, statusStyles, mockVehicles } from "@/data/vehicles";
-import { useVehicle, type DbVehicle } from "@/hooks/useVehicles";
-import { useVehicleGallery } from "@/hooks/useVehicleGallery";
-
-const mapMockToDbVehicle = (id: string): DbVehicle | null => {
-  const mock = mockVehicles.find((v) => v.id === id);
-  if (!mock) return null;
-
-  const now = new Date().toISOString();
-  return {
-    id: mock.id,
-    name: mock.name,
-    year: mock.year,
-    price_with_vat: mock.priceWithVat,
-    mileage: mock.mileage,
-    vin: mock.vin,
-    fuel: mock.fuel,
-    image_url: mock.image,
-    status: mock.status,
-    show_vat: mock.showVat,
-    carfax_enabled: mock.carfaxEnabled,
-    carfax_url: mock.carfaxUrl,
-    lpg_enabled: mock.lpgEnabled,
-    lpg_description: mock.lpgDescription,
-    video_enabled: mock.videoEnabled,
-    video_id: mock.videoId,
-    warranty_enabled: mock.warrantyEnabled,
-    engine: mock.engine,
-    transmission: mock.transmission,
-    power: mock.power,
-    color: mock.color,
-    description: mock.description,
-    created_at: now,
-    updated_at: now,
-  };
-};
+import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import { useVehicle } from "@/hooks/useVehicles";
+import { useVehicleImages } from "@/hooks/useVehicleImages";
 
 const VehicleDetail = () => {
   const { id } = useParams();
-  const { data: dbVehicle, isLoading, error } = useVehicle(id);
+  const { data: vehicle, isLoading, error } = useVehicle(id);
+  const { data: vehicleImages, isLoading: galleryLoading } = useVehicleImages(vehicle?.id);
   const [showTimeout, setShowTimeout] = useState(false);
 
-  const fallbackVehicle = useMemo(() => {
-    if (!id || dbVehicle) return null;
-    return mapMockToDbVehicle(id);
-  }, [id, dbVehicle]);
-
-  const vehicle = dbVehicle ?? fallbackVehicle;
-  const { images, loading: galleryLoading } = useVehicleGallery(vehicle?.image_url);
+  // Build gallery URLs from vehicle_images table, fallback to vehicle.image_url
+  const galleryUrls = useMemo(() => {
+    if (vehicleImages && vehicleImages.length > 0) {
+      return vehicleImages.map((img) => img.image_url);
+    }
+    if (vehicle?.image_url) return [vehicle.image_url];
+    return [];
+  }, [vehicleImages, vehicle]);
 
   useEffect(() => {
-    if (isLoading && !fallbackVehicle) {
+    if (isLoading) {
       const timer = setTimeout(() => setShowTimeout(true), 3000);
       return () => clearTimeout(timer);
     }
     setShowTimeout(false);
-  }, [isLoading, fallbackVehicle]);
+  }, [isLoading]);
 
   if (error) {
     console.error("Supabase Error:", error);
   }
 
-  if (isLoading && !fallbackVehicle) {
+  if (isLoading) {
     return (
       <div className="min-h-screen bg-background">
         <Navbar />
@@ -84,9 +53,6 @@ const VehicleDetail = () => {
               </p>
               <div>
                 <Link to="/vozidla" className="text-primary hover:underline text-sm">← Zpět na nabídku</Link>
-              </div>
-              <div>
-                <Link to="/" className="text-muted-foreground hover:text-primary text-sm">Zpět na hlavní stranu</Link>
               </div>
             </div>
           )}
@@ -126,7 +92,7 @@ const VehicleDetail = () => {
                 <div className="w-full rounded-lg bg-secondary animate-pulse aspect-[4/3]" />
               ) : (
                 <div className="relative">
-                  <VehicleGallery images={images} vehicleName={vehicle.name} />
+                  <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} />
                   <div className="absolute top-4 left-4 z-10 pointer-events-none">
                     <span className={`${statusStyles[status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
                       {statusLabels[status]}

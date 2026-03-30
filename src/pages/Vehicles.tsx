@@ -5,7 +5,6 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
-import { mockVehicles } from "@/data/vehicles";
 
 const fuelOptions = ["Vše", "Ba 95", "BA 95 LPG", "Diesel", "BA95 Hybrid Plug-in", "Ba 95 E85"];
 const yearOptions = ["Vše", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2012", "2011", "2009", "2008"];
@@ -25,47 +24,44 @@ const VehiclesPage = () => {
   const { data: dbVehicles, isLoading } = useVehicles();
   const lastCardRef = useRef<HTMLDivElement>(null);
 
-  const sourceVehicles = useMemo(() => {
-    if (dbVehicles && dbVehicles.length > 0) {
-      return dbVehicles.map((v) => ({
-        id: v.id,
-        name: v.name,
-        year: v.year,
-        priceWithVat: v.price_with_vat,
-        mileage: v.mileage,
-        vin: v.vin,
-        fuel: v.fuel,
-        image: v.image_url,
-        status: v.status as any,
-        showVat: v.show_vat,
-        carfaxEnabled: v.carfax_enabled,
-        carfaxUrl: v.carfax_url,
-        lpgEnabled: v.lpg_enabled,
-        lpgDescription: v.lpg_description,
-        videoEnabled: v.video_enabled,
-        videoId: v.video_id,
-        warrantyEnabled: v.warranty_enabled,
-        engine: v.engine,
-        transmission: v.transmission,
-        power: v.power,
-        color: v.color,
-        description: v.description,
-      }));
-    }
-    return mockVehicles.filter((v) => v.status !== "prodano");
+  const vehicles = useMemo(() => {
+    if (!dbVehicles) return [];
+    return dbVehicles.map((v) => ({
+      id: v.id,
+      name: v.name,
+      year: v.year,
+      priceWithVat: v.price_with_vat,
+      mileage: v.mileage,
+      vin: v.vin,
+      fuel: v.fuel,
+      image: v.image_url,
+      status: v.status as any,
+      showVat: v.show_vat,
+      carfaxEnabled: v.carfax_enabled,
+      carfaxUrl: v.carfax_url,
+      lpgEnabled: v.lpg_enabled,
+      lpgDescription: v.lpg_description,
+      videoEnabled: v.video_enabled,
+      videoId: v.video_id,
+      warrantyEnabled: v.warranty_enabled,
+      engine: v.engine,
+      transmission: v.transmission,
+      power: v.power,
+      color: v.color,
+      description: v.description,
+    }));
   }, [dbVehicles]);
 
   const filtered = useMemo(() => {
-    let result = [...sourceVehicles];
+    let result = [...vehicles];
     if (fuel !== "Vše") result = result.filter((v) => v.fuel === fuel);
     if (year !== "Vše") result = result.filter((v) => v.year.toString() === year);
     if (sort === "price-asc") result.sort((a, b) => a.priceWithVat - b.priceWithVat);
     if (sort === "price-desc") result.sort((a, b) => b.priceWithVat - a.priceWithVat);
     if (sort === "newest") result.sort((a, b) => b.year - a.year);
     return result;
-  }, [sourceVehicles, fuel, year, sort]);
+  }, [vehicles, fuel, year, sort]);
 
-  // Reset visible count when filters change
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
   }, [fuel, year, sort]);
@@ -74,10 +70,8 @@ const VehiclesPage = () => {
   const hasMore = visibleCount < filtered.length;
 
   const handleLoadMore = useCallback(() => {
-    // Mark the scroll position of the last visible card
     const scrollTarget = lastCardRef.current;
     setVisibleCount((prev) => prev + PAGE_SIZE);
-    // After state update and render, scroll to where the user was
     requestAnimationFrame(() => {
       scrollTarget?.scrollIntoView({ block: "start", behavior: "instant" });
     });

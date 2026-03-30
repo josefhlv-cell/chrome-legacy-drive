@@ -9,7 +9,7 @@ import { formatPrice, statusLabels } from "@/data/vehicles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
-import { uploadVehicleImage } from "@/hooks/useVehicleGallery";
+import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage } from "@/hooks/useVehicleImages";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import logoPardubice from "@/assets/logo-pardubice.png";
 
@@ -50,6 +50,10 @@ const AdminPage = () => {
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
+  const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
+  const addImage = useAddVehicleImage();
+  const deleteImage = useDeleteVehicleImage();
+  const setMainImage = useSetMainImage();
   
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,33 +105,14 @@ const AdminPage = () => {
     setQrVehicleId(vehicleId);
   };
 
-  const MIN_UPLOAD_SIZE = 10000; // 10KB minimum
-  const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp'];
-
   const handlePhotoUpload = async (vehicleId: string, files: FileList | null) => {
     if (!files || files.length === 0) return;
     setUploadingFor(vehicleId);
     try {
-      const validFiles: File[] = [];
-      const rejected: string[] = [];
       for (const file of Array.from(files)) {
-        if (!ALLOWED_TYPES.includes(file.type)) {
-          rejected.push(`${file.name}: nepovolený formát (${file.type})`);
-        } else if (file.size < MIN_UPLOAD_SIZE) {
-          rejected.push(`${file.name}: příliš malý (${(file.size / 1024).toFixed(1)} KB, min 10 KB)`);
-        } else {
-          validFiles.push(file);
-        }
+        await addImage.mutateAsync({ vehicleId, file });
       }
-      if (rejected.length > 0) {
-        toast({ title: "Odmítnuté soubory", description: rejected.join("; "), variant: "destructive" });
-      }
-      for (const file of validFiles) {
-        await uploadVehicleImage(file);
-      }
-      if (validFiles.length > 0) {
-        toast({ title: `${validFiles.length} foto nahráno` });
-      }
+      toast({ title: `${files.length} foto nahráno a přiřazeno k vozu` });
     } catch (err: any) {
       toast({ title: "Chyba nahrávání", description: err.message, variant: "destructive" });
     } finally {
@@ -348,8 +333,8 @@ const AdminPage = () => {
                       </div>
                     </div>
 
-                    {/* Photo upload */}
-                    <div className="mt-3 flex items-center gap-3">
+                    {/* Photo management */}
+                    <div className="mt-3 flex flex-wrap items-center gap-3">
                       <input
                         type="file"
                         accept="image/*"
@@ -366,11 +351,23 @@ const AdminPage = () => {
                         <ImagePlus className="w-3.5 h-3.5" />
                         {uploadingFor === vehicle.id ? "Nahrávám..." : "Přidat fotky"}
                       </button>
-                      <span className="text-xs text-muted-foreground">
-                        <Images className="w-3.5 h-3.5 inline mr-1" />
-                        Fotky se načítají automaticky z úložiště
-                      </span>
+                      <button
+                        onClick={() => setGalleryVehicleId(galleryVehicleId === vehicle.id ? null : vehicle.id)}
+                        className="outline-button inline-flex items-center gap-2 text-xs"
+                      >
+                        <Images className="w-3.5 h-3.5" />
+                        Správa galerie
+                      </button>
                     </div>
+
+                    {/* Gallery manager inline */}
+                    {galleryVehicleId === vehicle.id && (
+                      <VehicleGalleryManager
+                        vehicleId={vehicle.id}
+                        onDeleteImage={(id) => deleteImage.mutate({ id, vehicleId: vehicle.id })}
+                        onSetMain={(id, url) => setMainImage.mutate({ id, vehicleId: vehicle.id, imageUrl: url })}
+                      />
+                    )}
                   </div>
                 </div>
               </motion.div>
@@ -403,5 +400,43 @@ const ToggleItem = ({ icon, label, checked, onChange }: { icon: React.ReactNode;
     <Switch checked={checked} onCheckedChange={onChange} />
   </div>
 );
+
+
+const VehicleGalleryManager = ({
+  vehicleId,
+  onDeleteImage,
+  onSetMain,
+}: {
+  vehicleId: string;
+  onDeleteImage: (id: string) => void;
+  onSetMain: (id: string, url: string) => void;
+}) => {
+  const { data: images, isLoading } = useVehicleImages(vehicleId);
+
+  if (isLoading) return <p className="text-xs text-muted-foreground mt-2">Načítání galerie...</p>;
+  if (!images || images.length === 0) return <p className="text-xs text-muted-foreground mt-2">Žádné fotky.</p>;
+
+  return (
+    <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3">
+      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">Galerie ({images.length} fotek)</p>
+      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
+        {images.map((img) => (
+          <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${img.is_main ? "border-primary" : "border-border"}`}>
+            <img src={img.image_url} alt="" className="w-full h-16 object-cover" loading="lazy" />
+            {img.is_main && (
+              <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[9px] px-1 py-0.5 font-bold">HLAVNÍ</div>
+            )}
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+              {!img.is_main && (
+                <button onClick={() => onSetMain(img.id, img.image_url)} className="text-[10px] text-white bg-primary/80 px-1.5 py-0.5 rounded" title="Nastavit jako hlavní">★</button>
+              )}
+              <button onClick={() => onDeleteImage(img.id)} className="text-[10px] text-white bg-destructive/80 px-1.5 py-0.5 rounded" title="Smazat">✕</button>
+            </div>
+          </div>
+        ))}
+      </div>
+    </motion.div>
+  );
+};
 
 export default AdminPage;

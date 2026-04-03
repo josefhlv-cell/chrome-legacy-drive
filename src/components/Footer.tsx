@@ -36,7 +36,6 @@ const Footer = () => (
           <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4 font-serif">Kontakt</h4>
           <div className="flex flex-col gap-3 text-sm text-muted-foreground font-montserrat">
             <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767</div>
-            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> Servis: +420 603 372 911</div>
             <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> obchod@chrysler.cz</div>
             <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Pardubice, Česká republika</div>
           </div>

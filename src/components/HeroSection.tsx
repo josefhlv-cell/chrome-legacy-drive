@@ -6,7 +6,7 @@ import logoPardubice from "@/assets/logo-pardubice.png";
 const HeroSection = () => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     <div className="absolute inset-0">
-      <img src={heroImage} alt="Chrysler & Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} />
+      <img src={heroImage} alt="Chrysler - Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} />
       {/* Deep navy overlay matching Chrysler.cz DNA */}
       <div className="absolute inset-0" style={{
         background: 'linear-gradient(to right, hsl(218 50% 7% / 0.92), hsl(218 50% 7% / 0.7), hsl(218 50% 7% / 0.35))',

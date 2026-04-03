@@ -9,9 +9,9 @@ const Footer = () => (
     <div className="container mx-auto px-4 py-16">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
         <div>
-          <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-16 w-auto mb-4 drop-shadow-lg" />
+          <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-16 w-auto mb-4 drop-shadow-lg" />
           <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
-            U nás prodejem cesta teprve začíná. Vítejte v rodině Chrysler & Dodge.
+            U nás prodejem cesta teprve začíná. Vítejte v rodině Chrysler - Dodge.
           </p>
         </div>
 

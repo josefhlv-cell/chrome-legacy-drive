@@ -25,7 +25,7 @@ const services = [
   },
   {
     icon: ShieldCheck,
-    title: "Diagnostika & Opravy",
+    title: "Diagnostika - Opravy",
     desc: "Počítačová diagnostika amerických vozů. Opravy elektroniky, převodovek, motorů a klimatizačních systémů.",
   },
 ];

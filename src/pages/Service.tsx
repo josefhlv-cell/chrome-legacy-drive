@@ -16,7 +16,7 @@ const services = [
   {
     icon: Fuel,
     title: "Přestavby na LPG",
-    desc: "Profesionální přestavby motorů Pentastar V6 a HEMI V8 na LPG. Používáme certifikované systémy Prins a BRC s plnou zárukou.",
+    desc: "Zprostředkujme vám profesionální přestavby motorů Pentastar V6 a HEMI V8 na LPG. Certifikované systémy Prins a BRC s plnou zárukou. Tuto přestavbu s námi můžete konzultovat.",
   },
   {
     icon: Cog,

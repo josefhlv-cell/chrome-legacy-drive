@@ -11,7 +11,7 @@ const services = [
   {
     icon: Wrench,
     title: "Pravidelná údržba",
-    desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler & Dodge.",
+    desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler - Dodge.",
   },
   {
     icon: Fuel,

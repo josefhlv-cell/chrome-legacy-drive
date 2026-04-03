@@ -15,7 +15,7 @@ const reasons = [
   { icon: Handshake, title: "Férové ocenění", desc: "Na základě pragmatických zkušeností a reálného stavu trhu." },
   { icon: Zap, title: "Rychlé jednání", desc: "Vyplacení peněz ihned po podpisu smlouvy." },
   { icon: Car, title: "Protiúčet", desc: "Možnost započítat cenu vašeho starého vozu do ceny nového ze skladu." },
-  { icon: Recycle, title: "Vykupujeme i poškozené vozy", desc: "Máme zájem o Chrysler Voyager a Dodge jakéhokoliv stáří." },
+  { icon: Recycle, title: "Vykupujeme i poškozené vozy", desc: "Máme zájem o vozy jakéhokoliv stáří." },
 ];
 
 const TradeInPage = () => {

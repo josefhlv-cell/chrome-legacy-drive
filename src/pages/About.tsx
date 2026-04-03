@@ -20,7 +20,7 @@ const milestones = [
   { year: "2008", text: "Partnerství s Chrysler Club CZ — stáváme se oficiálním partnerem největší české komunity majitelů." },
   { year: "2012", text: "Rozšíření servisu o diagnostiku automatických převodovek a přestavby na LPG." },
   { year: "2018", text: "Autorizace FCA (Fiat Chrysler Automobiles) — certifikovaní mechanici s přístupem k originální diagnostice." },
-  { year: "2026", text: "Spuštění digitální platformy Chrysler & Dodge Pardubice — katalog dílů, servisní knížka a AI diagnostika v jedné aplikaci." },
+  { year: "2026", text: "Spuštění digitální platformy Chrysler - Dodge Pardubice — katalog dílů, servisní knížka a AI diagnostika v jedné aplikaci." },
 ];
 
 const reviews = [
@@ -208,7 +208,7 @@ const AboutPage = () => {
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Mapa — Chrysler & Dodge Pardubice, Lukovna 11"
+                  title="Mapa — Chrysler - Dodge Pardubice, Lukovna 11"
                 />
               </div>
 
@@ -221,13 +221,6 @@ const AboutPage = () => {
                       <div>
                         <p className="text-foreground font-medium">+420 603 559 767</p>
                         <p className="text-xs">Prodej vozidel</p>
-                      </div>
-                    </a>
-                    <a href="tel:+420603372911" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
-                      <Phone className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-foreground font-medium">+420 603 372 911</p>
-                        <p className="text-xs">Servis & Díly</p>
                       </div>
                     </a>
                     <a href="mailto:obchod@chrysler.cz" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">

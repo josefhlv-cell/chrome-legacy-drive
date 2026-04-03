@@ -32,7 +32,7 @@ const AppBanner = () => {
             <div className="flex items-center gap-3 min-w-0">
               <Star className="w-6 h-6 text-primary shrink-0 fill-primary" />
               <p className="text-xs md:text-sm text-muted-foreground truncate md:whitespace-normal">
-                <span className="font-semibold text-foreground">Chrysler & Dodge Pardubice</span>
+                <span className="font-semibold text-foreground">Chrysler - Dodge Pardubice</span>
                 <span className="hidden sm:inline"> — Mějte náš tým stále v kapse. Katalog dílů, VIN filtr a servisní historie.</span>
               </p>
             </div>

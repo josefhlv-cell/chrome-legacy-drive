@@ -30,7 +30,7 @@ const AppShowcase = () => (
             {/* Real screenshot */}
             <img
               src={appScreenshot}
-              alt="Chrysler & Dodge Pardubice – aplikace"
+              alt="Chrysler - Dodge Pardubice – aplikace"
               className="w-full h-full object-cover object-top"
             />
           </div>

@@ -9,9 +9,9 @@ const Footer = () => (
     <div className="container mx-auto px-4 py-16">
       <div className="grid grid-cols-1 md:grid-cols-4 gap-10">
         <div>
-          <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-16 w-auto mb-4 drop-shadow-lg" />
+          <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-16 w-auto mb-4 drop-shadow-lg" />
           <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
-            U nás prodejem cesta teprve začíná. Vítejte v rodině Chrysler & Dodge.
+            U nás prodejem cesta teprve začíná. Vítejte v rodině Chrysler - Dodge.
           </p>
         </div>
 
@@ -22,7 +22,7 @@ const Footer = () => (
               { label: "Skladové vozy", path: "/vozidla" },
               { label: "Dovoz na zakázku", path: "/dovoz" },
               { label: "Výkup vozidel", path: "/vykup" },
-              { label: "Servis & LPG", path: "/servis" },
+              { label: "Servis - LPG", path: "/servis" },
               { label: "O nás", path: "/o-nas" },
             ].map((item) => (
               <Link key={item.path} to={item.path} className="text-sm text-muted-foreground hover:text-primary transition-colors font-montserrat">
@@ -36,7 +36,6 @@ const Footer = () => (
           <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4 font-serif">Kontakt</h4>
           <div className="flex flex-col gap-3 text-sm text-muted-foreground font-montserrat">
             <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767</div>
-            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> Servis: +420 603 372 911</div>
             <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> obchod@chrysler.cz</div>
             <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Pardubice, Česká republika</div>
           </div>
@@ -53,7 +52,7 @@ const Footer = () => (
 
       <div className="metallic-divider mt-12 mb-6" />
       <div className="text-center text-xs text-muted-foreground font-montserrat">
-        © {new Date().getFullYear()} Chrysler & Dodge Pardubice — Všechna práva vyhrazena.
+        © {new Date().getFullYear()} Chrysler - Dodge Pardubice — Všechna práva vyhrazena.
       </div>
     </div>
   </footer>

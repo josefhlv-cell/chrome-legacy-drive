@@ -6,7 +6,7 @@ import logoPardubice from "@/assets/logo-pardubice.png";
 const HeroSection = () => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     <div className="absolute inset-0">
-      <img src={heroImage} alt="Chrysler & Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} />
+      <img src={heroImage} alt="Chrysler - Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} />
       {/* Deep navy overlay matching Chrysler.cz DNA */}
       <div className="absolute inset-0" style={{
         background: 'linear-gradient(to right, hsl(218 50% 7% / 0.92), hsl(218 50% 7% / 0.7), hsl(218 50% 7% / 0.35))',
@@ -35,7 +35,7 @@ const HeroSection = () => (
             Vítejte na stránkách www.chrysler.cz. Představujeme Vám tímto firmu, která bezesporu patří mezi ty, jež se snaží být vždy firmou průhlednou, legitimní a ve svém přístupu ke klientům vždy korektní.
           </p>
         </blockquote>
-        <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
+        <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
         <div className="flex flex-wrap gap-4">
           <Link to="/vozidla" className="chrome-button inline-block text-center">
             Prohlédnout vozy

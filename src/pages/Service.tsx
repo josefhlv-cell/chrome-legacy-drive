@@ -11,12 +11,12 @@ const services = [
   {
     icon: Wrench,
     title: "Pravidelná údržba",
-    desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler & Dodge.",
+    desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler - Dodge.",
   },
   {
     icon: Fuel,
     title: "Přestavby na LPG",
-    desc: "Profesionální přestavby motorů Pentastar V6 a HEMI V8 na LPG. Používáme certifikované systémy Prins a BRC s plnou zárukou.",
+    desc: "Zprostředkujme vám profesionální přestavby motorů Pentastar V6 a HEMI V8 na LPG. Certifikované systémy Prins a BRC s plnou zárukou. Tuto přestavbu s námi můžete konzultovat.",
   },
   {
     icon: Cog,
@@ -25,7 +25,7 @@ const services = [
   },
   {
     icon: ShieldCheck,
-    title: "Diagnostika & Opravy",
+    title: "Diagnostika - Opravy",
     desc: "Počítačová diagnostika amerických vozů. Opravy elektroniky, převodovek, motorů a klimatizačních systémů.",
   },
 ];
@@ -65,8 +65,8 @@ const ServicePage = () => {
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="section-heading">Servis & LPG</h1>
-            <p className="section-subheading mt-2">Odborná péče o vaše americké vozy Chrysler, Dodge a Jeep</p>
+            <h1 className="section-heading">Servis - LPG</h1>
+            <p className="section-subheading mt-2">Odborná péče o vaše americké vozy Chrysler a Dodge</p>
           </motion.div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
@@ -120,7 +120,6 @@ const ServicePage = () => {
               <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Nadstandardní služby</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autolakovna</li>
-                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Smluvní partner pojišťoven</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Zastoupení při dopravních nehodách</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Čištění a renovace laku</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autokosmetika, keramika laku</li>
@@ -135,7 +134,6 @@ const ServicePage = () => {
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> STK, ME, Homologace</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Výjimky MDČR</li>
-                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Profesionální mechanici s více než 20letou praxí</li>
               </ul>
             </motion.div>
           </div>
@@ -194,7 +192,7 @@ const ServicePage = () => {
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Servisní linka</p>
-                    <p className="text-muted-foreground text-sm">+420 603 372 911</p>
+                    <p className="text-muted-foreground text-sm">+420 603 559 767</p>
                   </div>
                 </div>
                 <div className="mt-6 p-4 bg-gold/10 border border-gold/20 rounded-lg">

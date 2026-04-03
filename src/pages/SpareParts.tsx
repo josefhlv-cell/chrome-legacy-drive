@@ -7,7 +7,7 @@ import logoPardubice from "@/assets/logo-pardubice.png";
 const APP_URL = "https://chryslerpardubice.site/";
 
 const advantages = [
-  { icon: ShieldCheck, title: "Originální Mopar díly", desc: "Dodáváme originální díly Mopar pro všechny modely Chrysler, Dodge a Jeep." },
+  { icon: ShieldCheck, title: "Originální Mopar díly", desc: "Dodáváme originální díly Mopar pro všechny modely Chrysler a Dodge." },
   { icon: Search, title: "Vyhledávání podle VIN", desc: "Přesná identifikace dílu podle VIN kódu vašeho vozu — žádné omyly." },
   { icon: Truck, title: "Rychlé dodání", desc: "Díly ze skladu v EU obvykle do 3–5 pracovních dnů." },
   { icon: Package, title: "Aftermarket alternativy", desc: "Nabízíme i kvalitní aftermarket díly za příznivější cenu." },

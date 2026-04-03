@@ -120,7 +120,6 @@ const ServicePage = () => {
               <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Nadstandardní služby</h3>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autolakovna</li>
-                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Smluvní partner pojišťoven</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Zastoupení při dopravních nehodách</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Čištění a renovace laku</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autokosmetika, keramika laku</li>

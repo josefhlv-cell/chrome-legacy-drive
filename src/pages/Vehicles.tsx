@@ -84,7 +84,7 @@ const VehiclesPage = () => {
         <div className="container mx-auto px-4">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10">
             <h1 className="section-heading">Skladové vozy</h1>
-            <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler & Dodge připravené k předání</p>
+            <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler - Dodge připravené k předání</p>
           </motion.div>
 
           <div className="glass-card p-4 mb-8 flex flex-wrap items-center gap-4">

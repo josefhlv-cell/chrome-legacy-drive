@@ -35,7 +35,7 @@ const HeroSection = () => (
             Vítejte na stránkách www.chrysler.cz. Představujeme Vám tímto firmu, která bezesporu patří mezi ty, jež se snaží být vždy firmou průhlednou, legitimní a ve svém přístupu ke klientům vždy korektní.
           </p>
         </blockquote>
-        <img src={logoPardubice} alt="Chrysler & Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
+        <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
         <div className="flex flex-wrap gap-4">
           <Link to="/vozidla" className="chrome-button inline-block text-center">
             Prohlédnout vozy

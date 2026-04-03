@@ -52,7 +52,7 @@ const Footer = () => (
 
       <div className="metallic-divider mt-12 mb-6" />
       <div className="text-center text-xs text-muted-foreground font-montserrat">
-        © {new Date().getFullYear()} Chrysler & Dodge Pardubice — Všechna práva vyhrazena.
+        © {new Date().getFullYear()} Chrysler - Dodge Pardubice — Všechna práva vyhrazena.
       </div>
     </div>
   </footer>

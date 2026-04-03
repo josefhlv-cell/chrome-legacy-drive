@@ -51,7 +51,6 @@ const ContactPage = () => {
                   <div>
                     <p className="font-semibold text-foreground text-sm">Telefon</p>
                     <p className="text-muted-foreground text-sm">+420 603 559 767</p>
-                    <p className="text-muted-foreground text-sm mt-1">Servis: +420 603 372 911</p>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">

@@ -42,7 +42,7 @@ const SpareParts = () => {
               <h1 className="section-heading">Náhradní díly</h1>
             </div>
             <p className="section-subheading">
-              Originální i aftermarket díly pro Chrysler, Dodge a Jeep.
+              Originální i aftermarket díly pro Chrysler a Dodge.
               Využijte naši aplikaci s VIN filtrem pro přesné vyhledání.
             </p>
           </motion.div>

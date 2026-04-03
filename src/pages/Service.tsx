@@ -192,7 +192,7 @@ const ServicePage = () => {
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Servisní linka</p>
-                    <p className="text-muted-foreground text-sm">+420 603 372 911</p>
+                    <p className="text-muted-foreground text-sm">+420 603 559 767</p>
                   </div>
                 </div>
                 <div className="mt-6 p-4 bg-gold/10 border border-gold/20 rounded-lg">

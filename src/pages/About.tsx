@@ -223,11 +223,11 @@ const AboutPage = () => {
                         <p className="text-xs">Prodej vozidel</p>
                       </div>
                     </a>
-                    <a href="tel:+420603372911" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
-                      <Phone className="w-4 h-4 text-primary" />
+                    <a href="mailto:obchod@chrysler.cz" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
+                      <Mail className="w-4 h-4 text-primary" />
                       <div>
-                        <p className="text-foreground font-medium">+420 603 372 911</p>
-                        <p className="text-xs">Servis & Díly</p>
+                        <p className="text-foreground font-medium">obchod@chrysler.cz</p>
+                        <p className="text-xs">E-mail</p>
                       </div>
                     </a>
                     <a href="mailto:obchod@chrysler.cz" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">

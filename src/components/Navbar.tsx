@@ -9,7 +9,7 @@ const navItems = [
   { label: "Dovoz", path: "/dovoz" },
   { label: "Výkup", path: "/vykup" },
   { label: "Náhradní díly", path: "/nahradni-dily" },
-  { label: "Servis & LPG", path: "/servis" },
+  { label: "Servis - LPG", path: "/servis" },
   { label: "O nás", path: "/o-nas" },
   { label: "Kontakt", path: "/kontakt" },
 ];

@@ -208,7 +208,7 @@ const AboutPage = () => {
                   allowFullScreen
                   loading="lazy"
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Mapa — Chrysler & Dodge Pardubice, Lukovna 11"
+                  title="Mapa — Chrysler - Dodge Pardubice, Lukovna 11"
                 />
               </div>
 

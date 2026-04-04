@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
-import heroImage from "@/assets/hero-chrysler.webp";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+
+// Use public path for stable preload matching
+const heroImage = "/hero-chrysler.webp";
 
 const HeroSection = () => {
   const [visible, setVisible] = useState(false);

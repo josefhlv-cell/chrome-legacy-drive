@@ -368,6 +368,9 @@ const VehiclesTab = () => {
                     <button onClick={() => editingId === vehicle.id ? setEditingId(null) : startEdit(vehicle)} className="p-1.5 text-muted-foreground hover:text-primary transition-colors">
                       <Edit className="w-4 h-4" />
                     </button>
+                    <button onClick={() => setSautoVehicleId(sautoVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-orange-400 transition-colors" title="Export na Sauto.cz">
+                      <Upload className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
-import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 

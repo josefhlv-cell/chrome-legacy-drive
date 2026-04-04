@@ -6,9 +6,11 @@ import MottoSection from "@/components/MottoSection";
 import FamilyAdvantage from "@/components/FamilyAdvantage";
 import AppShowcase from "@/components/AppShowcase";
 import Footer from "@/components/Footer";
+import IntroAnimation from "@/components/IntroAnimation";
 
 const Index = () => (
   <div className="min-h-screen bg-background">
+    <IntroAnimation />
     <Navbar />
     <HeroSection />
     <StockTicker />

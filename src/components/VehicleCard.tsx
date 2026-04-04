@@ -62,10 +62,13 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
           </div>
 
           <div className="mt-4 pt-3 border-t border-border/50">
-            <p className="text-xl font-bold text-primary font-montserrat">{formatPrice(vehicle.price_with_vat)}</p>
+            <p className="text-xl font-bold text-primary font-montserrat">
+              {formatPrice(vehicle.price_with_vat)}
+              {vehicle.show_vat && <span className="text-xs font-semibold text-muted-foreground ml-1">Bez DPH</span>}
+            </p>
             {vehicle.show_vat && (
               <p className="text-xs text-muted-foreground mt-0.5 font-montserrat">
-                bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}
+                Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}
               </p>
             )}
           </div>

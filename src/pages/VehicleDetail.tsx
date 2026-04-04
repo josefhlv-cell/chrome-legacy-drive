@@ -112,9 +112,15 @@ const VehicleDetail = () => {
               <p className="text-muted-foreground mt-1">{vehicle.year}{vehicle.vin ? ` · VIN: ${vehicle.vin}` : ""}</p>
 
               <div className="mt-6">
-                <p className="text-4xl font-black text-primary">{formatPrice(vehicle.price_with_vat)}</p>
+                <p className="text-4xl font-black text-primary">
+                  {formatPrice(vehicle.price_with_vat)}
+                  {vehicle.show_vat && <span className="text-base font-semibold text-muted-foreground ml-2">Bez DPH</span>}
+                </p>
                 {vehicle.show_vat && (
-                  <p className="text-sm text-muted-foreground mt-1">Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}</p>
+                  <div className="mt-1">
+                    <p className="text-sm text-muted-foreground">Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">DPH 21% – {formatPrice(vehicle.price_with_vat - priceWithoutVat(vehicle.price_with_vat))}</p>
+                  </div>
                 )}
               </div>
 

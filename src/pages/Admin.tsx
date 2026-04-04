@@ -388,7 +388,62 @@ const VehiclesTab = () => {
                   </motion.div>
                 )}
 
-                {editingId === vehicle.id && (
+                {sautoVehicleId === vehicle.id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 rounded-lg bg-secondary/50 border border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ExternalLink className="w-4 h-4 text-orange-400" />
+                      <h4 className="text-sm font-bold text-foreground">Export na Sauto.cz</h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Login (uživatelské jméno)</label>
+                        <input
+                          type="text"
+                          value={sautoCredentials.login}
+                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, login: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="vas_login"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo</label>
+                        <input
+                          type="password"
+                          value={sautoCredentials.password}
+                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, password: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="••••••"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Softwarový klíč</label>
+                        <input
+                          type="text"
+                          value={sautoCredentials.sw_key}
+                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, sw_key: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="sw_key od Sauto"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Údaje se uloží pro příště. Vozidlo bude exportováno včetně všech fotek z galerie.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSautoExport(vehicle.id)}
+                        disabled={sautoExporting}
+                        className="chrome-button inline-flex items-center gap-2 text-sm"
+                      >
+                        {sautoExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        {sautoExporting ? "Exportuji..." : "Exportovat na Sauto.cz"}
+                      </button>
+                      <button onClick={() => setSautoVehicleId(null)} className="outline-button text-sm">Zrušit</button>
+                    </div>
+                  </motion.div>
+                )}
+
+
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <InputField label="Název" value={editData.name || ""} onChange={(v) => setEditData({ ...editData, name: v })} />
                     <InputField label="Rok" type="number" value={String(editData.year || "")} onChange={(v) => setEditData({ ...editData, year: Number(v) })} />

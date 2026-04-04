@@ -46,3 +46,12 @@ export function formatPrice(price: number): string {
 export function priceWithoutVat(price: number): number {
   return Math.round(price / 1.21);
 }
+
+// When show_vat is true, price_with_vat actually stores price WITHOUT VAT
+export function priceWithVatFromNet(netPrice: number): number {
+  return Math.round(netPrice * 1.21);
+}
+
+export function vatAmount(netPrice: number): number {
+  return priceWithVatFromNet(netPrice) - netPrice;
+}

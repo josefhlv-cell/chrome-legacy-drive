@@ -68,7 +68,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             </p>
             {vehicle.show_vat && (
               <p className="text-xs text-muted-foreground mt-0.5 font-montserrat">
-                Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}
+                S DPH: {formatPrice(priceWithVatFromNet(vehicle.price_with_vat))}
               </p>
             )}
           </div>

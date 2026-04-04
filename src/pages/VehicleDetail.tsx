@@ -118,8 +118,8 @@ const VehicleDetail = () => {
                 </p>
                 {vehicle.show_vat && (
                   <div className="mt-1">
-                    <p className="text-sm text-muted-foreground">Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">DPH 21% – {formatPrice(vehicle.price_with_vat - priceWithoutVat(vehicle.price_with_vat))}</p>
+                    <p className="text-sm text-muted-foreground">Cena s DPH: {formatPrice(priceWithVatFromNet(vehicle.price_with_vat))}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">DPH 21% – {formatPrice(vatAmount(vehicle.price_with_vat))}</p>
                   </div>
                 )}
               </div>

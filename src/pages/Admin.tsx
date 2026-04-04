@@ -495,8 +495,52 @@ const VehiclesTab = () => {
                   </motion.div>
                 )}
 
+                {tipcarsVehicleId === vehicle.id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 rounded-lg bg-secondary/50 border border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Download className="w-4 h-4 text-emerald-400" />
+                      <h4 className="text-sm font-bold text-foreground">Export do TipCars</h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Kód firmy (licenční číslo)</label>
+                        <input
+                          type="text"
+                          value={tipcarsCredentials.kod_firmy}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, kod_firmy: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="např. 1234"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo</label>
+                        <input
+                          type="password"
+                          value={tipcarsCredentials.heslo}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, heslo: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="heslo k TipCars"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Vygeneruje ZIP soubor s inzercí a fotkami. Soubor pak nahrajte na FTP server TipCars.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleTipcarsExport(vehicle.id)}
+                        disabled={tipcarsExporting}
+                        className="chrome-button inline-flex items-center gap-2 text-sm"
+                      >
+                        {tipcarsExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        {tipcarsExporting ? "Generuji ZIP..." : "Stáhnout ZIP pro TipCars"}
+                      </button>
+                      <button onClick={() => setTipcarsVehicleId(null)} className="outline-button text-sm">Zrušit</button>
+                    </div>
+                  </motion.div>
+                )}
 
-                {editingId === vehicle.id && (
+
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <InputField label="Název" value={editData.name || ""} onChange={(v) => setEditData({ ...editData, name: v })} />
                     <InputField label="Rok" type="number" value={String(editData.year || "")} onChange={(v) => setEditData({ ...editData, year: Number(v) })} />

@@ -91,11 +91,11 @@ const ServicePage = () => {
             {/* Category 1 */}
             <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0 }} className="glass-card p-6 space-y-3">
               <Award className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Odborný servis vozidel</h3>
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Odborný značkový servis</h3>
+              <p className="text-xs text-muted-foreground">Chrysler Dodge pod autorizací FCA CZ</p>
               <ul className="space-y-2 text-sm text-muted-foreground">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Chrysler, Dodge, Lancia</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Individuální přístup k zákazníkům</li>
-                <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autorizace FCA</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Více než 20letá zkušenost</li>
               </ul>
             </motion.div>

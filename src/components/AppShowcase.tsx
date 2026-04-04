@@ -27,12 +27,14 @@ const AppShowcase = () => (
           <div className="relative w-56 h-[420px] rounded-[2.5rem] border-2 border-primary/30 bg-black shadow-2xl overflow-hidden">
             {/* Notch */}
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-24 h-6 bg-black rounded-b-2xl z-10" />
-            {/* Real screenshot */}
-            <img
-              src={appScreenshot}
-              alt="Chrysler - Dodge Pardubice – aplikace"
-              className="w-full h-full object-cover object-top"
-            />
+            {/* Screenshot — properly centered in the "screen" area below the notch */}
+            <div className="absolute top-6 left-0 right-0 bottom-0 overflow-hidden">
+              <img
+                src={appScreenshot}
+                alt="Chrysler - Dodge Pardubice – aplikace"
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
           </div>
         </motion.div>
 

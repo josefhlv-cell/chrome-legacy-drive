@@ -198,8 +198,8 @@ const VehiclesTab = () => {
   const [tipcarsCredentials, setTipcarsCredentials] = useState(() => {
     try {
       const saved = localStorage.getItem("tipcars_credentials");
-      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "" };
-    } catch { return { kod_firmy: "", heslo: "" }; }
+      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" };
+    } catch { return { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" }; }
   });
 
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {

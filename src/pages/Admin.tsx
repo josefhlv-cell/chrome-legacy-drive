@@ -307,6 +307,45 @@ const VehiclesTab = () => {
     }
   };
 
+  const handleTipcarsExport = async (vehicleId: string) => {
+    if (!tipcarsCredentials.kod_firmy || !tipcarsCredentials.heslo) {
+      toast({ title: "Vyplňte kód firmy a heslo pro TipCars", variant: "destructive" });
+      return;
+    }
+    setTipcarsExporting(true);
+    try {
+      localStorage.setItem("tipcars_credentials", JSON.stringify(tipcarsCredentials));
+
+      const { data, error } = await supabase.functions.invoke("tipcars-export", {
+        body: {
+          vehicle_ids: [vehicleId],
+          tipcars_kod_firmy: tipcarsCredentials.kod_firmy,
+          tipcars_heslo: tipcarsCredentials.heslo,
+          firma_nazev: "Chrysler Pardubice",
+          firma_info: { mesto: "Pardubice", www: "www.chrysler-pardubice.cz" },
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Open download link
+      if (data?.zip_url) {
+        window.open(data.zip_url, "_blank");
+      }
+
+      toast({
+        title: "TipCars export vytvořen!",
+        description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). Soubor ${data.zip_filename} nahrajte na FTP TipCars.`,
+      });
+      setTipcarsVehicleId(null);
+    } catch (err: any) {
+      toast({ title: "Chyba exportu do TipCars", description: err.message, variant: "destructive" });
+    } finally {
+      setTipcarsExporting(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">

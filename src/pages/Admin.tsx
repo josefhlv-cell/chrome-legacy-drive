@@ -192,6 +192,16 @@ const VehiclesTab = () => {
     } catch { return { login: "", password: "", sw_key: "" }; }
   });
 
+  // TipCars export state
+  const [tipcarsVehicleId, setTipcarsVehicleId] = useState<string | null>(null);
+  const [tipcarsExporting, setTipcarsExporting] = useState(false);
+  const [tipcarsCredentials, setTipcarsCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tipcars_credentials");
+      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "" };
+    } catch { return { kod_firmy: "", heslo: "" }; }
+  });
+
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
     updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
   };
@@ -297,6 +307,45 @@ const VehiclesTab = () => {
     }
   };
 
+  const handleTipcarsExport = async (vehicleId: string) => {
+    if (!tipcarsCredentials.kod_firmy || !tipcarsCredentials.heslo) {
+      toast({ title: "Vyplňte kód firmy a heslo pro TipCars", variant: "destructive" });
+      return;
+    }
+    setTipcarsExporting(true);
+    try {
+      localStorage.setItem("tipcars_credentials", JSON.stringify(tipcarsCredentials));
+
+      const { data, error } = await supabase.functions.invoke("tipcars-export", {
+        body: {
+          vehicle_ids: [vehicleId],
+          tipcars_kod_firmy: tipcarsCredentials.kod_firmy,
+          tipcars_heslo: tipcarsCredentials.heslo,
+          firma_nazev: "Chrysler Pardubice",
+          firma_info: { mesto: "Pardubice", www: "www.chrysler-pardubice.cz" },
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      // Open download link
+      if (data?.zip_url) {
+        window.open(data.zip_url, "_blank");
+      }
+
+      toast({
+        title: "TipCars export vytvořen!",
+        description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). Soubor ${data.zip_filename} nahrajte na FTP TipCars.`,
+      });
+      setTipcarsVehicleId(null);
+    } catch (err: any) {
+      toast({ title: "Chyba exportu do TipCars", description: err.message, variant: "destructive" });
+    } finally {
+      setTipcarsExporting(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -371,6 +420,9 @@ const VehiclesTab = () => {
                     <button onClick={() => setSautoVehicleId(sautoVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-orange-400 transition-colors" title="Export na Sauto.cz">
                       <Upload className="w-4 h-4" />
                     </button>
+                    <button onClick={() => setTipcarsVehicleId(tipcarsVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-emerald-400 transition-colors" title="Export do TipCars">
+                      <Download className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -439,6 +491,51 @@ const VehiclesTab = () => {
                         {sautoExporting ? "Exportuji..." : "Exportovat na Sauto.cz"}
                       </button>
                       <button onClick={() => setSautoVehicleId(null)} className="outline-button text-sm">Zrušit</button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {tipcarsVehicleId === vehicle.id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 rounded-lg bg-secondary/50 border border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Download className="w-4 h-4 text-emerald-400" />
+                      <h4 className="text-sm font-bold text-foreground">Export do TipCars</h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Kód firmy (licenční číslo)</label>
+                        <input
+                          type="text"
+                          value={tipcarsCredentials.kod_firmy}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, kod_firmy: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="např. 1234"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo</label>
+                        <input
+                          type="password"
+                          value={tipcarsCredentials.heslo}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, heslo: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="heslo k TipCars"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Vygeneruje ZIP soubor s inzercí a fotkami. Soubor pak nahrajte na FTP server TipCars.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleTipcarsExport(vehicle.id)}
+                        disabled={tipcarsExporting}
+                        className="chrome-button inline-flex items-center gap-2 text-sm"
+                      >
+                        {tipcarsExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                        {tipcarsExporting ? "Generuji ZIP..." : "Stáhnout ZIP pro TipCars"}
+                      </button>
+                      <button onClick={() => setTipcarsVehicleId(null)} className="outline-button text-sm">Zrušit</button>
                     </div>
                   </motion.div>
                 )}

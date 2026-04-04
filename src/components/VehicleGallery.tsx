@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleGalleryProps {
   images: string[];

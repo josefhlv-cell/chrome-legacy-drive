@@ -24,7 +24,7 @@ import {
 } from "@/hooks/useAdminContent";
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility";

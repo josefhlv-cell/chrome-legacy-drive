@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Package, Wrench, Gem, CalendarDays } from "lucide-react";
-import logoPardubice from "@/assets/logo-pardubice.png";
-import appScreenshot from "@/assets/app-screenshot.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
+import appScreenshot from "@/assets/app-screenshot.webp";
 
 const APP_URL = "https://chryslerpardubice.site/";
 
@@ -33,6 +33,8 @@ const AppShowcase = () => (
                 src={appScreenshot}
                 alt="Chrysler - Dodge Pardubice – aplikace"
                 className="w-full h-full object-cover object-top"
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>

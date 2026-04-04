@@ -3,7 +3,7 @@ import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import type { Vehicle } from "@/data/vehicles";
 import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
   vehicle: Vehicle;

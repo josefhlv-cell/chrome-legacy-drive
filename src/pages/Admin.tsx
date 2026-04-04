@@ -182,6 +182,16 @@ const VehiclesTab = () => {
   const deleteImage = useDeleteVehicleImage();
   const setMainImage = useSetMainImage();
 
+  // Sauto export state
+  const [sautoVehicleId, setSautoVehicleId] = useState<string | null>(null);
+  const [sautoExporting, setSautoExporting] = useState(false);
+  const [sautoCredentials, setSautoCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sauto_credentials");
+      return saved ? JSON.parse(saved) : { login: "", password: "", sw_key: "" };
+    } catch { return { login: "", password: "", sw_key: "" }; }
+  });
+
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
     updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
   };

@@ -6,6 +6,7 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+// ── Types ──
 interface ParsedVehicle {
   title: string;
   image: string;
@@ -17,6 +18,20 @@ interface ParsedVehicle {
   salePrice: number | null;
 }
 
+interface JobState {
+  status: "running" | "completed" | "failed";
+  phase: "queued" | "scraping" | "extracting" | "saving" | "done" | "error";
+  progress: number;
+  message: string;
+  vehicles: number;
+  updated: number;
+  created: number;
+  started_at: string;
+  completed_at: string | null;
+  user_id: string | null;
+}
+
+// ── Firecrawl ──
 async function scrapeWithFirecrawl(url: string, apiKey: string) {
   const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
@@ -27,15 +42,17 @@ async function scrapeWithFirecrawl(url: string, apiKey: string) {
     body: JSON.stringify({
       url,
       formats: ["markdown"],
-      waitFor: 5000,
+      waitFor: 8000,
+      timeout: 120000,
     }),
   });
   return await response.json();
 }
 
+// ── Parse vehicles from markdown ──
 function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
   const vehicles: ParsedVehicle[] = [];
-  const seen = new Set<string>(); // deduplicate by image URL
+  const seen = new Set<string>();
 
   const offerIdx = markdown.indexOf("naše nabídka vozů");
   if (offerIdx === -1) return vehicles;
@@ -48,12 +65,10 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
   for (const rawLine of lines) {
     const line = rawLine.trim();
 
-    // Vehicle title: "## Name of vehicle"
     const titleMatch = line.match(/^#{1,3}\s+(.+)/);
     if (titleMatch) {
       const text = titleMatch[1].trim().replace(/\\-/g, "-");
 
-      // Skip non-vehicle headings
       if (
         text.match(/^\+\s*DPH$/i) ||
         text.match(/^Sleva\s/i) ||
@@ -61,7 +76,6 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
         text.length < 8
       ) continue;
 
-      // Save previous vehicle if valid
       if (current?.title && current?.price && current?.image) {
         if (!seen.has(current.image)) {
           seen.add(current.image);
@@ -84,7 +98,6 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
 
     if (!current) continue;
 
-    // Image: ![alt](url)
     const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+\.(jpg|jpeg|png|webp)[^)]*)\)/i);
     if (imgMatch && !current.image) {
       const url = imgMatch[1];
@@ -94,41 +107,27 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
       }
     }
 
-    // Fuel
     const fuelMatch = line.match(/Palivo:\s*(.+)/i);
-    if (fuelMatch) {
-      current.fuel = fuelMatch[1].trim();
-      continue;
-    }
+    if (fuelMatch) { current.fuel = fuelMatch[1].trim(); continue; }
 
-    // Mileage: handle both Km and Mil (miles)
     const mileageMatch = line.match(/Nájezd:\s*([\d\s]+)\s*(Km|Mil)/i);
     if (mileageMatch) {
       const value = parseInt(mileageMatch[1].replace(/\s/g, ""), 10) || 0;
       const unit = mileageMatch[2].toLowerCase();
-      // Convert miles to km if needed
       current.mileage = unit === "mil" ? Math.round(value * 1.60934) : value;
       continue;
     }
 
-    // Year
     const yearMatch = line.match(/Rok výroby:\s*(\d{4})/i);
-    if (yearMatch) {
-      current.year = parseInt(yearMatch[1], 10);
-      continue;
-    }
+    if (yearMatch) { current.year = parseInt(yearMatch[1], 10); continue; }
 
-    // Sale price: "Nová cena: 519 000 Kč + DPH"
     const salePriceMatch = line.match(/Nová cena:\s*([\d\s]+)\s*Kč/i);
     if (salePriceMatch) {
       current.salePrice = parseInt(salePriceMatch[1].replace(/\s/g, ""), 10) || null;
-      if (salePriceMatch.input && /\+\s*DPH/i.test(salePriceMatch.input)) {
-        current.showVat = true;
-      }
+      if (salePriceMatch.input && /\+\s*DPH/i.test(salePriceMatch.input)) current.showVat = true;
       continue;
     }
 
-    // Price: "Cena: 263 000 Kč" or "Cena: 770 000 Kč + DPH"
     const priceMatch = line.match(/Cena:\s*([\d\s]+)\s*Kč/i);
     if (priceMatch) {
       current.price = parseInt(priceMatch[1].replace(/\s/g, ""), 10) || 0;
@@ -137,7 +136,6 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
     }
   }
 
-  // Don't forget the last one
   if (current?.title && current?.price && current?.image) {
     if (!seen.has(current.image)) {
       seen.add(current.image);
@@ -148,6 +146,7 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
   return vehicles;
 }
 
+// ── Download image to storage ──
 async function downloadImageToStorage(
   supabase: ReturnType<typeof createClient>,
   imageUrl: string,
@@ -157,29 +156,19 @@ async function downloadImageToStorage(
   try {
     const response = await fetch(imageUrl);
     if (!response.ok) return null;
-
     const blob = await response.blob();
-    if (blob.size < 5000) return null; // skip tiny/invalid
+    if (blob.size < 5000) return null;
 
     const ext = imageUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
     const filename = `${vehicleId}/${index}.${ext}`;
 
     const { error } = await supabase.storage
       .from("vehicles")
-      .upload(filename, blob, {
-        upsert: true,
-        contentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
-      });
+      .upload(filename, blob, { upsert: true, contentType: `image/${ext === "jpg" ? "jpeg" : ext}` });
 
-    if (error) {
-      console.error(`Upload error for ${filename}:`, error.message);
-      return null;
-    }
+    if (error) { console.error(`Upload error for ${filename}:`, error.message); return null; }
 
-    const { data: urlData } = supabase.storage
-      .from("vehicles")
-      .getPublicUrl(filename);
-
+    const { data: urlData } = supabase.storage.from("vehicles").getPublicUrl(filename);
     return urlData.publicUrl;
   } catch (e) {
     console.error(`Download failed for ${imageUrl}:`, e);
@@ -187,61 +176,93 @@ async function downloadImageToStorage(
   }
 }
 
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
+// ── Update job state in api_cache ──
+async function updateJobState(
+  supabase: ReturnType<typeof createClient>,
+  jobId: string,
+  updates: Partial<JobState>
+) {
+  // Read current state
+  const { data: existing } = await supabase
+    .from("api_cache")
+    .select("data")
+    .eq("cache_key", jobId)
+    .eq("cache_type", "vehicle_sync_status")
+    .single();
 
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const currentData = (existing?.data || {}) as JobState;
+  const newData = { ...currentData, ...updates };
 
+  await supabase
+    .from("api_cache")
+    .update({ data: newData })
+    .eq("cache_key", jobId)
+    .eq("cache_type", "vehicle_sync_status");
+}
+
+// ── Background sync process ──
+async function runSync(
+  supabase: ReturnType<typeof createClient>,
+  jobId: string,
+  firecrawlKey: string
+) {
   try {
-    const body = await req.json().catch(() => ({}));
-    const logId = body.log_id;
+    // Phase 1: Scraping
+    await updateJobState(supabase, jobId, {
+      phase: "scraping",
+      progress: 10,
+      message: "Stahování dat z chrysler.cz...",
+    });
 
-    const updateLog = async (updates: Record<string, unknown>) => {
-      if (logId) {
-        await supabase.from("scrape_log").update(updates).eq("id", logId);
-      }
-    };
-
-    if (!firecrawlKey) {
-      await updateLog({
-        status: "error",
-        error_message: "FIRECRAWL_API_KEY not configured",
-        finished_at: new Date().toISOString(),
-      });
-      return new Response(
-        JSON.stringify({ error: "Firecrawl not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Step 1: Scrape chrysler.cz
-    await updateLog({ status: "scraping_main_page" });
     const mainPage = await scrapeWithFirecrawl("https://www.chrysler.cz", firecrawlKey);
     const markdown = mainPage?.data?.markdown || mainPage?.markdown || "";
 
     if (!markdown) {
-      await updateLog({
-        status: "error",
-        error_message: "No markdown content returned from Firecrawl",
-        finished_at: new Date().toISOString(),
+      await updateJobState(supabase, jobId, {
+        status: "failed",
+        phase: "error",
+        progress: 100,
+        message: "Nepodařilo se stáhnout obsah z chrysler.cz",
+        completed_at: new Date().toISOString(),
       });
-      return new Response(
-        JSON.stringify({ error: "No content scraped" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
+      return;
     }
 
-    // Step 2: Parse vehicles from markdown (deduped)
-    await updateLog({ status: "parsing_vehicles" });
-    const scrapedVehicles = parseVehiclesFromMarkdown(markdown);
-    console.log(`Parsed ${scrapedVehicles.length} unique vehicles from markdown`);
+    // Phase 2: Extracting
+    await updateJobState(supabase, jobId, {
+      phase: "extracting",
+      progress: 35,
+      message: "Extrakce vozidel z dat...",
+    });
 
-    // Step 3: Get existing vehicles
+    const scrapedVehicles = parseVehiclesFromMarkdown(markdown);
+    console.log(`Parsed ${scrapedVehicles.length} unique vehicles`);
+
+    if (scrapedVehicles.length === 0) {
+      await updateJobState(supabase, jobId, {
+        status: "failed",
+        phase: "error",
+        progress: 100,
+        message: "Nebyly nalezeny žádné vozy v obsahu",
+        completed_at: new Date().toISOString(),
+      });
+      return;
+    }
+
+    await updateJobState(supabase, jobId, {
+      phase: "extracting",
+      progress: 55,
+      message: `Nalezeno ${scrapedVehicles.length} vozidel, ukládám...`,
+      vehicles: scrapedVehicles.length,
+    });
+
+    // Phase 3: Saving
+    await updateJobState(supabase, jobId, {
+      phase: "saving",
+      progress: 60,
+      message: "Ukládání do databáze...",
+    });
+
     const { data: existingVehicles } = await supabase
       .from("vehicles")
       .select("id, name, image_url");
@@ -251,21 +272,18 @@ Deno.serve(async (req) => {
       existingByName.set(v.name.toLowerCase().trim(), { id: v.id, image_url: v.image_url });
     }
 
-    // Track which vehicle names we see in this scrape
     const seenNames = new Set<string>();
-
-    await updateLog({ status: "updating_database", vehicles_found: scrapedVehicles.length });
-
     let updatedCount = 0;
+    let createdCount = 0;
     let imagesCount = 0;
 
-    for (const vehicle of scrapedVehicles) {
+    for (let i = 0; i < scrapedVehicles.length; i++) {
+      const vehicle = scrapedVehicles[i];
       if (!vehicle.title || !vehicle.price) continue;
 
       const nameKey = vehicle.title.toLowerCase().trim();
       seenNames.add(nameKey);
 
-      // Use sale price if available
       const finalPrice = vehicle.salePrice || vehicle.price;
 
       const vehicleData = {
@@ -285,6 +303,7 @@ Deno.serve(async (req) => {
       if (existing) {
         await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
         vehicleId = existing.id;
+        updatedCount++;
       } else {
         const { data: created } = await supabase
           .from("vehicles")
@@ -292,11 +311,10 @@ Deno.serve(async (req) => {
           .select("id")
           .single();
         vehicleId = created?.id || "";
+        createdCount++;
       }
 
-      updatedCount++;
-
-      // Download and save main image to Supabase storage
+      // Download image to storage
       if (vehicleId && vehicle.image) {
         const { data: existingImg } = await supabase
           .from("vehicle_images")
@@ -314,18 +332,25 @@ Deno.serve(async (req) => {
               is_main: true,
               sort_order: 0,
             });
-            // Update the vehicle's image_url to use stored version
             await supabase.from("vehicles").update({ image_url: storedUrl }).eq("id", vehicleId);
             imagesCount++;
           }
         }
       }
+
+      // Update progress during saving (60-90%)
+      const saveProgress = 60 + Math.round((i / scrapedVehicles.length) * 30);
+      await updateJobState(supabase, jobId, {
+        progress: saveProgress,
+        message: `Ukládání vozidla ${i + 1}/${scrapedVehicles.length}...`,
+        updated: updatedCount,
+        created: createdCount,
+      });
     }
 
-    // Step 4: Mark vehicles not found on chrysler.cz as "prodano"
-    const scrapedNameSet = seenNames;
+    // Mark vehicles not on chrysler.cz as "prodano"
     for (const [name, { id }] of existingByName) {
-      if (!scrapedNameSet.has(name)) {
+      if (!seenNames.has(name)) {
         await supabase
           .from("vehicles")
           .update({ status: "prodano" })
@@ -334,29 +359,148 @@ Deno.serve(async (req) => {
       }
     }
 
-    await updateLog({
+    // Done
+    await updateJobState(supabase, jobId, {
       status: "completed",
-      vehicles_found: scrapedVehicles.length,
-      vehicles_updated: updatedCount,
-      images_downloaded: imagesCount,
-      finished_at: new Date().toISOString(),
+      phase: "done",
+      progress: 100,
+      message: `Dokončeno! ${updatedCount} aktualizováno, ${createdCount} nových, ${imagesCount} fotek staženo.`,
+      vehicles: scrapedVehicles.length,
+      updated: updatedCount,
+      created: createdCount,
+      completed_at: new Date().toISOString(),
     });
 
+    // Also log to scrape_log
+    await supabase.from("scrape_log").insert({
+      status: "completed",
+      vehicles_found: scrapedVehicles.length,
+      vehicles_updated: updatedCount + createdCount,
+      images_downloaded: imagesCount,
+      finished_at: new Date().toISOString(),
+      triggered_by: "admin",
+    });
+
+  } catch (error: unknown) {
+    const msg = error instanceof Error ? error.message : "Neznámá chyba";
+    console.error("Sync error:", msg);
+    await updateJobState(supabase, jobId, {
+      status: "failed",
+      phase: "error",
+      progress: 100,
+      message: `Chyba: ${msg}`,
+      completed_at: new Date().toISOString(),
+    });
+  }
+}
+
+// ── Main handler ──
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
+
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+  const supabase = createClient(supabaseUrl, supabaseKey);
+
+  try {
+    const body = await req.json().catch(() => ({}));
+
+    // ── Mode B: Poll job status ──
+    if (body.jobId) {
+      const { data: cache } = await supabase
+        .from("api_cache")
+        .select("data")
+        .eq("cache_key", body.jobId)
+        .eq("cache_type", "vehicle_sync_status")
+        .single();
+
+      if (!cache) {
+        return new Response(
+          JSON.stringify({ success: false, error: "Job not found" }),
+          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+
+      return new Response(
+        JSON.stringify({ success: true, ...(cache.data as Record<string, unknown>) }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // ── Mode A: Start new sync ──
+    if (!firecrawlKey) {
+      return new Response(
+        JSON.stringify({ error: "Firecrawl not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Check if another sync is running
+    const { data: running } = await supabase
+      .from("api_cache")
+      .select("cache_key, data")
+      .eq("cache_type", "vehicle_sync_status")
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (running) {
+      const runData = running.data as JobState;
+      if (runData.status === "running") {
+        return new Response(
+          JSON.stringify({
+            success: true,
+            queued: false,
+            already_running: true,
+            jobId: running.cache_key,
+            ...runData,
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      }
+    }
+
+    // Create new job
+    const jobId = crypto.randomUUID();
+    const initialState: JobState = {
+      status: "running",
+      phase: "queued",
+      progress: 0,
+      message: "Spouštím synchronizaci...",
+      vehicles: 0,
+      updated: 0,
+      created: 0,
+      started_at: new Date().toISOString(),
+      completed_at: null,
+      user_id: null,
+    };
+
+    await supabase.from("api_cache").insert({
+      cache_type: "vehicle_sync_status",
+      cache_key: jobId,
+      data: initialState,
+    });
+
+    // Fire and forget — start sync in background
+    // EdgeRuntime doesn't support waitUntil, so we use a non-awaited promise
+    runSync(supabase, jobId, firecrawlKey).catch((e) =>
+      console.error("Background sync crashed:", e)
+    );
+
+    // Return immediately
     return new Response(
-      JSON.stringify({
-        success: true,
-        vehicles_found: scrapedVehicles.length,
-        vehicles_updated: updatedCount,
-        images_saved: imagesCount,
-      }),
-      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({ success: true, queued: true, jobId }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Scrape error:", msg);
-    return new Response(JSON.stringify({ error: msg }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    return new Response(
+      JSON.stringify({ error: msg }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+    );
   }
 });

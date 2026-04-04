@@ -14,6 +14,7 @@ interface ParsedVehicle {
   year: number;
   price: number;
   showVat: boolean;
+  salePrice: number | null;
 }
 
 async function scrapeWithFirecrawl(url: string, apiKey: string) {
@@ -34,8 +35,8 @@ async function scrapeWithFirecrawl(url: string, apiKey: string) {
 
 function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
   const vehicles: ParsedVehicle[] = [];
+  const seen = new Set<string>(); // deduplicate by image URL
 
-  // Find the vehicles section - starts after "naše nabídka vozů"
   const offerIdx = markdown.indexOf("naše nabídka vozů");
   if (offerIdx === -1) return vehicles;
 
@@ -55,74 +56,135 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
       // Skip non-vehicle headings
       if (
         text.match(/^\+\s*DPH$/i) ||
-        text.match(/nabídka|autoservis|kontakt|služby|díly|video|rady|náhradní|prodej/i) ||
+        text.match(/^Sleva\s/i) ||
+        text.match(/nabídka|autoservis|kontakt|služby|díly|video|rady|náhradní|prodej|TADY BYDLÍ/i) ||
         text.length < 8
       ) continue;
 
-      // Only accept vehicle-like titles
-      if (text.match(/chrysler|dodge|lancia|ram|voyager|pacifica|300|charger|challenger|grand caravan|town|durango|wrangler|jeep/i)) {
-        // Save previous vehicle
-        if (current?.title && current?.price) {
+      // Save previous vehicle if valid
+      if (current?.title && current?.price && current?.image) {
+        if (!seen.has(current.image)) {
+          seen.add(current.image);
           vehicles.push(current as ParsedVehicle);
         }
-        current = {
-          title: text,
-          image: "",
-          fuel: "Benzín",
-          mileage: 0,
-          year: new Date().getFullYear(),
-          price: 0,
-          showVat: false,
-        };
+      }
+
+      current = {
+        title: text.replace(/\s*AKCE\s.*$/i, "").trim(),
+        image: "",
+        fuel: "Benzín",
+        mileage: 0,
+        year: new Date().getFullYear(),
+        price: 0,
+        showVat: false,
+        salePrice: null,
+      };
+      continue;
+    }
+
+    if (!current) continue;
+
+    // Image: ![alt](url)
+    const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+\.(jpg|jpeg|png|webp)[^)]*)\)/i);
+    if (imgMatch && !current.image) {
+      const url = imgMatch[1];
+      if (!url.includes("logo") && !url.includes("icon") && !url.includes("Vector") && !url.includes("sale-tag") && !url.includes("/images/")) {
+        current.image = url;
+        continue;
+      }
+    }
+
+    // Fuel
+    const fuelMatch = line.match(/Palivo:\s*(.+)/i);
+    if (fuelMatch) {
+      current.fuel = fuelMatch[1].trim();
+      continue;
+    }
+
+    // Mileage: handle both Km and Mil (miles)
+    const mileageMatch = line.match(/Nájezd:\s*([\d\s]+)\s*(Km|Mil)/i);
+    if (mileageMatch) {
+      const value = parseInt(mileageMatch[1].replace(/\s/g, ""), 10) || 0;
+      const unit = mileageMatch[2].toLowerCase();
+      // Convert miles to km if needed
+      current.mileage = unit === "mil" ? Math.round(value * 1.60934) : value;
+      continue;
+    }
+
+    // Year
+    const yearMatch = line.match(/Rok výroby:\s*(\d{4})/i);
+    if (yearMatch) {
+      current.year = parseInt(yearMatch[1], 10);
+      continue;
+    }
+
+    // Sale price: "Nová cena: 519 000 Kč + DPH"
+    const salePriceMatch = line.match(/Nová cena:\s*([\d\s]+)\s*Kč/i);
+    if (salePriceMatch) {
+      current.salePrice = parseInt(salePriceMatch[1].replace(/\s/g, ""), 10) || null;
+      if (salePriceMatch.input && /\+\s*DPH/i.test(salePriceMatch.input)) {
+        current.showVat = true;
       }
       continue;
     }
 
-    // Image: ![alt](url)
-    if (current) {
-      const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+\.(jpg|jpeg|png|webp)[^)]*)\)/i);
-      if (imgMatch && !current.image && !imgMatch[1].includes("logo") && !imgMatch[1].includes("icon") && !imgMatch[1].includes("Vector") && !imgMatch[1].includes("sale-tag")) {
-        current.image = imgMatch[1];
-        continue;
-      }
-
-      // Fuel: "Palivo: Ba 95"
-      const fuelMatch = line.match(/Palivo:\s*(.+)/i);
-      if (fuelMatch) {
-        current.fuel = fuelMatch[1].trim();
-        continue;
-      }
-
-      // Mileage: "Nájezd: 262 788 Km"
-      const mileageMatch = line.match(/Nájezd:\s*([\d\s]+)\s*Km/i);
-      if (mileageMatch) {
-        current.mileage = parseInt(mileageMatch[1].replace(/\s/g, ""), 10) || 0;
-        continue;
-      }
-
-      // Year: "Rok výroby: 2015 - červen" or "Rok výroby: 2019-Listopad"
-      const yearMatch = line.match(/Rok výroby:\s*(\d{4})/i);
-      if (yearMatch) {
-        current.year = parseInt(yearMatch[1], 10);
-        continue;
-      }
-
-      // Price: "Cena: 263 000 Kč" or "Cena: 770 000 Kč + DPH"
-      const priceMatch = line.match(/Cena:\s*([\d\s]+)\s*Kč/i);
-      if (priceMatch) {
-        current.price = parseInt(priceMatch[1].replace(/\s/g, ""), 10) || 0;
-        current.showVat = /\+\s*DPH/i.test(line);
-        continue;
-      }
+    // Price: "Cena: 263 000 Kč" or "Cena: 770 000 Kč + DPH"
+    const priceMatch = line.match(/Cena:\s*([\d\s]+)\s*Kč/i);
+    if (priceMatch) {
+      current.price = parseInt(priceMatch[1].replace(/\s/g, ""), 10) || 0;
+      current.showVat = /\+\s*DPH/i.test(line);
+      continue;
     }
   }
 
   // Don't forget the last one
-  if (current?.title && current?.price) {
-    vehicles.push(current as ParsedVehicle);
+  if (current?.title && current?.price && current?.image) {
+    if (!seen.has(current.image)) {
+      seen.add(current.image);
+      vehicles.push(current as ParsedVehicle);
+    }
   }
 
   return vehicles;
+}
+
+async function downloadImageToStorage(
+  supabase: ReturnType<typeof createClient>,
+  imageUrl: string,
+  vehicleId: string,
+  index: number
+): Promise<string | null> {
+  try {
+    const response = await fetch(imageUrl);
+    if (!response.ok) return null;
+
+    const blob = await response.blob();
+    if (blob.size < 5000) return null; // skip tiny/invalid
+
+    const ext = imageUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
+    const filename = `${vehicleId}/${index}.${ext}`;
+
+    const { error } = await supabase.storage
+      .from("vehicles")
+      .upload(filename, blob, {
+        upsert: true,
+        contentType: `image/${ext === "jpg" ? "jpeg" : ext}`,
+      });
+
+    if (error) {
+      console.error(`Upload error for ${filename}:`, error.message);
+      return null;
+    }
+
+    const { data: urlData } = supabase.storage
+      .from("vehicles")
+      .getPublicUrl(filename);
+
+    return urlData.publicUrl;
+  } catch (e) {
+    console.error(`Download failed for ${imageUrl}:`, e);
+    return null;
+  }
 }
 
 Deno.serve(async (req) => {
@@ -174,32 +236,42 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Step 2: Parse vehicles from markdown
+    // Step 2: Parse vehicles from markdown (deduped)
     await updateLog({ status: "parsing_vehicles" });
-    const vehicles = parseVehiclesFromMarkdown(markdown);
+    const scrapedVehicles = parseVehiclesFromMarkdown(markdown);
+    console.log(`Parsed ${scrapedVehicles.length} unique vehicles from markdown`);
 
-    console.log(`Parsed ${vehicles.length} vehicles from markdown`);
+    // Step 3: Get existing vehicles
+    const { data: existingVehicles } = await supabase
+      .from("vehicles")
+      .select("id, name, image_url");
 
-    // Step 3: Upsert vehicles into database
-    await updateLog({ status: "updating_database", vehicles_found: vehicles.length });
+    const existingByName = new Map<string, { id: string; image_url: string }>();
+    for (const v of existingVehicles || []) {
+      existingByName.set(v.name.toLowerCase().trim(), { id: v.id, image_url: v.image_url });
+    }
+
+    // Track which vehicle names we see in this scrape
+    const seenNames = new Set<string>();
+
+    await updateLog({ status: "updating_database", vehicles_found: scrapedVehicles.length });
 
     let updatedCount = 0;
     let imagesCount = 0;
 
-    for (const vehicle of vehicles) {
+    for (const vehicle of scrapedVehicles) {
       if (!vehicle.title || !vehicle.price) continue;
 
-      // Match by name (exact or close)
-      const { data: existing } = await supabase
-        .from("vehicles")
-        .select("id, name")
-        .ilike("name", `%${vehicle.title.substring(0, 30)}%`)
-        .maybeSingle();
+      const nameKey = vehicle.title.toLowerCase().trim();
+      seenNames.add(nameKey);
+
+      // Use sale price if available
+      const finalPrice = vehicle.salePrice || vehicle.price;
 
       const vehicleData = {
         name: vehicle.title,
         year: vehicle.year,
-        price_with_vat: vehicle.price,
+        price_with_vat: finalPrice,
         mileage: vehicle.mileage,
         fuel: vehicle.fuel,
         image_url: vehicle.image,
@@ -208,6 +280,7 @@ Deno.serve(async (req) => {
       };
 
       let vehicleId: string;
+      const existing = existingByName.get(nameKey);
 
       if (existing) {
         await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
@@ -223,30 +296,47 @@ Deno.serve(async (req) => {
 
       updatedCount++;
 
-      // Save main image to vehicle_images
+      // Download and save main image to Supabase storage
       if (vehicleId && vehicle.image) {
         const { data: existingImg } = await supabase
           .from("vehicle_images")
           .select("id")
           .eq("vehicle_id", vehicleId)
-          .eq("image_url", vehicle.image)
+          .limit(1)
           .maybeSingle();
 
         if (!existingImg) {
-          await supabase.from("vehicle_images").insert({
-            vehicle_id: vehicleId,
-            image_url: vehicle.image,
-            is_main: true,
-            sort_order: 0,
-          });
-          imagesCount++;
+          const storedUrl = await downloadImageToStorage(supabase, vehicle.image, vehicleId, 0);
+          if (storedUrl) {
+            await supabase.from("vehicle_images").insert({
+              vehicle_id: vehicleId,
+              image_url: storedUrl,
+              is_main: true,
+              sort_order: 0,
+            });
+            // Update the vehicle's image_url to use stored version
+            await supabase.from("vehicles").update({ image_url: storedUrl }).eq("id", vehicleId);
+            imagesCount++;
+          }
         }
+      }
+    }
+
+    // Step 4: Mark vehicles not found on chrysler.cz as "prodano"
+    const scrapedNameSet = seenNames;
+    for (const [name, { id }] of existingByName) {
+      if (!scrapedNameSet.has(name)) {
+        await supabase
+          .from("vehicles")
+          .update({ status: "prodano" })
+          .eq("id", id)
+          .neq("status", "prodano");
       }
     }
 
     await updateLog({
       status: "completed",
-      vehicles_found: vehicles.length,
+      vehicles_found: scrapedVehicles.length,
       vehicles_updated: updatedCount,
       images_downloaded: imagesCount,
       finished_at: new Date().toISOString(),
@@ -255,7 +345,7 @@ Deno.serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        vehicles_found: vehicles.length,
+        vehicles_found: scrapedVehicles.length,
         vehicles_updated: updatedCount,
         images_saved: imagesCount,
       }),

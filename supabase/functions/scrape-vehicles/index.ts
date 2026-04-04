@@ -154,6 +154,7 @@ Deno.serve(async (req) => {
         engine: av.objem ? `${av.objem} ccm` : "",
         power: av.vykon ? `${av.vykon} kW` : "",
         color: av.barva || "",
+        transmission: "Automatická",
         description,
       };
 

@@ -198,8 +198,8 @@ const VehiclesTab = () => {
   const [tipcarsCredentials, setTipcarsCredentials] = useState(() => {
     try {
       const saved = localStorage.getItem("tipcars_credentials");
-      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "" };
-    } catch { return { kod_firmy: "", heslo: "" }; }
+      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" };
+    } catch { return { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" }; }
   });
 
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
@@ -312,6 +312,10 @@ const VehiclesTab = () => {
       toast({ title: "Vyplňte kód firmy a heslo pro TipCars", variant: "destructive" });
       return;
     }
+    if (!tipcarsCredentials.ftp_user || !tipcarsCredentials.ftp_password) {
+      toast({ title: "Vyplňte FTP přihlašovací údaje pro TipCars", variant: "destructive" });
+      return;
+    }
     setTipcarsExporting(true);
     try {
       localStorage.setItem("tipcars_credentials", JSON.stringify(tipcarsCredentials));
@@ -323,21 +327,28 @@ const VehiclesTab = () => {
           tipcars_heslo: tipcarsCredentials.heslo,
           firma_nazev: "Chrysler Pardubice",
           firma_info: { mesto: "Pardubice", www: "www.chrysler-pardubice.cz" },
+          ftp_host: tipcarsCredentials.ftp_host || "ftp.tipcars.com",
+          ftp_user: tipcarsCredentials.ftp_user,
+          ftp_password: tipcarsCredentials.ftp_password,
         },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Open download link
-      if (data?.zip_url) {
-        window.open(data.zip_url, "_blank");
+      if (data?.ftp_uploaded) {
+        toast({
+          title: "✅ TipCars export nahrán na FTP!",
+          description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). ${data.ftp_message}`,
+        });
+      } else {
+        toast({
+          title: "⚠️ ZIP vytvořen, ale FTP upload selhal",
+          description: data?.ftp_message || "ZIP je dostupný ke stažení jako záloha.",
+          variant: "destructive",
+        });
+        if (data?.zip_url) window.open(data.zip_url, "_blank");
       }
-
-      toast({
-        title: "TipCars export vytvořen!",
-        description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). Soubor ${data.zip_filename} nahrajte na FTP TipCars.`,
-      });
       setTipcarsVehicleId(null);
     } catch (err: any) {
       toast({ title: "Chyba exportu do TipCars", description: err.message, variant: "destructive" });
@@ -513,7 +524,7 @@ const VehiclesTab = () => {
                         />
                       </div>
                       <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo</label>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo TipCars</label>
                         <input
                           type="password"
                           value={tipcarsCredentials.heslo}
@@ -523,8 +534,40 @@ const VehiclesTab = () => {
                         />
                       </div>
                     </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">FTP Server</label>
+                        <input
+                          type="text"
+                          value={tipcarsCredentials.ftp_host}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, ftp_host: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="ftp.tipcars.com"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">FTP Uživatel</label>
+                        <input
+                          type="text"
+                          value={tipcarsCredentials.ftp_user}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, ftp_user: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="FTP login"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">FTP Heslo</label>
+                        <input
+                          type="password"
+                          value={tipcarsCredentials.ftp_password}
+                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, ftp_password: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="FTP heslo"
+                        />
+                      </div>
+                    </div>
                     <p className="text-xs text-muted-foreground mb-3">
-                      Vygeneruje ZIP soubor s inzercí a fotkami. Soubor pak nahrajte na FTP server TipCars.
+                      Vygeneruje ZIP a automaticky ho nahraje na FTP server TipCars.
                     </p>
                     <div className="flex gap-2">
                       <button
@@ -532,8 +575,8 @@ const VehiclesTab = () => {
                         disabled={tipcarsExporting}
                         className="chrome-button inline-flex items-center gap-2 text-sm"
                       >
-                        {tipcarsExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                        {tipcarsExporting ? "Generuji ZIP..." : "Stáhnout ZIP pro TipCars"}
+                        {tipcarsExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        {tipcarsExporting ? "Generuji a nahrávám..." : "Export a nahrát na FTP"}
                       </button>
                       <button onClick={() => setTipcarsVehicleId(null)} className="outline-button text-sm">Zrušit</button>
                     </div>

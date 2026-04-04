@@ -41,7 +41,7 @@ function mapColor(color: string): { kod: string; popis: string } {
 // ─── Transmission → gearbox equipment code ───
 function mapTransmission(transmission: string): string | null {
   const t = transmission.toLowerCase();
-  if (t.includes("automat")) return "04"; // aut. převodovka
+  if (t.includes("automat")) return "04";
   return null;
 }
 
@@ -52,6 +52,29 @@ function escapeXml(s: string): string {
 
 function pad4(n: number): string {
   return String(n).padStart(4, "0");
+}
+
+function extractBrand(name: string): string {
+  const brands = [
+    "Alfa Romeo", "Aston Martin", "Audi", "BMW", "Bentley", "Cadillac",
+    "Chevrolet", "Chrysler", "Citroën", "Citroen", "Dacia", "Dodge",
+    "Ferrari", "Fiat", "Ford", "Honda", "Hyundai", "Infiniti",
+    "Jaguar", "Jeep", "Kia", "Lamborghini", "Land Rover", "Lexus",
+    "Lincoln", "Lotus", "Maserati", "Mazda", "McLaren", "Mercedes-Benz",
+    "Mercedes", "Mini", "Mitsubishi", "Nissan", "Opel", "Peugeot",
+    "Porsche", "RAM", "Renault", "Rolls-Royce", "Seat", "Skoda", "Škoda",
+    "Smart", "Subaru", "Suzuki", "Tesla", "Toyota", "Volkswagen", "Volvo",
+  ];
+  const nameLower = name.toLowerCase();
+  for (const b of brands) {
+    if (nameLower.startsWith(b.toLowerCase())) return b;
+  }
+  return name.split(" ")[0];
+}
+
+function extractModel(name: string): string {
+  const brand = extractBrand(name);
+  return name.slice(brand.length).trim() || name;
 }
 
 function buildInzeratXml(
@@ -65,21 +88,18 @@ function buildInzeratXml(
   const fuel = mapFuel(vehicle.fuel || "");
   const color = mapColor(vehicle.color || "");
 
-  // Parse engine volume
   let engineVolume = 0;
   if (vehicle.engine) {
     const ccmMatch = vehicle.engine.match(/(\d[\d\s]*)\s*ccm/i);
     if (ccmMatch) engineVolume = parseInt(ccmMatch[1].replace(/\s/g, ""));
   }
 
-  // Parse power (kW)
   let power = 0;
   if (vehicle.power) {
     const kwMatch = vehicle.power.match(/(\d+)\s*kW/i);
     if (kwMatch) power = parseInt(kwMatch[1]);
   }
 
-  // Build photo list
   const photoFiles: { name: string; url: string }[] = [];
   const photoCodes: string[] = [];
   images.forEach((img, i) => {
@@ -89,7 +109,6 @@ function buildInzeratXml(
     photoCodes.push(String(photoNum));
   });
 
-  // Equipment list
   const equipmentItems: string[] = [];
   const trans = mapTransmission(vehicle.transmission || "");
   if (trans) {
@@ -173,29 +192,6 @@ ${equipmentItems.length > 0 ? `\t\t<vybava>\n\t\t\t<razeni></razeni>\n\t\t\t<sez
   return { xml, photoFiles };
 }
 
-function extractBrand(name: string): string {
-  const brands = [
-    "Alfa Romeo", "Aston Martin", "Audi", "BMW", "Bentley", "Cadillac",
-    "Chevrolet", "Chrysler", "Citroën", "Citroen", "Dacia", "Dodge",
-    "Ferrari", "Fiat", "Ford", "Honda", "Hyundai", "Infiniti",
-    "Jaguar", "Jeep", "Kia", "Lamborghini", "Land Rover", "Lexus",
-    "Lincoln", "Lotus", "Maserati", "Mazda", "McLaren", "Mercedes-Benz",
-    "Mercedes", "Mini", "Mitsubishi", "Nissan", "Opel", "Peugeot",
-    "Porsche", "RAM", "Renault", "Rolls-Royce", "Seat", "Skoda", "Škoda",
-    "Smart", "Subaru", "Suzuki", "Tesla", "Toyota", "Volkswagen", "Volvo",
-  ];
-  const nameLower = name.toLowerCase();
-  for (const b of brands) {
-    if (nameLower.startsWith(b.toLowerCase())) return b;
-  }
-  return name.split(" ")[0];
-}
-
-function extractModel(name: string): string {
-  const brand = extractBrand(name);
-  return name.slice(brand.length).trim() || name;
-}
-
 function buildFullXml(
   kodFirmy: string,
   heslo: string,
@@ -226,6 +222,105 @@ ${inzeraty.join("\n")}
 </tipcars>`;
 }
 
+// ─── Minimal FTP client using Deno TCP ───
+class FtpClient {
+  private conn!: Deno.TcpConn;
+  private reader!: ReadableStreamDefaultReader<Uint8Array>;
+  private buffer = "";
+  private decoder = new TextDecoder();
+  private encoder = new TextEncoder();
+
+  async connect(host: string, port = 21): Promise<string> {
+    this.conn = await Deno.connect({ hostname: host, port });
+    this.reader = this.conn.readable.getReader();
+    return await this.readResponse();
+  }
+
+  private async readResponse(): Promise<string> {
+    while (true) {
+      const { value, done } = await this.reader.read();
+      if (done) throw new Error("FTP connection closed");
+      this.buffer += this.decoder.decode(value, { stream: true });
+      
+      const lines = this.buffer.split("\r\n");
+      for (let i = 0; i < lines.length - 1; i++) {
+        const line = lines[i];
+        const match = line.match(/^(\d{3})([ -])/);
+        if (match && match[2] === " ") {
+          const response = lines.slice(0, i + 1).join("\r\n");
+          this.buffer = lines.slice(i + 1).join("\r\n");
+          return response;
+        }
+      }
+    }
+  }
+
+  async sendCommand(cmd: string): Promise<string> {
+    const writer = this.conn.writable.getWriter();
+    await writer.write(this.encoder.encode(cmd + "\r\n"));
+    writer.releaseLock();
+    return await this.readResponse();
+  }
+
+  async login(user: string, pass: string): Promise<void> {
+    const userResp = await this.sendCommand(`USER ${user}`);
+    console.log(`[FTP] USER: ${userResp.trim()}`);
+    if (userResp.startsWith("331")) {
+      const passResp = await this.sendCommand(`PASS ${pass}`);
+      console.log(`[FTP] PASS: ${passResp.trim()}`);
+      if (!passResp.startsWith("230")) {
+        throw new Error(`FTP login failed: ${passResp.trim()}`);
+      }
+    } else if (!userResp.startsWith("230")) {
+      throw new Error(`FTP USER failed: ${userResp.trim()}`);
+    }
+  }
+
+  async passive(): Promise<{ host: string; port: number }> {
+    const resp = await this.sendCommand("PASV");
+    console.log(`[FTP] PASV: ${resp.trim()}`);
+    const match = resp.match(/\((\d+),(\d+),(\d+),(\d+),(\d+),(\d+)\)/);
+    if (!match) throw new Error(`Cannot parse PASV response: ${resp}`);
+    const host = `${match[1]}.${match[2]}.${match[3]}.${match[4]}`;
+    const port = parseInt(match[5]) * 256 + parseInt(match[6]);
+    return { host, port };
+  }
+
+  async uploadFile(remotePath: string, data: Uint8Array): Promise<string> {
+    await this.sendCommand("TYPE I");
+    const { host, port } = await this.passive();
+    
+    const dataConn = await Deno.connect({ hostname: host, port });
+    
+    const storResp = this.sendCommand(`STOR ${remotePath}`);
+    
+    const writer = dataConn.writable.getWriter();
+    await writer.write(data);
+    await writer.close();
+    
+    const resp = await storResp;
+    console.log(`[FTP] STOR: ${resp.trim()}`);
+    
+    const transferResp = await this.readResponse();
+    console.log(`[FTP] Transfer: ${transferResp.trim()}`);
+    
+    return transferResp;
+  }
+
+  async quit(): Promise<void> {
+    try {
+      await this.sendCommand("QUIT");
+    } catch {
+      // ignore
+    }
+    try {
+      this.conn.close();
+    } catch {
+      // ignore
+    }
+  }
+}
+
 // ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -237,6 +332,9 @@ Deno.serve(async (req) => {
       tipcars_heslo,
       firma_nazev = "Chrysler Pardubice",
       firma_info = {},
+      ftp_host = "ftp.tipcars.com",
+      ftp_user,
+      ftp_password,
     } = await req.json();
 
     if (!vehicle_ids || !Array.isArray(vehicle_ids) || vehicle_ids.length === 0) {
@@ -271,7 +369,6 @@ Deno.serve(async (req) => {
       const vehicle = vehicles[i];
       const adNumber = i + 1;
 
-      // Fetch images for this vehicle
       const { data: images } = await supabase
         .from("vehicle_images")
         .select("*")
@@ -286,7 +383,6 @@ Deno.serve(async (req) => {
       );
       allInzeratyXml.push(xml);
 
-      // Download photos
       for (const pf of photoFiles) {
         try {
           console.log(`[TipCars] Downloading photo: ${pf.url}`);
@@ -336,7 +432,37 @@ Deno.serve(async (req) => {
     ].join("_");
     const zipFileName = `${tipcars_kod_firmy}_${dateStr}.zip`;
 
-    // Upload ZIP to Supabase Storage
+    console.log(`[TipCars] ZIP created: ${zipFileName} (${(zipped.length / 1024 / 1024).toFixed(2)} MB)`);
+
+    // Upload to FTP if credentials provided
+    let ftpUploaded = false;
+    let ftpMessage = "";
+
+    if (ftp_user && ftp_password) {
+      const ftp = new FtpClient();
+      try {
+        console.log(`[TipCars] Connecting to FTP: ${ftp_host}`);
+        const welcome = await ftp.connect(ftp_host, 21);
+        console.log(`[TipCars] FTP welcome: ${welcome.trim()}`);
+        
+        await ftp.login(ftp_user, ftp_password);
+        console.log(`[TipCars] FTP logged in as ${ftp_user}`);
+        
+        await ftp.uploadFile(zipFileName, zipped);
+        console.log(`[TipCars] FTP upload complete: ${zipFileName}`);
+        
+        ftpUploaded = true;
+        ftpMessage = `Soubor ${zipFileName} úspěšně nahrán na FTP ${ftp_host}`;
+        
+        await ftp.quit();
+      } catch (ftpErr: any) {
+        console.error(`[TipCars] FTP error:`, ftpErr);
+        ftpMessage = `FTP upload selhal: ${ftpErr.message}`;
+        try { await ftp.quit(); } catch { /* ignore */ }
+      }
+    }
+
+    // Also upload to storage as backup
     const { error: uploadErr } = await supabase.storage
       .from("vehicles")
       .upload(`tipcars-export/${zipFileName}`, zipped, {
@@ -344,14 +470,11 @@ Deno.serve(async (req) => {
         upsert: true,
       });
 
-    if (uploadErr) throw new Error(`Chyba nahrávání ZIP: ${uploadErr.message}`);
+    if (uploadErr) console.warn(`[TipCars] Storage upload warning: ${uploadErr.message}`);
 
-    // Get public URL
     const { data: urlData } = supabase.storage
       .from("vehicles")
       .getPublicUrl(`tipcars-export/${zipFileName}`);
-
-    console.log(`[TipCars] ZIP uploaded: ${zipFileName} (${(zipped.length / 1024 / 1024).toFixed(2)} MB)`);
 
     return new Response(JSON.stringify({
       success: true,
@@ -360,6 +483,8 @@ Deno.serve(async (req) => {
       vehicles_count: vehicles.length,
       photos_count: photosDownloaded,
       zip_size_mb: (zipped.length / 1024 / 1024).toFixed(2),
+      ftp_uploaded: ftpUploaded,
+      ftp_message: ftpMessage || (ftp_user ? undefined : "FTP přihlašovací údaje nebyly zadány, ZIP pouze uložen ke stažení"),
     }), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

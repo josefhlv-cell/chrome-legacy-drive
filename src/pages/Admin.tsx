@@ -420,6 +420,9 @@ const VehiclesTab = () => {
                     <button onClick={() => setSautoVehicleId(sautoVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-orange-400 transition-colors" title="Export na Sauto.cz">
                       <Upload className="w-4 h-4" />
                     </button>
+                    <button onClick={() => setTipcarsVehicleId(tipcarsVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-emerald-400 transition-colors" title="Export do TipCars">
+                      <Download className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>

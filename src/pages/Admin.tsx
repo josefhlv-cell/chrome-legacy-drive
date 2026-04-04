@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef } from "react";
 import { motion } from "framer-motion";
 import {
   Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,
@@ -6,7 +6,6 @@ import {
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
   Type, Camera, Car, ShoppingBag, Loader2
 } from "lucide-react";
-import { SyncProgressOverlay } from "@/components/SyncProgressOverlay";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { QRCodeSVG } from "qrcode.react";
@@ -419,40 +418,51 @@ const VehiclesTab = () => {
 const ScrapeTab = () => {
   const { toast } = useToast();
   const { data: logs } = useScrapeLog();
-  const [jobId, setJobId] = useState<string | null>(null);
   const [scraping, setScraping] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [statusText, setStatusText] = useState("");
 
   const startScrape = async () => {
     setScraping(true);
+    setProgress(10);
+    setStatusText("Vytváření záznamu...");
+
     try {
+      const { data: logEntry, error: logErr } = await supabase
+        .from("scrape_log")
+        .insert({ triggered_by: "manual", status: "starting" })
+        .select("id")
+        .single();
+
+      if (logErr) throw logErr;
+
+      setProgress(25);
+      setStatusText("Scrapuji chrysler.cz...");
+
       const { data, error } = await supabase.functions.invoke("scrape-vehicles", {
-        body: {},
+        body: { log_id: logEntry?.id },
       });
 
       if (error) throw error;
 
-      if (data?.already_running) {
-        setJobId(data.jobId);
-        toast({ title: "Synchronizace již běží", description: "Připojuji se k běžícímu procesu." });
-      } else if (data?.queued && data?.jobId) {
-        setJobId(data.jobId);
-      } else {
-        throw new Error("Neočekávaná odpověď serveru");
-      }
+      setProgress(90);
+      setStatusText("Dokončuji...");
+
+      setTimeout(() => {
+        setProgress(100);
+        setStatusText(`Hotovo! Nalezeno ${data?.vehicles_found || 0} vozidel, aktualizováno ${data?.vehicles_updated || 0}.`);
+        toast({
+          title: "Aktualizace dokončena",
+          description: `${data?.vehicles_updated || 0} vozidel aktualizováno, ${data?.images_saved || 0} fotek staženo.`,
+        });
+        setScraping(false);
+      }, 500);
     } catch (err: any) {
-      toast({ title: "Chyba", description: err.message, variant: "destructive" });
+      setStatusText(`Chyba: ${err.message}`);
+      toast({ title: "Chyba aktualizace", description: err.message, variant: "destructive" });
       setScraping(false);
     }
   };
-
-  const handleComplete = useCallback(() => {
-    toast({ title: "Synchronizace dokončena", description: "Nabídka vozů byla aktualizována." });
-  }, [toast]);
-
-  const handleClose = useCallback(() => {
-    setJobId(null);
-    setScraping(false);
-  }, []);
 
   return (
     <div className="space-y-6">
@@ -469,6 +479,13 @@ const ScrapeTab = () => {
           {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
           {scraping ? "Probíhá aktualizace..." : "Aktualizovat nabídku vozidel"}
         </button>
+
+        {(scraping || statusText) && (
+          <div className="space-y-2">
+            <Progress value={progress} className="h-3" />
+            <p className="text-xs text-muted-foreground">{statusText}</p>
+          </div>
+        )}
       </div>
 
       <div className="deep-card p-6">
@@ -495,9 +512,6 @@ const ScrapeTab = () => {
           <strong>Automatická aktualizace:</strong> Nabídka se automaticky synchronizuje 1× denně. Můžete také spustit aktualizaci ručně tlačítkem výše.
         </p>
       </div>
-
-      {/* Progress overlay */}
-      <SyncProgressOverlay jobId={jobId} onComplete={handleComplete} onClose={handleClose} />
     </div>
   );
 };

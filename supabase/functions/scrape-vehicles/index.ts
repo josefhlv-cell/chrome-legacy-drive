@@ -6,7 +6,6 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-// ── Types ──
 interface ParsedVehicle {
   title: string;
   image: string;
@@ -18,20 +17,6 @@ interface ParsedVehicle {
   salePrice: number | null;
 }
 
-interface JobState {
-  status: "running" | "completed" | "failed";
-  phase: "queued" | "scraping" | "extracting" | "saving" | "done" | "error";
-  progress: number;
-  message: string;
-  vehicles: number;
-  updated: number;
-  created: number;
-  started_at: string;
-  completed_at: string | null;
-  user_id: string | null;
-}
-
-// ── Firecrawl ──
 async function scrapeWithFirecrawl(url: string, apiKey: string) {
   const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
@@ -49,7 +34,6 @@ async function scrapeWithFirecrawl(url: string, apiKey: string) {
   return await response.json();
 }
 
-// ── Parse vehicles from markdown ──
 function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
   const vehicles: ParsedVehicle[] = [];
   const seen = new Set<string>();
@@ -59,7 +43,6 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
 
   const section = markdown.substring(offerIdx);
   const lines = section.split("\n");
-
   let current: Partial<ParsedVehicle> | null = null;
 
   for (const rawLine of lines) {
@@ -68,7 +51,6 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
     const titleMatch = line.match(/^#{1,3}\s+(.+)/);
     if (titleMatch) {
       const text = titleMatch[1].trim().replace(/\\-/g, "-");
-
       if (
         text.match(/^\+\s*DPH$/i) ||
         text.match(/^Sleva\s/i) ||
@@ -85,13 +67,9 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
 
       current = {
         title: text.replace(/\s*AKCE\s.*$/i, "").trim(),
-        image: "",
-        fuel: "Benzín",
-        mileage: 0,
-        year: new Date().getFullYear(),
-        price: 0,
-        showVat: false,
-        salePrice: null,
+        image: "", fuel: "Benzín", mileage: 0,
+        year: new Date().getFullYear(), price: 0,
+        showVat: false, salePrice: null,
       };
       continue;
     }
@@ -146,7 +124,6 @@ function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
   return vehicles;
 }
 
-// ── Download image to storage ──
 async function downloadImageToStorage(
   supabase: ReturnType<typeof createClient>,
   imageUrl: string,
@@ -166,7 +143,7 @@ async function downloadImageToStorage(
       .from("vehicles")
       .upload(filename, blob, { upsert: true, contentType: `image/${ext === "jpg" ? "jpeg" : ext}` });
 
-    if (error) { console.error(`Upload error for ${filename}:`, error.message); return null; }
+    if (error) { console.error(`Upload error:`, error.message); return null; }
 
     const { data: urlData } = supabase.storage.from("vehicles").getPublicUrl(filename);
     return urlData.publicUrl;
@@ -176,97 +153,56 @@ async function downloadImageToStorage(
   }
 }
 
-// ── Update job state in api_cache ──
-async function updateJobState(
-  supabase: ReturnType<typeof createClient>,
-  jobId: string,
-  updates: Partial<JobState>
-) {
-  // Read current state
-  const { data: existing } = await supabase
-    .from("api_cache")
-    .select("data")
-    .eq("cache_key", jobId)
-    .eq("cache_type", "vehicle_sync_status")
-    .single();
+Deno.serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, { headers: corsHeaders });
+  }
 
-  const currentData = (existing?.data || {}) as JobState;
-  const newData = { ...currentData, ...updates };
+  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
+  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
+  const supabase = createClient(supabaseUrl, supabaseKey);
 
-  await supabase
-    .from("api_cache")
-    .update({ data: newData })
-    .eq("cache_key", jobId)
-    .eq("cache_type", "vehicle_sync_status");
-}
-
-// ── Background sync process ──
-async function runSync(
-  supabase: ReturnType<typeof createClient>,
-  jobId: string,
-  firecrawlKey: string
-) {
   try {
-    // Phase 1: Scraping
-    await updateJobState(supabase, jobId, {
-      phase: "scraping",
-      progress: 10,
-      message: "Stahování dat z chrysler.cz...",
-    });
+    const body = await req.json().catch(() => ({}));
+    const logId = body.log_id;
 
+    const updateLog = async (updates: Record<string, unknown>) => {
+      if (logId) {
+        await supabase.from("scrape_log").update(updates).eq("id", logId);
+      }
+    };
+
+    if (!firecrawlKey) {
+      await updateLog({ status: "error", error_message: "FIRECRAWL_API_KEY not configured", finished_at: new Date().toISOString() });
+      return new Response(
+        JSON.stringify({ error: "Firecrawl not configured" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
+
+    // Phase 1: Scrape
+    await updateLog({ status: "scraping" });
     const mainPage = await scrapeWithFirecrawl("https://www.chrysler.cz", firecrawlKey);
     const markdown = mainPage?.data?.markdown || mainPage?.markdown || "";
 
     if (!markdown) {
-      await updateJobState(supabase, jobId, {
-        status: "failed",
-        phase: "error",
-        progress: 100,
-        message: "Nepodařilo se stáhnout obsah z chrysler.cz",
-        completed_at: new Date().toISOString(),
-      });
-      return;
+      await updateLog({ status: "error", error_message: "No markdown content", finished_at: new Date().toISOString() });
+      return new Response(
+        JSON.stringify({ error: "No content scraped" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Phase 2: Extracting
-    await updateJobState(supabase, jobId, {
-      phase: "extracting",
-      progress: 35,
-      message: "Extrakce vozidel z dat...",
-    });
-
+    // Phase 2: Parse
+    await updateLog({ status: "parsing" });
     const scrapedVehicles = parseVehiclesFromMarkdown(markdown);
-    console.log(`Parsed ${scrapedVehicles.length} unique vehicles`);
+    console.log(`Parsed ${scrapedVehicles.length} unique vehicles from markdown`);
 
-    if (scrapedVehicles.length === 0) {
-      await updateJobState(supabase, jobId, {
-        status: "failed",
-        phase: "error",
-        progress: 100,
-        message: "Nebyly nalezeny žádné vozy v obsahu",
-        completed_at: new Date().toISOString(),
-      });
-      return;
-    }
+    // Phase 3: Save to DB
+    await updateLog({ status: "saving", vehicles_found: scrapedVehicles.length });
 
-    await updateJobState(supabase, jobId, {
-      phase: "extracting",
-      progress: 55,
-      message: `Nalezeno ${scrapedVehicles.length} vozidel, ukládám...`,
-      vehicles: scrapedVehicles.length,
-    });
-
-    // Phase 3: Saving
-    await updateJobState(supabase, jobId, {
-      phase: "saving",
-      progress: 60,
-      message: "Ukládání do databáze...",
-    });
-
-    const { data: existingVehicles } = await supabase
-      .from("vehicles")
-      .select("id, name, image_url");
-
+    const { data: existingVehicles } = await supabase.from("vehicles").select("id, name, image_url");
     const existingByName = new Map<string, { id: string; image_url: string }>();
     for (const v of existingVehicles || []) {
       existingByName.set(v.name.toLowerCase().trim(), { id: v.id, image_url: v.image_url });
@@ -274,18 +210,15 @@ async function runSync(
 
     const seenNames = new Set<string>();
     let updatedCount = 0;
-    let createdCount = 0;
     let imagesCount = 0;
 
-    for (let i = 0; i < scrapedVehicles.length; i++) {
-      const vehicle = scrapedVehicles[i];
+    for (const vehicle of scrapedVehicles) {
       if (!vehicle.title || !vehicle.price) continue;
 
       const nameKey = vehicle.title.toLowerCase().trim();
       seenNames.add(nameKey);
 
       const finalPrice = vehicle.salePrice || vehicle.price;
-
       const vehicleData = {
         name: vehicle.title,
         year: vehicle.year,
@@ -303,204 +236,59 @@ async function runSync(
       if (existing) {
         await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
         vehicleId = existing.id;
-        updatedCount++;
       } else {
-        const { data: created } = await supabase
-          .from("vehicles")
-          .insert(vehicleData)
-          .select("id")
-          .single();
+        const { data: created } = await supabase.from("vehicles").insert(vehicleData).select("id").single();
         vehicleId = created?.id || "";
-        createdCount++;
       }
 
-      // Download image to storage
+      updatedCount++;
+
       if (vehicleId && vehicle.image) {
         const { data: existingImg } = await supabase
-          .from("vehicle_images")
-          .select("id")
-          .eq("vehicle_id", vehicleId)
-          .limit(1)
-          .maybeSingle();
+          .from("vehicle_images").select("id").eq("vehicle_id", vehicleId).limit(1).maybeSingle();
 
         if (!existingImg) {
           const storedUrl = await downloadImageToStorage(supabase, vehicle.image, vehicleId, 0);
           if (storedUrl) {
             await supabase.from("vehicle_images").insert({
-              vehicle_id: vehicleId,
-              image_url: storedUrl,
-              is_main: true,
-              sort_order: 0,
+              vehicle_id: vehicleId, image_url: storedUrl, is_main: true, sort_order: 0,
             });
             await supabase.from("vehicles").update({ image_url: storedUrl }).eq("id", vehicleId);
             imagesCount++;
           }
         }
       }
-
-      // Update progress during saving (60-90%)
-      const saveProgress = 60 + Math.round((i / scrapedVehicles.length) * 30);
-      await updateJobState(supabase, jobId, {
-        progress: saveProgress,
-        message: `Ukládání vozidla ${i + 1}/${scrapedVehicles.length}...`,
-        updated: updatedCount,
-        created: createdCount,
-      });
     }
 
-    // Mark vehicles not on chrysler.cz as "prodano"
+    // Mark missing vehicles as sold
     for (const [name, { id }] of existingByName) {
       if (!seenNames.has(name)) {
-        await supabase
-          .from("vehicles")
-          .update({ status: "prodano" })
-          .eq("id", id)
-          .neq("status", "prodano");
+        await supabase.from("vehicles").update({ status: "prodano" }).eq("id", id).neq("status", "prodano");
       }
     }
 
-    // Done
-    await updateJobState(supabase, jobId, {
-      status: "completed",
-      phase: "done",
-      progress: 100,
-      message: `Dokončeno! ${updatedCount} aktualizováno, ${createdCount} nových, ${imagesCount} fotek staženo.`,
-      vehicles: scrapedVehicles.length,
-      updated: updatedCount,
-      created: createdCount,
-      completed_at: new Date().toISOString(),
-    });
-
-    // Also log to scrape_log
-    await supabase.from("scrape_log").insert({
+    await updateLog({
       status: "completed",
       vehicles_found: scrapedVehicles.length,
-      vehicles_updated: updatedCount + createdCount,
+      vehicles_updated: updatedCount,
       images_downloaded: imagesCount,
       finished_at: new Date().toISOString(),
-      triggered_by: "admin",
     });
 
-  } catch (error: unknown) {
-    const msg = error instanceof Error ? error.message : "Neznámá chyba";
-    console.error("Sync error:", msg);
-    await updateJobState(supabase, jobId, {
-      status: "failed",
-      phase: "error",
-      progress: 100,
-      message: `Chyba: ${msg}`,
-      completed_at: new Date().toISOString(),
-    });
-  }
-}
-
-// ── Main handler ──
-Deno.serve(async (req) => {
-  if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
-  }
-
-  const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-  const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
-  const supabase = createClient(supabaseUrl, supabaseKey);
-
-  try {
-    const body = await req.json().catch(() => ({}));
-
-    // ── Mode B: Poll job status ──
-    if (body.jobId) {
-      const { data: cache } = await supabase
-        .from("api_cache")
-        .select("data")
-        .eq("cache_key", body.jobId)
-        .eq("cache_type", "vehicle_sync_status")
-        .single();
-
-      if (!cache) {
-        return new Response(
-          JSON.stringify({ success: false, error: "Job not found" }),
-          { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-
-      return new Response(
-        JSON.stringify({ success: true, ...(cache.data as Record<string, unknown>) }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // ── Mode A: Start new sync ──
-    if (!firecrawlKey) {
-      return new Response(
-        JSON.stringify({ error: "Firecrawl not configured" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Check if another sync is running
-    const { data: running } = await supabase
-      .from("api_cache")
-      .select("cache_key, data")
-      .eq("cache_type", "vehicle_sync_status")
-      .order("created_at", { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (running) {
-      const runData = running.data as JobState;
-      if (runData.status === "running") {
-        return new Response(
-          JSON.stringify({
-            success: true,
-            queued: false,
-            already_running: true,
-            jobId: running.cache_key,
-            ...runData,
-          }),
-          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-        );
-      }
-    }
-
-    // Create new job
-    const jobId = crypto.randomUUID();
-    const initialState: JobState = {
-      status: "running",
-      phase: "queued",
-      progress: 0,
-      message: "Spouštím synchronizaci...",
-      vehicles: 0,
-      updated: 0,
-      created: 0,
-      started_at: new Date().toISOString(),
-      completed_at: null,
-      user_id: null,
-    };
-
-    await supabase.from("api_cache").insert({
-      cache_type: "vehicle_sync_status",
-      cache_key: jobId,
-      data: initialState,
-    });
-
-    // Fire and forget — start sync in background
-    // EdgeRuntime doesn't support waitUntil, so we use a non-awaited promise
-    runSync(supabase, jobId, firecrawlKey).catch((e) =>
-      console.error("Background sync crashed:", e)
-    );
-
-    // Return immediately
     return new Response(
-      JSON.stringify({ success: true, queued: true, jobId }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      JSON.stringify({
+        success: true,
+        vehicles_found: scrapedVehicles.length,
+        vehicles_updated: updatedCount,
+        images_saved: imagesCount,
+      }),
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
     console.error("Scrape error:", msg);
-    return new Response(
-      JSON.stringify({ error: msg }),
-      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-    );
+    return new Response(JSON.stringify({ error: msg }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
+    });
   }
 });

@@ -71,6 +71,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       </div>
     </Link>
   </motion.div>
-);
+  );
+};
 
 export default VehicleCard;

@@ -93,7 +93,7 @@ const AboutPage = () => {
             <p className="text-muted-foreground text-sm mb-8">Profesionální dílna a vybavení v Lukovně u Pardubic.</p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {galleryImages.map((img, i) => (
+              {displayPhotos.map((img, i) => (
                 <motion.button
                   key={i}
                   initial={{ opacity: 0, scale: 0.95 }}

@@ -4,7 +4,8 @@ import {
   Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,
   Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download,
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
-  Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink
+  Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink,
+  BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";

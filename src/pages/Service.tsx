@@ -20,7 +20,7 @@ const services = [
   },
   {
     icon: Cog,
-    title: "Originální náhradní díly",
+    title: "Originální náhradní díly Mopar",
     desc: "Dodávky originálních i kvalitních aftermarket dílů přímo z USA. Brzdy, filtry, svíčky, řemeny, podvozek i karoserie.",
   },
   {

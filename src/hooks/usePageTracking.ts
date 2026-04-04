@@ -47,8 +47,8 @@ export function usePageTracking() {
     // Record exit on unload
     const handleUnload = () => {
       const timeOnPage = Math.round((Date.now() - startTime.current) / 1000);
-      // Use sendBeacon for reliable delivery
-      const payload = JSON.stringify({
+      // Use supabase client for reliable insert
+      supabase.from("page_views").insert({
         session_id: sessionId,
         path: location.pathname,
         referrer: document.referrer || "",
@@ -57,13 +57,7 @@ export function usePageTracking() {
         screen_height: window.innerHeight,
         is_bounce: !lastPath.current || lastPath.current === location.pathname,
         exit_page: true,
-      });
-
-      const url = `${import.meta.env.VITE_SUPABASE_URL}/rest/v1/page_views`;
-      navigator.sendBeacon(
-        url,
-        new Blob([payload], { type: "application/json" })
-      );
+      }).then(() => {});
     };
 
     window.addEventListener("beforeunload", handleUnload);

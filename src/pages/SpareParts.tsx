@@ -2,7 +2,7 @@ import { motion } from "framer-motion";
 import { Wrench, Search, Smartphone, Phone, ShieldCheck, Truck, Package } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 
 const APP_URL = "https://chryslerpardubice.site/";
 

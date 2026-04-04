@@ -7,7 +7,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 
 const APP_URL = "https://chryslerpardubice.site/";
 

@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
+import { usePageTracking } from "@/hooks/usePageTracking";
 import Index from "./pages/Index.tsx";
 import ScrollToTop from "./components/ScrollToTop.tsx";
 
@@ -29,6 +30,12 @@ const PageFallback = () => (
   </div>
 );
 
+// Tracker component inside BrowserRouter
+const PageTracker = () => {
+  usePageTracking();
+  return null;
+};
+
 const App = () => (
   <QueryClientProvider client={queryClient}>
     <AuthProvider>
@@ -37,6 +44,7 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <ScrollToTop />
+          <PageTracker />
           <Suspense fallback={<PageFallback />}>
             <Routes>
               <Route path="/" element={<Index />} />

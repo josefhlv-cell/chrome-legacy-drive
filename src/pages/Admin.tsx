@@ -4,7 +4,7 @@ import {
   Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,
   Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download,
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
-  Type, Camera, Car, ShoppingBag, Loader2
+  Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
@@ -182,6 +182,16 @@ const VehiclesTab = () => {
   const deleteImage = useDeleteVehicleImage();
   const setMainImage = useSetMainImage();
 
+  // Sauto export state
+  const [sautoVehicleId, setSautoVehicleId] = useState<string | null>(null);
+  const [sautoExporting, setSautoExporting] = useState(false);
+  const [sautoCredentials, setSautoCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem("sauto_credentials");
+      return saved ? JSON.parse(saved) : { login: "", password: "", sw_key: "" };
+    } catch { return { login: "", password: "", sw_key: "" }; }
+  });
+
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
     updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
   };
@@ -251,6 +261,40 @@ const VehiclesTab = () => {
       link.click();
     };
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+  };
+
+  const handleSautoExport = async (vehicleId: string) => {
+    if (!sautoCredentials.login || !sautoCredentials.password || !sautoCredentials.sw_key) {
+      toast({ title: "Vyplňte přihlašovací údaje k Sauto.cz", variant: "destructive" });
+      return;
+    }
+    setSautoExporting(true);
+    try {
+      // Save credentials for next time
+      localStorage.setItem("sauto_credentials", JSON.stringify(sautoCredentials));
+
+      const { data, error } = await supabase.functions.invoke("sauto-export", {
+        body: {
+          vehicle_id: vehicleId,
+          sauto_login: sautoCredentials.login,
+          sauto_password: sautoCredentials.password,
+          sauto_sw_key: sautoCredentials.sw_key,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: "Export na Sauto.cz úspěšný!",
+        description: `Car ID: ${data.car_id}, Fotek: ${data.photos_uploaded}/${data.photos_total}`,
+      });
+      setSautoVehicleId(null);
+    } catch (err: any) {
+      toast({ title: "Chyba exportu na Sauto.cz", description: err.message, variant: "destructive" });
+    } finally {
+      setSautoExporting(false);
+    }
   };
 
   return (
@@ -324,6 +368,9 @@ const VehiclesTab = () => {
                     <button onClick={() => editingId === vehicle.id ? setEditingId(null) : startEdit(vehicle)} className="p-1.5 text-muted-foreground hover:text-primary transition-colors">
                       <Edit className="w-4 h-4" />
                     </button>
+                    <button onClick={() => setSautoVehicleId(sautoVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-orange-400 transition-colors" title="Export na Sauto.cz">
+                      <Upload className="w-4 h-4" />
+                    </button>
                     <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -340,6 +387,62 @@ const VehiclesTab = () => {
                     </div>
                   </motion.div>
                 )}
+
+                {sautoVehicleId === vehicle.id && (
+                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 rounded-lg bg-secondary/50 border border-border">
+                    <div className="flex items-center gap-2 mb-3">
+                      <ExternalLink className="w-4 h-4 text-orange-400" />
+                      <h4 className="text-sm font-bold text-foreground">Export na Sauto.cz</h4>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Login (uživatelské jméno)</label>
+                        <input
+                          type="text"
+                          value={sautoCredentials.login}
+                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, login: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="vas_login"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo</label>
+                        <input
+                          type="password"
+                          value={sautoCredentials.password}
+                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, password: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="••••••"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Softwarový klíč</label>
+                        <input
+                          type="text"
+                          value={sautoCredentials.sw_key}
+                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, sw_key: e.target.value })}
+                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                          placeholder="sw_key od Sauto"
+                        />
+                      </div>
+                    </div>
+                    <p className="text-xs text-muted-foreground mb-3">
+                      Údaje se uloží pro příště. Vozidlo bude exportováno včetně všech fotek z galerie.
+                    </p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleSautoExport(vehicle.id)}
+                        disabled={sautoExporting}
+                        className="chrome-button inline-flex items-center gap-2 text-sm"
+                      >
+                        {sautoExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
+                        {sautoExporting ? "Exportuji..." : "Exportovat na Sauto.cz"}
+                      </button>
+                      <button onClick={() => setSautoVehicleId(null)} className="outline-button text-sm">Zrušit</button>
+                    </div>
+                  </motion.div>
+                )}
+
 
                 {editingId === vehicle.id && (
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">

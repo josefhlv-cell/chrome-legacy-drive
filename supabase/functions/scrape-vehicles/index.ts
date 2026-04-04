@@ -6,122 +6,34 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-interface ParsedVehicle {
-  title: string;
-  image: string;
-  fuel: string;
-  mileage: number;
-  year: number;
-  price: number;
-  showVat: boolean;
-  salePrice: number | null;
+const VEHICLE_API = "https://chrysler-pardubice.cz/chrysler_server/Vehicle.php";
+
+interface ApiVehicle {
+  ID_vozidla: string;
+  nazev: string;
+  cena: string;
+  cena_akce: string;
+  rok_vyroby: string;
+  objem: string;
+  palivo: string;
+  vykon: string;
+  spotreba: string;
+  karoserie: string;
+  najeto: string;
+  barva: string;
+  stk: string;
+  vin: string;
+  vybava: string;
+  doplnujici_popis: string;
+  url: string; // semicolon-separated image URLs
+  jednotka: string;
+  DPH: string;
 }
 
-async function scrapeWithFirecrawl(url: string, apiKey: string) {
-  const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      url,
-      formats: ["markdown"],
-      waitFor: 8000,
-      timeout: 120000,
-    }),
-  });
+async function fetchVehiclesFromApi(): Promise<ApiVehicle[]> {
+  const response = await fetch(VEHICLE_API);
+  if (!response.ok) throw new Error(`API returned ${response.status}`);
   return await response.json();
-}
-
-function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
-  const vehicles: ParsedVehicle[] = [];
-  const seen = new Set<string>();
-
-  const offerIdx = markdown.indexOf("naše nabídka vozů");
-  if (offerIdx === -1) return vehicles;
-
-  const section = markdown.substring(offerIdx);
-  const lines = section.split("\n");
-  let current: Partial<ParsedVehicle> | null = null;
-
-  for (const rawLine of lines) {
-    const line = rawLine.trim();
-
-    const titleMatch = line.match(/^#{1,3}\s+(.+)/);
-    if (titleMatch) {
-      const text = titleMatch[1].trim().replace(/\\-/g, "-");
-      if (
-        text.match(/^\+\s*DPH$/i) ||
-        text.match(/^Sleva\s/i) ||
-        text.match(/nabídka|autoservis|kontakt|služby|díly|video|rady|náhradní|prodej|TADY BYDLÍ/i) ||
-        text.length < 8
-      ) continue;
-
-      if (current?.title && current?.price && current?.image) {
-        if (!seen.has(current.image)) {
-          seen.add(current.image);
-          vehicles.push(current as ParsedVehicle);
-        }
-      }
-
-      current = {
-        title: text.replace(/\s*AKCE\s.*$/i, "").trim(),
-        image: "", fuel: "Benzín", mileage: 0,
-        year: new Date().getFullYear(), price: 0,
-        showVat: false, salePrice: null,
-      };
-      continue;
-    }
-
-    if (!current) continue;
-
-    const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+\.(jpg|jpeg|png|webp)[^)]*)\)/i);
-    if (imgMatch && !current.image) {
-      const url = imgMatch[1];
-      if (!url.includes("logo") && !url.includes("icon") && !url.includes("Vector") && !url.includes("sale-tag") && !url.includes("/images/")) {
-        current.image = url;
-        continue;
-      }
-    }
-
-    const fuelMatch = line.match(/Palivo:\s*(.+)/i);
-    if (fuelMatch) { current.fuel = fuelMatch[1].trim(); continue; }
-
-    const mileageMatch = line.match(/Nájezd:\s*([\d\s]+)\s*(Km|Mil)/i);
-    if (mileageMatch) {
-      const value = parseInt(mileageMatch[1].replace(/\s/g, ""), 10) || 0;
-      const unit = mileageMatch[2].toLowerCase();
-      current.mileage = unit === "mil" ? Math.round(value * 1.60934) : value;
-      continue;
-    }
-
-    const yearMatch = line.match(/Rok výroby:\s*(\d{4})/i);
-    if (yearMatch) { current.year = parseInt(yearMatch[1], 10); continue; }
-
-    const salePriceMatch = line.match(/Nová cena:\s*([\d\s]+)\s*Kč/i);
-    if (salePriceMatch) {
-      current.salePrice = parseInt(salePriceMatch[1].replace(/\s/g, ""), 10) || null;
-      if (salePriceMatch.input && /\+\s*DPH/i.test(salePriceMatch.input)) current.showVat = true;
-      continue;
-    }
-
-    const priceMatch = line.match(/Cena:\s*([\d\s]+)\s*Kč/i);
-    if (priceMatch) {
-      current.price = parseInt(priceMatch[1].replace(/\s/g, ""), 10) || 0;
-      current.showVat = /\+\s*DPH/i.test(line);
-      continue;
-    }
-  }
-
-  if (current?.title && current?.price && current?.image) {
-    if (!seen.has(current.image)) {
-      seen.add(current.image);
-      vehicles.push(current as ParsedVehicle);
-    }
-  }
-
-  return vehicles;
 }
 
 async function downloadImageToStorage(
@@ -160,7 +72,6 @@ Deno.serve(async (req) => {
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
   const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-  const firecrawlKey = Deno.env.get("FIRECRAWL_API_KEY");
   const supabase = createClient(supabaseUrl, supabaseKey);
 
   try {
@@ -173,34 +84,22 @@ Deno.serve(async (req) => {
       }
     };
 
-    if (!firecrawlKey) {
-      await updateLog({ status: "error", error_message: "FIRECRAWL_API_KEY not configured", finished_at: new Date().toISOString() });
+    // Step 1: Fetch vehicles from API
+    await updateLog({ status: "fetching_api" });
+    console.log("Fetching vehicles from Vehicle.php API...");
+    const apiVehicles = await fetchVehiclesFromApi();
+    console.log(`Fetched ${apiVehicles.length} vehicles from API`);
+
+    if (!apiVehicles.length) {
+      await updateLog({ status: "error", error_message: "No vehicles from API", finished_at: new Date().toISOString() });
       return new Response(
-        JSON.stringify({ error: "Firecrawl not configured" }),
+        JSON.stringify({ error: "No vehicles returned from API" }),
         { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Phase 1: Scrape
-    await updateLog({ status: "scraping" });
-    const mainPage = await scrapeWithFirecrawl("https://www.chrysler.cz", firecrawlKey);
-    const markdown = mainPage?.data?.markdown || mainPage?.markdown || "";
-
-    if (!markdown) {
-      await updateLog({ status: "error", error_message: "No markdown content", finished_at: new Date().toISOString() });
-      return new Response(
-        JSON.stringify({ error: "No content scraped" }),
-        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-
-    // Phase 2: Parse
-    await updateLog({ status: "parsing" });
-    const scrapedVehicles = parseVehiclesFromMarkdown(markdown);
-    console.log(`Parsed ${scrapedVehicles.length} unique vehicles from markdown`);
-
-    // Phase 3: Save to DB
-    await updateLog({ status: "saving", vehicles_found: scrapedVehicles.length });
+    // Step 2: Get existing vehicles
+    await updateLog({ status: "syncing", vehicles_found: apiVehicles.length });
 
     const { data: existingVehicles } = await supabase.from("vehicles").select("id, name, image_url");
     const existingByName = new Map<string, { id: string; image_url: string }>();
@@ -210,24 +109,45 @@ Deno.serve(async (req) => {
 
     const seenNames = new Set<string>();
     let updatedCount = 0;
+    let createdCount = 0;
     let imagesCount = 0;
 
-    for (const vehicle of scrapedVehicles) {
-      if (!vehicle.title || !vehicle.price) continue;
+    // Step 3: Upsert vehicles + download all gallery images
+    for (const av of apiVehicles) {
+      if (!av.nazev || !av.cena) continue;
 
-      const nameKey = vehicle.title.toLowerCase().trim();
+      const nameKey = av.nazev.toLowerCase().trim();
       seenNames.add(nameKey);
 
-      const finalPrice = vehicle.salePrice || vehicle.price;
+      const imageUrls = av.url ? av.url.split(";").filter(u => u.startsWith("http")) : [];
+      const mainImageUrl = imageUrls[0] || "";
+
+      const price = parseInt(av.cena_akce || av.cena, 10) || 0;
+      const mileageRaw = parseInt(av.najeto.replace(/[\s.]/g, ""), 10) || 0;
+      const mileage = av.jednotka?.toLowerCase() === "mil"
+        ? Math.round(mileageRaw * 1.60934)
+        : mileageRaw;
+
+      // Build description from vybava + doplnujici_popis
+      const descParts: string[] = [];
+      if (av.vybava) descParts.push(av.vybava.trim());
+      if (av.doplnujici_popis) descParts.push(av.doplnujici_popis.trim());
+      const description = descParts.join("\n\n");
+
       const vehicleData = {
-        name: vehicle.title,
-        year: vehicle.year,
-        price_with_vat: finalPrice,
-        mileage: vehicle.mileage,
-        fuel: vehicle.fuel,
-        image_url: vehicle.image,
+        name: av.nazev,
+        year: parseInt(av.rok_vyroby, 10) || new Date().getFullYear(),
+        price_with_vat: price,
+        mileage,
+        fuel: av.palivo || "Benzín",
+        image_url: mainImageUrl,
         status: "skladem" as const,
-        show_vat: vehicle.showVat,
+        show_vat: av.DPH === "1" || av.DPH?.toLowerCase() === "ano",
+        vin: av.vin || "",
+        engine: av.objem ? `${av.objem} ccm` : "",
+        power: av.vykon ? `${av.vykon} kW` : "",
+        color: av.barva || "",
+        description,
       };
 
       let vehicleId: string;
@@ -236,31 +156,53 @@ Deno.serve(async (req) => {
       if (existing) {
         await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
         vehicleId = existing.id;
+        updatedCount++;
       } else {
-        const { data: created } = await supabase.from("vehicles").insert(vehicleData).select("id").single();
+        const { data: created } = await supabase
+          .from("vehicles").insert(vehicleData).select("id").single();
         vehicleId = created?.id || "";
+        createdCount++;
       }
 
-      updatedCount++;
+      // Download ALL gallery images (not just main)
+      if (vehicleId && imageUrls.length > 0) {
+        // Check how many images already exist for this vehicle
+        const { data: existingImgs } = await supabase
+          .from("vehicle_images")
+          .select("id")
+          .eq("vehicle_id", vehicleId);
 
-      if (vehicleId && vehicle.image) {
-        const { data: existingImg } = await supabase
-          .from("vehicle_images").select("id").eq("vehicle_id", vehicleId).limit(1).maybeSingle();
+        const existingImgCount = existingImgs?.length || 0;
 
-        if (!existingImg) {
-          const storedUrl = await downloadImageToStorage(supabase, vehicle.image, vehicleId, 0);
-          if (storedUrl) {
-            await supabase.from("vehicle_images").insert({
-              vehicle_id: vehicleId, image_url: storedUrl, is_main: true, sort_order: 0,
-            });
-            await supabase.from("vehicles").update({ image_url: storedUrl }).eq("id", vehicleId);
-            imagesCount++;
+        // Only download if we have more images from API than in DB
+        if (existingImgCount < imageUrls.length) {
+          // Delete old images and re-download all
+          if (existingImgCount > 0) {
+            await supabase.from("vehicle_images").delete().eq("vehicle_id", vehicleId);
+          }
+
+          for (let i = 0; i < imageUrls.length; i++) {
+            const storedUrl = await downloadImageToStorage(supabase, imageUrls[i], vehicleId, i);
+            if (storedUrl) {
+              await supabase.from("vehicle_images").insert({
+                vehicle_id: vehicleId,
+                image_url: storedUrl,
+                is_main: i === 0,
+                sort_order: i,
+              });
+              imagesCount++;
+
+              // Update main image_url on vehicle
+              if (i === 0) {
+                await supabase.from("vehicles").update({ image_url: storedUrl }).eq("id", vehicleId);
+              }
+            }
           }
         }
       }
     }
 
-    // Mark missing vehicles as sold
+    // Step 4: Mark missing vehicles as sold
     for (const [name, { id }] of existingByName) {
       if (!seenNames.has(name)) {
         await supabase.from("vehicles").update({ status: "prodano" }).eq("id", id).neq("status", "prodano");
@@ -269,24 +211,26 @@ Deno.serve(async (req) => {
 
     await updateLog({
       status: "completed",
-      vehicles_found: scrapedVehicles.length,
-      vehicles_updated: updatedCount,
+      vehicles_found: apiVehicles.length,
+      vehicles_updated: updatedCount + createdCount,
       images_downloaded: imagesCount,
       finished_at: new Date().toISOString(),
     });
 
+    console.log(`Done: ${updatedCount} updated, ${createdCount} created, ${imagesCount} images`);
+
     return new Response(
       JSON.stringify({
         success: true,
-        vehicles_found: scrapedVehicles.length,
-        vehicles_updated: updatedCount,
+        vehicles_found: apiVehicles.length,
+        vehicles_updated: updatedCount + createdCount,
         images_saved: imagesCount,
       }),
       { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";
-    console.error("Scrape error:", msg);
+    console.error("Sync error:", msg);
     return new Response(JSON.stringify({ error: msg }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });

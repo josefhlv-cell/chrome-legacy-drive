@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { supabase } from "@/integrations/supabase/client";
 
 const INTRO_KEY = "chrysler_intro_seen";
 const ALWAYS_SHOW_EMAILS = ["admin@chrysler-pardubice.cz"];
@@ -21,16 +20,23 @@ const IntroAnimation = () => {
   }, [fading]);
 
   useEffect(() => {
-    const checkUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      const alwaysShow = user?.email && ALWAYS_SHOW_EMAILS.includes(user.email);
+    // Defer Supabase auth check to after first paint — never block rendering
+    const alreadySeen = localStorage.getItem(INTRO_KEY);
+    if (alreadySeen) return;
 
-      if (!alwaysShow && localStorage.getItem(INTRO_KEY)) return;
+    // Show intro immediately for non-authenticated users
+    setShow(true);
+    document.body.style.overflow = "hidden";
 
-      setShow(true);
-      document.body.style.overflow = "hidden";
-    };
-    checkUser();
+    // Async check for always-show users (lazy import to avoid blocking main bundle)
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user?.email && ALWAYS_SHOW_EMAILS.includes(user.email)) {
+          // Already showing, nothing to do
+        }
+      });
+    });
+
     return () => {
       document.body.style.overflow = "";
     };

@@ -1,10 +1,10 @@
 import { lazy, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
-import StockTicker from "@/components/StockTicker";
-import IntroAnimation from "@/components/IntroAnimation";
 
-// Lazy load below-the-fold sections
+// Lazy load everything not in the initial viewport
+const IntroAnimation = lazy(() => import("@/components/IntroAnimation"));
+const StockTicker = lazy(() => import("@/components/StockTicker"));
 const FeaturedVehicles = lazy(() => import("@/components/FeaturedVehicles"));
 const ServicePreview = lazy(() => import("@/components/ServicePreview"));
 const WhyUs = lazy(() => import("@/components/WhyUs"));
@@ -15,11 +15,13 @@ const Footer = lazy(() => import("@/components/Footer"));
 
 const Index = () => (
   <div className="min-h-screen bg-background">
-    <IntroAnimation />
+    <Suspense fallback={null}>
+      <IntroAnimation />
+    </Suspense>
     <Navbar />
     <HeroSection />
-    <StockTicker />
     <Suspense fallback={null}>
+      <StockTicker />
       <FeaturedVehicles />
       <ServicePreview />
       <WhyUs />

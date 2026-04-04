@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import { Menu, X } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 const navItems = [
@@ -28,7 +27,7 @@ const Navbar = () => {
     }}>
       <div className="container mx-auto flex items-center justify-between h-16 px-4">
         <Link to="/" className="flex items-center gap-2">
-          <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 w-auto drop-shadow-lg" />
+          <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 w-auto drop-shadow-lg" width={179} height={200} />
         </Link>
 
         <div className="hidden md:flex items-center gap-8">
@@ -55,33 +54,29 @@ const Navbar = () => {
         </button>
       </div>
 
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            className="md:hidden border-t border-border/30"
-            style={{
-              background: 'hsla(218, 50%, 8%, 0.95)',
-              backdropFilter: 'blur(24px)',
-            }}
-          >
-            <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
-              {navItems.map((item) => (
-                <Link
-                  key={item.path}
-                  to={item.path}
-                  onClick={() => setMobileOpen(false)}
-                  className="text-sm font-semibold tracking-[0.12em] uppercase text-foreground/70 hover:text-primary transition-colors font-montserrat"
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* CSS-only mobile menu transition (no framer-motion) */}
+      <div
+        className="md:hidden border-t border-border/30 overflow-hidden transition-all duration-300 ease-out"
+        style={{
+          maxHeight: mobileOpen ? '400px' : '0',
+          opacity: mobileOpen ? 1 : 0,
+          background: 'hsla(218, 50%, 8%, 0.95)',
+          backdropFilter: 'blur(24px)',
+        }}
+      >
+        <div className="container mx-auto px-4 py-4 flex flex-col gap-4">
+          {navItems.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileOpen(false)}
+              className="text-sm font-semibold tracking-[0.12em] uppercase text-foreground/70 hover:text-primary transition-colors font-montserrat"
+            >
+              {item.label}
+            </Link>
+          ))}
+        </div>
+      </div>
     </nav>
   );
 };

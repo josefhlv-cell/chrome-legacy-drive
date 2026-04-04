@@ -6,7 +6,7 @@ import logoPardubice from "@/assets/logo-pardubice.webp";
 const HeroSection = () => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     <div className="absolute inset-0">
-      <img src={heroImage} alt="Chrysler - Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} fetchPriority="high" decoding="sync" loading="eager" />
+      <img src={heroImage} alt="Chrysler - Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} fetchPriority="high" decoding="async" loading="eager" />
       {/* Multi-layered depth overlay */}
       <div className="absolute inset-0" style={{
         background: 'linear-gradient(135deg, hsl(218 50% 7% / 0.95) 0%, hsl(218 50% 7% / 0.75) 40%, hsl(218 50% 7% / 0.3) 100%)',

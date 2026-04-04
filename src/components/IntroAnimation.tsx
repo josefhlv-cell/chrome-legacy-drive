@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { supabase } from "@/integrations/supabase/client";
 
 const INTRO_KEY = "chrysler_intro_seen";
+const ALWAYS_SHOW_EMAILS = ["admin@chrysler-pardubice.cz"];
 
 const IntroAnimation = () => {
   const [show, setShow] = useState(false);
@@ -19,9 +21,16 @@ const IntroAnimation = () => {
   }, [fading]);
 
   useEffect(() => {
-    if (localStorage.getItem(INTRO_KEY)) return;
-    setShow(true);
-    document.body.style.overflow = "hidden";
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      const alwaysShow = user?.email && ALWAYS_SHOW_EMAILS.includes(user.email);
+
+      if (!alwaysShow && localStorage.getItem(INTRO_KEY)) return;
+
+      setShow(true);
+      document.body.style.overflow = "hidden";
+    };
+    checkUser();
     return () => {
       document.body.style.overflow = "";
     };

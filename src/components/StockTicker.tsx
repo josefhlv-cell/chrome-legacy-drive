@@ -1,15 +1,18 @@
 import { motion } from "framer-motion";
+import { useTickerItems } from "@/hooks/useAdminContent";
 
-const tickerItems = [
-  "Před 3 hodinami: Chrysler Pacifica Hybrid rezervována (klient Brno)",
-  "Nově na skladě: Chrysler 300C 5.7 HEMI (dovoz Florida)",
+const fallbackItems = [
+  "Nově na skladě: Chrysler Pacifica Hybrid (dovoz Florida)",
   "Na cestě: 2x Chrysler Grand Caravan z USA",
   "Prodáno: Dodge Challenger GT AWD (klient Praha)",
-  "Nově na skladě: Chrysler Town & Country 3.6 LPG",
-  "Rezervováno: Chrysler Pacifica Limited (klient Olomouc)",
 ];
 
 const StockTicker = () => {
+  const { data: dbItems } = useTickerItems();
+
+  const activeItems = dbItems?.filter((i) => i.is_active).map((i) => i.text);
+  const tickerItems = activeItems && activeItems.length > 0 ? activeItems : fallbackItems;
+
   const text = tickerItems.join("  •  ");
   const doubled = `${text}  •  ${text}`;
 

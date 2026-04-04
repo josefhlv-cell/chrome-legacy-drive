@@ -7,12 +7,20 @@ const HeroSection = () => (
   <section className="relative min-h-screen flex items-center justify-center overflow-hidden">
     <div className="absolute inset-0">
       <img src={heroImage} alt="Chrysler - Dodge Pardubice" className="w-full h-full object-cover" width={1920} height={1080} />
-      {/* Deep navy overlay matching Chrysler.cz DNA */}
+      {/* Multi-layered depth overlay */}
       <div className="absolute inset-0" style={{
-        background: 'linear-gradient(to right, hsl(218 50% 7% / 0.92), hsl(218 50% 7% / 0.7), hsl(218 50% 7% / 0.35))',
+        background: 'linear-gradient(135deg, hsl(218 50% 7% / 0.95) 0%, hsl(218 50% 7% / 0.75) 40%, hsl(218 50% 7% / 0.3) 100%)',
       }} />
       <div className="absolute inset-0" style={{
-        background: 'linear-gradient(to top, hsl(218 50% 7%) 0%, transparent 50%, hsl(218 50% 7% / 0.2) 100%)',
+        background: 'linear-gradient(to top, hsl(218 50% 7%) 0%, transparent 40%, hsl(218 50% 7% / 0.15) 100%)',
+      }} />
+      {/* Ambient chrome highlight */}
+      <div className="absolute inset-0" style={{
+        background: 'radial-gradient(ellipse at 70% 30%, hsla(215, 55%, 48%, 0.08) 0%, transparent 60%)',
+      }} />
+      {/* Bottom metallic edge */}
+      <div className="absolute bottom-0 left-0 right-0 h-[3px]" style={{
+        background: 'linear-gradient(90deg, transparent 5%, hsla(210, 15%, 55%, 0.3) 30%, hsla(38, 45%, 55%, 0.2) 50%, hsla(210, 15%, 55%, 0.3) 70%, transparent 95%)',
       }} />
     </div>
 
@@ -23,10 +31,12 @@ const HeroSection = () => (
         transition={{ duration: 0.8, ease: "easeOut" }}
         className="max-w-2xl"
       >
-        <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-wide text-foreground leading-tight mb-6 italic font-serif">
+        <h1 className="text-3xl md:text-5xl lg:text-6xl font-black tracking-wide text-foreground leading-tight mb-6 italic font-serif" style={{
+          textShadow: '0 2px 12px hsla(0, 0%, 0%, 0.5), 0 0 40px hsla(215, 55%, 48%, 0.1)',
+        }}>
           „Nejsme jen prodejci,
           <br />
-          jsme vaši <span className="text-primary">partneři</span>
+          jsme vaši <span className="text-primary" style={{ textShadow: '0 0 20px hsla(215, 55%, 48%, 0.3)' }}>partneři</span>
           <br />
           na každém kilometru vaší cesty."
         </h1>

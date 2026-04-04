@@ -14,6 +14,33 @@ export type Database = {
   }
   public: {
     Tables: {
+      facility_photos: {
+        Row: {
+          alt_text: string
+          caption: string
+          created_at: string
+          id: string
+          image_url: string
+          sort_order: number
+        }
+        Insert: {
+          alt_text?: string
+          caption?: string
+          created_at?: string
+          id?: string
+          image_url: string
+          sort_order?: number
+        }
+        Update: {
+          alt_text?: string
+          caption?: string
+          created_at?: string
+          id?: string
+          image_url?: string
+          sort_order?: number
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           created_at: string
@@ -47,6 +74,87 @@ export type Database = {
           phone?: string
           type?: string
           vehicle_model?: string
+        }
+        Relationships: []
+      }
+      scrape_log: {
+        Row: {
+          error_message: string | null
+          finished_at: string | null
+          id: string
+          images_downloaded: number | null
+          started_at: string
+          status: string
+          triggered_by: string | null
+          vehicles_found: number | null
+          vehicles_updated: number | null
+        }
+        Insert: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          images_downloaded?: number | null
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+          vehicles_found?: number | null
+          vehicles_updated?: number | null
+        }
+        Update: {
+          error_message?: string | null
+          finished_at?: string | null
+          id?: string
+          images_downloaded?: number | null
+          started_at?: string
+          status?: string
+          triggered_by?: string | null
+          vehicles_found?: number | null
+          vehicles_updated?: number | null
+        }
+        Relationships: []
+      }
+      site_contacts: {
+        Row: {
+          id: string
+          key: string
+          updated_at: string
+          value: string
+        }
+        Insert: {
+          id?: string
+          key: string
+          updated_at?: string
+          value?: string
+        }
+        Update: {
+          id?: string
+          key?: string
+          updated_at?: string
+          value?: string
+        }
+        Relationships: []
+      }
+      ticker_items: {
+        Row: {
+          created_at: string
+          id: string
+          is_active: boolean
+          sort_order: number
+          text: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          text: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_active?: boolean
+          sort_order?: number
+          text?: string
         }
         Relationships: []
       }

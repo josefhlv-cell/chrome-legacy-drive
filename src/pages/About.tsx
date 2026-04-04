@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Search, Shield, Wrench, Star, Quote, MapPin, Clock, Users, Phone, Mail, Camera, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useFacilityPhotos } from "@/hooks/useAdminContent";
 import workshop1 from "@/assets/workshop-1.jpg";
 import workshop2 from "@/assets/workshop-2.jpg";
 import workshop3 from "@/assets/workshop-3.jpg";
@@ -41,7 +42,12 @@ const galleryImages = [
 
 const AboutPage = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const { data: dbPhotos } = useFacilityPhotos();
 
+  // Use DB photos if available, otherwise fallback to static
+  const displayPhotos = dbPhotos && dbPhotos.length > 0
+    ? dbPhotos.map((p) => ({ src: p.image_url, alt: p.alt_text || p.caption, caption: p.caption }))
+    : galleryImages;
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -87,7 +93,7 @@ const AboutPage = () => {
             <p className="text-muted-foreground text-sm mb-8">Profesionální dílna a vybavení v Lukovně u Pardubic.</p>
 
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {galleryImages.map((img, i) => (
+              {displayPhotos.map((img, i) => (
                 <motion.button
                   key={i}
                   initial={{ opacity: 0, scale: 0.95 }}
@@ -119,11 +125,11 @@ const AboutPage = () => {
                     <X className="w-8 h-8" />
                   </button>
                   <img
-                    src={galleryImages[lightboxIndex].src}
-                    alt={galleryImages[lightboxIndex].alt}
+                    src={displayPhotos[lightboxIndex].src}
+                    alt={displayPhotos[lightboxIndex].alt}
                     className="max-w-full max-h-[85vh] rounded-lg object-contain"
                   />
-                  <p className="absolute bottom-6 text-foreground text-sm font-medium">{galleryImages[lightboxIndex].caption}</p>
+                  <p className="absolute bottom-6 text-foreground text-sm font-medium">{displayPhotos[lightboxIndex].caption}</p>
                 </motion.div>
               )}
             </AnimatePresence>

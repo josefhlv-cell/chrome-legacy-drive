@@ -113,8 +113,15 @@ Deno.serve(async (req) => {
     let imagesCount = 0;
 
     // Step 3: Upsert vehicles + download all gallery images
+    // Deduplicate API results by name
+    const deduped = new Map<string, ApiVehicle>();
     for (const av of apiVehicles) {
       if (!av.nazev || !av.cena) continue;
+      const key = av.nazev.toLowerCase().trim();
+      if (!deduped.has(key)) deduped.set(key, av);
+    }
+
+    for (const av of deduped.values()) {
 
       const nameKey = av.nazev.toLowerCase().trim();
       seenNames.add(nameKey);

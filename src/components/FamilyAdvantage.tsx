@@ -25,12 +25,16 @@ const advantages = [
 ];
 
 const FamilyAdvantage = () => (
-  <section className="py-24 bg-card relative overflow-hidden">
-    {/* Subtle metallic grain */}
+  <section className="py-24 relative overflow-hidden" style={{
+    background: 'linear-gradient(180deg, hsl(218 42% 10%) 0%, hsl(218 45% 8%) 50%, hsl(218 42% 10%) 100%)',
+  }}>
+    {/* Ambient chrome grain */}
     <div className="absolute inset-0 opacity-[0.03]" style={{
       backgroundImage: 'radial-gradient(circle at 25% 25%, hsl(210 15% 70%) 1px, transparent 1px)',
       backgroundSize: '40px 40px',
     }} />
+    {/* Top metallic edge */}
+    <div className="absolute top-0 left-0 right-0 section-separator" />
 
     <div className="container mx-auto px-4 relative z-10">
       <div className="text-center mb-16">
@@ -48,11 +52,12 @@ const FamilyAdvantage = () => (
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.4, delay: i * 0.1 }}
-            className="glass-card p-6 text-center group hover:border-primary/30 transition-all duration-300"
+            className="deep-card p-6 text-center group hover:border-primary/30 transition-all duration-300"
           >
             <div className="w-14 h-14 mx-auto mb-5 rounded-full flex items-center justify-center transition-all duration-300" style={{
               background: 'linear-gradient(135deg, hsla(215, 55%, 48%, 0.15), hsla(215, 55%, 48%, 0.05))',
               border: '1px solid hsla(215, 55%, 48%, 0.2)',
+              boxShadow: '0 4px 15px -5px hsla(215, 55%, 48%, 0.15), inset 0 1px 0 hsla(215, 55%, 48%, 0.1)',
             }}>
               <item.icon className="w-6 h-6 text-primary" />
             </div>
@@ -69,6 +74,9 @@ const FamilyAdvantage = () => (
         </p>
       </div>
     </div>
+
+    {/* Bottom metallic edge */}
+    <div className="absolute bottom-0 left-0 right-0 section-separator" />
   </section>
 );
 

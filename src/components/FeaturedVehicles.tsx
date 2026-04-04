@@ -11,31 +11,7 @@ const FeaturedVehicles = () => {
     if (!dbVehicles) return [];
     return dbVehicles
       .filter((v) => v.status !== "prodano")
-      .slice(0, 6)
-      .map((v) => ({
-        id: v.id,
-        name: v.name,
-        year: v.year,
-        priceWithVat: v.price_with_vat,
-        mileage: v.mileage,
-        vin: v.vin,
-        fuel: v.fuel,
-        image: v.image_url,
-        status: v.status as any,
-        showVat: v.show_vat,
-        carfaxEnabled: v.carfax_enabled,
-        carfaxUrl: v.carfax_url,
-        lpgEnabled: v.lpg_enabled,
-        lpgDescription: v.lpg_description,
-        videoEnabled: v.video_enabled,
-        videoId: v.video_id,
-        warrantyEnabled: v.warranty_enabled,
-        engine: v.engine,
-        transmission: v.transmission,
-        power: v.power,
-        color: v.color,
-        description: v.description,
-      }));
+      .slice(0, 6);
   }, [dbVehicles]);
 
   return (
@@ -46,7 +22,7 @@ const FeaturedVehicles = () => {
             <h2 className="section-heading">Aktuální nabídka</h2>
             <p className="section-subheading mt-2">Pečlivě vybrané vozy připravené k předání</p>
           </div>
-          <Link to="/vozidla" className="hidden md:flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium uppercase tracking-wider">
+          <Link to="/vozidla" className="hidden md:flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition-colors font-medium uppercase tracking-wider font-montserrat">
             Všechny vozy <ArrowRight className="w-4 h-4" />
           </Link>
         </div>

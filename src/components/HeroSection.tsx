@@ -48,10 +48,10 @@ const HeroSection = () => (
         <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 md:h-16 mb-8 drop-shadow-lg" />
         <div className="flex flex-wrap gap-4">
           <Link to="/vozidla" className="chrome-button inline-block text-center">
-            Prohlédnout vozy
+            Zobrazit vozidla
           </Link>
-          <Link to="/dovoz" className="outline-button inline-block text-center">
-            Poptat dovoz
+          <Link to="/servis" className="outline-button inline-block text-center">
+            Servis
           </Link>
         </div>
       </motion.div>

@@ -1,7 +1,7 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
-import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
@@ -68,7 +68,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             </p>
             {vehicle.show_vat && (
               <p className="text-xs text-muted-foreground mt-0.5 font-montserrat">
-                Cena bez DPH: {formatPrice(priceWithoutVat(vehicle.price_with_vat))}
+                S DPH: {formatPrice(priceWithVatFromNet(vehicle.price_with_vat))}
               </p>
             )}
           </div>

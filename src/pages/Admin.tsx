@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import {
   Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,
@@ -6,6 +6,7 @@ import {
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
   Type, Camera, Car, ShoppingBag, Loader2
 } from "lucide-react";
+import { SyncProgressOverlay } from "@/components/SyncProgressOverlay";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
 import { QRCodeSVG } from "qrcode.react";

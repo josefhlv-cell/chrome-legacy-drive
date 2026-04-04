@@ -5,7 +5,7 @@ import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play,
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleGallery from "@/components/VehicleGallery";
-import { formatPrice, priceWithoutVat, statusLabels, statusStyles } from "@/data/vehicles";
+import { formatPrice, priceWithVatFromNet, vatAmount, statusLabels, statusStyles } from "@/data/vehicles";
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
 

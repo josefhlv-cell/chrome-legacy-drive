@@ -19,13 +19,15 @@ const Index = () => (
     <Navbar />
     <HeroSection />
     <StockTicker />
-    <FeaturedVehicles />
-    <ServicePreview />
-    <WhyUs />
-    <MottoSection />
-    <FamilyAdvantage />
-    <ContactCTA />
-    <Footer />
+    <Suspense fallback={null}>
+      <FeaturedVehicles />
+      <ServicePreview />
+      <WhyUs />
+      <MottoSection />
+      <FamilyAdvantage />
+      <ContactCTA />
+      <Footer />
+    </Suspense>
   </div>
 );
 

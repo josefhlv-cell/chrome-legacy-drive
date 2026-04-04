@@ -13,6 +13,9 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
+    cssMinify: true,
+    minify: 'esbuild',
+    target: 'es2020',
     rollupOptions: {
       output: {
         manualChunks: {

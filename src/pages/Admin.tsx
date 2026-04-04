@@ -994,4 +994,254 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
   );
 };
 
+// ════════════════════════════════════════════════════
+// ANALYTICS TAB
+// ════════════════════════════════════════════════════
+const AnalyticsTab = () => {
+  const [days, setDays] = useState(30);
+  const { useAnalytics: useAnalyticsHook, computeStats: computeStatsUtil } = (() => {
+    // Import inline to avoid top-level import issues
+    const mod = require("@/hooks/useAnalytics");
+    return { useAnalytics: mod.useAnalytics, computeStats: mod.computeStats };
+  })();
+  const { data: views, isLoading } = useAnalyticsHook(days);
+  const stats = views ? computeStatsUtil(views) : null;
+
+  const formatTime = (seconds: number) => {
+    if (seconds < 60) return `${seconds}s`;
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}m ${s}s`;
+  };
+
+  const pathLabels: Record<string, string> = {
+    "/": "Hlavní stránka",
+    "/vozidla": "Nabídka vozidel",
+    "/dovoz": "Dovoz",
+    "/vykup": "Výkup",
+    "/servis": "Servis",
+    "/nahradni-dily": "Náhradní díly",
+    "/o-nas": "O nás",
+    "/kontakt": "Kontakt",
+    "/admin": "Administrace",
+  };
+
+  const getLabel = (path: string) => {
+    if (pathLabels[path]) return pathLabels[path];
+    if (path.startsWith("/vozidla/")) return `Detail vozu`;
+    return path;
+  };
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-primary" />
+        <span className="ml-2 text-muted-foreground">Načítání statistik...</span>
+      </div>
+    );
+  }
+
+  if (!stats) {
+    return (
+      <div className="text-center py-20">
+        <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+        <p className="text-muted-foreground">Zatím žádná data o návštěvnosti.</p>
+        <p className="text-xs text-muted-foreground mt-1">Data se začnou sbírat automaticky při návštěvách webu.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div>
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+        <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Statistiky návštěvnosti</h2>
+        <div className="flex gap-2">
+          {[7, 14, 30, 90].map((d) => (
+            <button
+              key={d}
+              onClick={() => setDays(d)}
+              className={`text-xs px-3 py-1.5 rounded-md font-semibold uppercase tracking-wider transition-colors ${
+                days === d
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-secondary text-muted-foreground hover:text-foreground"
+              }`}
+            >
+              {d}d
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+        <StatCard icon={<Users className="w-5 h-5" />} label="Unikátní návštěvy" value={stats.uniqueSessions} />
+        <StatCard icon={<Eye className="w-5 h-5" />} label="Zobrazení stránek" value={stats.totalViews} />
+        <StatCard icon={<Timer className="w-5 h-5" />} label="Prům. čas na stránce" value={formatTime(stats.avgTimeOnPage)} />
+        <StatCard icon={<TrendingDown className="w-5 h-5" />} label="Míra okamžitých odchodů" value={`${stats.bounceRate}%`} color={stats.bounceRate > 60 ? "text-destructive" : "text-emerald-400"} />
+      </div>
+
+      {/* Device Breakdown */}
+      <div className="deep-card p-5 mb-6">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Zařízení</h3>
+        <div className="grid grid-cols-3 gap-4">
+          <DeviceBar icon={<Smartphone className="w-4 h-4" />} label="Mobil" count={stats.devices.mobile} total={stats.totalViews} />
+          <DeviceBar icon={<Tablet className="w-4 h-4" />} label="Tablet" count={stats.devices.tablet} total={stats.totalViews} />
+          <DeviceBar icon={<Monitor className="w-4 h-4" />} label="Desktop" count={stats.devices.desktop} total={stats.totalViews} />
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Most Viewed Pages */}
+        <div className="deep-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <TrendingUp className="w-4 h-4 text-primary" /> Nejnavštěvovanější stránky
+          </h3>
+          <div className="space-y-2">
+            {stats.pageStats.slice(0, 10).map((p) => (
+              <div key={p.path} className="flex items-center justify-between text-sm">
+                <span className="text-foreground truncate flex-1">{getLabel(p.path)}</span>
+                <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                  <span>{p.views}×</span>
+                  <span className="w-14 text-right">{formatTime(p.avgTime)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Where They Spend Most Time */}
+        <div className="deep-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Timer className="w-4 h-4 text-accent" /> Kde tráví nejvíce času
+          </h3>
+          <div className="space-y-2">
+            {stats.mostTimeSpent.map((p) => (
+              <div key={p.path} className="flex items-center justify-between text-sm">
+                <span className="text-foreground truncate flex-1">{getLabel(p.path)}</span>
+                <div className="flex items-center gap-4 text-xs">
+                  <span className="text-emerald-400 font-semibold">{formatTime(p.avgTime)}</span>
+                  <span className="text-muted-foreground w-10 text-right">{p.views}×</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+        {/* Exit Pages */}
+        <div className="deep-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <TrendingDown className="w-4 h-4 text-destructive" /> Kde návštěvníci odcházejí
+          </h3>
+          <div className="space-y-2">
+            {stats.topExitPages.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Zatím žádná data.</p>
+            ) : (
+              stats.topExitPages.map((p) => (
+                <div key={p.path} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground truncate flex-1">{getLabel(p.path)}</span>
+                  <span className={`text-xs font-semibold ${p.exitRate > 50 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {p.exitRate}% odchodů
+                  </span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+
+        {/* Referrers */}
+        <div className="deep-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+            <ExternalLink className="w-4 h-4 text-primary" /> Zdroje návštěvnosti
+          </h3>
+          <div className="space-y-2">
+            {stats.referrers.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Většina návštěv je přímých.</p>
+            ) : (
+              stats.referrers.map((r) => (
+                <div key={r.source} className="flex items-center justify-between text-sm">
+                  <span className="text-foreground truncate flex-1">{r.source}</span>
+                  <span className="text-xs text-muted-foreground">{r.count}×</span>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Hourly Distribution */}
+      <div className="deep-card p-5 mb-6">
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+          <Clock className="w-4 h-4 text-primary" /> Návštěvnost podle hodin
+        </h3>
+        <div className="flex items-end gap-1 h-24">
+          {stats.hourlyViews.map((h) => {
+            const maxCount = Math.max(...stats.hourlyViews.map(v => v.count), 1);
+            const height = (h.count / maxCount) * 100;
+            return (
+              <div key={h.hour} className="flex-1 flex flex-col items-center gap-1">
+                <div
+                  className="w-full rounded-t-sm bg-primary/60 hover:bg-primary transition-colors min-h-[2px]"
+                  style={{ height: `${Math.max(height, 2)}%` }}
+                  title={`${h.hour}:00 — ${h.count} návštěv`}
+                />
+                {h.hour % 4 === 0 && (
+                  <span className="text-[9px] text-muted-foreground">{h.hour}</span>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Daily Views */}
+      {stats.dailyViews.length > 1 && (
+        <div className="deep-card p-5">
+          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Denní přehled</h3>
+          <div className="flex items-end gap-1 h-32">
+            {stats.dailyViews.map((d) => {
+              const maxCount = Math.max(...stats.dailyViews.map(v => v.count), 1);
+              const height = (d.count / maxCount) * 100;
+              return (
+                <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
+                  <div
+                    className="w-full rounded-t-sm bg-primary/50 hover:bg-primary transition-colors min-h-[2px]"
+                    style={{ height: `${Math.max(height, 2)}%` }}
+                    title={`${d.date}: ${d.count} návštěv`}
+                  />
+                </div>
+              );
+            })}
+          </div>
+          <div className="flex justify-between mt-2">
+            <span className="text-[9px] text-muted-foreground">{stats.dailyViews[0]?.date}</span>
+            <span className="text-[9px] text-muted-foreground">{stats.dailyViews[stats.dailyViews.length - 1]?.date}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const StatCard = ({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color?: string }) => (
+  <div className="deep-card p-4 text-center">
+    <div className="flex justify-center mb-2 text-primary">{icon}</div>
+    <p className={`text-xl font-bold ${color || "text-foreground"}`}>{value}</p>
+    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
+  </div>
+);
+
+const DeviceBar = ({ icon, label, count, total }: { icon: React.ReactNode; label: string; count: number; total: number }) => {
+  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
+  return (
+    <div className="text-center">
+      <div className="flex justify-center mb-2 text-muted-foreground">{icon}</div>
+      <p className="text-lg font-bold text-foreground">{pct}%</p>
+      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
+      <p className="text-[9px] text-muted-foreground mt-0.5">{count} návštěv</p>
+    </div>
+  );
+};
+
 export default AdminPage;

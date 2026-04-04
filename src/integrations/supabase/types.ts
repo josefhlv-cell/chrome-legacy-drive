@@ -104,6 +104,45 @@ export type Database = {
         }
         Relationships: []
       }
+      page_views: {
+        Row: {
+          created_at: string
+          exit_page: boolean | null
+          id: string
+          is_bounce: boolean | null
+          path: string
+          referrer: string | null
+          screen_height: number | null
+          screen_width: number | null
+          session_id: string
+          time_on_page: number | null
+        }
+        Insert: {
+          created_at?: string
+          exit_page?: boolean | null
+          id?: string
+          is_bounce?: boolean | null
+          path: string
+          referrer?: string | null
+          screen_height?: number | null
+          screen_width?: number | null
+          session_id: string
+          time_on_page?: number | null
+        }
+        Update: {
+          created_at?: string
+          exit_page?: boolean | null
+          id?: string
+          is_bounce?: boolean | null
+          path?: string
+          referrer?: string | null
+          screen_height?: number | null
+          screen_width?: number | null
+          session_id?: string
+          time_on_page?: number | null
+        }
+        Relationships: []
+      }
       scrape_log: {
         Row: {
           error_message: string | null

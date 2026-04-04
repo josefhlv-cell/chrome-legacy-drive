@@ -50,6 +50,7 @@ const SITE_URL = "https://chryslerpardubice.site";
 const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "vehicles", label: "Vozidla", icon: <Car className="w-4 h-4" /> },
   { key: "scrape", label: "Aktualizace", icon: <RefreshCw className="w-4 h-4" /> },
+  { key: "analytics", label: "Statistiky", icon: <BarChart3 className="w-4 h-4" /> },
   { key: "contacts", label: "Kontakty", icon: <Phone className="w-4 h-4" /> },
   { key: "ticker", label: "Novinky", icon: <Type className="w-4 h-4" /> },
   { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },

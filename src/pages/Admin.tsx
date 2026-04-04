@@ -263,6 +263,40 @@ const VehiclesTab = () => {
     img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
   };
 
+  const handleSautoExport = async (vehicleId: string) => {
+    if (!sautoCredentials.login || !sautoCredentials.password || !sautoCredentials.sw_key) {
+      toast({ title: "Vyplňte přihlašovací údaje k Sauto.cz", variant: "destructive" });
+      return;
+    }
+    setSautoExporting(true);
+    try {
+      // Save credentials for next time
+      localStorage.setItem("sauto_credentials", JSON.stringify(sautoCredentials));
+
+      const { data, error } = await supabase.functions.invoke("sauto-export", {
+        body: {
+          vehicle_id: vehicleId,
+          sauto_login: sautoCredentials.login,
+          sauto_password: sautoCredentials.password,
+          sauto_sw_key: sautoCredentials.sw_key,
+        },
+      });
+
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+
+      toast({
+        title: "Export na Sauto.cz úspěšný!",
+        description: `Car ID: ${data.car_id}, Fotek: ${data.photos_uploaded}/${data.photos_total}`,
+      });
+      setSautoVehicleId(null);
+    } catch (err: any) {
+      toast({ title: "Chyba exportu na Sauto.cz", description: err.message, variant: "destructive" });
+    } finally {
+      setSautoExporting(false);
+    }
+  };
+
   return (
     <div>
       <div className="flex justify-between items-center mb-6">

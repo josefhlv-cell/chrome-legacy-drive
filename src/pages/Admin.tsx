@@ -312,6 +312,10 @@ const VehiclesTab = () => {
       toast({ title: "Vyplňte kód firmy a heslo pro TipCars", variant: "destructive" });
       return;
     }
+    if (!tipcarsCredentials.ftp_user || !tipcarsCredentials.ftp_password) {
+      toast({ title: "Vyplňte FTP přihlašovací údaje pro TipCars", variant: "destructive" });
+      return;
+    }
     setTipcarsExporting(true);
     try {
       localStorage.setItem("tipcars_credentials", JSON.stringify(tipcarsCredentials));
@@ -323,21 +327,28 @@ const VehiclesTab = () => {
           tipcars_heslo: tipcarsCredentials.heslo,
           firma_nazev: "Chrysler Pardubice",
           firma_info: { mesto: "Pardubice", www: "www.chrysler-pardubice.cz" },
+          ftp_host: tipcarsCredentials.ftp_host || "ftp.tipcars.com",
+          ftp_user: tipcarsCredentials.ftp_user,
+          ftp_password: tipcarsCredentials.ftp_password,
         },
       });
 
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
 
-      // Open download link
-      if (data?.zip_url) {
-        window.open(data.zip_url, "_blank");
+      if (data?.ftp_uploaded) {
+        toast({
+          title: "✅ TipCars export nahrán na FTP!",
+          description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). ${data.ftp_message}`,
+        });
+      } else {
+        toast({
+          title: "⚠️ ZIP vytvořen, ale FTP upload selhal",
+          description: data?.ftp_message || "ZIP je dostupný ke stažení jako záloha.",
+          variant: "destructive",
+        });
+        if (data?.zip_url) window.open(data.zip_url, "_blank");
       }
-
-      toast({
-        title: "TipCars export vytvořen!",
-        description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). Soubor ${data.zip_filename} nahrajte na FTP TipCars.`,
-      });
       setTipcarsVehicleId(null);
     } catch (err: any) {
       toast({ title: "Chyba exportu do TipCars", description: err.message, variant: "destructive" });

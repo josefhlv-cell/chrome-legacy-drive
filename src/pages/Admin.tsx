@@ -154,6 +154,7 @@ const AdminPage = () => {
           {/* Tab Content */}
           {activeTab === "vehicles" && <VehiclesTab />}
           {activeTab === "scrape" && <ScrapeTab />}
+          {activeTab === "analytics" && <AnalyticsTab />}
           {activeTab === "contacts" && <ContactsTab />}
           {activeTab === "ticker" && <TickerTab />}
           {activeTab === "facility" && <FacilityTab />}

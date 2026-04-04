@@ -6,6 +6,16 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
+interface ParsedVehicle {
+  title: string;
+  image: string;
+  fuel: string;
+  mileage: number;
+  year: number;
+  price: number;
+  showVat: boolean;
+}
+
 async function scrapeWithFirecrawl(url: string, apiKey: string) {
   const response = await fetch("https://api.firecrawl.dev/v1/scrape", {
     method: "POST",
@@ -15,73 +25,101 @@ async function scrapeWithFirecrawl(url: string, apiKey: string) {
     },
     body: JSON.stringify({
       url,
-      formats: ["html", "markdown"],
+      formats: ["markdown"],
       waitFor: 5000,
     }),
   });
   return await response.json();
 }
 
-function parseVehiclesFromHtml(html: string): Array<{
-  title: string;
-  images: string[];
-  details: Record<string, string>;
-}> {
-  const vehicles: Array<{
-    title: string;
-    images: string[];
-    details: Record<string, string>;
-  }> = [];
+function parseVehiclesFromMarkdown(markdown: string): ParsedVehicle[] {
+  const vehicles: ParsedVehicle[] = [];
 
-  // Parse vehicle cards/slides from chrysler.cz HTML
-  // The site uses splide carousel with vehicle cards
-  const cardRegex =
-    /<div[^>]*class="[^"]*(?:car-card|splide__slide|vehicle-card|car-item)[^"]*"[^>]*>([\s\S]*?)(?=<div[^>]*class="[^"]*(?:car-card|splide__slide|vehicle-card|car-item)|\z)/gi;
-  let match;
+  // Find the vehicles section - starts after "naše nabídka vozů"
+  const offerIdx = markdown.indexOf("naše nabídka vozů");
+  if (offerIdx === -1) return vehicles;
 
-  while ((match = cardRegex.exec(html)) !== null) {
-    const cardHtml = match[1];
+  const section = markdown.substring(offerIdx);
+  const lines = section.split("\n");
 
-    // Extract title
-    const titleMatch = cardHtml.match(
-      /<h[2-4][^>]*>([\s\S]*?)<\/h[2-4]>/i
-    );
-    const title = titleMatch
-      ? titleMatch[1].replace(/<[^>]+>/g, "").trim()
-      : "";
+  let current: Partial<ParsedVehicle> | null = null;
 
-    if (!title) continue;
+  for (const rawLine of lines) {
+    const line = rawLine.trim();
 
-    // Extract images
-    const imgRegex = /(?:src|data-src)="(https?:\/\/[^"]+\.(jpg|jpeg|png|webp)[^"]*)"/gi;
-    const images: string[] = [];
-    let imgMatch;
-    while ((imgMatch = imgRegex.exec(cardHtml)) !== null) {
+    // Vehicle title: "## Name of vehicle"
+    const titleMatch = line.match(/^#{1,3}\s+(.+)/);
+    if (titleMatch) {
+      const text = titleMatch[1].trim().replace(/\\-/g, "-");
+
+      // Skip non-vehicle headings
       if (
-        !imgMatch[1].includes("logo") &&
-        !imgMatch[1].includes("icon") &&
-        !imgMatch[1].includes("Vector")
-      ) {
-        images.push(imgMatch[1]);
+        text.match(/^\+\s*DPH$/i) ||
+        text.match(/nabídka|autoservis|kontakt|služby|díly|video|rady|náhradní|prodej/i) ||
+        text.length < 8
+      ) continue;
+
+      // Only accept vehicle-like titles
+      if (text.match(/chrysler|dodge|lancia|ram|voyager|pacifica|300|charger|challenger|grand caravan|town|durango|wrangler|jeep/i)) {
+        // Save previous vehicle
+        if (current?.title && current?.price) {
+          vehicles.push(current as ParsedVehicle);
+        }
+        current = {
+          title: text,
+          image: "",
+          fuel: "Benzín",
+          mileage: 0,
+          year: new Date().getFullYear(),
+          price: 0,
+          showVat: false,
+        };
       }
+      continue;
     }
 
-    // Extract details like price, year, km etc.
-    const details: Record<string, string> = {};
-    const priceMatch = cardHtml.match(
-      /(\d[\d\s]*)\s*(?:Kč|CZK)/i
-    );
-    if (priceMatch) details.price = priceMatch[1].replace(/\s/g, "");
+    // Image: ![alt](url)
+    if (current) {
+      const imgMatch = line.match(/!\[.*?\]\((https?:\/\/[^)]+\.(jpg|jpeg|png|webp)[^)]*)\)/i);
+      if (imgMatch && !current.image && !imgMatch[1].includes("logo") && !imgMatch[1].includes("icon") && !imgMatch[1].includes("Vector") && !imgMatch[1].includes("sale-tag")) {
+        current.image = imgMatch[1];
+        continue;
+      }
 
-    const yearMatch = cardHtml.match(/\b(20[0-2]\d|19\d\d)\b/);
-    if (yearMatch) details.year = yearMatch[1];
+      // Fuel: "Palivo: Ba 95"
+      const fuelMatch = line.match(/Palivo:\s*(.+)/i);
+      if (fuelMatch) {
+        current.fuel = fuelMatch[1].trim();
+        continue;
+      }
 
-    const kmMatch = cardHtml.match(
-      /(\d[\d\s]*)\s*km/i
-    );
-    if (kmMatch) details.mileage = kmMatch[1].replace(/\s/g, "");
+      // Mileage: "Nájezd: 262 788 Km"
+      const mileageMatch = line.match(/Nájezd:\s*([\d\s]+)\s*Km/i);
+      if (mileageMatch) {
+        current.mileage = parseInt(mileageMatch[1].replace(/\s/g, ""), 10) || 0;
+        continue;
+      }
 
-    vehicles.push({ title, images, details });
+      // Year: "Rok výroby: 2015 - červen" or "Rok výroby: 2019-Listopad"
+      const yearMatch = line.match(/Rok výroby:\s*(\d{4})/i);
+      if (yearMatch) {
+        current.year = parseInt(yearMatch[1], 10);
+        continue;
+      }
+
+      // Price: "Cena: 263 000 Kč" or "Cena: 770 000 Kč + DPH"
+      const priceMatch = line.match(/Cena:\s*([\d\s]+)\s*Kč/i);
+      if (priceMatch) {
+        current.price = parseInt(priceMatch[1].replace(/\s/g, ""), 10) || 0;
+        current.showVat = /\+\s*DPH/i.test(line);
+        continue;
+      }
+    }
+  }
+
+  // Don't forget the last one
+  if (current?.title && current?.price) {
+    vehicles.push(current as ParsedVehicle);
   }
 
   return vehicles;
@@ -101,13 +139,9 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const logId = body.log_id;
 
-    // Update log if provided
     const updateLog = async (updates: Record<string, unknown>) => {
       if (logId) {
-        await supabase
-          .from("scrape_log")
-          .update(updates)
-          .eq("id", logId);
+        await supabase.from("scrape_log").update(updates).eq("id", logId);
       }
     };
 
@@ -119,113 +153,64 @@ Deno.serve(async (req) => {
       });
       return new Response(
         JSON.stringify({ error: "Firecrawl not configured" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
     }
 
-    // Step 1: Scrape chrysler.cz main page
+    // Step 1: Scrape chrysler.cz
     await updateLog({ status: "scraping_main_page" });
-
-    const mainPage = await scrapeWithFirecrawl(
-      "https://www.chrysler.cz",
-      firecrawlKey
-    );
-
-    const html = mainPage?.data?.html || mainPage?.html || "";
+    const mainPage = await scrapeWithFirecrawl("https://www.chrysler.cz", firecrawlKey);
     const markdown = mainPage?.data?.markdown || mainPage?.markdown || "";
 
-    // Step 2: Try to find vehicle detail page links
-    await updateLog({ status: "finding_vehicle_links" });
-
-    // Look for links to individual vehicle pages
-    const linkRegex =
-      /href="(https?:\/\/(?:www\.)?chrysler\.cz\/[^"]*(?:nabidka|vozidlo|auto|car|detail)[^"]*)"/gi;
-    const vehicleLinks: string[] = [];
-    let linkMatch;
-    while ((linkMatch = linkRegex.exec(html)) !== null) {
-      vehicleLinks.push(linkMatch[1]);
+    if (!markdown) {
+      await updateLog({
+        status: "error",
+        error_message: "No markdown content returned from Firecrawl",
+        finished_at: new Date().toISOString(),
+      });
+      return new Response(
+        JSON.stringify({ error: "No content scraped" }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
     }
 
-    // Step 3: Parse vehicles from main page
-    const vehicles = parseVehiclesFromHtml(html);
+    // Step 2: Parse vehicles from markdown
+    await updateLog({ status: "parsing_vehicles" });
+    const vehicles = parseVehiclesFromMarkdown(markdown);
 
-    // Also try to extract from markdown
-    if (vehicles.length === 0 && markdown) {
-      // Parse markdown for vehicle info
-      const lines = markdown.split("\n");
-      let currentVehicle: { title: string; images: string[]; details: Record<string, string> } | null = null;
+    console.log(`Parsed ${vehicles.length} vehicles from markdown`);
 
-      for (const line of lines) {
-        const headingMatch = line.match(/^#{1,4}\s+(.+)/);
-        if (headingMatch) {
-          const text = headingMatch[1].trim();
-          if (
-            text.match(
-              /chrysler|dodge|voyager|pacifica|300|charger|challenger|grand caravan|town|ram/i
-            ) &&
-            text.length > 5
-          ) {
-            if (currentVehicle) vehicles.push(currentVehicle);
-            currentVehicle = {
-              title: text,
-              images: [],
-              details: {},
-            };
-          }
-        }
-
-        if (currentVehicle) {
-          const imgMatch = line.match(
-            /!\[.*?\]\((https?:\/\/[^)]+\.(jpg|jpeg|png|webp)[^)]*)\)/i
-          );
-          if (imgMatch) currentVehicle.images.push(imgMatch[1]);
-
-          const priceMatch = line.match(/(\d[\d\s]*)\s*(?:Kč|CZK)/i);
-          if (priceMatch)
-            currentVehicle.details.price = priceMatch[1].replace(/\s/g, "");
-        }
-      }
-      if (currentVehicle) vehicles.push(currentVehicle);
-    }
-
-    // Step 4: If we found vehicle detail links, scrape each one
-    await updateLog({
-      status: "scraping_details",
-      vehicles_found: vehicles.length + vehicleLinks.length,
-    });
+    // Step 3: Upsert vehicles into database
+    await updateLog({ status: "updating_database", vehicles_found: vehicles.length });
 
     let updatedCount = 0;
     let imagesCount = 0;
 
     for (const vehicle of vehicles) {
-      if (!vehicle.title) continue;
+      if (!vehicle.title || !vehicle.price) continue;
 
-      // Check if vehicle already exists
+      // Match by name (exact or close)
       const { data: existing } = await supabase
         .from("vehicles")
-        .select("id")
-        .ilike("name", `%${vehicle.title}%`)
+        .select("id, name")
+        .ilike("name", `%${vehicle.title.substring(0, 30)}%`)
         .maybeSingle();
 
       const vehicleData = {
         name: vehicle.title,
-        year: parseInt(vehicle.details.year || "") || new Date().getFullYear(),
-        price_with_vat: parseInt(vehicle.details.price || "") || 0,
-        mileage: parseInt(vehicle.details.mileage || "") || 0,
-        image_url: vehicle.images[0] || "",
+        year: vehicle.year,
+        price_with_vat: vehicle.price,
+        mileage: vehicle.mileage,
+        fuel: vehicle.fuel,
+        image_url: vehicle.image,
         status: "skladem" as const,
+        show_vat: vehicle.showVat,
       };
 
       let vehicleId: string;
 
       if (existing) {
-        await supabase
-          .from("vehicles")
-          .update(vehicleData)
-          .eq("id", existing.id);
+        await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
         vehicleId = existing.id;
       } else {
         const { data: created } = await supabase
@@ -238,25 +223,23 @@ Deno.serve(async (req) => {
 
       updatedCount++;
 
-      // Save images
-      if (vehicleId && vehicle.images.length > 0) {
-        for (let i = 0; i < vehicle.images.length; i++) {
-          const { data: existingImg } = await supabase
-            .from("vehicle_images")
-            .select("id")
-            .eq("vehicle_id", vehicleId)
-            .eq("image_url", vehicle.images[i])
-            .maybeSingle();
+      // Save main image to vehicle_images
+      if (vehicleId && vehicle.image) {
+        const { data: existingImg } = await supabase
+          .from("vehicle_images")
+          .select("id")
+          .eq("vehicle_id", vehicleId)
+          .eq("image_url", vehicle.image)
+          .maybeSingle();
 
-          if (!existingImg) {
-            await supabase.from("vehicle_images").insert({
-              vehicle_id: vehicleId,
-              image_url: vehicle.images[i],
-              is_main: i === 0,
-              sort_order: i,
-            });
-            imagesCount++;
-          }
+        if (!existingImg) {
+          await supabase.from("vehicle_images").insert({
+            vehicle_id: vehicleId,
+            image_url: vehicle.image,
+            is_main: true,
+            sort_order: 0,
+          });
+          imagesCount++;
         }
       }
     }
@@ -274,13 +257,9 @@ Deno.serve(async (req) => {
         success: true,
         vehicles_found: vehicles.length,
         vehicles_updated: updatedCount,
-        images_downloaded: imagesCount,
-        vehicle_links_found: vehicleLinks.length,
+        images_saved: imagesCount,
       }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Unknown error";

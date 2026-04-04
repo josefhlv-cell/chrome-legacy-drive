@@ -125,11 +125,11 @@ const AboutPage = () => {
                     <X className="w-8 h-8" />
                   </button>
                   <img
-                    src={galleryImages[lightboxIndex].src}
-                    alt={galleryImages[lightboxIndex].alt}
+                    src={displayPhotos[lightboxIndex].src}
+                    alt={displayPhotos[lightboxIndex].alt}
                     className="max-w-full max-h-[85vh] rounded-lg object-contain"
                   />
-                  <p className="absolute bottom-6 text-foreground text-sm font-medium">{galleryImages[lightboxIndex].caption}</p>
+                  <p className="absolute bottom-6 text-foreground text-sm font-medium">{displayPhotos[lightboxIndex].caption}</p>
                 </motion.div>
               )}
             </AnimatePresence>

@@ -42,7 +42,12 @@ const galleryImages = [
 
 const AboutPage = () => {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const { data: dbPhotos } = useFacilityPhotos();
 
+  // Use DB photos if available, otherwise fallback to static
+  const displayPhotos = dbPhotos && dbPhotos.length > 0
+    ? dbPhotos.map((p) => ({ src: p.image_url, alt: p.alt_text || p.caption, caption: p.caption }))
+    : galleryImages;
   return (
     <div className="min-h-screen bg-background">
       <Navbar />

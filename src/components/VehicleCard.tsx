@@ -10,8 +10,11 @@ interface VehicleCardProps {
   index?: number;
 }
 
-const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => (
-  <motion.div
+const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
+  if (!vehicle?.name || !vehicle?.id) return null;
+
+  return (
+    <motion.div
     initial={{ opacity: 0, y: 30 }}
     whileInView={{ opacity: 1, y: 0 }}
     viewport={{ once: true }}
@@ -68,6 +71,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => (
       </div>
     </Link>
   </motion.div>
-);
+  );
+};
 
 export default VehicleCard;

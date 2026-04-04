@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin } from "lucide-react";
-import logoPardubice from "@/assets/logo-pardubice.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 
 const Footer = () => (
   <footer className="border-t border-border" style={{

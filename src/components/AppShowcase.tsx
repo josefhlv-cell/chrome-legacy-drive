@@ -1,7 +1,7 @@
 import { motion } from "framer-motion";
 import { Package, Wrench, Gem, CalendarDays } from "lucide-react";
-import logoPardubice from "@/assets/logo-pardubice.png";
-import appScreenshot from "@/assets/app-screenshot.png";
+import logoPardubice from "@/assets/logo-pardubice.webp";
+import appScreenshot from "@/assets/app-screenshot.webp";
 
 const APP_URL = "https://chryslerpardubice.site/";
 

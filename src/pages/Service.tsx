@@ -26,7 +26,7 @@ const services = [
   {
     icon: ShieldCheck,
     title: "Diagnostika - Opravy",
-    desc: "Počítačová diagnostika amerických vozů. Opravy elektroniky, převodovek, motorů a klimatizačních systémů.",
+    desc: "Počítačová diagnostika amerických vozů. (DRB II, DRB III, Star Scan, WiTech) Opravy elektroniky, převodovek, motorů a klimatizačních systémů.",
   },
 ];
 

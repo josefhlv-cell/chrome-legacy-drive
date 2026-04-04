@@ -999,13 +999,8 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
 // ════════════════════════════════════════════════════
 const AnalyticsTab = () => {
   const [days, setDays] = useState(30);
-  const { useAnalytics: useAnalyticsHook, computeStats: computeStatsUtil } = (() => {
-    // Import inline to avoid top-level import issues
-    const mod = require("@/hooks/useAnalytics");
-    return { useAnalytics: mod.useAnalytics, computeStats: mod.computeStats };
-  })();
-  const { data: views, isLoading } = useAnalyticsHook(days);
-  const stats = views ? computeStatsUtil(views) : null;
+  const { data: views, isLoading } = useAnalyticsData(days);
+  const stats = views ? computeAnalyticsStats(views) : null;
 
   const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;

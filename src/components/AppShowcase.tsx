@@ -33,6 +33,8 @@ const AppShowcase = () => (
                 src={appScreenshot}
                 alt="Chrysler - Dodge Pardubice – aplikace"
                 className="w-full h-full object-cover object-top"
+                loading="lazy"
+                decoding="async"
               />
             </div>
           </div>

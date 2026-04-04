@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Search, Shield, Wrench, Star, Quote, MapPin, Clock, Users, Phone, Mail, Camera, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
+import { useFacilityPhotos } from "@/hooks/useAdminContent";
 import workshop1 from "@/assets/workshop-1.jpg";
 import workshop2 from "@/assets/workshop-2.jpg";
 import workshop3 from "@/assets/workshop-3.jpg";

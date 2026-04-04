@@ -192,6 +192,16 @@ const VehiclesTab = () => {
     } catch { return { login: "", password: "", sw_key: "" }; }
   });
 
+  // TipCars export state
+  const [tipcarsVehicleId, setTipcarsVehicleId] = useState<string | null>(null);
+  const [tipcarsExporting, setTipcarsExporting] = useState(false);
+  const [tipcarsCredentials, setTipcarsCredentials] = useState(() => {
+    try {
+      const saved = localStorage.getItem("tipcars_credentials");
+      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "" };
+    } catch { return { kod_firmy: "", heslo: "" }; }
+  });
+
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
     updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
   };

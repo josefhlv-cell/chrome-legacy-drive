@@ -6,8 +6,7 @@ import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 
-const fuelOptions = ["Vše", "Ba 95", "BA 95 LPG", "Diesel", "BA95 Hybrid Plug-in", "Ba 95 E85"];
-const yearOptions = ["Vše", "2023", "2022", "2021", "2020", "2019", "2018", "2017", "2016", "2015", "2014", "2012", "2011", "2009", "2008"];
+const fuelOptions = ["Vše", "Ba 95", "BA 95 LPG", "Diesel", "BA95 Hybrid Plug-in", "Ba 95 E85", "Ba 95 E10"];
 const sortOptions = [
   { label: "Nejnovější", value: "newest" },
   { label: "Cena ↑", value: "price-asc" },
@@ -18,53 +17,24 @@ const PAGE_SIZE = 9;
 
 const VehiclesPage = () => {
   const [fuel, setFuel] = useState("Vše");
-  const [year, setYear] = useState("Vše");
   const [sort, setSort] = useState("newest");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { data: dbVehicles, isLoading } = useVehicles();
   const lastCardRef = useRef<HTMLDivElement>(null);
 
-  const vehicles = useMemo(() => {
-    if (!dbVehicles) return [];
-    return dbVehicles.map((v) => ({
-      id: v.id,
-      name: v.name,
-      year: v.year,
-      priceWithVat: v.price_with_vat,
-      mileage: v.mileage,
-      vin: v.vin,
-      fuel: v.fuel,
-      image: v.image_url,
-      status: v.status as any,
-      showVat: v.show_vat,
-      carfaxEnabled: v.carfax_enabled,
-      carfaxUrl: v.carfax_url,
-      lpgEnabled: v.lpg_enabled,
-      lpgDescription: v.lpg_description,
-      videoEnabled: v.video_enabled,
-      videoId: v.video_id,
-      warrantyEnabled: v.warranty_enabled,
-      engine: v.engine,
-      transmission: v.transmission,
-      power: v.power,
-      color: v.color,
-      description: v.description,
-    }));
-  }, [dbVehicles]);
-
   const filtered = useMemo(() => {
-    let result = [...vehicles];
+    if (!dbVehicles) return [];
+    let result = dbVehicles.filter((v) => v.status !== "prodano");
     if (fuel !== "Vše") result = result.filter((v) => v.fuel === fuel);
-    if (year !== "Vše") result = result.filter((v) => v.year.toString() === year);
-    if (sort === "price-asc") result.sort((a, b) => a.priceWithVat - b.priceWithVat);
-    if (sort === "price-desc") result.sort((a, b) => b.priceWithVat - a.priceWithVat);
+    if (sort === "price-asc") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
+    if (sort === "price-desc") result.sort((a, b) => b.price_with_vat - a.price_with_vat);
     if (sort === "newest") result.sort((a, b) => b.year - a.year);
     return result;
-  }, [vehicles, fuel, year, sort]);
+  }, [dbVehicles, fuel, sort]);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
-  }, [fuel, year, sort]);
+  }, [fuel, sort]);
 
   const visibleVehicles = filtered.slice(0, visibleCount);
   const hasMore = visibleCount < filtered.length;
@@ -92,13 +62,10 @@ const VehiclesPage = () => {
             <select value={fuel} onChange={(e) => setFuel(e.target.value)} className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border">
               {fuelOptions.map((o) => <option key={o}>{o}</option>)}
             </select>
-            <select value={year} onChange={(e) => setYear(e.target.value)} className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border">
-              {yearOptions.map((o) => <option key={o}>{o}</option>)}
-            </select>
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border">
               {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
-            <span className="ml-auto text-xs text-muted-foreground">{filtered.length} vozů</span>
+            <span className="ml-auto text-xs text-muted-foreground font-montserrat">{filtered.length} vozů</span>
           </div>
 
           {isLoading && <p className="text-center text-muted-foreground py-10">Načítání vozidel...</p>}

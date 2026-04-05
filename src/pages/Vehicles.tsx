@@ -1,6 +1,7 @@
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Filter, ShieldCheck } from "lucide-react";
+import ownerPortrait from "@/assets/owner-portrait.png";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";

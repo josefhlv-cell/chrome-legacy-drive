@@ -59,10 +59,25 @@ const VehiclesPage = () => {
       <Navbar />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-10">
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
             <h1 className="section-heading">Skladové vozy</h1>
             <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler - Dodge připravené k předání</p>
           </motion.div>
+
+          {/* Scrolling guarantee banner */}
+          <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 py-3">
+            <div className="flex items-center gap-3 animate-marquee whitespace-nowrap">
+              {[0, 1].map((i) => (
+                <span key={i} className="inline-flex items-center gap-3 text-sm text-muted-foreground font-montserrat tracking-wide px-4">
+                  <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
+                  <span className="text-primary font-semibold">Garantujeme stav vozu díky přísné výstupní kontrole</span>
+                  <span className="mx-4 text-border">—</span>
+                  <span>Zakládáme si na tom, že od nás odjíždíte v naprosto bezpečném a prověřeném voze. Každý automobil v naší nabídce prochází důkladným procesem kontroly všech klíčových částí. Pokud během prohlídky narazíme na díl vykazující známky poškození, automaticky ji opravujeme nebo měníme za nový. Za kvalitu našich vozů si plně stojíme.</span>
+                  <span className="mx-8" />
+                </span>
+              ))}
+            </div>
+          </div>
 
           <div className="glass-card p-4 mb-8 flex flex-wrap items-center gap-4">
             <Filter className="w-4 h-4 text-muted-foreground" />

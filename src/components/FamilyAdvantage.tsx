@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Clock, Phone, CalendarHeart, Wrench } from "lucide-react";
+import { Clock, Phone, Smartphone } from "lucide-react";
 
 const advantages = [
   {
@@ -13,14 +13,9 @@ const advantages = [
     description: "Jsme na telefonu, když potřebujete poradit s ovládáním nebo technologií.",
   },
   {
-    icon: CalendarHeart,
-    title: "VIP akce",
-    description: "Pozvánky na testování nových modelů a srazy majitelů Chrysler.",
-  },
-  {
-    icon: Wrench,
-    title: "Doživotní sleva na ND",
-    description: "Zvýhodněné ceny náhradních dílů pro vozy zakoupené u nás.",
+    icon: Smartphone,
+    title: "Být naším zákazníkem se vyplatí!",
+    description: "Pro majitele vozů zakoupených u nás, sleva na servis, přednostní termíny a infolinka (poruchy, dotazy) nepřetržitě k dispozici. K vozu na míru dělaná aplikace, se spoustou výhod a užitečných informací. (Servisní kniha, intervaly, katalog dílů, možnost čtení chyb přes OBD, objednání na servis a spoustu dalšího)",
   },
 ];
 
@@ -44,7 +39,7 @@ const FamilyAdvantage = () => (
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {advantages.map((item, i) => (
           <motion.div
             key={item.title}

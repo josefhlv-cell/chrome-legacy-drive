@@ -66,17 +66,30 @@ const VehiclesPage = () => {
           </motion.div>
 
           {/* Scrolling guarantee banner */}
-          <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 py-3">
-            <div className="flex items-center gap-3 animate-marquee whitespace-nowrap">
-              {[0, 1].map((i) => (
-                <span key={i} className="inline-flex items-center gap-3 text-sm text-muted-foreground font-montserrat tracking-wide px-4">
-                  <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
-                  <span className="text-primary font-semibold">Garantujeme stav vozu díky přísné výstupní kontrole</span>
-                  <span className="mx-4 text-border">—</span>
-                  <span>Zakládáme si na tom, že od nás odjíždíte v naprosto bezpečném a prověřeném voze. Každý automobil v naší nabídce prochází důkladným procesem kontroly všech klíčových částí. Pokud během prohlídky narazíme na díl vykazující známky poškození, automaticky ji opravujeme nebo měníme za nový. Za kvalitu našich vozů si plně stojíme.</span>
-                  <span className="mx-8" />
-                </span>
-              ))}
+          <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 py-3 flex items-center">
+            {/* Owner portrait pulling the text */}
+            <div className="shrink-0 pl-2 pr-1 relative z-10">
+              <img
+                src={ownerPortrait}
+                alt="Majitel"
+                className="w-14 h-14 md:w-20 md:h-20 object-cover object-top rounded-full border-2 border-primary/40"
+                loading="lazy"
+              />
+              {/* Rope connecting to text */}
+              <div className="absolute top-1/2 right-0 w-4 h-0.5 bg-gradient-to-r from-primary/60 to-primary/20" />
+            </div>
+            <div className="overflow-hidden flex-1">
+              <div className="flex items-center gap-3 animate-marquee whitespace-nowrap">
+                {[0, 1].map((i) => (
+                  <span key={i} className="inline-flex items-center gap-3 text-sm text-muted-foreground font-montserrat tracking-wide px-4">
+                    <ShieldCheck className="w-5 h-5 text-primary shrink-0" />
+                    <span className="text-primary font-semibold">Garantujeme stav vozu díky přísné výstupní kontrole</span>
+                    <span className="mx-4 text-border">—</span>
+                    <span>Zakládáme si na tom, že od nás odjíždíte v naprosto bezpečném a prověřeném voze. Každý automobil v naší nabídce prochází důkladným procesem kontroly všech klíčových částí. Pokud během prohlídky narazíme na díl vykazující známky poškození, automaticky ji opravujeme nebo měníme za nový. Za kvalitu našich vozů si plně stojíme.</span>
+                    <span className="mx-8" />
+                  </span>
+                ))}
+              </div>
             </div>
           </div>
 

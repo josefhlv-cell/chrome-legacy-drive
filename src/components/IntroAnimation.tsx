@@ -45,6 +45,27 @@ const IntroAnimation = () => {
     };
   }, []);
 
+  // Force autoplay on iOS – retry until the video starts
+  useEffect(() => {
+    if (!show) return;
+    const v = videoRef.current;
+    if (!v) return;
+
+    const tryPlay = () => {
+      v.play().catch(() => {
+        // iOS may need a tiny delay; retry once
+        setTimeout(() => v.play().catch(() => {}), 200);
+      });
+    };
+
+    // Try immediately
+    tryPlay();
+
+    // Also try when canplay fires (video data ready)
+    v.addEventListener("canplay", tryPlay, { once: true });
+    return () => v.removeEventListener("canplay", tryPlay);
+  }, [show]);
+
   if (!show) return null;
 
   return (

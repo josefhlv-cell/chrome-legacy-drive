@@ -18,7 +18,7 @@ const reasons = [
 
 const milestones = [
   { year: "2003", text: "Založení firmy v Lukovně u Pardubic — začátek specializace na americké vozy Chrysler a Dodge." },
-  { year: "2008", text: "Partnerství s Chrysler Club CZ — stáváme se oficiálním partnerem největší české komunity majitelů." },
+  { year: "2008", text: "Naše společnost posouvá služby i autoservis pod autorizaci DaimlerChrysler Praha. Tato spolupráce otevřela možnosti odborné diagnostiky, programování jednotek i školení mechaniků." },
   { year: "2012", text: "Rozšíření servisu o diagnostiku automatických převodovek a přestavby na LPG." },
   { year: "2018", text: "Autorizace FCA (Fiat Chrysler Automobiles) — certifikovaní mechanici s přístupem k originální diagnostice." },
   { year: "2026", text: "Spuštění digitální platformy Chrysler - Dodge Pardubice — katalog dílů, servisní knížka a AI diagnostika v jedné aplikaci." },

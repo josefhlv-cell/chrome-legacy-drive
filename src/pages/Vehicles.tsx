@@ -66,50 +66,64 @@ const VehiclesPage = () => {
           </motion.div>
 
           {/* Scrolling guarantee banner */}
-          <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 py-3 flex items-center">
-            {/* Owner pulling the rope */}
+          <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 flex items-stretch min-h-[72px] md:min-h-[90px]">
+            {/* Owner pulling the rope — flipped to face right, showing upper body & arms */}
             <motion.div
-              className="shrink-0 pl-2 pr-0 relative z-10"
-              animate={{ x: [0, -4, 0, -6, 0] }}
+              className="shrink-0 relative z-10 flex items-end overflow-hidden"
+              animate={{ x: [0, -5, 0, -7, 0] }}
               transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
             >
               <img
                 src={ownerPortrait}
                 alt="Majitel"
-                className="w-14 h-14 md:w-20 md:h-20 object-cover object-top rounded-full border-2 border-primary/40"
+                className="w-16 md:w-24 h-full object-cover object-top -scale-x-100"
+                style={{ objectPosition: "50% 10%" }}
                 loading="lazy"
               />
+              {/* Overlay gradient to blend into banner */}
+              <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-secondary/30 to-transparent" />
             </motion.div>
 
-            {/* Rope from hand to text */}
-            <div className="shrink-0 relative w-8 md:w-12 h-full flex items-center">
-              <svg viewBox="0 0 48 24" className="w-full h-6" preserveAspectRatio="none">
+            {/* Animated rope from his hands to the text */}
+            <div className="shrink-0 relative flex items-center" style={{ width: "40px" }}>
+              <svg viewBox="0 0 40 40" className="w-full h-10" preserveAspectRatio="none">
+                {/* Main rope */}
                 <motion.path
-                  d="M0,12 Q12,6 24,12 Q36,18 48,12"
                   fill="none"
                   stroke="hsl(var(--accent))"
-                  strokeWidth="2.5"
+                  strokeWidth="2"
                   strokeLinecap="round"
                   animate={{
                     d: [
-                      "M0,12 Q12,6 24,12 Q36,18 48,12",
-                      "M0,12 Q12,16 24,12 Q36,8 48,12",
-                      "M0,12 Q12,6 24,12 Q36,18 48,12",
+                      "M2,20 C10,14 20,18 28,20 S36,22 38,20",
+                      "M2,20 C10,24 20,16 28,20 S36,18 38,20",
+                      "M2,20 C10,14 20,18 28,20 S36,22 38,20",
                     ],
                   }}
                   transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                 />
-                {/* Knot at the text end */}
-                <motion.circle
-                  cx="46" cy="12" r="2.5"
-                  fill="hsl(var(--accent))"
-                  animate={{ cy: [12, 12, 12] }}
-                  transition={{ duration: 2.5, repeat: Infinity }}
+                {/* Tension lines */}
+                <motion.path
+                  fill="none"
+                  stroke="hsl(var(--accent) / 0.3)"
+                  strokeWidth="1"
+                  strokeDasharray="2 3"
+                  animate={{
+                    d: [
+                      "M2,18 C12,12 22,16 30,18 S36,20 38,18",
+                      "M2,22 C12,26 22,20 30,22 S36,20 38,22",
+                      "M2,18 C12,12 22,16 30,18 S36,20 38,18",
+                    ],
+                  }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
                 />
+                {/* Knot at hand */}
+                <circle cx="3" cy="20" r="2" fill="hsl(var(--accent))" />
               </svg>
             </div>
 
-            <div className="overflow-hidden flex-1">
+            {/* Scrolling text */}
+            <div className="overflow-hidden flex-1 flex items-center">
               <div className="flex items-center gap-3 animate-marquee whitespace-nowrap">
                 {[0, 1].map((i) => (
                   <span key={i} className="inline-flex items-center gap-3 text-sm text-muted-foreground font-montserrat tracking-wide px-4">

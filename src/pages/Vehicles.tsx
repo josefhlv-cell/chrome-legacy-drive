@@ -68,11 +68,7 @@ const VehiclesPage = () => {
           {/* Scrolling guarantee banner */}
           <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 flex items-stretch min-h-[72px] md:min-h-[90px]">
             {/* Owner pulling the rope — flipped to face right, showing upper body & arms */}
-            <motion.div
-              className="shrink-0 relative z-10 flex items-end overflow-hidden"
-              animate={{ x: [0, -5, 0, -7, 0] }}
-              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-            >
+            <div className="shrink-0 relative z-10 flex items-end overflow-hidden">
               <img
                 src={ownerPulling}
                 alt="Majitel táhne lano"
@@ -81,7 +77,7 @@ const VehiclesPage = () => {
               />
               {/* Overlay gradient to blend into banner */}
               <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-secondary/30 to-transparent" />
-            </motion.div>
+            </div>
 
             {/* Animated rope from his hands to the text */}
             <div className="shrink-0 relative flex items-center" style={{ width: "40px" }}>

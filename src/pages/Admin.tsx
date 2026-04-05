@@ -26,7 +26,7 @@ import {
 import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import logoPardubice from "@/assets/logo-pardubice.webp";
-import { useAnalytics as useAnalyticsData, computeStats as computeAnalyticsStats } from "@/hooks/useAnalytics";
+import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";
@@ -1001,7 +1001,9 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
 const AnalyticsTab = () => {
   const [days, setDays] = useState(30);
   const { data: views, isLoading } = useAnalyticsData(days);
+  const { data: leads, isLoading: leadsLoading } = useLeadsAnalytics(days);
   const stats = views ? computeAnalyticsStats(views) : null;
+  const convStats = views && leads ? computeConversionStats(views, leads) : null;
 
   const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;
@@ -1165,6 +1167,81 @@ const AnalyticsTab = () => {
           </div>
         </div>
       </div>
+
+      {/* Conversion Stats */}
+      {convStats && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+          <div className="deep-card p-5">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+              <ShoppingBag className="w-4 h-4 text-accent" /> Konverze — poptávky vs. návštěvy
+            </h3>
+            <div className="grid grid-cols-3 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-foreground">{convStats.uniqueSessions}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Návštěvy</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-primary">{convStats.totalLeads}</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Poptávky</p>
+              </div>
+              <div className="text-center">
+                <p className={`text-2xl font-bold ${Number(convStats.conversionRate) > 2 ? "text-emerald-400" : "text-accent"}`}>{convStats.conversionRate}%</p>
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Konverze</p>
+              </div>
+            </div>
+            {convStats.leadsByType.length > 0 && (
+              <div className="space-y-1.5 pt-3 border-t border-border/30">
+                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Podle typu</p>
+                {convStats.leadsByType.map((t) => (
+                  <div key={t.type} className="flex items-center justify-between text-sm">
+                    <span className="text-foreground capitalize">{t.type}</span>
+                    <span className="text-xs text-muted-foreground font-semibold">{t.count}×</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          {convStats.dailyConversion.length > 1 && (
+            <div className="deep-card p-5">
+              <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-400" /> Denní konverze
+              </h3>
+              <div className="flex items-end gap-1 h-32">
+                {convStats.dailyConversion.map((d) => {
+                  const maxVisits = Math.max(...convStats.dailyConversion.map(v => v.visits), 1);
+                  const visitH = (d.visits / maxVisits) * 100;
+                  const leadH = d.leads > 0 ? Math.max((d.leads / maxVisits) * 100, 4) : 0;
+                  return (
+                    <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5" title={`${d.date}: ${d.visits} návštěv, ${d.leads} poptávek`}>
+                      <div className="w-full flex flex-col-reverse">
+                        <div
+                          className="w-full rounded-t-sm bg-primary/40 min-h-[2px]"
+                          style={{ height: `${Math.max(visitH, 2)}%` }}
+                        />
+                        {leadH > 0 && (
+                          <div
+                            className="w-full rounded-t-sm bg-emerald-400"
+                            style={{ height: `${leadH}%` }}
+                          />
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="flex justify-between mt-2">
+                <span className="text-[9px] text-muted-foreground">{convStats.dailyConversion[0]?.date}</span>
+                <span className="text-[9px] text-muted-foreground">{convStats.dailyConversion[convStats.dailyConversion.length - 1]?.date}</span>
+              </div>
+              <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary/40" /> Návštěvy</span>
+                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400" /> Poptávky</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Hourly Distribution */}
       <div className="deep-card p-5 mb-6">

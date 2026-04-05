@@ -1001,7 +1001,9 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
 const AnalyticsTab = () => {
   const [days, setDays] = useState(30);
   const { data: views, isLoading } = useAnalyticsData(days);
+  const { data: leads, isLoading: leadsLoading } = useLeadsAnalytics(days);
   const stats = views ? computeAnalyticsStats(views) : null;
+  const convStats = views && leads ? computeConversionStats(views, leads) : null;
 
   const formatTime = (seconds: number) => {
     if (seconds < 60) return `${seconds}s`;

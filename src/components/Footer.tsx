@@ -35,9 +35,14 @@ const Footer = () => (
         <div>
           <h4 className="text-sm font-semibold uppercase tracking-wider text-foreground mb-4 font-serif">Kontakt</h4>
           <div className="flex flex-col gap-3 text-sm text-muted-foreground font-montserrat">
+            <p className="font-semibold text-foreground text-xs uppercase tracking-wider mb-1">Prodej a výkup vozidel — Autoservis</p>
             <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767</div>
-            <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> obchod@chrysler.cz</div>
-            <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Pardubice, Česká republika</div>
+            <p className="font-semibold text-foreground text-xs uppercase tracking-wider mb-1 mt-2">Prodej nových i použitých autodílů</p>
+            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 372 911</div>
+            <p className="font-semibold text-foreground text-xs uppercase tracking-wider mb-1 mt-2">Pevná linka</p>
+            <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> 466 931 611</div>
+            <div className="flex items-center gap-2 mt-2"><Mail className="w-4 h-4 text-primary" /> obchod@chrysler.cz</div>
+            <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Lukovna 11, Pardubice</div>
           </div>
         </div>
 

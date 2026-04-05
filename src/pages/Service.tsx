@@ -65,7 +65,7 @@ const ServicePage = () => {
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="section-heading">Servis - LPG</h1>
+            <h1 className="section-heading">Servis</h1>
             <p className="section-subheading mt-2">Odborná péče o vaše americké vozy Chrysler a Dodge</p>
           </motion.div>
 

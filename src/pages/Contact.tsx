@@ -48,9 +48,19 @@ const ContactPage = () => {
               <div className="glass-card p-6 space-y-6">
                 <div className="flex items-start gap-4">
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-foreground text-sm">Telefon</p>
-                    <p className="text-muted-foreground text-sm">+420 603 559 767</p>
+                  <div className="space-y-2">
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Prodej a výkup vozidel — Autoservis</p>
+                      <p className="text-muted-foreground text-sm">+420 603 559 767</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Prodej nových i použitých autodílů</p>
+                      <p className="text-muted-foreground text-sm">+420 603 372 911</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Pevná linka</p>
+                      <p className="text-muted-foreground text-sm">466 931 611</p>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-start gap-4">

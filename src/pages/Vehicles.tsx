@@ -67,17 +67,48 @@ const VehiclesPage = () => {
 
           {/* Scrolling guarantee banner */}
           <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 py-3 flex items-center">
-            {/* Owner portrait pulling the text */}
-            <div className="shrink-0 pl-2 pr-1 relative z-10">
+            {/* Owner pulling the rope */}
+            <motion.div
+              className="shrink-0 pl-2 pr-0 relative z-10"
+              animate={{ x: [0, -4, 0, -6, 0] }}
+              transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+            >
               <img
                 src={ownerPortrait}
                 alt="Majitel"
                 className="w-14 h-14 md:w-20 md:h-20 object-cover object-top rounded-full border-2 border-primary/40"
                 loading="lazy"
               />
-              {/* Rope connecting to text */}
-              <div className="absolute top-1/2 right-0 w-4 h-0.5 bg-gradient-to-r from-primary/60 to-primary/20" />
+            </motion.div>
+
+            {/* Rope from hand to text */}
+            <div className="shrink-0 relative w-8 md:w-12 h-full flex items-center">
+              <svg viewBox="0 0 48 24" className="w-full h-6" preserveAspectRatio="none">
+                <motion.path
+                  d="M0,12 Q12,6 24,12 Q36,18 48,12"
+                  fill="none"
+                  stroke="hsl(var(--accent))"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  animate={{
+                    d: [
+                      "M0,12 Q12,6 24,12 Q36,18 48,12",
+                      "M0,12 Q12,16 24,12 Q36,8 48,12",
+                      "M0,12 Q12,6 24,12 Q36,18 48,12",
+                    ],
+                  }}
+                  transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
+                />
+                {/* Knot at the text end */}
+                <motion.circle
+                  cx="46" cy="12" r="2.5"
+                  fill="hsl(var(--accent))"
+                  animate={{ cy: [12, 12, 12] }}
+                  transition={{ duration: 2.5, repeat: Infinity }}
+                />
+              </svg>
             </div>
+
             <div className="overflow-hidden flex-1">
               <div className="flex items-center gap-3 animate-marquee whitespace-nowrap">
                 {[0, 1].map((i) => (

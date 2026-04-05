@@ -74,10 +74,9 @@ const VehiclesPage = () => {
               transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
             >
               <img
-                src={ownerPortrait}
-                alt="Majitel"
-                className="w-16 md:w-24 h-full object-cover object-top -scale-x-100"
-                style={{ objectPosition: "50% 10%" }}
+                src={ownerPulling}
+                alt="Majitel táhne lano"
+                className="w-20 md:w-28 h-full object-cover object-center"
                 loading="lazy"
               />
               {/* Overlay gradient to blend into banner */}

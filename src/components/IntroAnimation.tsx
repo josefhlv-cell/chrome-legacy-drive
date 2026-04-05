@@ -84,6 +84,9 @@ const IntroAnimation = () => {
             autoPlay
             muted
             playsInline
+            // @ts-ignore – webkit vendor attribute for older iOS
+            webkit-playsinline="true"
+            preload="auto"
             onEnded={dismiss}
           >
             <source src="/intro.webm" type="video/webm" />

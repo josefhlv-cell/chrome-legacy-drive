@@ -27,6 +27,7 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
+import QuickExportButton from "@/components/admin/QuickExportButton";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";
@@ -438,6 +439,7 @@ const VehiclesTab = () => {
                     <button onClick={() => setTipcarsVehicleId(tipcarsVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-emerald-400 transition-colors" title="Export do TipCars">
                       <Download className="w-4 h-4" />
                     </button>
+                    <QuickExportButton vehicle={vehicle} />
                     <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 className="w-4 h-4" />
                     </button>

@@ -432,7 +432,27 @@ const VehiclesTab = () => {
             <InputField label="Rok *" type="number" value={String(newData.year)} onChange={(v) => setNewData({ ...newData, year: Number(v) })} />
             <InputField label="Cena s DPH *" type="number" value={String(newData.price_with_vat)} onChange={(v) => setNewData({ ...newData, price_with_vat: Number(v) })} />
             <InputField label="Nájezd (km)" type="number" value={String(newData.mileage || 0)} onChange={(v) => setNewData({ ...newData, mileage: Number(v) })} />
-            <InputField label="VIN" value={newData.vin || ""} onChange={(v) => setNewData({ ...newData, vin: v })} />
+            <div>
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">VIN</label>
+              <div className="flex gap-2">
+                <input
+                  value={newData.vin || ""}
+                  onChange={(e) => setNewData({ ...newData, vin: e.target.value })}
+                  className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="17 znaků"
+                />
+                <button
+                  type="button"
+                  onClick={() => decodeVin(newData.vin || "", "new")}
+                  disabled={vinDecoding === "new"}
+                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 whitespace-nowrap"
+                  title="Automaticky vyplnit z VIN (NHTSA + AI)"
+                >
+                  {vinDecoding === "new" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                  Dekódovat
+                </button>
+              </div>
+            </div>
             <InputField label="Palivo" value={newData.fuel || ""} onChange={(v) => setNewData({ ...newData, fuel: v })} />
             <InputField label="URL obrázku" value={newData.image_url || ""} onChange={(v) => setNewData({ ...newData, image_url: v })} />
             <InputField label="Motor" value={newData.engine || ""} onChange={(v) => setNewData({ ...newData, engine: v })} />
@@ -440,8 +460,20 @@ const VehiclesTab = () => {
             <InputField label="Výkon" value={newData.power || ""} onChange={(v) => setNewData({ ...newData, power: v })} />
             <InputField label="Barva" value={newData.color || ""} onChange={(v) => setNewData({ ...newData, color: v })} />
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Popis</label>
-              <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={2} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
+                <button
+                  type="button"
+                  onClick={() => generateDescription(newData, "new")}
+                  disabled={descGenerating === "new"}
+                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                  title="Vygenerovat popis pomocí AI z vyplněných údajů"
+                >
+                  {descGenerating === "new" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {descGenerating === "new" ? "Generuji..." : "AI popis"}
+                </button>
+              </div>
+              <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
             </div>
           </div>
           <div className="flex gap-3 mt-4">

@@ -5,7 +5,8 @@ import {
   Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download,
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
   Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink,
-  BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer
+  BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer,
+  Sparkles, Wand2
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
@@ -207,6 +208,60 @@ const VehiclesTab = () => {
     } catch { return { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" }; }
   });
 
+  // AI helpers state
+  const [vinDecoding, setVinDecoding] = useState<"new" | string | null>(null);
+  const [descGenerating, setDescGenerating] = useState<"new" | string | null>(null);
+  const [typicalEquipment, setTypicalEquipment] = useState<Record<string, string>>({});
+
+  const decodeVin = async (vin: string, target: "new" | string) => {
+    if (!vin || vin.trim().length < 11) {
+      toast({ title: "VIN musí mít alespoň 11 znaků", variant: "destructive" });
+      return;
+    }
+    setVinDecoding(target);
+    try {
+      const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: vin.trim() } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const d = data?.decoded ?? {};
+      const updates: any = {};
+      if (d.name) updates.name = d.name;
+      if (d.year) updates.year = d.year;
+      if (d.fuel) updates.fuel = d.fuel;
+      if (d.engine) updates.engine = d.engine;
+      if (d.transmission) updates.transmission = d.transmission;
+      if (d.power) updates.power = d.power;
+      if (target === "new") setNewData((prev) => ({ ...prev, ...updates }));
+      else setEditData((prev) => ({ ...prev, ...updates }));
+      if (d.typicalEquipment) setTypicalEquipment((prev) => ({ ...prev, [target]: d.typicalEquipment }));
+      toast({ title: "VIN dekódován", description: `${Object.keys(updates).length} polí vyplněno` });
+    } catch (e: any) {
+      toast({ title: "Dekódování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
+    } finally {
+      setVinDecoding(null);
+    }
+  };
+
+  const generateDescription = async (vehicleData: Partial<TablesInsert<"vehicles">>, target: "new" | string) => {
+    setDescGenerating(target);
+    try {
+      const payload: any = { ...vehicleData };
+      if (typicalEquipment[target]) payload.typicalEquipment = typicalEquipment[target];
+      const { data, error } = await supabase.functions.invoke("generate-vehicle-description", { body: { vehicle: payload } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const description = data?.description || "";
+      if (!description) throw new Error("Prázdná odpověď");
+      if (target === "new") setNewData((prev) => ({ ...prev, description }));
+      else setEditData((prev) => ({ ...prev, description }));
+      toast({ title: "Popis vygenerován" });
+    } catch (e: any) {
+      toast({ title: "Generování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
+    } finally {
+      setDescGenerating(null);
+    }
+  };
+
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
     updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
   };
@@ -377,7 +432,27 @@ const VehiclesTab = () => {
             <InputField label="Rok *" type="number" value={String(newData.year)} onChange={(v) => setNewData({ ...newData, year: Number(v) })} />
             <InputField label="Cena s DPH *" type="number" value={String(newData.price_with_vat)} onChange={(v) => setNewData({ ...newData, price_with_vat: Number(v) })} />
             <InputField label="Nájezd (km)" type="number" value={String(newData.mileage || 0)} onChange={(v) => setNewData({ ...newData, mileage: Number(v) })} />
-            <InputField label="VIN" value={newData.vin || ""} onChange={(v) => setNewData({ ...newData, vin: v })} />
+            <div>
+              <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">VIN</label>
+              <div className="flex gap-2">
+                <input
+                  value={newData.vin || ""}
+                  onChange={(e) => setNewData({ ...newData, vin: e.target.value })}
+                  className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                  placeholder="17 znaků"
+                />
+                <button
+                  type="button"
+                  onClick={() => decodeVin(newData.vin || "", "new")}
+                  disabled={vinDecoding === "new"}
+                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 whitespace-nowrap"
+                  title="Automaticky vyplnit z VIN (NHTSA + AI)"
+                >
+                  {vinDecoding === "new" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                  Dekódovat
+                </button>
+              </div>
+            </div>
             <InputField label="Palivo" value={newData.fuel || ""} onChange={(v) => setNewData({ ...newData, fuel: v })} />
             <InputField label="URL obrázku" value={newData.image_url || ""} onChange={(v) => setNewData({ ...newData, image_url: v })} />
             <InputField label="Motor" value={newData.engine || ""} onChange={(v) => setNewData({ ...newData, engine: v })} />
@@ -385,8 +460,20 @@ const VehiclesTab = () => {
             <InputField label="Výkon" value={newData.power || ""} onChange={(v) => setNewData({ ...newData, power: v })} />
             <InputField label="Barva" value={newData.color || ""} onChange={(v) => setNewData({ ...newData, color: v })} />
             <div className="sm:col-span-2 lg:col-span-3">
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Popis</label>
-              <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={2} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
+                <button
+                  type="button"
+                  onClick={() => generateDescription(newData, "new")}
+                  disabled={descGenerating === "new"}
+                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                  title="Vygenerovat popis pomocí AI z vyplněných údajů"
+                >
+                  {descGenerating === "new" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                  {descGenerating === "new" ? "Generuji..." : "AI popis"}
+                </button>
+              </div>
+              <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
             </div>
           </div>
           <div className="flex gap-3 mt-4">
@@ -596,7 +683,26 @@ const VehiclesTab = () => {
                     <InputField label="Rok" type="number" value={String(editData.year || "")} onChange={(v) => setEditData({ ...editData, year: Number(v) })} />
                     <InputField label="Cena" type="number" value={String(editData.price_with_vat || "")} onChange={(v) => setEditData({ ...editData, price_with_vat: Number(v) })} />
                     <InputField label="Nájezd" type="number" value={String(editData.mileage || "")} onChange={(v) => setEditData({ ...editData, mileage: Number(v) })} />
-                    <InputField label="VIN" value={editData.vin || ""} onChange={(v) => setEditData({ ...editData, vin: v })} />
+                    <div>
+                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">VIN</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={editData.vin || ""}
+                          onChange={(e) => setEditData({ ...editData, vin: e.target.value })}
+                          className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => decodeVin(editData.vin || "", vehicle.id)}
+                          disabled={vinDecoding === vehicle.id}
+                          className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 whitespace-nowrap"
+                          title="Automaticky vyplnit z VIN"
+                        >
+                          {vinDecoding === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                          Dekódovat
+                        </button>
+                      </div>
+                    </div>
                     <InputField label="Palivo" value={editData.fuel || ""} onChange={(v) => setEditData({ ...editData, fuel: v })} />
                     <InputField label="URL obrázku" value={editData.image_url || ""} onChange={(v) => setEditData({ ...editData, image_url: v })} />
                     <InputField label="Motor" value={editData.engine || ""} onChange={(v) => setEditData({ ...editData, engine: v })} />
@@ -607,8 +713,20 @@ const VehiclesTab = () => {
                     <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
                     <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />
                     <div className="sm:col-span-2 lg:col-span-3">
-                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Popis</label>
-                      <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={2} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
+                        <button
+                          type="button"
+                          onClick={() => generateDescription({ ...vehicle, ...editData }, vehicle.id)}
+                          disabled={descGenerating === vehicle.id}
+                          className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                          title="Vygenerovat popis pomocí AI"
+                        >
+                          {descGenerating === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          {descGenerating === vehicle.id ? "Generuji..." : "AI popis"}
+                        </button>
+                      </div>
+                      <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
                     </div>
                     <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
                       <button onClick={saveEdit} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>

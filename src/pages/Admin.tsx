@@ -5,7 +5,8 @@ import {
   Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download,
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
   Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink,
-  BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer
+  BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer,
+  Sparkles, Wand2
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";

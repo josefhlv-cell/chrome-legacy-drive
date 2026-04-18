@@ -683,7 +683,26 @@ const VehiclesTab = () => {
                     <InputField label="Rok" type="number" value={String(editData.year || "")} onChange={(v) => setEditData({ ...editData, year: Number(v) })} />
                     <InputField label="Cena" type="number" value={String(editData.price_with_vat || "")} onChange={(v) => setEditData({ ...editData, price_with_vat: Number(v) })} />
                     <InputField label="Nájezd" type="number" value={String(editData.mileage || "")} onChange={(v) => setEditData({ ...editData, mileage: Number(v) })} />
-                    <InputField label="VIN" value={editData.vin || ""} onChange={(v) => setEditData({ ...editData, vin: v })} />
+                    <div>
+                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">VIN</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={editData.vin || ""}
+                          onChange={(e) => setEditData({ ...editData, vin: e.target.value })}
+                          className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => decodeVin(editData.vin || "", vehicle.id)}
+                          disabled={vinDecoding === vehicle.id}
+                          className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 whitespace-nowrap"
+                          title="Automaticky vyplnit z VIN"
+                        >
+                          {vinDecoding === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
+                          Dekódovat
+                        </button>
+                      </div>
+                    </div>
                     <InputField label="Palivo" value={editData.fuel || ""} onChange={(v) => setEditData({ ...editData, fuel: v })} />
                     <InputField label="URL obrázku" value={editData.image_url || ""} onChange={(v) => setEditData({ ...editData, image_url: v })} />
                     <InputField label="Motor" value={editData.engine || ""} onChange={(v) => setEditData({ ...editData, engine: v })} />
@@ -694,8 +713,20 @@ const VehiclesTab = () => {
                     <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
                     <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />
                     <div className="sm:col-span-2 lg:col-span-3">
-                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Popis</label>
-                      <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={2} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
+                      <div className="flex items-center justify-between mb-1.5">
+                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
+                        <button
+                          type="button"
+                          onClick={() => generateDescription({ ...vehicle, ...editData }, vehicle.id)}
+                          disabled={descGenerating === vehicle.id}
+                          className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                          title="Vygenerovat popis pomocí AI"
+                        >
+                          {descGenerating === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
+                          {descGenerating === vehicle.id ? "Generuji..." : "AI popis"}
+                        </button>
+                      </div>
+                      <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
                     </div>
                     <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
                       <button onClick={saveEdit} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>

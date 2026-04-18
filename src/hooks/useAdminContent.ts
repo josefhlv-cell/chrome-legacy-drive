@@ -63,7 +63,7 @@ export const useUpdateTickerItem = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ id, text, is_active }: { id: string; text?: string; is_active?: boolean }) => {
-      const updates: Record<string, unknown> = {};
+      const updates: { text?: string; is_active?: boolean } = {};
       if (text !== undefined) updates.text = text;
       if (is_active !== undefined) updates.is_active = is_active;
       const { error } = await supabase.from("ticker_items").update(updates).eq("id", id);

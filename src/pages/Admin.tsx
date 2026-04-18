@@ -208,6 +208,60 @@ const VehiclesTab = () => {
     } catch { return { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" }; }
   });
 
+  // AI helpers state
+  const [vinDecoding, setVinDecoding] = useState<"new" | string | null>(null);
+  const [descGenerating, setDescGenerating] = useState<"new" | string | null>(null);
+  const [typicalEquipment, setTypicalEquipment] = useState<Record<string, string>>({});
+
+  const decodeVin = async (vin: string, target: "new" | string) => {
+    if (!vin || vin.trim().length < 11) {
+      toast({ title: "VIN musí mít alespoň 11 znaků", variant: "destructive" });
+      return;
+    }
+    setVinDecoding(target);
+    try {
+      const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: vin.trim() } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const d = data?.decoded ?? {};
+      const updates: any = {};
+      if (d.name) updates.name = d.name;
+      if (d.year) updates.year = d.year;
+      if (d.fuel) updates.fuel = d.fuel;
+      if (d.engine) updates.engine = d.engine;
+      if (d.transmission) updates.transmission = d.transmission;
+      if (d.power) updates.power = d.power;
+      if (target === "new") setNewData((prev) => ({ ...prev, ...updates }));
+      else setEditData((prev) => ({ ...prev, ...updates }));
+      if (d.typicalEquipment) setTypicalEquipment((prev) => ({ ...prev, [target]: d.typicalEquipment }));
+      toast({ title: "VIN dekódován", description: `${Object.keys(updates).length} polí vyplněno` });
+    } catch (e: any) {
+      toast({ title: "Dekódování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
+    } finally {
+      setVinDecoding(null);
+    }
+  };
+
+  const generateDescription = async (vehicleData: Partial<TablesInsert<"vehicles">>, target: "new" | string) => {
+    setDescGenerating(target);
+    try {
+      const payload: any = { ...vehicleData };
+      if (typicalEquipment[target]) payload.typicalEquipment = typicalEquipment[target];
+      const { data, error } = await supabase.functions.invoke("generate-vehicle-description", { body: { vehicle: payload } });
+      if (error) throw error;
+      if (data?.error) throw new Error(data.error);
+      const description = data?.description || "";
+      if (!description) throw new Error("Prázdná odpověď");
+      if (target === "new") setNewData((prev) => ({ ...prev, description }));
+      else setEditData((prev) => ({ ...prev, description }));
+      toast({ title: "Popis vygenerován" });
+    } catch (e: any) {
+      toast({ title: "Generování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
+    } finally {
+      setDescGenerating(null);
+    }
+  };
+
   const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
     updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
   };

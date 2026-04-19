@@ -112,7 +112,7 @@ const VinDecodePreview = ({ open, onOpenChange, decoded, currentValues, onApply 
                       {FIELD_LABELS[key]}
                     </span>
                     {isOverwrite && (
-                      <span className="text-[10px] uppercase tracking-wider text-amber-500 font-semibold">
+                      <span className="text-[10px] uppercase tracking-wider text-destructive font-semibold">
                         přepíše
                       </span>
                     )}

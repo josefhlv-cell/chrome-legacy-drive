@@ -64,11 +64,27 @@ PRAVIDLA - velmi důležité:
 9. Žádné emoji, žádné markdown formátování.
 10. Začni přímo popisem vozu, bez úvodního pozdravu.`;
 
-    const userPrompt = `Vygeneruj popis pro tento vůz na základě POUZE těchto reálných údajů:
+    const baseUserPrompt = `Vygeneruj popis pro tento vůz na základě POUZE těchto reálných údajů:
 
 ${facts.join("\n")}
 
 ${priceLine}`;
+
+    const messages: Array<{ role: string; content: string }> = [
+      { role: "system", content: systemPrompt },
+      { role: "user", content: baseUserPrompt },
+    ];
+
+    if (currentDescription && typeof currentDescription === "string" && currentDescription.trim()) {
+      messages.push({ role: "assistant", content: currentDescription.trim() });
+    }
+
+    if (feedback && typeof feedback === "string" && feedback.trim()) {
+      messages.push({
+        role: "user",
+        content: `Uprav popis podle této zpětné vazby (zachovej pravdivost - nepřidávej nic, co není ve faktech výše):\n\n${feedback.trim()}`,
+      });
+    }
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

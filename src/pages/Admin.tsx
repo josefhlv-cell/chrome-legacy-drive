@@ -30,6 +30,7 @@ import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
 import QuickExportButton from "@/components/admin/QuickExportButton";
 import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
+import VinDecodePreview from "@/components/admin/VinDecodePreview";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";
@@ -804,6 +805,18 @@ const VehiclesTab = () => {
           />
         );
       })()}
+
+      <VinDecodePreview
+        open={!!vinPreview}
+        onOpenChange={(o) => { if (!o) setVinPreview(null); }}
+        decoded={vinPreview?.decoded ?? null}
+        currentValues={
+          vinPreview?.target === "new"
+            ? (newData as any)
+            : (vinPreview ? { ...(vehicles?.find((v) => v.id === vinPreview.target) || {}), ...editData } : {})
+        }
+        onApply={applyVinSelection}
+      />
     </div>
   );
 };

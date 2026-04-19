@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
 import QuickExportButton from "@/components/admin/QuickExportButton";
+import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";
@@ -212,6 +213,7 @@ const VehiclesTab = () => {
   const [vinDecoding, setVinDecoding] = useState<"new" | string | null>(null);
   const [descGenerating, setDescGenerating] = useState<"new" | string | null>(null);
   const [typicalEquipment, setTypicalEquipment] = useState<Record<string, string>>({});
+  const [aiChatTarget, setAiChatTarget] = useState<"new" | string | null>(null);
 
   const decodeVin = async (vin: string, target: "new" | string) => {
     if (!vin || vin.trim().length < 11) {
@@ -464,13 +466,12 @@ const VehiclesTab = () => {
                 <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
                 <button
                   type="button"
-                  onClick={() => generateDescription(newData, "new")}
-                  disabled={descGenerating === "new"}
+                  onClick={() => setAiChatTarget("new")}
                   className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                  title="Vygenerovat popis pomocí AI z vyplněných údajů"
+                  title="Otevřít AI chat pro generování / úpravu popisu"
                 >
-                  {descGenerating === "new" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                  {descGenerating === "new" ? "Generuji..." : "AI popis"}
+                  <Sparkles className="w-3.5 h-3.5" />
+                  AI popis
                 </button>
               </div>
               <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
@@ -717,13 +718,12 @@ const VehiclesTab = () => {
                         <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
                         <button
                           type="button"
-                          onClick={() => generateDescription({ ...vehicle, ...editData }, vehicle.id)}
-                          disabled={descGenerating === vehicle.id}
+                          onClick={() => setAiChatTarget(vehicle.id)}
                           className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                          title="Vygenerovat popis pomocí AI"
+                          title="Otevřít AI chat pro generování / úpravu popisu"
                         >
-                          {descGenerating === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          {descGenerating === vehicle.id ? "Generuji..." : "AI popis"}
+                          <Sparkles className="w-3.5 h-3.5" />
+                          AI popis
                         </button>
                       </div>
                       <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
@@ -775,6 +775,26 @@ const VehiclesTab = () => {
       {vehicles?.length === 0 && !isLoading && (
         <p className="text-center text-muted-foreground py-20">Žádná vozidla.</p>
       )}
+
+      {aiChatTarget && (() => {
+        const isNew = aiChatTarget === "new";
+        const baseVehicle = isNew
+          ? newData
+          : { ...(vehicles?.find((v) => v.id === aiChatTarget) || {}), ...editData };
+        const initial = isNew ? (newData.description || "") : (editData.description ?? baseVehicle.description ?? "");
+        return (
+          <AIDescriptionChat
+            open={true}
+            onClose={() => setAiChatTarget(null)}
+            vehicleData={baseVehicle as Record<string, any>}
+            initialDescription={initial}
+            onApply={(desc) => {
+              if (isNew) setNewData((prev) => ({ ...prev, description: desc }));
+              else setEditData((prev) => ({ ...prev, description: desc }));
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

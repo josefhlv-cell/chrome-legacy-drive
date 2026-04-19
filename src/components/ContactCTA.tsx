@@ -25,8 +25,10 @@ const ContactCTA = () => (
           </div>
         </div>
         <div className="flex flex-col gap-3 text-sm text-muted-foreground font-montserrat shrink-0">
-          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767 <span className="text-xs">(prodej, servis)</span></div>
-          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 372 911 <span className="text-xs">(díly)</span></div>
+          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767 <span className="text-xs">(prodej a výkup)</span></div>
+          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 737 842 460 <span className="text-xs">(nové díly)</span></div>
+          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 372 911 <span className="text-xs">(použité díly)</span></div>
+          <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> +420 603 559 767 <span className="text-xs">(autoservis)</span></div>
           <div className="flex items-center gap-2"><Phone className="w-4 h-4 text-primary" /> 466 931 611 <span className="text-xs">(pevná linka)</span></div>
           <div className="flex items-center gap-2"><Mail className="w-4 h-4 text-primary" /> obchod@chrysler.cz</div>
           <div className="flex items-center gap-2"><MapPin className="w-4 h-4 text-primary" /> Lukovna 11, Pardubice</div>

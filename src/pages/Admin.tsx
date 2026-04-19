@@ -775,6 +775,26 @@ const VehiclesTab = () => {
       {vehicles?.length === 0 && !isLoading && (
         <p className="text-center text-muted-foreground py-20">Žádná vozidla.</p>
       )}
+
+      {aiChatTarget && (() => {
+        const isNew = aiChatTarget === "new";
+        const baseVehicle = isNew
+          ? newData
+          : { ...(vehicles?.find((v) => v.id === aiChatTarget) || {}), ...editData };
+        const initial = isNew ? (newData.description || "") : (editData.description ?? baseVehicle.description ?? "");
+        return (
+          <AIDescriptionChat
+            open={true}
+            onClose={() => setAiChatTarget(null)}
+            vehicleData={baseVehicle as Record<string, any>}
+            initialDescription={initial}
+            onApply={(desc) => {
+              if (isNew) setNewData((prev) => ({ ...prev, description: desc }));
+              else setEditData((prev) => ({ ...prev, description: desc }));
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };

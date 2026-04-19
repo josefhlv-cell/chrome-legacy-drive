@@ -213,6 +213,7 @@ const VehiclesTab = () => {
   const [vinDecoding, setVinDecoding] = useState<"new" | string | null>(null);
   const [descGenerating, setDescGenerating] = useState<"new" | string | null>(null);
   const [typicalEquipment, setTypicalEquipment] = useState<Record<string, string>>({});
+  const [aiChatTarget, setAiChatTarget] = useState<"new" | string | null>(null);
 
   const decodeVin = async (vin: string, target: "new" | string) => {
     if (!vin || vin.trim().length < 11) {

@@ -50,12 +50,20 @@ const ContactPage = () => {
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
                   <div className="space-y-2">
                     <div>
-                      <p className="font-semibold text-foreground text-sm">Prodej a výkup vozidel — Autoservis</p>
+                      <p className="font-semibold text-foreground text-sm">Prodej a výkup vozidel</p>
                       <p className="text-muted-foreground text-sm">+420 603 559 767</p>
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground text-sm">Prodej nových i použitých autodílů</p>
+                      <p className="font-semibold text-foreground text-sm">Prodej nových autodílů</p>
+                      <p className="text-muted-foreground text-sm">+420 737 842 460</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Prodej použitých autodílů</p>
                       <p className="text-muted-foreground text-sm">+420 603 372 911</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">Autoservis</p>
+                      <p className="text-muted-foreground text-sm">+420 603 559 767</p>
                     </div>
                     <div>
                       <p className="font-semibold text-foreground text-sm">Pevná linka</p>

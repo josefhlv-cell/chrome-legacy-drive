@@ -214,6 +214,7 @@ const VehiclesTab = () => {
   const [descGenerating, setDescGenerating] = useState<"new" | string | null>(null);
   const [typicalEquipment, setTypicalEquipment] = useState<Record<string, string>>({});
   const [aiChatTarget, setAiChatTarget] = useState<"new" | string | null>(null);
+  const [vinPreview, setVinPreview] = useState<{ target: "new" | string; decoded: any } | null>(null);
 
   const decodeVin = async (vin: string, target: "new" | string) => {
     if (!vin || vin.trim().length < 11) {
@@ -226,22 +227,30 @@ const VehiclesTab = () => {
       if (error) throw error;
       if (data?.error) throw new Error(data.error);
       const d = data?.decoded ?? {};
-      const updates: any = {};
-      if (d.name) updates.name = d.name;
-      if (d.year) updates.year = d.year;
-      if (d.fuel) updates.fuel = d.fuel;
-      if (d.engine) updates.engine = d.engine;
-      if (d.transmission) updates.transmission = d.transmission;
-      if (d.power) updates.power = d.power;
-      if (target === "new") setNewData((prev) => ({ ...prev, ...updates }));
-      else setEditData((prev) => ({ ...prev, ...updates }));
-      if (d.typicalEquipment) setTypicalEquipment((prev) => ({ ...prev, [target]: d.typicalEquipment }));
-      toast({ title: "VIN dekódován", description: `${Object.keys(updates).length} polí vyplněno` });
+      // Otevři dialog s náhledem místo přímého vyplnění
+      setVinPreview({ target, decoded: d });
     } catch (e: any) {
       toast({ title: "Dekódování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
     } finally {
       setVinDecoding(null);
     }
+  };
+
+  const applyVinSelection = (selected: any) => {
+    if (!vinPreview) return;
+    const { target } = vinPreview;
+    const updates: any = {};
+    ["name", "year", "fuel", "engine", "transmission", "power"].forEach((k) => {
+      if (selected[k] !== undefined) updates[k] = selected[k];
+    });
+    if (Object.keys(updates).length) {
+      if (target === "new") setNewData((prev) => ({ ...prev, ...updates }));
+      else setEditData((prev) => ({ ...prev, ...updates }));
+    }
+    if (selected.typicalEquipment) {
+      setTypicalEquipment((prev) => ({ ...prev, [target]: selected.typicalEquipment }));
+    }
+    toast({ title: "Pole vyplněna", description: `${Object.keys(updates).length} polí aktualizováno` });
   };
 
   const generateDescription = async (vehicleData: Partial<TablesInsert<"vehicles">>, target: "new" | string) => {

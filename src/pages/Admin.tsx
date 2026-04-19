@@ -718,13 +718,12 @@ const VehiclesTab = () => {
                         <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
                         <button
                           type="button"
-                          onClick={() => generateDescription({ ...vehicle, ...editData }, vehicle.id)}
-                          disabled={descGenerating === vehicle.id}
+                          onClick={() => setAiChatTarget(vehicle.id)}
                           className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                          title="Vygenerovat popis pomocí AI"
+                          title="Otevřít AI chat pro generování / úpravu popisu"
                         >
-                          {descGenerating === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Sparkles className="w-3.5 h-3.5" />}
-                          {descGenerating === vehicle.id ? "Generuji..." : "AI popis"}
+                          <Sparkles className="w-3.5 h-3.5" />
+                          AI popis
                         </button>
                       </div>
                       <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />

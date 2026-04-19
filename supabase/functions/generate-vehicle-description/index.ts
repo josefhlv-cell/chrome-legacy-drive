@@ -8,7 +8,7 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 
   try {
-    const { vehicle } = await req.json();
+    const { vehicle, currentDescription, feedback } = await req.json();
     if (!vehicle || typeof vehicle !== "object") {
       return new Response(JSON.stringify({ error: "Chybí data vozu" }), {
         status: 400,

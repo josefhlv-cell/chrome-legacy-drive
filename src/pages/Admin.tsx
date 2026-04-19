@@ -29,6 +29,7 @@ import { supabase } from "@/integrations/supabase/client";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
 import QuickExportButton from "@/components/admin/QuickExportButton";
+import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";

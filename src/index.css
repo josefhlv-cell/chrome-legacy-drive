@@ -245,12 +245,16 @@
   padding: 14px;
   overflow: auto;
   -webkit-overflow-scrolling: touch;
+  min-height: min(100%, calc(100vh - 12rem));
 }
 
 .flyer-preview-stage {
   width: 100%;
   min-width: 0;
   position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .flyer-preview-stage .flyer-a4 {
@@ -263,7 +267,10 @@
   .flyer-preview-shell {
     width: 100%;
     max-width: 100%;
-    min-height: 100%;
+    min-height: calc(100vh - 10rem);
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
   }
 
   #print-flyer-area.flyer-a4 {
@@ -357,6 +364,19 @@
 .flyer-hero.studio {
   background: #ffffff;
   border: 0.5pt solid #d7dbe0;
+  position: relative;
+}
+.flyer-hero.studio::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 7mm;
+  width: 52%;
+  height: 10mm;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(0, 0, 0, 0.22) 0%, rgba(0, 0, 0, 0.12) 40%, rgba(0, 0, 0, 0) 74%);
+  pointer-events: none;
 }
 .flyer-hero.studio img {
   width: auto;
@@ -366,6 +386,8 @@
   object-position: center bottom;
   filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.18));
   padding: 4mm 5mm 6mm;
+  position: relative;
+  z-index: 1;
 }
 .flyer-no-photo {
   color: #999;
@@ -553,13 +575,10 @@
     padding: 0 !important;
     overflow: hidden !important;
     background: #fff !important;
+    width: 210mm !important;
   }
   body {
     visibility: hidden !important;
-  }
-  html, body {
-    width: 210mm !important;
-    height: 297mm !important;
   }
   body * { visibility: hidden !important; }
   .print-page, .print-page * { visibility: visible !important; }
@@ -583,9 +602,11 @@
     overflow: hidden !important;
   }
   .print-page * {
+    max-width: 100% !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
     overflow: hidden !important;
+    box-sizing: border-box !important;
   }
   .flyer-preview-shell,
   .flyer-preview-stage {

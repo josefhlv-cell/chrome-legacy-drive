@@ -333,10 +333,10 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               </div>
             </div>
 
-            {/* QR — fixed at bottom center */}
+            {/* QR — fixed at bottom (size scaled by CSS to 36mm portrait / 30mm landscape) */}
             <div className="flyer-qr">
-              <QRCodeSVG id={`flyer-qr-${vehicle.id}`} value={qrUrl} size={110} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
-              <div className="flyer-qr-caption">Naskenujte kód pro detailní nabídku na chryslerpardubice.site</div>
+              <QRCodeSVG id={`flyer-qr-${vehicle.id}`} value={qrUrl} size={256} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
+              <div className="flyer-qr-caption">Naskenujte kód pro detailní nabídku</div>
             </div>
           </div>
         </div>

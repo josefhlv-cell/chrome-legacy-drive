@@ -218,7 +218,7 @@
   width: 210mm;
   height: 297mm;
   max-height: 297mm;
-  padding: 12mm 12mm 38mm 12mm;
+  padding: 10mm 12mm 55mm 12mm;
   box-sizing: border-box;
   font-family: 'Montserrat', system-ui, sans-serif;
   color: #000;
@@ -228,6 +228,12 @@
   page-break-after: avoid;
   page-break-inside: avoid;
   break-inside: avoid;
+}
+.flyer-a4.landscape {
+  width: 297mm;
+  height: 210mm;
+  max-height: 210mm;
+  padding: 8mm 10mm 8mm 10mm;
 }
 
 /* Watermark behind title */

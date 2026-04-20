@@ -36,6 +36,27 @@ interface FlyerData {
   popis: string;
 }
 
+// Limity aby se vše vešlo na 1 stránku A4
+const MAX_VYBAVA_ITEMS = 10;
+const MAX_VYBAVA_CHARS = 280;
+const MAX_POPIS_CHARS = 600;
+
+const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
+
+const limitVybava = (raw: string): string => {
+  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, MAX_VYBAVA_ITEMS);
+  let out: string[] = [];
+  let total = 0;
+  for (const l of lines) {
+    if (total + l.length + 1 > MAX_VYBAVA_CHARS) break;
+    out.push(l);
+    total += l.length + 1;
+  }
+  return out.join("\n");
+};
+
+const limitPopis = (raw: string): string => truncate(raw.trim(), MAX_POPIS_CHARS);
+
 const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();
   const [data, setData] = useState<FlyerData | null>(null);

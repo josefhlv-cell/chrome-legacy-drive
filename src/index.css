@@ -258,25 +258,30 @@
   transform-origin: top center;
 }
 
-/* === Mobile preview scaling: pinch-zoomable, fully visible === */
-@media screen and (max-width: 1100px) {
+/* === Mobile preview scaling: whole A4 visible === */
+@media screen and (max-width: 1023px) {
+  .flyer-preview-shell {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100%;
+  }
+
   #print-flyer-area.flyer-a4 {
-    transform: scale(0.5);
-    transform-origin: top center;
-    margin-bottom: calc(-297mm * 0.5);
+    margin-left: auto;
+    margin-right: auto;
     touch-action: pinch-zoom;
   }
 }
+
 @media screen and (max-width: 768px) {
-  #print-flyer-area.flyer-a4 {
-    transform: scale(0.42);
-    margin-bottom: calc(-297mm * 0.58);
-  }
-}
-@media screen and (max-width: 480px) {
-  #print-flyer-area.flyer-a4 {
-    transform: scale(0.32);
-    margin-bottom: calc(-297mm * 0.68);
+  .flyer-preview-shell {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    border-radius: 0;
+    padding: 12px 8px 18px;
+    min-height: 100vh;
+    overflow: auto;
+    -webkit-overflow-scrolling: touch;
   }
 }
 
@@ -543,27 +548,53 @@
     margin: 0;
   }
   html, body {
+    height: 100% !important;
     margin: 0 !important;
     padding: 0 !important;
-    background: #fff !important;
     overflow: hidden !important;
+    background: #fff !important;
+  }
+  body {
+    visibility: hidden !important;
+  }
+  html, body {
+    width: 210mm !important;
+    height: 297mm !important;
   }
   body * { visibility: hidden !important; }
-  #print-flyer-area, #print-flyer-area * { visibility: visible !important; }
-  #print-flyer-area {
+  .print-page, .print-page * { visibility: visible !important; }
+  .print-page {
     position: fixed !important;
     left: 0 !important;
     top: 0 !important;
+    width: 210mm !important;
+    height: 297mm !important;
     margin: 0 !important;
+    padding: 10mm 12mm !important;
     transform: none !important;
     box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    page-break-after: avoid !important;
+    page-break-before: avoid !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    overflow: hidden !important;
   }
-  #print-flyer-area * {
+  .print-page * {
     page-break-inside: avoid !important;
     break-inside: avoid !important;
+    overflow: hidden !important;
+  }
+  .flyer-preview-shell,
+  .flyer-preview-stage {
+    background: transparent !important;
+    border: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    overflow: visible !important;
+    height: auto !important;
   }
 }
 

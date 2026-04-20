@@ -36,12 +36,49 @@ interface FlyerData {
   popis: string;
 }
 
+// Limity aby se vše vešlo na 1 stránku A4
+const MAX_VYBAVA_ITEMS = 10;
+const MAX_VYBAVA_CHARS = 280;
+const MAX_POPIS_CHARS = 600;
+
+const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
+
+const limitVybava = (raw: string): string => {
+  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, MAX_VYBAVA_ITEMS);
+  let out: string[] = [];
+  let total = 0;
+  for (const l of lines) {
+    if (total + l.length + 1 > MAX_VYBAVA_CHARS) break;
+    out.push(l);
+    total += l.length + 1;
+  }
+  return out.join("\n");
+};
+
+const limitPopis = (raw: string): string => truncate(raw.trim(), MAX_POPIS_CHARS);
+
 const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();
   const [data, setData] = useState<FlyerData | null>(null);
   const [generatingEquipment, setGeneratingEquipment] = useState(false);
+  const [mainPhoto, setMainPhoto] = useState<string>("");
 
   const qrUrl = vehicle ? `${siteUrl}/vozidla/${vehicle.id}` : "";
+
+  // Fetch main photo for watermark
+  useEffect(() => {
+    if (!vehicle || !open) { setMainPhoto(""); return; }
+    (async () => {
+      const { data: imgs } = await supabase
+        .from("vehicle_images")
+        .select("image_url, is_main, sort_order")
+        .eq("vehicle_id", vehicle.id)
+        .order("is_main", { ascending: false })
+        .order("sort_order", { ascending: true })
+        .limit(1);
+      setMainPhoto(imgs?.[0]?.image_url || vehicle.image_url || "");
+    })();
+  }, [vehicle, open]);
 
   // Build initial flyer data from vehicle
   useEffect(() => {
@@ -76,7 +113,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       stkDo: "",
       barva: (vehicle.color || "").toUpperCase(),
       vybava: "",
-      popis: vehicle.description || "",
+      popis: limitPopis(vehicle.description || ""),
     });
   }, [vehicle, open]);
 
@@ -97,13 +134,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
         toast({ title: "AI nevrátila výbavu", description: "Zkuste znovu nebo vyplňte ručně.", variant: "destructive" });
         return;
       }
-      // Convert comma/semicolon list to line-per-item
+      // Convert comma/semicolon list to line-per-item, omez na limit znaků/položek
       const lines = equipment
         .split(/[,;\n]/)
         .map((s: string) => s.trim())
-        .filter(Boolean)
-        .slice(0, 10);
-      setData((d) => (d ? { ...d, vybava: lines.join("\n") } : d));
+        .filter(Boolean);
+      const limited = limitVybava(lines.join("\n"));
+      setData((d) => (d ? { ...d, vybava: limited } : d));
       toast({ title: "Výbava vygenerována" });
     } catch (e: any) {
       toast({ title: "Chyba generování", description: e?.message ?? String(e), variant: "destructive" });
@@ -186,23 +223,46 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label className="text-xs">Hlavní výbava (jeden řádek = jedna položka)</Label>
+                <Label className="text-xs">
+                  Hlavní výbava ({data.vybava.length}/{MAX_VYBAVA_CHARS} znaků, max {MAX_VYBAVA_ITEMS} řádků)
+                </Label>
                 <Button size="sm" variant="outline" onClick={generateEquipment} disabled={generatingEquipment} className="h-7 text-xs">
                   {generatingEquipment ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                   Generovat výbavu z VIN (AI)
                 </Button>
               </div>
-              <Textarea rows={6} value={data.vybava} onChange={(e) => setData({ ...data, vybava: e.target.value })} placeholder="Dvouzónová klimatizace&#10;Kůže, vyhřívaná a odvětrávaná&#10;..." />
+              <Textarea
+                rows={6}
+                value={data.vybava}
+                onChange={(e) => setData({ ...data, vybava: limitVybava(e.target.value) })}
+                placeholder="Dvouzónová klimatizace&#10;Kůže, vyhřívaná a odvětrávaná&#10;..."
+              />
             </div>
 
             <div>
-              <Label className="text-xs">Popis vozidla (vyplňte ručně)</Label>
-              <Textarea rows={6} value={data.popis} onChange={(e) => setData({ ...data, popis: e.target.value })} placeholder="Automobil ve výborném stavu, po prvním majiteli v ČR..." />
+              <Label className="text-xs">
+                Popis vozidla — vyplňte ručně ({data.popis.length}/{MAX_POPIS_CHARS} znaků)
+              </Label>
+              <Textarea
+                rows={6}
+                value={data.popis}
+                onChange={(e) => setData({ ...data, popis: e.target.value.slice(0, MAX_POPIS_CHARS) })}
+                placeholder="Automobil ve výborném stavu, po prvním majiteli v ČR..."
+              />
             </div>
           </div>
 
           {/* === FLYER PREVIEW & PRINT === */}
           <div id="print-flyer-area" className="flyer-a4 bg-white text-black mx-auto shadow-2xl print:shadow-none">
+            {/* Watermark — main vehicle photo behind content, opacity 10% */}
+            {mainPhoto && (
+              <div
+                className="flyer-watermark"
+                style={{ backgroundImage: `url(${mainPhoto})` }}
+                aria-hidden="true"
+              />
+            )}
+
             {/* Header */}
             <div className="flyer-header">
               <div className="flyer-shield">
@@ -253,9 +313,6 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
                     <div key={i}>{line}</div>
                   ))}
                 </div>
-                <div className="flyer-qr">
-                  <QRCodeSVG id={`flyer-qr-${vehicle.id}`} value={qrUrl} size={150} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
-                </div>
               </div>
               <div className="fb-col">
                 <div className="fb-heading">POPIS VOZIDLA:</div>
@@ -263,8 +320,10 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               </div>
             </div>
 
-            <div className="flyer-footer">
-              Naskenujte kód pro detailní nabídku na chryslerpardubice.site
+            {/* QR — fixed at bottom center */}
+            <div className="flyer-qr">
+              <QRCodeSVG id={`flyer-qr-${vehicle.id}`} value={qrUrl} size={110} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
+              <div className="flyer-qr-caption">Naskenujte kód pro detailní nabídku na chryslerpardubice.site</div>
             </div>
           </div>
         </div>

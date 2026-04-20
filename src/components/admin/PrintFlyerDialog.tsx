@@ -218,6 +218,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const maxVybavaItems = noPhoto ? MAX_VYBAVA_ITEMS_NOPHOTO : MAX_VYBAVA_ITEMS;
   const maxVybavaChars = noPhoto ? MAX_VYBAVA_CHARS_NOPHOTO : MAX_VYBAVA_CHARS;
   const maxPopisChars = noPhoto ? MAX_POPIS_CHARS_NOPHOTO : MAX_POPIS_CHARS;
+  const previewWidth = Math.round(A4_PREVIEW_WIDTH_PX * previewScale);
+  const previewHeight = Math.round(A4_PREVIEW_HEIGHT_PX * previewScale);
 
   const qrUrl = vehicle ? `${siteUrl}/vozidla/${vehicle.id}` : "";
 
@@ -401,7 +403,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
     printWindow.document.open();
     printWindow.document.write(`<!doctype html>
-      <html lang="cs">
+      <html lang="cs" class="print-window-html">
         <head>
           <meta charset="utf-8" />
           <base href="${document.baseURI}" />
@@ -409,27 +411,67 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           <title>${vehicle.name} | Tisk letáku</title>
           ${collectPrintStyles()}
           <style>
-            html, body { margin: 0; padding: 0; background: white; }
-            body { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; }
-            .print-window-host { width: 210mm; height: 297mm; overflow: hidden; }
+            html.print-window-html,
+            body.print-window-body {
+              margin: 0 !important;
+              padding: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              overflow: hidden !important;
+              background: #fff !important;
+            }
+
+            body.print-window-body {
+              display: block !important;
+              min-height: 297mm !important;
+            }
+
+            body.print-window-body .print-page {
+              position: absolute !important;
+              left: 0 !important;
+              top: 0 !important;
+              width: 210mm !important;
+              height: 297mm !important;
+              margin: 0 !important;
+              box-shadow: none !important;
+              transform: none !important;
+              overflow: hidden !important;
+            }
+
+            @media print {
+              html.print-window-html,
+              body.print-window-body,
+              body.print-window-body * {
+                visibility: visible !important;
+              }
+
+              body.print-window-body .print-page {
+                position: fixed !important;
+                inset: 0 !important;
+                page-break-after: avoid !important;
+                page-break-before: avoid !important;
+                page-break-inside: avoid !important;
+                break-inside: avoid !important;
+              }
+            }
           </style>
         </head>
-        <body>
-          <div class="print-window-host">${flyerMarkup}</div>
-        </body>
+        <body class="print-window-body">${flyerMarkup}</body>
       </html>`);
     printWindow.document.close();
 
     waitForPrintWindowAssets(printWindow)
       .then(() => {
         printWindow.focus();
+        printWindow.onafterprint = () => printWindow.close();
         printWindow.print();
-        window.setTimeout(() => printWindow.close(), 250);
+        window.setTimeout(() => printWindow.close(), 1200);
       })
       .catch(() => {
         printWindow.focus();
+        printWindow.onafterprint = () => printWindow.close();
         printWindow.print();
-        window.setTimeout(() => printWindow.close(), 250);
+        window.setTimeout(() => printWindow.close(), 1200);
       });
   };
 
@@ -525,11 +567,11 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
           {/* === FLYER === */}
           <div ref={previewShellRef} className="flyer-preview-shell print:bg-transparent">
-            <div className="flyer-preview-stage" style={{ height: `${Math.round(A4_PREVIEW_HEIGHT_PX * previewScale)}px` }}>
+            <div className="flyer-preview-stage" style={{ width: `${previewWidth}px`, height: `${previewHeight}px` }}>
               <div
                 id="print-flyer-area"
                 ref={printFlyerRef}
-                className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} mx-auto shadow-2xl print:shadow-none`}
+                className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} shadow-2xl print:shadow-none`}
                 style={{ "--flyer-preview-scale": previewScale } as CSSProperties}
               >
             {/* Header */}

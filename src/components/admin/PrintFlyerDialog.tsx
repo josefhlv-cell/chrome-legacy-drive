@@ -67,6 +67,11 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const [data, setData] = useState<FlyerData | null>(null);
   const [generatingEquipment, setGeneratingEquipment] = useState(false);
   const [mainPhoto, setMainPhoto] = useState<string>("");
+  const [landscape, setLandscape] = useState(false);
+
+  const maxVybavaItems = landscape ? MAX_VYBAVA_ITEMS_LANDSCAPE : MAX_VYBAVA_ITEMS_PORTRAIT;
+  const maxVybavaChars = landscape ? MAX_VYBAVA_CHARS_LANDSCAPE : MAX_VYBAVA_CHARS_PORTRAIT;
+  const maxPopisChars = landscape ? MAX_POPIS_CHARS_LANDSCAPE : MAX_POPIS_CHARS_PORTRAIT;
 
   const qrUrl = vehicle ? `${siteUrl}/vozidla/${vehicle.id}` : "";
 
@@ -85,24 +90,27 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     })();
   }, [vehicle, open]);
 
+  // Re-truncate when orientation toggles
+  useEffect(() => {
+    setData((d) => d ? {
+      ...d,
+      vybava: limitVybava(d.vybava, maxVybavaItems, maxVybavaChars),
+      popis: limitPopis(d.popis, maxPopisChars),
+    } : d);
+  }, [landscape, maxVybavaItems, maxVybavaChars, maxPopisChars]);
+
   // Build initial flyer data from vehicle
   useEffect(() => {
     if (!vehicle || !open) return;
 
-    // Price formatting based on VAT flag
-    // show_vat = true → stored value is NET (bez DPH), show price + below "S DPH / xxx Kč"
-    // show_vat = false → stored value is final price, show only that
     const priceFormatted = formatPrice(vehicle.price_with_vat);
     let priceMain = priceFormatted;
     let priceVatLine = "";
     if (vehicle.show_vat) {
-      priceMain = priceFormatted; // bez DPH
+      priceMain = priceFormatted;
       const withVat = priceWithVatFromNet(vehicle.price_with_vat);
       priceVatLine = `S DPH / ${formatPrice(withVat)}`;
     }
-
-    // Subtitle: engine info
-    const subtitle = [vehicle.engine, vehicle.transmission ? "" : ""].filter(Boolean).join(" ").trim() || vehicle.engine || "";
 
     setData({
       title: vehicle.name?.toUpperCase() || "",
@@ -118,7 +126,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       stkDo: "",
       barva: (vehicle.color || "").toUpperCase(),
       vybava: "",
-      popis: limitPopis(vehicle.description || ""),
+      popis: limitPopis(vehicle.description || "", maxPopisChars),
     });
   }, [vehicle, open]);
 

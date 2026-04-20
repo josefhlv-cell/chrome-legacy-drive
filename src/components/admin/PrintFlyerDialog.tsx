@@ -93,33 +93,6 @@ const waitForImages = async (container: HTMLElement) => {
   }));
 };
 
-const convertCanvasToGrayscale = (canvas: HTMLCanvasElement) => {
-  const context = canvas.getContext("2d", { willReadFrequently: true });
-  if (!context) throw new Error("Nepodařilo se připravit PDF render.");
-
-  const image = context.getImageData(0, 0, canvas.width, canvas.height);
-  const { data: pixels } = image;
-
-  for (let index = 0; index < pixels.length; index += 4) {
-    const luminance = Math.round((pixels[index] * 299 + pixels[index + 1] * 587 + pixels[index + 2] * 114) / 1000);
-    pixels[index] = luminance;
-    pixels[index + 1] = luminance;
-    pixels[index + 2] = luminance;
-  }
-
-  context.putImageData(image, 0, 0);
-  return canvas;
-};
-
-const buildPdfFileName = (title: string) => {
-  const slug = title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/gi, "-")
-    .replace(/^-+|-+$/g, "") || "flyer";
-
-  return `${slug}-a4.pdf`;
-};
-
 
 const normalizeStudioCutout = async (blob: Blob) => {
   const objectUrl = URL.createObjectURL(blob);
@@ -295,13 +268,18 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     if (!open) return;
 
     const updatePreviewScale = () => {
+      if (window.innerWidth <= 768) {
+        setPreviewScale(0.45);
+        return;
+      }
+
       const shell = previewShellRef.current;
       const availableWidth = Math.max((shell?.clientWidth ?? window.innerWidth) - 24, 240);
       const availableHeight = Math.max((shell?.clientHeight ?? window.innerHeight - 220) - 24, 320);
       const widthScale = availableWidth / A4_PREVIEW_WIDTH_PX;
       const heightScale = availableHeight / A4_PREVIEW_HEIGHT_PX;
 
-      setPreviewScale(clampNumber(Math.min(widthScale, heightScale, 1), 0.2, 1));
+      setPreviewScale(clampNumber(Math.min(widthScale, heightScale, 1), 0.45, 1));
     };
 
     updatePreviewScale();
@@ -467,68 +445,42 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     reader.readAsDataURL(file);
   };
 
-  const renderFlyerPdf = async (autoPrint = false) => {
+  const prepareFlyerForPrint = async () => {
     const flyerNode = printFlyerRef.current;
     if (!flyerNode) throw new Error("Náhled letáku ještě není připraven.");
 
     if (!noPhoto && !bgRemoved) {
       const processed = await processHeroPhoto(false);
-      if (!processed) throw new Error("Nepodařilo se připravit studio fotku pro PDF.");
+      if (!processed) throw new Error("Nepodařilo se připravit studio fotku pro tisk.");
     }
 
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     await waitForImages(flyerNode);
-
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-      import("html2canvas"),
-      import("jspdf"),
-    ]);
-
-    const canvas = await html2canvas(flyerNode, {
-      backgroundColor: "#ffffff",
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      imageTimeout: 15000,
-      width: flyerNode.scrollWidth,
-      height: flyerNode.scrollHeight,
-      onclone: (documentClone) => {
-        const clonedFlyer = documentClone.getElementById("print-flyer-area");
-        if (!clonedFlyer) return;
-
-        clonedFlyer.classList.remove("shadow-2xl");
-        clonedFlyer.setAttribute("style", `${clonedFlyer.getAttribute("style") || ""};box-shadow:none !important;filter:grayscale(100%);margin:0;`);
-      },
-    });
-
-    const grayscaleCanvas = convertCanvasToGrayscale(canvas);
-    const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
-    pdf.addImage(grayscaleCanvas.toDataURL("image/jpeg", 1), "JPEG", 0, 0, 210, 297, undefined, "FAST");
-    if (autoPrint) pdf.autoPrint();
-
-    return {
-      blob: pdf.output("blob"),
-      filename: buildPdfFileName(data.title),
-    };
   };
 
-  const handlePrint = async () => {
-    setPdfAction("print");
+  const openBrowserPrintDialog = async (mode: "print" | "download") => {
+    setPdfAction(mode);
 
     try {
-      const { blob, filename } = await renderFlyerPdf(true);
-      const pdfUrl = URL.createObjectURL(blob);
-      const popup = window.open(pdfUrl, "_blank", "noopener,noreferrer");
+      await prepareFlyerForPrint();
 
-      if (!popup) {
-        const link = document.createElement("a");
-        link.href = pdfUrl;
-        link.download = filename;
-        link.click();
+      const previousTitle = document.title;
+      document.title = `${data.title || "flyer"} A4`;
+      document.body.classList.add("flyer-print-open");
+
+      try {
+        window.print();
+      } finally {
+        document.body.classList.remove("flyer-print-open");
+        document.title = previousTitle;
       }
 
-      toast({ title: "PDF připraveno", description: "Otevřel jsem 1stránkové černobílé A4 PDF pro tisk." });
-      window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
+      toast({
+        title: mode === "download" ? "Dialog pro uložení otevřen" : "Dialog tisku otevřen",
+        description: mode === "download"
+          ? "V dialogu zvolte Uložit jako PDF."
+          : "V dialogu vytiskněte nebo uložte jako PDF.",
+      });
     } catch (error: unknown) {
       toast({ title: "Tisk se nepodařil", description: getErrorMessage(error), variant: "destructive" });
     } finally {
@@ -536,31 +488,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     }
   };
 
-  const handleDownloadPdf = async () => {
-    setPdfAction("download");
-
-    try {
-      const { blob, filename } = await renderFlyerPdf();
-      const file = new File([blob], filename, { type: "application/pdf" });
-
-      if (navigator.canShare?.({ files: [file] })) {
-        await navigator.share({ files: [file], title: filename });
-      } else {
-        const pdfUrl = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = pdfUrl;
-        link.download = filename;
-        link.click();
-        window.setTimeout(() => URL.revokeObjectURL(pdfUrl), 60000);
-      }
-
-      toast({ title: "PDF uloženo", description: "Soubor je v pevné černobílé A4 podobě." });
-    } catch (error: unknown) {
-      toast({ title: "Uložení se nepodařilo", description: getErrorMessage(error), variant: "destructive" });
-    } finally {
-      setPdfAction(null);
-    }
-  };
+  const handlePrint = () => openBrowserPrintDialog("print");
+  const handleDownloadPdf = () => openBrowserPrintDialog("download");
 
   if (!vehicle || !data) return null;
 

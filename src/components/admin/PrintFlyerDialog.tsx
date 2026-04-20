@@ -97,7 +97,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       stkDo: "",
       barva: (vehicle.color || "").toUpperCase(),
       vybava: "",
-      popis: vehicle.description || "",
+      popis: limitPopis(vehicle.description || ""),
     });
   }, [vehicle, open]);
 

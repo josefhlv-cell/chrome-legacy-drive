@@ -77,6 +77,37 @@ const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, rejec
   img.src = src;
 });
 
+const collectPrintStyles = () => Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
+  .map((node) => node.outerHTML)
+  .join("\n");
+
+const waitForPrintWindowAssets = async (printWindow: Window) => {
+  await new Promise<void>((resolve) => {
+    const checkReady = () => {
+      if (printWindow.document.readyState === "complete") {
+        resolve();
+        return;
+      }
+
+      window.setTimeout(checkReady, 40);
+    };
+
+    checkReady();
+  });
+
+  const imageLoads = Array.from(printWindow.document.images).map((image) => {
+    if (image.complete) return Promise.resolve();
+
+    return new Promise<void>((resolve) => {
+      image.addEventListener("load", () => resolve(), { once: true });
+      image.addEventListener("error", () => resolve(), { once: true });
+    });
+  });
+
+  await Promise.all(imageLoads);
+  await printWindow.document.fonts?.ready;
+};
+
 const normalizeStudioCutout = async (blob: Blob) => {
   const objectUrl = URL.createObjectURL(blob);
 
@@ -92,6 +123,9 @@ const normalizeStudioCutout = async (blob: Blob) => {
     sourceContext.drawImage(image, 0, 0);
     const frame = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
     const pixels = frame.data;
+
+    const rowCounts = new Uint32Array(sourceCanvas.height);
+    const colCounts = new Uint32Array(sourceCanvas.width);
 
     let minX = sourceCanvas.width;
     let minY = sourceCanvas.height;
@@ -110,6 +144,9 @@ const normalizeStudioCutout = async (blob: Blob) => {
 
         if (alpha < 220) pixels[index + 3] = 255;
 
+        rowCounts[y] += 1;
+        colCounts[x] += 1;
+
         if (x < minX) minX = x;
         if (y < minY) minY = y;
         if (x > maxX) maxX = x;
@@ -123,6 +160,14 @@ const normalizeStudioCutout = async (blob: Blob) => {
       return blobToDataUrl(blob);
     }
 
+    const minRowPixels = Math.max(8, Math.floor(sourceCanvas.width * 0.0035));
+    const minColPixels = Math.max(8, Math.floor(sourceCanvas.height * 0.0035));
+
+    while (minY < maxY && rowCounts[minY] < minRowPixels) minY += 1;
+    while (maxY > minY && rowCounts[maxY] < minRowPixels) maxY -= 1;
+    while (minX < maxX && colCounts[minX] < minColPixels) minX += 1;
+    while (maxX > minX && colCounts[maxX] < minColPixels) maxX -= 1;
+
     const cropWidth = maxX - minX + 1;
     const cropHeight = maxY - minY + 1;
     const outputCanvas = document.createElement("canvas");
@@ -132,13 +177,17 @@ const normalizeStudioCutout = async (blob: Blob) => {
     const outputContext = outputCanvas.getContext("2d");
     if (!outputContext) throw new Error("Nepodařilo se vytvořit výstupní obrázek.");
 
-    const maxDrawWidth = outputCanvas.width * 0.84;
-    const maxDrawHeight = outputCanvas.height * 0.68;
+    outputContext.imageSmoothingEnabled = true;
+    outputContext.imageSmoothingQuality = "high";
+
+    const maxDrawWidth = outputCanvas.width * 0.82;
+    const maxDrawHeight = outputCanvas.height * 0.58;
     const scale = Math.min(maxDrawWidth / cropWidth, maxDrawHeight / cropHeight);
     const drawWidth = cropWidth * scale;
     const drawHeight = cropHeight * scale;
     const drawX = (outputCanvas.width - drawWidth) / 2;
-    const drawY = outputCanvas.height * 0.12 + ((outputCanvas.height * 0.6) - drawHeight) / 2;
+    const baselineY = outputCanvas.height * 0.82;
+    const drawY = Math.max(outputCanvas.height * 0.14, baselineY - drawHeight);
 
     outputContext.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
     outputContext.drawImage(sourceCanvas, minX, minY, cropWidth, cropHeight, drawX, drawY, drawWidth, drawHeight);
@@ -152,6 +201,8 @@ const normalizeStudioCutout = async (blob: Blob) => {
 const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const previewShellRef = useRef<HTMLDivElement>(null);
+  const printFlyerRef = useRef<HTMLDivElement>(null);
   const [data, setData] = useState<FlyerData | null>(null);
   const [generatingEquipment, setGeneratingEquipment] = useState(false);
   const [allPhotos, setAllPhotos] = useState<{ url: string; isMain: boolean }[]>([]);
@@ -178,14 +229,27 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
         return;
       }
 
-      const availableWidth = Math.max(window.innerWidth - 24, 320);
-      setPreviewScale(clampNumber(availableWidth / A4_PREVIEW_WIDTH_PX, 0.34, 1));
+      const shell = previewShellRef.current;
+      const availableWidth = Math.max((shell?.clientWidth ?? window.innerWidth) - 20, 260);
+      const availableHeight = Math.max(window.innerHeight - 180, 320);
+      const widthScale = availableWidth / A4_PREVIEW_WIDTH_PX;
+      const heightScale = availableHeight / A4_PREVIEW_HEIGHT_PX;
+
+      setPreviewScale(clampNumber(Math.min(widthScale, heightScale, 1), 0.24, 1));
     };
 
     updatePreviewScale();
+    const resizeObserver = typeof ResizeObserver !== "undefined" && previewShellRef.current
+      ? new ResizeObserver(updatePreviewScale)
+      : null;
+
+    if (resizeObserver && previewShellRef.current) resizeObserver.observe(previewShellRef.current);
     window.addEventListener("resize", updatePreviewScale);
 
-    return () => window.removeEventListener("resize", updatePreviewScale);
+    return () => {
+      resizeObserver?.disconnect();
+      window.removeEventListener("resize", updatePreviewScale);
+    };
   }, [open]);
 
   // Re-truncate when photo mode toggles
@@ -322,7 +386,50 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       if (!processed) return;
     }
 
-    requestAnimationFrame(() => window.print());
+    const flyerMarkup = printFlyerRef.current?.outerHTML;
+    if (!flyerMarkup) {
+      requestAnimationFrame(() => window.print());
+      return;
+    }
+
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=900,height=1200");
+    if (!printWindow) {
+      requestAnimationFrame(() => window.print());
+      return;
+    }
+
+    printWindow.document.open();
+    printWindow.document.write(`<!doctype html>
+      <html lang="cs">
+        <head>
+          <meta charset="utf-8" />
+          <base href="${document.baseURI}" />
+          <meta name="viewport" content="width=device-width, initial-scale=1" />
+          <title>${vehicle.name} | Tisk letáku</title>
+          ${collectPrintStyles()}
+          <style>
+            html, body { margin: 0; padding: 0; background: white; }
+            body { min-height: 100vh; display: flex; justify-content: center; align-items: flex-start; }
+            .print-window-host { width: 210mm; height: 297mm; overflow: hidden; }
+          </style>
+        </head>
+        <body>
+          <div class="print-window-host">${flyerMarkup}</div>
+        </body>
+      </html>`);
+    printWindow.document.close();
+
+    waitForPrintWindowAssets(printWindow)
+      .then(() => {
+        printWindow.focus();
+        printWindow.print();
+        window.setTimeout(() => printWindow.close(), 250);
+      })
+      .catch(() => {
+        printWindow.focus();
+        printWindow.print();
+        window.setTimeout(() => printWindow.close(), 250);
+      });
   };
 
   if (!vehicle || !data) return null;

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Printer, Loader2, ImageIcon, Upload, EyeOff, Images } from "lucide-react";
+import { Printer, Loader2, ImageIcon, Upload, EyeOff, Images, Sparkles } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
 import { formatPrice, priceWithVatFromNet } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
@@ -68,6 +68,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const [heroPhoto, setHeroPhoto] = useState<string>("");
   const [photoMode, setPhotoMode] = useState<"main" | "other" | "custom" | "hidden">("main");
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
+  const [removingBg, setRemovingBg] = useState(false);
+  const [bgRemoved, setBgRemoved] = useState(false);
 
   const noPhoto = photoMode === "hidden" || !heroPhoto;
   const maxVybavaItems = noPhoto ? MAX_VYBAVA_ITEMS_NOPHOTO : MAX_VYBAVA_ITEMS;
@@ -100,8 +102,34 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       const main = list.find((i) => i.isMain)?.url || list[0]?.url || vehicle.image_url || "";
       setHeroPhoto(main);
       setPhotoMode("main");
+      setBgRemoved(false);
     })();
   }, [vehicle, open]);
+
+  const handleRemoveBg = async () => {
+    if (!heroPhoto) return;
+    setRemovingBg(true);
+    try {
+      const { removeBackground } = await import("@imgly/background-removal");
+      // Fetch as blob (handles both http URLs and data URIs)
+      const res = await fetch(heroPhoto);
+      const inputBlob = await res.blob();
+      const outBlob = await removeBackground(inputBlob, {
+        output: { format: "image/png", quality: 0.9 },
+      });
+      const reader = new FileReader();
+      reader.onload = () => {
+        setHeroPhoto(reader.result as string);
+        setBgRemoved(true);
+        toast({ title: "Pozadí odstraněno", description: "Studio styl aplikován." });
+      };
+      reader.readAsDataURL(outBlob);
+    } catch (e: any) {
+      toast({ title: "Chyba odstranění pozadí", description: e?.message ?? String(e), variant: "destructive" });
+    } finally {
+      setRemovingBg(false);
+    }
+  };
 
   // Build initial flyer data
   useEffect(() => {

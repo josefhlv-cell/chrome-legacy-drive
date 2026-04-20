@@ -50,9 +50,10 @@ const ALPHA_THRESHOLD = 110;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
+const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
 const limitVybava = (raw: string, maxItems: number, maxChars: number): string => {
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, maxItems);
-  let out: string[] = [];
+  const out: string[] = [];
   let total = 0;
   for (const l of lines) {
     if (total + l.length + 1 > maxChars) break;
@@ -302,8 +303,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       }
 
       return true;
-    } catch (e: any) {
-      toast({ title: "Chyba odstranění pozadí", description: e?.message ?? String(e), variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Chyba odstranění pozadí", description: getErrorMessage(error), variant: "destructive" });
       return false;
     } finally {
       setRemovingBg(false);
@@ -318,7 +319,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   useEffect(() => {
     if (!vehicle || !open) return;
     const priceFormatted = formatPrice(vehicle.price_with_vat);
-    let priceMain = priceFormatted;
+    const priceMain = priceFormatted;
     let priceVatLine = "";
     if (vehicle.show_vat) {
       const withVat = priceWithVatFromNet(vehicle.price_with_vat);
@@ -359,8 +360,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       const lines = equipment.split(/[,;\n]/).map((s: string) => s.trim()).filter(Boolean);
       setData((d) => (d ? { ...d, vybava: limitVybava(lines.join("\n"), maxVybavaItems, maxVybavaChars) } : d));
       toast({ title: "Výbava vygenerována" });
-    } catch (e: any) {
-      toast({ title: "Chyba", description: e?.message ?? String(e), variant: "destructive" });
+    } catch (error: unknown) {
+      toast({ title: "Chyba", description: getErrorMessage(error), variant: "destructive" });
     } finally {
       setGeneratingEquipment(false);
     }

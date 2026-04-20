@@ -192,6 +192,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     reader.onload = () => {
       setHeroPhoto(reader.result as string);
       setPhotoMode("custom");
+      setBgRemoved(false);
     };
     reader.readAsDataURL(file);
   };
@@ -223,7 +224,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 <Button size="sm" variant={photoMode === "main" ? "default" : "outline"} onClick={() => {
                   const main = allPhotos.find((p) => p.isMain)?.url || allPhotos[0]?.url || vehicle.image_url || "";
-                  setHeroPhoto(main); setPhotoMode("main");
+                  setHeroPhoto(main); setPhotoMode("main"); setBgRemoved(false);
                 }} className="text-xs h-8">
                   <ImageIcon className="w-3 h-3 mr-1" /> Hlavní
                 </Button>
@@ -233,16 +234,24 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
                 <Button size="sm" variant={photoMode === "custom" ? "default" : "outline"} onClick={() => fileInputRef.current?.click()} className="text-xs h-8">
                   <Upload className="w-3 h-3 mr-1" /> Nahrát
                 </Button>
-                <Button size="sm" variant={photoMode === "hidden" ? "default" : "outline"} onClick={() => setPhotoMode("hidden")} className="text-xs h-8">
+                <Button size="sm" variant={photoMode === "hidden" ? "default" : "outline"} onClick={() => { setPhotoMode("hidden"); setBgRemoved(false); }} className="text-xs h-8">
                   <EyeOff className="w-3 h-3 mr-1" /> Skrýt
                 </Button>
               </div>
+
+              {!noPhoto && (
+                <Button size="sm" variant={bgRemoved ? "default" : "secondary"} onClick={handleRemoveBg} disabled={removingBg} className="w-full mt-2 h-8 text-xs">
+                  {removingBg ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                  {removingBg ? "Zpracovávám… (může trvat 10–30s)" : bgRemoved ? "✓ Studio styl aktivní — kliknout znovu" : "Odstranit pozadí (FREE / studio styl)"}
+                </Button>
+              )}
+
               <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => e.target.files?.[0] && handleUploadCustom(e.target.files[0])} />
 
               {showPhotoPicker && allPhotos.length > 1 && (
                 <div className="mt-3 grid grid-cols-4 gap-2 max-h-40 overflow-y-auto">
                   {allPhotos.map((p, i) => (
-                    <button key={i} type="button" onClick={() => { setHeroPhoto(p.url); setPhotoMode("other"); setShowPhotoPicker(false); }} className={`aspect-video rounded overflow-hidden border-2 ${heroPhoto === p.url ? "border-primary" : "border-transparent"}`}>
+                    <button key={i} type="button" onClick={() => { setHeroPhoto(p.url); setPhotoMode("other"); setBgRemoved(false); setShowPhotoPicker(false); }} className={`aspect-video rounded overflow-hidden border-2 ${heroPhoto === p.url ? "border-primary" : "border-transparent"}`}>
                       <img src={p.url} alt="" className="w-full h-full object-cover" loading="lazy" />
                     </button>
                   ))}
@@ -302,7 +311,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
             {/* Hero photo */}
             {!noPhoto && (
-              <div className="flyer-hero">
+              <div className={`flyer-hero ${bgRemoved ? "studio" : ""}`}>
                 <img src={heroPhoto} alt={data.title} crossOrigin="anonymous" />
               </div>
             )}

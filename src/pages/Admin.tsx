@@ -31,6 +31,8 @@ import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as co
 import QuickExportButton from "@/components/admin/QuickExportButton";
 import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
 import VinDecodePreview from "@/components/admin/VinDecodePreview";
+import PrintFlyerDialog from "@/components/admin/PrintFlyerDialog";
+import { Printer } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";

@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Printer, Loader2 } from "lucide-react";
+import { Printer, Loader2, RotateCw } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { QRCodeSVG } from "qrcode.react";
 import { formatPrice, priceWithVatFromNet } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
@@ -36,32 +37,41 @@ interface FlyerData {
   popis: string;
 }
 
-// Limity aby se vše vešlo na 1 stránku A4
-const MAX_VYBAVA_ITEMS = 10;
-const MAX_VYBAVA_CHARS = 280;
-const MAX_POPIS_CHARS = 600;
+// Limity aby se vše vešlo na 1 stránku A4 a nepřekrývalo QR kód
+const MAX_VYBAVA_ITEMS_PORTRAIT = 8;
+const MAX_VYBAVA_CHARS_PORTRAIT = 220;
+const MAX_POPIS_CHARS_PORTRAIT = 420;
+
+const MAX_VYBAVA_ITEMS_LANDSCAPE = 10;
+const MAX_VYBAVA_CHARS_LANDSCAPE = 320;
+const MAX_POPIS_CHARS_LANDSCAPE = 520;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
 
-const limitVybava = (raw: string): string => {
-  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, MAX_VYBAVA_ITEMS);
+const limitVybava = (raw: string, maxItems: number, maxChars: number): string => {
+  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, maxItems);
   let out: string[] = [];
   let total = 0;
   for (const l of lines) {
-    if (total + l.length + 1 > MAX_VYBAVA_CHARS) break;
+    if (total + l.length + 1 > maxChars) break;
     out.push(l);
     total += l.length + 1;
   }
   return out.join("\n");
 };
 
-const limitPopis = (raw: string): string => truncate(raw.trim(), MAX_POPIS_CHARS);
+const limitPopis = (raw: string, maxChars: number): string => truncate(raw.trim(), maxChars);
 
 const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();
   const [data, setData] = useState<FlyerData | null>(null);
   const [generatingEquipment, setGeneratingEquipment] = useState(false);
   const [mainPhoto, setMainPhoto] = useState<string>("");
+  const [landscape, setLandscape] = useState(false);
+
+  const maxVybavaItems = landscape ? MAX_VYBAVA_ITEMS_LANDSCAPE : MAX_VYBAVA_ITEMS_PORTRAIT;
+  const maxVybavaChars = landscape ? MAX_VYBAVA_CHARS_LANDSCAPE : MAX_VYBAVA_CHARS_PORTRAIT;
+  const maxPopisChars = landscape ? MAX_POPIS_CHARS_LANDSCAPE : MAX_POPIS_CHARS_PORTRAIT;
 
   const qrUrl = vehicle ? `${siteUrl}/vozidla/${vehicle.id}` : "";
 
@@ -80,24 +90,27 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     })();
   }, [vehicle, open]);
 
+  // Re-truncate when orientation toggles
+  useEffect(() => {
+    setData((d) => d ? {
+      ...d,
+      vybava: limitVybava(d.vybava, maxVybavaItems, maxVybavaChars),
+      popis: limitPopis(d.popis, maxPopisChars),
+    } : d);
+  }, [landscape, maxVybavaItems, maxVybavaChars, maxPopisChars]);
+
   // Build initial flyer data from vehicle
   useEffect(() => {
     if (!vehicle || !open) return;
 
-    // Price formatting based on VAT flag
-    // show_vat = true → stored value is NET (bez DPH), show price + below "S DPH / xxx Kč"
-    // show_vat = false → stored value is final price, show only that
     const priceFormatted = formatPrice(vehicle.price_with_vat);
     let priceMain = priceFormatted;
     let priceVatLine = "";
     if (vehicle.show_vat) {
-      priceMain = priceFormatted; // bez DPH
+      priceMain = priceFormatted;
       const withVat = priceWithVatFromNet(vehicle.price_with_vat);
       priceVatLine = `S DPH / ${formatPrice(withVat)}`;
     }
-
-    // Subtitle: engine info
-    const subtitle = [vehicle.engine, vehicle.transmission ? "" : ""].filter(Boolean).join(" ").trim() || vehicle.engine || "";
 
     setData({
       title: vehicle.name?.toUpperCase() || "",
@@ -113,7 +126,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       stkDo: "",
       barva: (vehicle.color || "").toUpperCase(),
       vybava: "",
-      popis: limitPopis(vehicle.description || ""),
+      popis: limitPopis(vehicle.description || "", maxPopisChars),
     });
   }, [vehicle, open]);
 
@@ -139,7 +152,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
         .split(/[,;\n]/)
         .map((s: string) => s.trim())
         .filter(Boolean);
-      const limited = limitVybava(lines.join("\n"));
+      const limited = limitVybava(lines.join("\n"), maxVybavaItems, maxVybavaChars);
       setData((d) => (d ? { ...d, vybava: limited } : d));
       toast({ title: "Výbava vygenerována" });
     } catch (e: any) {
@@ -150,6 +163,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   };
 
   const handlePrint = () => {
+    // Dynamicky nastav @page orientation podle volby
+    const styleId = "flyer-page-orientation";
+    document.getElementById(styleId)?.remove();
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `@media print { @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; } }`;
+    document.head.appendChild(style);
     window.print();
   };
 
@@ -224,7 +244,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <Label className="text-xs">
-                  Hlavní výbava ({data.vybava.length}/{MAX_VYBAVA_CHARS} znaků, max {MAX_VYBAVA_ITEMS} řádků)
+                  Hlavní výbava ({data.vybava.length}/{maxVybavaChars} znaků, max {maxVybavaItems} řádků)
                 </Label>
                 <Button size="sm" variant="outline" onClick={generateEquipment} disabled={generatingEquipment} className="h-7 text-xs">
                   {generatingEquipment ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
@@ -234,26 +254,26 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               <Textarea
                 rows={6}
                 value={data.vybava}
-                onChange={(e) => setData({ ...data, vybava: limitVybava(e.target.value) })}
+                onChange={(e) => setData({ ...data, vybava: limitVybava(e.target.value, maxVybavaItems, maxVybavaChars) })}
                 placeholder="Dvouzónová klimatizace&#10;Kůže, vyhřívaná a odvětrávaná&#10;..."
               />
             </div>
 
             <div>
               <Label className="text-xs">
-                Popis vozidla — vyplňte ručně ({data.popis.length}/{MAX_POPIS_CHARS} znaků)
+                Popis vozidla — vyplňte ručně ({data.popis.length}/{maxPopisChars} znaků)
               </Label>
               <Textarea
                 rows={6}
                 value={data.popis}
-                onChange={(e) => setData({ ...data, popis: e.target.value.slice(0, MAX_POPIS_CHARS) })}
+                onChange={(e) => setData({ ...data, popis: e.target.value.slice(0, maxPopisChars) })}
                 placeholder="Automobil ve výborném stavu, po prvním majiteli v ČR..."
               />
             </div>
           </div>
 
           {/* === FLYER PREVIEW & PRINT === */}
-          <div id="print-flyer-area" className="flyer-a4 bg-white text-black mx-auto shadow-2xl print:shadow-none">
+          <div id="print-flyer-area" className={`flyer-a4 ${landscape ? "landscape" : ""} bg-white text-black mx-auto shadow-2xl print:shadow-none`}>
             {/* Watermark — main vehicle photo behind content, opacity 10% */}
             {mainPhoto && (
               <div
@@ -320,19 +340,26 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               </div>
             </div>
 
-            {/* QR — fixed at bottom center */}
+            {/* QR — fixed at bottom (size scaled by CSS to 36mm portrait / 30mm landscape) */}
             <div className="flyer-qr">
-              <QRCodeSVG id={`flyer-qr-${vehicle.id}`} value={qrUrl} size={110} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
-              <div className="flyer-qr-caption">Naskenujte kód pro detailní nabídku na chryslerpardubice.site</div>
+              <QRCodeSVG id={`flyer-qr-${vehicle.id}`} value={qrUrl} size={256} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
+              <div className="flyer-qr-caption">Naskenujte kód pro detailní nabídku</div>
             </div>
           </div>
         </div>
 
-        <DialogFooter className="print:hidden">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zavřít</Button>
-          <Button onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" /> Tisk / Uložit jako PDF
-          </Button>
+        <DialogFooter className="print:hidden flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <RotateCw className="w-4 h-4" />
+            <Label htmlFor="landscape-toggle" className="text-sm cursor-pointer">Otočit na šířku (landscape)</Label>
+            <Switch id="landscape-toggle" checked={landscape} onCheckedChange={setLandscape} />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Zavřít</Button>
+            <Button onClick={handlePrint}>
+              <Printer className="w-4 h-4 mr-2" /> Tisk / Uložit jako PDF
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

@@ -218,7 +218,7 @@
   width: 210mm;
   height: 297mm;
   max-height: 297mm;
-  padding: 12mm 12mm 38mm 12mm;
+  padding: 10mm 12mm 55mm 12mm;
   box-sizing: border-box;
   font-family: 'Montserrat', system-ui, sans-serif;
   color: #000;
@@ -228,6 +228,12 @@
   page-break-after: avoid;
   page-break-inside: avoid;
   break-inside: avoid;
+}
+.flyer-a4.landscape {
+  width: 297mm;
+  height: 210mm;
+  max-height: 210mm;
+  padding: 8mm 10mm 8mm 10mm;
 }
 
 /* Watermark behind title */
@@ -331,6 +337,11 @@
   grid-template-columns: 1fr 1fr;
   gap: 6mm;
   font-size: 11pt;
+  max-height: 95mm;
+  overflow: hidden;
+}
+.flyer-a4.landscape .flyer-bottom {
+  max-height: 70mm;
 }
 .fb-heading {
   color: #1d4ed8;
@@ -339,26 +350,36 @@
   letter-spacing: 0.03em;
   margin-bottom: 2mm;
 }
-.fb-text { line-height: 1.45; white-space: pre-wrap; }
-.fb-text > div { margin-bottom: 0.5mm; }
+.fb-text { line-height: 1.4; white-space: pre-wrap; }
+.fb-text > div { margin-bottom: 0.4mm; }
 .fb-popis { white-space: pre-wrap; }
 
 .flyer-qr {
   position: absolute;
-  bottom: 14mm;
+  bottom: 10mm;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.5mm;
+  gap: 2mm;
+  background: #fff;
+  padding: 2mm 4mm;
 }
-.flyer-qr svg { display: block; }
+.flyer-qr svg { display: block; width: 36mm !important; height: 36mm !important; }
+.flyer-a4.landscape .flyer-qr {
+  bottom: 6mm;
+  right: 10mm;
+  left: auto;
+  transform: none;
+}
+.flyer-a4.landscape .flyer-qr svg { width: 30mm !important; height: 30mm !important; }
 .flyer-qr-caption {
   font-size: 8pt;
   color: #444;
   font-style: italic;
   text-align: center;
+  max-width: 60mm;
 }
 
 .flyer-footer {
@@ -376,12 +397,14 @@
     size: A4 portrait;
     margin: 0;
   }
+  @page landscape-page {
+    size: A4 landscape;
+    margin: 0;
+  }
   html, body {
     margin: 0 !important;
     padding: 0 !important;
     background: #fff !important;
-    width: 210mm !important;
-    height: 297mm !important;
     overflow: hidden !important;
   }
   body * {
@@ -395,17 +418,14 @@
     left: 0 !important;
     top: 0 !important;
     margin: 0 !important;
-    padding: 12mm 12mm 38mm 12mm !important;
     box-shadow: none !important;
-    width: 210mm !important;
-    height: 297mm !important;
-    max-height: 297mm !important;
-    overflow: hidden !important;
     page-break-after: avoid !important;
     page-break-inside: avoid !important;
     break-inside: avoid !important;
   }
-  /* Prevent any child from spawning extra pages */
+  #print-flyer-area.landscape {
+    page: landscape-page;
+  }
   #print-flyer-area * {
     page-break-inside: avoid !important;
     break-inside: avoid !important;

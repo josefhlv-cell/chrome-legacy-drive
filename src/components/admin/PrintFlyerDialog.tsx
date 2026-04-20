@@ -118,13 +118,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
         toast({ title: "AI nevrátila výbavu", description: "Zkuste znovu nebo vyplňte ručně.", variant: "destructive" });
         return;
       }
-      // Convert comma/semicolon list to line-per-item
+      // Convert comma/semicolon list to line-per-item, omez na limit znaků/položek
       const lines = equipment
         .split(/[,;\n]/)
         .map((s: string) => s.trim())
-        .filter(Boolean)
-        .slice(0, 10);
-      setData((d) => (d ? { ...d, vybava: lines.join("\n") } : d));
+        .filter(Boolean);
+      const limited = limitVybava(lines.join("\n"));
+      setData((d) => (d ? { ...d, vybava: limited } : d));
       toast({ title: "Výbava vygenerována" });
     } catch (e: any) {
       toast({ title: "Chyba generování", description: e?.message ?? String(e), variant: "destructive" });

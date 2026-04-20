@@ -61,8 +61,24 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();
   const [data, setData] = useState<FlyerData | null>(null);
   const [generatingEquipment, setGeneratingEquipment] = useState(false);
+  const [mainPhoto, setMainPhoto] = useState<string>("");
 
   const qrUrl = vehicle ? `${siteUrl}/vozidla/${vehicle.id}` : "";
+
+  // Fetch main photo for watermark
+  useEffect(() => {
+    if (!vehicle || !open) { setMainPhoto(""); return; }
+    (async () => {
+      const { data: imgs } = await supabase
+        .from("vehicle_images")
+        .select("image_url, is_main, sort_order")
+        .eq("vehicle_id", vehicle.id)
+        .order("is_main", { ascending: false })
+        .order("sort_order", { ascending: true })
+        .limit(1);
+      setMainPhoto(imgs?.[0]?.image_url || vehicle.image_url || "");
+    })();
+  }, [vehicle, open]);
 
   // Build initial flyer data from vehicle
   useEffect(() => {

@@ -163,6 +163,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   };
 
   const handlePrint = () => {
+    // Dynamicky nastav @page orientation podle volby
+    const styleId = "flyer-page-orientation";
+    document.getElementById(styleId)?.remove();
+    const style = document.createElement("style");
+    style.id = styleId;
+    style.textContent = `@media print { @page { size: A4 ${landscape ? "landscape" : "portrait"}; margin: 0; } }`;
+    document.head.appendChild(style);
     window.print();
   };
 

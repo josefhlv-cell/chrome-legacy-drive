@@ -467,7 +467,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     reader.readAsDataURL(file);
   };
 
-  const renderFlyerPdf = async () => {
+  const renderFlyerPdf = async (autoPrint = false) => {
     const flyerNode = printFlyerRef.current;
     if (!flyerNode) throw new Error("Náhled letáku ještě není připraven.");
 
@@ -504,6 +504,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     const grayscaleCanvas = convertCanvasToGrayscale(canvas);
     const pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4", compress: true });
     pdf.addImage(grayscaleCanvas.toDataURL("image/jpeg", 1), "JPEG", 0, 0, 210, 297, undefined, "FAST");
+    if (autoPrint) pdf.autoPrint();
 
     return {
       blob: pdf.output("blob"),
@@ -515,7 +516,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     setPdfAction("print");
 
     try {
-      const { blob, filename } = await renderFlyerPdf();
+      const { blob, filename } = await renderFlyerPdf(true);
       const pdfUrl = URL.createObjectURL(blob);
       const popup = window.open(pdfUrl, "_blank", "noopener,noreferrer");
 
@@ -658,7 +659,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
                 <div
                   id="print-flyer-area"
                   ref={printFlyerRef}
-                  className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none`}
+                  className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none grayscale`}
                 >
                   <div className="flyer-header">
                     <div className="flyer-brand-mark">
@@ -727,10 +728,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           </div>
         </div>
 
-        <DialogFooter className="print:hidden">
+        <DialogFooter className="print:hidden gap-2 sm:gap-0">
           <Button variant="outline" onClick={() => onOpenChange(false)}>Zavřít</Button>
-          <Button onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" /> Tisk / PDF
+          <Button variant="outline" onClick={handleDownloadPdf} disabled={pdfAction !== null}>
+            {pdfAction === "download" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Download className="w-4 h-4 mr-2" />} Uložit PDF
+          </Button>
+          <Button onClick={handlePrint} disabled={pdfAction !== null}>
+            {pdfAction === "print" ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Printer className="w-4 h-4 mr-2" />} Tisk / PDF
           </Button>
         </DialogFooter>
       </DialogContent>

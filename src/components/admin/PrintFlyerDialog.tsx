@@ -37,10 +37,14 @@ interface FlyerData {
   popis: string;
 }
 
-// Limity aby se vše vešlo na 1 stránku A4
-const MAX_VYBAVA_ITEMS = 10;
-const MAX_VYBAVA_CHARS = 280;
-const MAX_POPIS_CHARS = 600;
+// Limity aby se vše vešlo na 1 stránku A4 a nepřekrývalo QR kód
+const MAX_VYBAVA_ITEMS_PORTRAIT = 8;
+const MAX_VYBAVA_CHARS_PORTRAIT = 220;
+const MAX_POPIS_CHARS_PORTRAIT = 420;
+
+const MAX_VYBAVA_ITEMS_LANDSCAPE = 10;
+const MAX_VYBAVA_CHARS_LANDSCAPE = 320;
+const MAX_POPIS_CHARS_LANDSCAPE = 520;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
 

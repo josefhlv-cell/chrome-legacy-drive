@@ -152,7 +152,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
         .split(/[,;\n]/)
         .map((s: string) => s.trim())
         .filter(Boolean);
-      const limited = limitVybava(lines.join("\n"));
+      const limited = limitVybava(lines.join("\n"), maxVybavaItems, maxVybavaChars);
       setData((d) => (d ? { ...d, vybava: limited } : d));
       toast({ title: "Výbava vygenerována" });
     } catch (e: any) {

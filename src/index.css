@@ -228,6 +228,7 @@
   display: flex;
   flex-direction: column;
   gap: 3.5mm;
+  flex: 0 0 auto;
   page-break-after: avoid;
   page-break-inside: avoid;
   break-inside: avoid;
@@ -249,12 +250,13 @@
 }
 
 .flyer-preview-stage {
-  width: 100%;
   min-width: 0;
   position: relative;
   display: flex;
   justify-content: center;
   align-items: flex-start;
+  flex: 0 0 auto;
+  margin-inline: auto;
 }
 
 .flyer-preview-stage .flyer-a4 {
@@ -289,6 +291,10 @@
     min-height: 100vh;
     overflow: auto;
     -webkit-overflow-scrolling: touch;
+  }
+
+  .flyer-preview-stage {
+    min-width: fit-content;
   }
 }
 
@@ -577,13 +583,13 @@
     background: #fff !important;
     width: 210mm !important;
   }
-  body {
+  body:not(.print-window-body) {
     visibility: hidden !important;
   }
-  body * { visibility: hidden !important; }
+  body:not(.print-window-body) * { visibility: hidden !important; }
   .print-page, .print-page * { visibility: visible !important; }
   .print-page {
-    position: fixed !important;
+    position: absolute !important;
     left: 0 !important;
     top: 0 !important;
     width: 210mm !important;

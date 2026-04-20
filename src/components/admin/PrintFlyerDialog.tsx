@@ -523,10 +523,11 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           </div>
 
           {/* === FLYER === */}
-          <div className="flyer-preview-shell print:bg-transparent">
+          <div ref={previewShellRef} className="flyer-preview-shell print:bg-transparent">
             <div className="flyer-preview-stage" style={{ height: `${Math.round(A4_PREVIEW_HEIGHT_PX * previewScale)}px` }}>
               <div
                 id="print-flyer-area"
+                ref={printFlyerRef}
                 className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} mx-auto shadow-2xl print:shadow-none`}
                 style={{ "--flyer-preview-scale": previewScale } as CSSProperties}
               >

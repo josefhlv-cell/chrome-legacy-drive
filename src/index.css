@@ -406,7 +406,7 @@
   height: 100%;
   object-fit: contain;
   object-position: center bottom;
-  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.18));
+  filter: grayscale(100%) contrast(1.05) drop-shadow(0 10px 15px rgba(0, 0, 0, 0.18));
   padding: 4mm 5mm 6mm;
   position: relative;
   z-index: 1;

@@ -418,40 +418,42 @@
   text-transform: uppercase;
 }
 
-/* === Price bar === */
-.flyer-price-bar {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 4mm;
-  padding: 3.5mm 5mm;
-  background: hsl(var(--chrysler-blue));
-  color: #fff;
-  overflow: hidden;
-}
-.fp-label {
-  font-size: 9pt;
-  letter-spacing: 0.25em;
-  text-transform: uppercase;
-  font-weight: 500;
-  opacity: 0.8;
-}
-.fp-main {
-  font-size: clamp(18pt, 2.8vw, 24pt);
-  font-weight: 800;
-  letter-spacing: 0.01em;
-  white-space: nowrap;
-}
-.fp-sub {
-  font-size: 9pt;
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  opacity: 0.85;
-  margin-left: 3mm;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
+  /* === Price bar (PURE B&W for print) === */
+  .flyer-price-bar {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 4mm;
+    padding: 3.5mm 5mm;
+    background: #000;
+    color: #fff;
+    overflow: hidden;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .fp-label {
+    font-size: 9pt;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    font-weight: 500;
+    opacity: 0.85;
+  }
+  .fp-main {
+    font-size: clamp(18pt, 2.8vw, 24pt);
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    white-space: nowrap;
+  }
+  .fp-sub {
+    font-size: 9pt;
+    font-weight: 500;
+    letter-spacing: 0.1em;
+    opacity: 0.85;
+    margin-left: 3mm;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
 
 /* === Mid section: specs + QR === */
 .flyer-mid {

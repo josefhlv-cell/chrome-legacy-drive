@@ -186,6 +186,7 @@ const VehiclesTab = () => {
   const [showNew, setShowNew] = useState(false);
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
+  const [printVehicleId, setPrintVehicleId] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
   const addImage = useAddVehicleImage();
@@ -539,6 +540,9 @@ const VehiclesTab = () => {
                     <button onClick={() => setTipcarsVehicleId(tipcarsVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-emerald-400 transition-colors" title="Export do TipCars">
                       <Download className="w-4 h-4" />
                     </button>
+                    <button onClick={() => setPrintVehicleId(vehicle.id)} className="p-1.5 text-muted-foreground hover:text-blue-400 transition-colors" title="Tisk letáku A4">
+                      <Printer className="w-4 h-4" />
+                    </button>
                     <QuickExportButton vehicle={vehicle} />
                     <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
                       <Trash2 className="w-4 h-4" />
@@ -818,6 +822,13 @@ const VehiclesTab = () => {
             : (vinPreview ? { ...(vehicles?.find((v) => v.id === vinPreview.target) || {}), ...editData } : {})
         }
         onApply={applyVinSelection}
+      />
+
+      <PrintFlyerDialog
+        open={!!printVehicleId}
+        onOpenChange={(o) => { if (!o) setPrintVehicleId(null); }}
+        vehicle={vehicles?.find((v) => v.id === printVehicleId) || null}
+        siteUrl={SITE_URL}
       />
     </div>
   );

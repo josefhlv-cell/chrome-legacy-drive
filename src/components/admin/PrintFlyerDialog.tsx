@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -44,8 +44,12 @@ const MAX_POPIS_CHARS = 380;
 const MAX_VYBAVA_ITEMS_NOPHOTO = 12;
 const MAX_VYBAVA_CHARS_NOPHOTO = 480;
 const MAX_POPIS_CHARS_NOPHOTO = 700;
+const A4_PREVIEW_WIDTH_PX = 794;
+const A4_PREVIEW_HEIGHT_PX = 1123;
+const ALPHA_THRESHOLD = 110;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
+const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const limitVybava = (raw: string, maxItems: number, maxChars: number): string => {
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, maxItems);
   let out: string[] = [];
@@ -59,6 +63,92 @@ const limitVybava = (raw: string, maxItems: number, maxChars: number): string =>
 };
 const limitPopis = (raw: string, maxChars: number) => truncate(raw.trim(), maxChars);
 
+const blobToDataUrl = (blob: Blob) => new Promise<string>((resolve, reject) => {
+  const reader = new FileReader();
+  reader.onload = () => resolve(reader.result as string);
+  reader.onerror = () => reject(new Error("Nepodařilo se převést obrázek."));
+  reader.readAsDataURL(blob);
+});
+
+const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, reject) => {
+  const img = new Image();
+  img.onload = () => resolve(img);
+  img.onerror = () => reject(new Error("Nepodařilo se načíst obrázek pro ořez."));
+  img.src = src;
+});
+
+const normalizeStudioCutout = async (blob: Blob) => {
+  const objectUrl = URL.createObjectURL(blob);
+
+  try {
+    const image = await loadImage(objectUrl);
+    const sourceCanvas = document.createElement("canvas");
+    sourceCanvas.width = image.naturalWidth;
+    sourceCanvas.height = image.naturalHeight;
+
+    const sourceContext = sourceCanvas.getContext("2d", { willReadFrequently: true });
+    if (!sourceContext) throw new Error("Nepodařilo se připravit editor obrázku.");
+
+    sourceContext.drawImage(image, 0, 0);
+    const frame = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
+    const pixels = frame.data;
+
+    let minX = sourceCanvas.width;
+    let minY = sourceCanvas.height;
+    let maxX = -1;
+    let maxY = -1;
+
+    for (let y = 0; y < sourceCanvas.height; y += 1) {
+      for (let x = 0; x < sourceCanvas.width; x += 1) {
+        const index = (y * sourceCanvas.width + x) * 4;
+        const alpha = pixels[index + 3];
+
+        if (alpha < ALPHA_THRESHOLD) {
+          pixels[index + 3] = 0;
+          continue;
+        }
+
+        if (alpha < 220) pixels[index + 3] = 255;
+
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+
+    sourceContext.putImageData(frame, 0, 0);
+
+    if (maxX <= minX || maxY <= minY) {
+      return blobToDataUrl(blob);
+    }
+
+    const cropWidth = maxX - minX + 1;
+    const cropHeight = maxY - minY + 1;
+    const outputCanvas = document.createElement("canvas");
+    outputCanvas.width = 1800;
+    outputCanvas.height = 1000;
+
+    const outputContext = outputCanvas.getContext("2d");
+    if (!outputContext) throw new Error("Nepodařilo se vytvořit výstupní obrázek.");
+
+    const maxDrawWidth = outputCanvas.width * 0.84;
+    const maxDrawHeight = outputCanvas.height * 0.68;
+    const scale = Math.min(maxDrawWidth / cropWidth, maxDrawHeight / cropHeight);
+    const drawWidth = cropWidth * scale;
+    const drawHeight = cropHeight * scale;
+    const drawX = (outputCanvas.width - drawWidth) / 2;
+    const drawY = outputCanvas.height * 0.12 + ((outputCanvas.height * 0.6) - drawHeight) / 2;
+
+    outputContext.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+    outputContext.drawImage(sourceCanvas, minX, minY, cropWidth, cropHeight, drawX, drawY, drawWidth, drawHeight);
+
+    return outputCanvas.toDataURL("image/png");
+  } finally {
+    URL.revokeObjectURL(objectUrl);
+  }
+};
+
 const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -70,6 +160,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const [showPhotoPicker, setShowPhotoPicker] = useState(false);
   const [removingBg, setRemovingBg] = useState(false);
   const [bgRemoved, setBgRemoved] = useState(false);
+  const [previewScale, setPreviewScale] = useState(1);
 
   const noPhoto = photoMode === "hidden" || !heroPhoto;
   const maxVybavaItems = noPhoto ? MAX_VYBAVA_ITEMS_NOPHOTO : MAX_VYBAVA_ITEMS;
@@ -77,6 +168,25 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const maxPopisChars = noPhoto ? MAX_POPIS_CHARS_NOPHOTO : MAX_POPIS_CHARS;
 
   const qrUrl = vehicle ? `${siteUrl}/vozidla/${vehicle.id}` : "";
+
+  useEffect(() => {
+    if (!open) return;
+
+    const updatePreviewScale = () => {
+      if (window.innerWidth >= 1024) {
+        setPreviewScale(1);
+        return;
+      }
+
+      const availableWidth = Math.max(window.innerWidth - 24, 320);
+      setPreviewScale(clampNumber(availableWidth / A4_PREVIEW_WIDTH_PX, 0.34, 1));
+    };
+
+    updatePreviewScale();
+    window.addEventListener("resize", updatePreviewScale);
+
+    return () => window.removeEventListener("resize", updatePreviewScale);
+  }, [open]);
 
   // Re-truncate when photo mode toggles
   useEffect(() => {
@@ -106,29 +216,38 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     })();
   }, [vehicle, open]);
 
-  const handleRemoveBg = async () => {
-    if (!heroPhoto) return;
+  const processHeroPhoto = async (showSuccessToast = true) => {
+    if (!heroPhoto) return true;
+
     setRemovingBg(true);
+
     try {
       const { removeBackground } = await import("@imgly/background-removal");
-      // Fetch as blob (handles both http URLs and data URIs)
       const res = await fetch(heroPhoto);
       const inputBlob = await res.blob();
       const outBlob = await removeBackground(inputBlob, {
         output: { format: "image/png", quality: 0.9 },
       });
-      const reader = new FileReader();
-      reader.onload = () => {
-        setHeroPhoto(reader.result as string);
-        setBgRemoved(true);
-        toast({ title: "Pozadí odstraněno", description: "Studio styl aplikován." });
-      };
-      reader.readAsDataURL(outBlob);
+
+      const normalized = await normalizeStudioCutout(outBlob);
+      setHeroPhoto(normalized);
+      setBgRemoved(true);
+
+      if (showSuccessToast) {
+        toast({ title: "Pozadí odstraněno", description: "Studio řez i centrování jsou hotové." });
+      }
+
+      return true;
     } catch (e: any) {
       toast({ title: "Chyba odstranění pozadí", description: e?.message ?? String(e), variant: "destructive" });
+      return false;
     } finally {
       setRemovingBg(false);
     }
+  };
+
+  const handleRemoveBg = async () => {
+    await processHeroPhoto(true);
   };
 
   // Build initial flyer data
@@ -197,8 +316,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     reader.readAsDataURL(file);
   };
 
-  const handlePrint = () => {
-    window.print();
+  const handlePrint = async () => {
+    if (!noPhoto && !bgRemoved) {
+      const processed = await processHeroPhoto(false);
+      if (!processed) return;
+    }
+
+    requestAnimationFrame(() => window.print());
   };
 
   if (!vehicle || !data) return null;
@@ -292,7 +416,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           </div>
 
           {/* === FLYER === */}
-          <div id="print-flyer-area" className={`flyer-a4 ${noPhoto ? "no-photo" : ""} mx-auto shadow-2xl print:shadow-none`}>
+          <div className="flyer-preview-shell print:bg-transparent">
+            <div className="flyer-preview-stage" style={{ height: `${Math.round(A4_PREVIEW_HEIGHT_PX * previewScale)}px` }}>
+              <div
+                id="print-flyer-area"
+                className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} mx-auto shadow-2xl print:shadow-none`}
+                style={{ "--flyer-preview-scale": previewScale } as CSSProperties}
+              >
             {/* Header */}
             <div className="flyer-header">
               <div className="flyer-shield">
@@ -356,6 +486,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
                     <div key={i}>{line}</div>
                   ))}
                 </div>
+              </div>
+            </div>
               </div>
             </div>
           </div>

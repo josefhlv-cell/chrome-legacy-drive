@@ -341,11 +341,18 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           </div>
         </div>
 
-        <DialogFooter className="print:hidden">
-          <Button variant="outline" onClick={() => onOpenChange(false)}>Zavřít</Button>
-          <Button onClick={handlePrint}>
-            <Printer className="w-4 h-4 mr-2" /> Tisk / Uložit jako PDF
-          </Button>
+        <DialogFooter className="print:hidden flex-col sm:flex-row gap-2 sm:items-center sm:justify-between">
+          <div className="flex items-center gap-2">
+            <RotateCw className="w-4 h-4" />
+            <Label htmlFor="landscape-toggle" className="text-sm cursor-pointer">Otočit na šířku (landscape)</Label>
+            <Switch id="landscape-toggle" checked={landscape} onCheckedChange={setLandscape} />
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={() => onOpenChange(false)}>Zavřít</Button>
+            <Button onClick={handlePrint}>
+              <Printer className="w-4 h-4 mr-2" /> Tisk / Uložit jako PDF
+            </Button>
+          </div>
         </DialogFooter>
       </DialogContent>
     </Dialog>

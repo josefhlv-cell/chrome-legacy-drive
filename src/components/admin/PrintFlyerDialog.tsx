@@ -79,36 +79,6 @@ const loadImage = (src: string) => new Promise<HTMLImageElement>((resolve, rejec
   img.src = src;
 });
 
-const collectPrintStyles = () => Array.from(document.querySelectorAll('style, link[rel="stylesheet"]'))
-  .map((node) => node.outerHTML)
-  .join("\n");
-
-const waitForPrintWindowAssets = async (printWindow: Window) => {
-  await new Promise<void>((resolve) => {
-    const checkReady = () => {
-      if (printWindow.document.readyState === "complete") {
-        resolve();
-        return;
-      }
-
-      window.setTimeout(checkReady, 40);
-    };
-
-    checkReady();
-  });
-
-  const imageLoads = Array.from(printWindow.document.images).map((image) => {
-    if (image.complete) return Promise.resolve();
-
-    return new Promise<void>((resolve) => {
-      image.addEventListener("load", () => resolve(), { once: true });
-      image.addEventListener("error", () => resolve(), { once: true });
-    });
-  });
-
-  await Promise.all(imageLoads);
-  await printWindow.document.fonts?.ready;
-};
 
 const normalizeStudioCutout = async (blob: Blob) => {
   const objectUrl = URL.createObjectURL(blob);

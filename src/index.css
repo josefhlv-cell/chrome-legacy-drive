@@ -216,14 +216,36 @@
    ============================================ */
 .flyer-a4 {
   width: 210mm;
-  min-height: 297mm;
-  padding: 12mm 12mm 10mm 12mm;
+  height: 297mm;
+  max-height: 297mm;
+  padding: 12mm 12mm 38mm 12mm;
   box-sizing: border-box;
   font-family: 'Montserrat', system-ui, sans-serif;
   color: #000;
   background: #fff;
   position: relative;
+  overflow: hidden;
+  page-break-after: avoid;
+  page-break-inside: avoid;
+  break-inside: avoid;
 }
+
+/* Watermark behind title */
+.flyer-watermark {
+  position: absolute;
+  top: 35mm;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 160mm;
+  height: 90mm;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  opacity: 0.10;
+  pointer-events: none;
+  z-index: 0;
+}
+.flyer-a4 > *:not(.flyer-watermark) { position: relative; z-index: 1; }
 
 .flyer-header {
   display: flex;

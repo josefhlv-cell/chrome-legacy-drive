@@ -461,103 +461,22 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       if (!processed) return;
     }
 
-    const flyerMarkup = printFlyerRef.current?.outerHTML;
-    if (!flyerMarkup) {
-      requestAnimationFrame(() => window.print());
-      return;
-    }
+    // Wait one frame so the DOM reflects any state updates, then print directly
+    // from the current window. The @media print rules in index.css hide everything
+    // except .print-page, guaranteeing 1 vehicle = 1 A4 page in black & white.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
 
-    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=900,height=1200");
-    if (!printWindow) {
-      requestAnimationFrame(() => window.print());
-      return;
-    }
-
-    printWindow.document.open();
-    printWindow.document.write(`<!doctype html>
-      <html lang="cs" class="print-window-html">
-        <head>
-          <meta charset="utf-8" />
-          <base href="${document.baseURI}" />
-          <meta name="viewport" content="width=device-width, initial-scale=1" />
-          <title>${vehicle.name} | Tisk letáku</title>
-          ${collectPrintStyles()}
-          <style>
-            html.print-window-html,
-            body.print-window-body {
-              height: 100% !important;
-              margin: 0 !important;
-              padding: 0 !important;
-              width: 210mm !important;
-              height: 297mm !important;
-              overflow: hidden !important;
-              background: #fff !important;
-              -webkit-print-color-adjust: exact !important;
-              print-color-adjust: exact !important;
-            }
-
-            body.print-window-body {
-              display: block !important;
-              min-height: 0 !important;
-            }
-
-            body.print-window-body * {
-              visibility: hidden !important;
-            }
-
-            body.print-window-body .print-page {
-              visibility: visible !important;
-              position: fixed !important;
-              inset: 0 !important;
-              width: 210mm !important;
-              height: 297mm !important;
-              margin: 0 !important;
-              box-shadow: none !important;
-              transform: none !important;
-              overflow: hidden !important;
-              page-break-after: avoid !important;
-              page-break-before: avoid !important;
-              page-break-inside: avoid !important;
-              break-inside: avoid !important;
-            }
-
-            body.print-window-body .print-page * {
-              visibility: visible !important;
-            }
-
-            @media print {
-              html.print-window-html,
-              body.print-window-body {
-                height: 100% !important;
-                margin: 0 !important;
-                padding: 0 !important;
-                overflow: hidden !important;
-              }
-
-              body.print-window-body .print-page {
-                position: fixed !important;
-                inset: 0 !important;
-              }
-            }
-          </style>
-        </head>
-        <body class="print-window-body">${flyerMarkup}</body>
-      </html>`);
-    printWindow.document.close();
-
-    waitForPrintWindowAssets(printWindow)
-      .then(() => {
-        printWindow.focus();
-        printWindow.onafterprint = () => printWindow.close();
-        printWindow.print();
-        window.setTimeout(() => printWindow.close(), 1200);
-      })
-      .catch(() => {
-        printWindow.focus();
-        printWindow.onafterprint = () => printWindow.close();
-        printWindow.print();
-        window.setTimeout(() => printWindow.close(), 1200);
+    // Wait for hero image to be loaded (avoid blank print)
+    const heroImg = printFlyerRef.current?.querySelector<HTMLImageElement>(".flyer-hero img");
+    if (heroImg && !heroImg.complete) {
+      await new Promise<void>((resolve) => {
+        heroImg.addEventListener("load", () => resolve(), { once: true });
+        heroImg.addEventListener("error", () => resolve(), { once: true });
+        window.setTimeout(() => resolve(), 3000);
       });
+    }
+
+    window.print();
   };
 
   if (!vehicle || !data) return null;

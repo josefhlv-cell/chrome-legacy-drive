@@ -48,19 +48,19 @@ const MAX_POPIS_CHARS_LANDSCAPE = 520;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
 
-const limitVybava = (raw: string): string => {
-  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, MAX_VYBAVA_ITEMS);
+const limitVybava = (raw: string, maxItems: number, maxChars: number): string => {
+  const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, maxItems);
   let out: string[] = [];
   let total = 0;
   for (const l of lines) {
-    if (total + l.length + 1 > MAX_VYBAVA_CHARS) break;
+    if (total + l.length + 1 > maxChars) break;
     out.push(l);
     total += l.length + 1;
   }
   return out.join("\n");
 };
 
-const limitPopis = (raw: string): string => truncate(raw.trim(), MAX_POPIS_CHARS);
+const limitPopis = (raw: string, maxChars: number): string => truncate(raw.trim(), maxChars);
 
 const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const { toast } = useToast();

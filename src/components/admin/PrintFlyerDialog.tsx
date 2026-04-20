@@ -223,23 +223,46 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
             <div>
               <div className="flex items-center justify-between mb-1">
-                <Label className="text-xs">Hlavní výbava (jeden řádek = jedna položka)</Label>
+                <Label className="text-xs">
+                  Hlavní výbava ({data.vybava.length}/{MAX_VYBAVA_CHARS} znaků, max {MAX_VYBAVA_ITEMS} řádků)
+                </Label>
                 <Button size="sm" variant="outline" onClick={generateEquipment} disabled={generatingEquipment} className="h-7 text-xs">
                   {generatingEquipment ? <Loader2 className="w-3 h-3 mr-1 animate-spin" /> : null}
                   Generovat výbavu z VIN (AI)
                 </Button>
               </div>
-              <Textarea rows={6} value={data.vybava} onChange={(e) => setData({ ...data, vybava: e.target.value })} placeholder="Dvouzónová klimatizace&#10;Kůže, vyhřívaná a odvětrávaná&#10;..." />
+              <Textarea
+                rows={6}
+                value={data.vybava}
+                onChange={(e) => setData({ ...data, vybava: limitVybava(e.target.value) })}
+                placeholder="Dvouzónová klimatizace&#10;Kůže, vyhřívaná a odvětrávaná&#10;..."
+              />
             </div>
 
             <div>
-              <Label className="text-xs">Popis vozidla (vyplňte ručně)</Label>
-              <Textarea rows={6} value={data.popis} onChange={(e) => setData({ ...data, popis: e.target.value })} placeholder="Automobil ve výborném stavu, po prvním majiteli v ČR..." />
+              <Label className="text-xs">
+                Popis vozidla — vyplňte ručně ({data.popis.length}/{MAX_POPIS_CHARS} znaků)
+              </Label>
+              <Textarea
+                rows={6}
+                value={data.popis}
+                onChange={(e) => setData({ ...data, popis: e.target.value.slice(0, MAX_POPIS_CHARS) })}
+                placeholder="Automobil ve výborném stavu, po prvním majiteli v ČR..."
+              />
             </div>
           </div>
 
           {/* === FLYER PREVIEW & PRINT === */}
           <div id="print-flyer-area" className="flyer-a4 bg-white text-black mx-auto shadow-2xl print:shadow-none">
+            {/* Watermark — main vehicle photo behind content, opacity 10% */}
+            {mainPhoto && (
+              <div
+                className="flyer-watermark"
+                style={{ backgroundImage: `url(${mainPhoto})` }}
+                aria-hidden="true"
+              />
+            )}
+
             {/* Header */}
             <div className="flyer-header">
               <div className="flyer-shield">

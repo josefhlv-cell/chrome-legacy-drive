@@ -213,6 +213,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const [removingBg, setRemovingBg] = useState(false);
   const [bgRemoved, setBgRemoved] = useState(false);
   const [previewScale, setPreviewScale] = useState(1);
+  const [compactLayout, setCompactLayout] = useState(false);
 
   const noPhoto = photoMode === "hidden" || !heroPhoto;
   const maxVybavaItems = noPhoto ? MAX_VYBAVA_ITEMS_NOPHOTO : MAX_VYBAVA_ITEMS;
@@ -263,6 +264,26 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       popis: limitPopis(d.popis, maxPopisChars),
     } : d);
   }, [noPhoto, maxVybavaItems, maxVybavaChars, maxPopisChars]);
+
+  useEffect(() => {
+    if (!open) return;
+
+    const measureOverflow = () => {
+      const node = printFlyerRef.current;
+      if (!node) return;
+
+      const hasOverflow = node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth;
+      setCompactLayout(hasOverflow);
+    };
+
+    const frame = window.requestAnimationFrame(measureOverflow);
+    window.addEventListener("resize", measureOverflow);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.removeEventListener("resize", measureOverflow);
+    };
+  }, [open, data, heroPhoto, bgRemoved, noPhoto]);
 
   // Fetch all photos for picker + set main
   useEffect(() => {
@@ -423,11 +444,11 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
             body.print-window-body {
               display: block !important;
-              min-height: 297mm !important;
+              min-height: 0 !important;
             }
 
             body.print-window-body .print-page {
-              position: absolute !important;
+              position: relative !important;
               left: 0 !important;
               top: 0 !important;
               width: 210mm !important;
@@ -446,8 +467,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               }
 
               body.print-window-body .print-page {
-                position: fixed !important;
-                inset: 0 !important;
+                position: relative !important;
+                inset: auto !important;
                 page-break-after: avoid !important;
                 page-break-before: avoid !important;
                 page-break-inside: avoid !important;
@@ -571,7 +592,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               <div
                 id="print-flyer-area"
                 ref={printFlyerRef}
-                className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} shadow-2xl print:shadow-none`}
+                className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none`}
                 style={{ "--flyer-preview-scale": previewScale } as CSSProperties}
               >
             {/* Header */}

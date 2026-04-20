@@ -9,7 +9,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { formatPrice, priceWithVatFromNet } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { supabase } from "@/integrations/supabase/client";
-import logoShield from "@/assets/logo-shield.webp";
+import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useToast } from "@/hooks/use-toast";
 
 interface Props {
@@ -46,7 +46,8 @@ const MAX_VYBAVA_CHARS_NOPHOTO = 480;
 const MAX_POPIS_CHARS_NOPHOTO = 700;
 const A4_PREVIEW_WIDTH_PX = 794;
 const A4_PREVIEW_HEIGHT_PX = 1123;
-const ALPHA_THRESHOLD = 110;
+const ALPHA_THRESHOLD = 180;
+const EDGE_MARGIN_RATIO = 0.05;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
@@ -125,6 +126,52 @@ const normalizeStudioCutout = async (blob: Blob) => {
     const frame = sourceContext.getImageData(0, 0, sourceCanvas.width, sourceCanvas.height);
     const pixels = frame.data;
 
+    const clearPixel = (pixelIndex: number) => {
+      pixels[pixelIndex + 3] = 0;
+    };
+
+    const totalPixels = sourceCanvas.width * sourceCanvas.height;
+    const visited = new Uint8Array(totalPixels);
+    const edgeQueue = new Uint32Array(totalPixels);
+    let queueStart = 0;
+    let queueEnd = 0;
+
+    const enqueueEdgePixel = (x: number, y: number) => {
+      const flatIndex = y * sourceCanvas.width + x;
+      if (visited[flatIndex]) return;
+
+      const pixelIndex = flatIndex * 4;
+      if (pixels[pixelIndex + 3] < ALPHA_THRESHOLD) return;
+
+      visited[flatIndex] = 1;
+      edgeQueue[queueEnd] = flatIndex;
+      queueEnd += 1;
+    };
+
+    for (let x = 0; x < sourceCanvas.width; x += 1) {
+      enqueueEdgePixel(x, 0);
+      enqueueEdgePixel(x, sourceCanvas.height - 1);
+    }
+
+    for (let y = 0; y < sourceCanvas.height; y += 1) {
+      enqueueEdgePixel(0, y);
+      enqueueEdgePixel(sourceCanvas.width - 1, y);
+    }
+
+    while (queueStart < queueEnd) {
+      const flatIndex = edgeQueue[queueStart];
+      queueStart += 1;
+
+      const x = flatIndex % sourceCanvas.width;
+      const y = Math.floor(flatIndex / sourceCanvas.width);
+      clearPixel(flatIndex * 4);
+
+      if (x > 0) enqueueEdgePixel(x - 1, y);
+      if (x < sourceCanvas.width - 1) enqueueEdgePixel(x + 1, y);
+      if (y > 0) enqueueEdgePixel(x, y - 1);
+      if (y < sourceCanvas.height - 1) enqueueEdgePixel(x, y + 1);
+    }
+
     const rowCounts = new Uint32Array(sourceCanvas.height);
     const colCounts = new Uint32Array(sourceCanvas.width);
 
@@ -139,11 +186,11 @@ const normalizeStudioCutout = async (blob: Blob) => {
         const alpha = pixels[index + 3];
 
         if (alpha < ALPHA_THRESHOLD) {
-          pixels[index + 3] = 0;
+          clearPixel(index);
           continue;
         }
 
-        if (alpha < 220) pixels[index + 3] = 255;
+        pixels[index + 3] = 255;
 
         rowCounts[y] += 1;
         colCounts[x] += 1;
@@ -168,6 +215,14 @@ const normalizeStudioCutout = async (blob: Blob) => {
     while (maxY > minY && rowCounts[maxY] < minRowPixels) maxY -= 1;
     while (minX < maxX && colCounts[minX] < minColPixels) minX += 1;
     while (maxX > minX && colCounts[maxX] < minColPixels) maxX -= 1;
+
+    const edgeMarginX = Math.max(2, Math.floor((maxX - minX + 1) * EDGE_MARGIN_RATIO));
+    const edgeMarginY = Math.max(2, Math.floor((maxY - minY + 1) * EDGE_MARGIN_RATIO));
+
+    minX = Math.max(0, minX - Math.min(edgeMarginX, 18));
+    maxX = Math.min(sourceCanvas.width - 1, maxX + Math.min(edgeMarginX, 18));
+    minY = Math.max(0, minY - Math.min(edgeMarginY, 18));
+    maxY = Math.min(sourceCanvas.height - 1, maxY + Math.min(edgeMarginY, 18));
 
     const cropWidth = maxX - minX + 1;
     const cropHeight = maxY - minY + 1;
@@ -228,18 +283,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     if (!open) return;
 
     const updatePreviewScale = () => {
-      if (window.innerWidth >= 1024) {
-        setPreviewScale(1);
-        return;
-      }
-
       const shell = previewShellRef.current;
-      const availableWidth = Math.max((shell?.clientWidth ?? window.innerWidth) - 20, 260);
-      const availableHeight = Math.max(window.innerHeight - 180, 320);
+      const availableWidth = Math.max((shell?.clientWidth ?? window.innerWidth) - 24, 240);
+      const availableHeight = Math.max((shell?.clientHeight ?? window.innerHeight - 220) - 24, 320);
       const widthScale = availableWidth / A4_PREVIEW_WIDTH_PX;
       const heightScale = availableHeight / A4_PREVIEW_HEIGHT_PX;
 
-      setPreviewScale(clampNumber(Math.min(widthScale, heightScale, 1), 0.24, 1));
+      setPreviewScale(clampNumber(Math.min(widthScale, heightScale, 1), 0.2, 1));
     };
 
     updatePreviewScale();
@@ -272,7 +322,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       const node = printFlyerRef.current;
       if (!node) return;
 
-      const hasOverflow = node.scrollHeight > node.clientHeight || node.scrollWidth > node.clientWidth;
+      const guardedNodes = Array.from(node.querySelectorAll<HTMLElement>("[data-flyer-clamp]"));
+      const hasOverflow = guardedNodes.some((element) => element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1);
       setCompactLayout(hasOverflow);
     };
 
@@ -434,12 +485,15 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           <style>
             html.print-window-html,
             body.print-window-body {
+              height: 100% !important;
               margin: 0 !important;
               padding: 0 !important;
               width: 210mm !important;
               height: 297mm !important;
               overflow: hidden !important;
               background: #fff !important;
+              -webkit-print-color-adjust: exact !important;
+              print-color-adjust: exact !important;
             }
 
             body.print-window-body {
@@ -447,32 +501,42 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               min-height: 0 !important;
             }
 
+            body.print-window-body * {
+              visibility: hidden !important;
+            }
+
             body.print-window-body .print-page {
-              position: relative !important;
-              left: 0 !important;
-              top: 0 !important;
+              visibility: visible !important;
+              position: fixed !important;
+              inset: 0 !important;
               width: 210mm !important;
               height: 297mm !important;
               margin: 0 !important;
               box-shadow: none !important;
               transform: none !important;
               overflow: hidden !important;
+              page-break-after: avoid !important;
+              page-break-before: avoid !important;
+              page-break-inside: avoid !important;
+              break-inside: avoid !important;
+            }
+
+            body.print-window-body .print-page * {
+              visibility: visible !important;
             }
 
             @media print {
               html.print-window-html,
-              body.print-window-body,
-              body.print-window-body * {
-                visibility: visible !important;
+              body.print-window-body {
+                height: 100% !important;
+                margin: 0 !important;
+                padding: 0 !important;
+                overflow: hidden !important;
               }
 
               body.print-window-body .print-page {
-                position: relative !important;
-                inset: auto !important;
-                page-break-after: avoid !important;
-                page-break-before: avoid !important;
-                page-break-inside: avoid !important;
-                break-inside: avoid !important;
+                position: fixed !important;
+                inset: 0 !important;
               }
             }
           </style>
@@ -589,77 +653,74 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
           {/* === FLYER === */}
           <div ref={previewShellRef} className="flyer-preview-shell print:bg-transparent">
             <div className="flyer-preview-stage" style={{ width: `${previewWidth}px`, height: `${previewHeight}px` }}>
-              <div
-                id="print-flyer-area"
-                ref={printFlyerRef}
-                className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none`}
-                style={{ "--flyer-preview-scale": previewScale } as CSSProperties}
-              >
-            {/* Header */}
-            <div className="flyer-header">
-              <div className="flyer-shield">
-                <img src={logoShield} alt="Chrysler Dodge Pardubice" />
-              </div>
-              <div className="flyer-contact">
-                <div className="fc-bold">CHRYSLER PARDUBICE</div>
-                <div>+420 603 559 767</div>
-                <div>WWW.CHRYSLERPARDUBICE.SITE</div>
-              </div>
-            </div>
+              <div className="flyer-preview-canvas" style={{ "--flyer-preview-scale": previewScale } as CSSProperties}>
+                <div
+                  id="print-flyer-area"
+                  ref={printFlyerRef}
+                  className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none`}
+                >
+                  <div className="flyer-header">
+                    <div className="flyer-brand-mark">
+                      <img src={logoPardubice} alt="Chrysler Dodge Pardubice" />
+                    </div>
+                    <div className="flyer-contact">
+                      <div className="fc-bold">CHRYSLER PARDUBICE</div>
+                      <div>+420 603 559 767</div>
+                      <div>WWW.CHRYSLERPARDUBICE.SITE</div>
+                    </div>
+                  </div>
 
-            {/* Title + subtitle */}
-            <h1 className="flyer-title">{data.title}</h1>
-            <div className="flyer-subtitle">{data.subtitle}</div>
+                  <div className="flyer-title-block">
+                    <h1 className="flyer-title" data-flyer-clamp>{data.title}</h1>
+                    <div className="flyer-subtitle" data-flyer-clamp>{data.subtitle}</div>
+                  </div>
 
-            {/* Hero photo */}
-            {!noPhoto && (
-              <div className={`flyer-hero ${bgRemoved ? "studio" : ""}`}>
-                <img src={heroPhoto} alt={data.title} crossOrigin="anonymous" />
-              </div>
-            )}
+                  {!noPhoto && (
+                    <div className={`flyer-hero ${bgRemoved ? "studio" : ""}`}>
+                      <img src={heroPhoto} alt={data.title} crossOrigin="anonymous" />
+                    </div>
+                  )}
 
-            {/* Price bar */}
-            <div className="flyer-price-bar">
-              <div className="fp-label">Cena</div>
-              <div style={{ display: "flex", alignItems: "baseline" }}>
-                <div className="fp-main">{data.priceMain}</div>
-                {data.priceVatLine && <div className="fp-sub">{data.priceVatLine}</div>}
-              </div>
-            </div>
+                  <div className="flyer-price-bar">
+                    <div className="fp-label">Cena</div>
+                    <div className="flyer-price-values" data-flyer-clamp>
+                      <div className="fp-main">{data.priceMain}</div>
+                      {data.priceVatLine && <div className="fp-sub">{data.priceVatLine}</div>}
+                    </div>
+                  </div>
 
-            {/* Specs + QR */}
-            <div className="flyer-mid">
-              <div className="flyer-specs">
-                {data.vyrobeno && <div className="fs-row"><span className="fs-key">Rok</span><span className="fs-val">{data.vyrobeno}</span></div>}
-                {data.najeto && <div className="fs-row"><span className="fs-key">Najeto</span><span className="fs-val">{data.najeto}</span></div>}
-                {data.palivo && <div className="fs-row"><span className="fs-key">Palivo</span><span className="fs-val">{data.palivo}</span></div>}
-                {data.prevodovka && <div className="fs-row"><span className="fs-key">Převodovka</span><span className="fs-val">{data.prevodovka}</span></div>}
-                {data.vykon && <div className="fs-row"><span className="fs-key">Výkon</span><span className="fs-val">{data.vykon}</span></div>}
-                {data.objem && <div className="fs-row"><span className="fs-key">Objem</span><span className="fs-val">{data.objem}</span></div>}
-                {data.stkDo && <div className="fs-row"><span className="fs-key">STK do</span><span className="fs-val">{data.stkDo}</span></div>}
-                {data.barva && <div className="fs-row"><span className="fs-key">Barva</span><span className="fs-val">{data.barva}</span></div>}
-              </div>
-              <div className="flyer-qr">
-                <QRCodeSVG value={qrUrl} size={256} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
-                <div className="flyer-qr-caption">Naskenujte pro detail vozu</div>
-              </div>
-            </div>
+                  <div className="flyer-mid">
+                    <div className="flyer-specs">
+                      {data.vyrobeno && <div className="fs-row"><span className="fs-key">Rok</span><span className="fs-val">{data.vyrobeno}</span></div>}
+                      {data.najeto && <div className="fs-row"><span className="fs-key">Najeto</span><span className="fs-val">{data.najeto}</span></div>}
+                      {data.palivo && <div className="fs-row"><span className="fs-key">Palivo</span><span className="fs-val">{data.palivo}</span></div>}
+                      {data.prevodovka && <div className="fs-row"><span className="fs-key">Převodovka</span><span className="fs-val">{data.prevodovka}</span></div>}
+                      {data.vykon && <div className="fs-row"><span className="fs-key">Výkon</span><span className="fs-val">{data.vykon}</span></div>}
+                      {data.objem && <div className="fs-row"><span className="fs-key">Objem</span><span className="fs-val">{data.objem}</span></div>}
+                      {data.stkDo && <div className="fs-row"><span className="fs-key">STK do</span><span className="fs-val">{data.stkDo}</span></div>}
+                      {data.barva && <div className="fs-row"><span className="fs-key">Barva</span><span className="fs-val">{data.barva}</span></div>}
+                    </div>
+                    <div className="flyer-qr">
+                      <QRCodeSVG value={qrUrl} size={256} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
+                      <div className="flyer-qr-caption">Naskenujte pro detail vozu</div>
+                    </div>
+                  </div>
 
-            {/* Bottom: description + equipment */}
-            <div className="flyer-bottom">
-              <div>
-                <div className="fb-heading">Popis vozidla</div>
-                <div className="fb-text fb-popis">{data.popis}</div>
-              </div>
-              <div>
-                <div className="fb-heading">Hlavní výbava</div>
-                <div className="fb-text">
-                  {data.vybava.split("\n").filter(Boolean).map((line, i) => (
-                    <div key={i}>{line}</div>
-                  ))}
+                  <div className="flyer-bottom">
+                    <div className="flyer-copy-block">
+                      <div className="fb-heading">Popis vozidla</div>
+                      <div className="fb-text fb-popis" data-flyer-clamp>{data.popis}</div>
+                    </div>
+                    <div className="flyer-copy-block">
+                      <div className="fb-heading">Hlavní výbava</div>
+                      <div className="fb-text" data-flyer-clamp>
+                        {data.vybava.split("\n").filter(Boolean).map((line, i) => (
+                          <div key={i}>{line}</div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
               </div>
             </div>
           </div>

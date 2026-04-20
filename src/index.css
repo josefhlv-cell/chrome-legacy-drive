@@ -215,8 +215,11 @@
    A4 PRINT FLYER — premium showroom monochrome
    ============================================ */
 .flyer-a4 {
-  width: 210mm;
-  height: 297mm;
+  width: 210mm !important;
+  height: 297mm !important;
+  min-width: 210mm;
+  min-height: 297mm;
+  max-width: 210mm;
   max-height: 297mm;
   padding: 10mm 12mm;
   box-sizing: border-box;
@@ -224,14 +227,15 @@
   color: #000;
   background: #fff;
   position: relative;
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
-  gap: 3.5mm;
+  overflow: hidden !important;
+  display: grid;
+  grid-template-rows: auto auto 88mm auto 60mm 1fr;
+  gap: 3mm;
   flex: 0 0 auto;
-  page-break-after: avoid;
-  page-break-inside: avoid;
-  break-inside: avoid;
+  page-break-after: avoid !important;
+  page-break-before: avoid !important;
+  page-break-inside: avoid !important;
+  break-inside: avoid !important;
 }
 
 .print-page,
@@ -240,13 +244,16 @@
 }
 
 .flyer-preview-shell {
-  background: linear-gradient(180deg, hsl(var(--muted) / 0.95), hsl(var(--secondary) / 0.98));
+  background: linear-gradient(180deg, hsl(var(--secondary) / 0.96), hsl(var(--muted) / 0.98));
   border: 1px solid hsl(var(--border));
   border-radius: 1rem;
   padding: 14px;
-  overflow: auto;
+  overflow: hidden;
   -webkit-overflow-scrolling: touch;
   min-height: min(100%, calc(100vh - 12rem));
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
 }
 
 .flyer-preview-stage {
@@ -257,11 +264,20 @@
   align-items: flex-start;
   flex: 0 0 auto;
   margin-inline: auto;
+  overflow: hidden;
 }
 
-.flyer-preview-stage .flyer-a4 {
+.flyer-preview-canvas {
+  width: 794px;
+  height: 1123px;
   transform: scale(var(--flyer-preview-scale, 1));
   transform-origin: top center;
+  will-change: transform;
+}
+
+.flyer-preview-canvas .flyer-a4 {
+  transform: scale(var(--flyer-preview-scale, 1));
+  transform: none;
 }
 
 #print-flyer-area.flyer-a4 {
@@ -274,8 +290,6 @@
     width: 100%;
     max-width: 100%;
     min-height: calc(100vh - 10rem);
-    display: flex;
-    align-items: flex-start;
     justify-content: center;
   }
 
@@ -286,17 +300,17 @@
 
 @media screen and (max-width: 768px) {
   .flyer-preview-shell {
-    width: 100vw;
-    margin-left: calc(50% - 50vw);
+    width: 100%;
+    margin-left: 0;
     border-radius: 0;
     padding: 12px 8px 18px;
-    min-height: 100vh;
-    overflow: auto;
+    min-height: calc(100vh - 7rem);
+    overflow: hidden;
     -webkit-overflow-scrolling: touch;
   }
 
   .flyer-preview-stage {
-    min-width: fit-content;
+    min-width: 0;
   }
 }
 

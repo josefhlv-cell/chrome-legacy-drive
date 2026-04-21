@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo, useRef, useCallback } from "react";
 import { motion } from "framer-motion";
 import { Fuel, TrendingDown } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -10,13 +10,28 @@ const LPG_INVESTMENT = 45000;
 const LPGCalculator = () => {
   const [km, setKm] = useState(25000);
   const [consumption, setConsumption] = useState(12);
+  const rafKm = useRef<number | null>(null);
+  const rafCons = useRef<number | null>(null);
 
-  const litresBenzin = (km / 100) * consumption;
-  const litresLpg = (km / 100) * (consumption * 1.15); // LPG ~15% higher consumption
-  const costBenzin = litresBenzin * BENZIN_PRICE;
-  const costLpg = litresLpg * LPG_PRICE;
-  const savings = Math.round(costBenzin - costLpg);
-  const paybackMonths = Math.round((LPG_INVESTMENT / (savings / 12)));
+  // Throttle slider updates to one per animation frame to avoid layout thrash
+  const onKmChange = useCallback((v: number[]) => {
+    if (rafKm.current !== null) cancelAnimationFrame(rafKm.current);
+    rafKm.current = requestAnimationFrame(() => setKm(v[0]));
+  }, []);
+  const onConsChange = useCallback((v: number[]) => {
+    if (rafCons.current !== null) cancelAnimationFrame(rafCons.current);
+    rafCons.current = requestAnimationFrame(() => setConsumption(v[0]));
+  }, []);
+
+  const { savings, paybackMonths } = useMemo(() => {
+    const litresBenzin = (km / 100) * consumption;
+    const litresLpg = (km / 100) * (consumption * 1.15); // LPG ~15% higher consumption
+    const costBenzin = litresBenzin * BENZIN_PRICE;
+    const costLpg = litresLpg * LPG_PRICE;
+    const s = Math.round(costBenzin - costLpg);
+    const p = s > 0 ? Math.round(LPG_INVESTMENT / (s / 12)) : 0;
+    return { savings: s, paybackMonths: p };
+  }, [km, consumption]);
 
   return (
     <motion.div
@@ -38,7 +53,7 @@ const LPGCalculator = () => {
             </label>
             <Slider
               value={[km]}
-              onValueChange={(v) => setKm(v[0])}
+              onValueChange={onKmChange}
               min={5000}
               max={80000}
               step={1000}
@@ -55,7 +70,7 @@ const LPGCalculator = () => {
             </label>
             <Slider
               value={[consumption]}
-              onValueChange={(v) => setConsumption(v[0])}
+              onValueChange={onConsChange}
               min={6}
               max={25}
               step={0.5}

@@ -1,7 +1,11 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
-import heroImage from "@/assets/hero-chrysler.webp";
+
+// Stable public path is REQUIRED so the <link rel="preload"> in index.html
+// matches the actual request — this is what makes the LCP image discoverable
+// before the JS bundle parses. Hashing this asset would break LCP preload.
+const heroImage = "/hero-chrysler.webp";
 
 const HeroSection = () => {
   const [visible, setVisible] = useState(false);

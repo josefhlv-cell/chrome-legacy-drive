@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/useAuth";
 import surpriseImg from "@/assets/admin-surprise.jpeg";
 
-const TARGET_EMAILS = ["admin@chrysler-pardubice.cz", "josefhlv"];
+const TARGET_EMAILS = ["admin@chrysler-pardubice.cz", "josefhlv@gmail.com"];
 const STORAGE_PREFIX = "admin-surprise-shown:";
 const DELAY_MS = 60_000;
 const LOCK_MS = 60_000;

@@ -141,6 +141,20 @@ Deno.serve(async (req) => {
       if (av.doplnujici_popis) descParts.push(av.doplnujici_popis.trim());
       const description = descParts.join("\n\n");
 
+      // Parse inventory number from "karoserie" — last 1-3 digit number in the string
+      // e.g. "Rodinné kombi č 43" → "43"
+      let inventoryNumber = "";
+      if (av.karoserie) {
+        const matches = av.karoserie.match(/\d{1,3}/g);
+        if (matches && matches.length > 0) {
+          inventoryNumber = matches[matches.length - 1];
+        }
+      }
+
+      // Detect VAT flag — supports "1", "ano", "s dph", true
+      const dphRaw = (av.DPH || "").toString().trim().toLowerCase();
+      const showVat = dphRaw === "1" || dphRaw === "ano" || dphRaw === "true" || dphRaw.includes("dph");
+
       const vehicleData = {
         name: av.nazev,
         year: parseInt(av.rok_vyroby, 10) || new Date().getFullYear(),
@@ -149,7 +163,8 @@ Deno.serve(async (req) => {
         fuel: av.palivo || "Benzín",
         image_url: mainImageUrl,
         status: "skladem" as const,
-        show_vat: av.DPH === "1" || av.DPH?.toLowerCase() === "ano",
+        show_vat: showVat,
+        inventory_number: inventoryNumber,
         vin: av.vin || "",
         engine: av.objem ? `${av.objem} ccm` : "",
         power: av.vykon ? `${av.vykon} kW` : "",

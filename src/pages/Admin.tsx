@@ -303,7 +303,7 @@ const VehiclesTab = () => {
 
   const startEdit = (v: DbVehicle) => {
     setEditingId(v.id);
-    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id });
+    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "" });
   };
 
   const saveEdit = () => {

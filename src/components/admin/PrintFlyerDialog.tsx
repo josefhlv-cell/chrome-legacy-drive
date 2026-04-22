@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Printer, Loader2, ImageIcon, Upload, EyeOff, Images, Sparkles, Download } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
+import html2canvas from "html2canvas";
+import { jsPDF } from "jspdf";
 import { formatPrice, priceWithVatFromNet } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,12 +48,16 @@ const MAX_VYBAVA_CHARS_NOPHOTO = 480;
 const MAX_POPIS_CHARS_NOPHOTO = 700;
 const A4_PREVIEW_WIDTH_PX = 1123;
 const A4_PREVIEW_HEIGHT_PX = 794;
+const A4_WIDTH_MM = 297;
+const A4_HEIGHT_MM = 210;
+const EXPORT_SCALE = 2;
 const ALPHA_THRESHOLD = 180;
 const EDGE_MARGIN_RATIO = 0.05;
 
 const truncate = (s: string, max: number) => (s.length > max ? s.slice(0, max - 1).trimEnd() + "…" : s);
 const clampNumber = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
 const getErrorMessage = (error: unknown) => error instanceof Error ? error.message : String(error);
+const sanitizeFilename = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "flyer";
 const limitVybava = (raw: string, maxItems: number, maxChars: number): string => {
   const lines = raw.split("\n").map((l) => l.trim()).filter(Boolean).slice(0, maxItems);
   const out: string[] = [];
@@ -91,6 +97,12 @@ const waitForImages = async (container: HTMLElement) => {
       window.setTimeout(() => resolve(), 5000);
     });
   }));
+};
+
+const waitForFonts = async () => {
+  if ("fonts" in document) {
+    await document.fonts.ready;
+  }
 };
 
 
@@ -314,18 +326,22 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       if (!node) return;
 
       const guardedNodes = Array.from(node.querySelectorAll<HTMLElement>("[data-flyer-clamp]"));
-      const hasOverflow = guardedNodes.some((element) => element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1);
+      const hasOverflow =
+        node.scrollHeight > node.clientHeight + 1 ||
+        node.scrollWidth > node.clientWidth + 1 ||
+        guardedNodes.some((element) => element.scrollHeight > element.clientHeight + 1 || element.scrollWidth > element.clientWidth + 1);
+
       setCompactLayout(hasOverflow);
     };
 
-    const frame = window.requestAnimationFrame(measureOverflow);
+    const frame = window.requestAnimationFrame(() => window.requestAnimationFrame(measureOverflow));
     window.addEventListener("resize", measureOverflow);
 
     return () => {
       window.cancelAnimationFrame(frame);
       window.removeEventListener("resize", measureOverflow);
     };
-  }, [open, data, heroPhoto, bgRemoved, noPhoto]);
+  }, [open, data, heroPhoto, bgRemoved, noPhoto, textScale]);
 
   // Fetch all photos for picker + set main
   useEffect(() => {
@@ -457,30 +473,114 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
     await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
     await waitForImages(flyerNode);
+    await waitForFonts();
   };
 
-  const openBrowserPrintDialog = async (mode: "print" | "download") => {
+  const createExportCanvas = async () => {
+    const flyerNode = printFlyerRef.current;
+    if (!flyerNode) throw new Error("Leták není připraven k exportu.");
+
+    await prepareFlyerForPrint();
+
+    const exportHost = document.createElement("div");
+    exportHost.style.position = "fixed";
+    exportHost.style.left = "-10000px";
+    exportHost.style.top = "0";
+    exportHost.style.width = `${A4_WIDTH_MM}mm`;
+    exportHost.style.height = `${A4_HEIGHT_MM}mm`;
+    exportHost.style.background = "#ffffff";
+    exportHost.style.overflow = "hidden";
+    exportHost.style.pointerEvents = "none";
+    exportHost.style.zIndex = "-1";
+
+    const clone = flyerNode.cloneNode(true) as HTMLDivElement;
+    clone.classList.remove("shadow-2xl", "print:shadow-none");
+    clone.style.margin = "0";
+    clone.style.transform = "none";
+
+    exportHost.appendChild(clone);
+    document.body.appendChild(exportHost);
+
+    try {
+      await waitForImages(clone);
+      await waitForFonts();
+      await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+
+      return await html2canvas(clone, {
+        backgroundColor: "#ffffff",
+        useCORS: true,
+        scale: EXPORT_SCALE,
+        logging: false,
+        width: clone.offsetWidth,
+        height: clone.offsetHeight,
+        windowWidth: A4_PREVIEW_WIDTH_PX,
+        windowHeight: A4_PREVIEW_HEIGHT_PX,
+      });
+    } finally {
+      document.body.removeChild(exportHost);
+    }
+  };
+
+  const openPrintWindow = async (imageDataUrl: string) => {
+    const printWindow = window.open("", "_blank", "noopener,noreferrer,width=1400,height=900");
+    if (!printWindow) {
+      throw new Error("Pro tisk povolte v prohlížeči vyskakovací okna.");
+    }
+
+    printWindow.document.write(`<!doctype html>
+<html lang="cs">
+  <head>
+    <meta charset="utf-8" />
+    <title>${data.title || "Leták"}</title>
+    <style>
+      @page { size: A4 landscape; margin: 0; }
+      html, body { margin: 0; padding: 0; background: #fff; }
+      body { width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; overflow: hidden; }
+      .sheet { width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; overflow: hidden; }
+      img { display: block; width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; object-fit: fill; }
+    </style>
+  </head>
+  <body>
+    <div class="sheet">
+      <img src="${imageDataUrl}" alt="${data.title || "Leták"}" />
+    </div>
+    <script>
+      const triggerPrint = () => {
+        setTimeout(() => {
+          window.focus();
+          window.print();
+        }, 150);
+      };
+
+      window.addEventListener('afterprint', () => window.close());
+      if (document.images[0]?.complete) triggerPrint();
+      else document.images[0]?.addEventListener('load', triggerPrint, { once: true });
+    </script>
+  </body>
+</html>`);
+    printWindow.document.close();
+  };
+
+  const exportFlyer = async (mode: "print" | "download") => {
     setPdfAction(mode);
 
     try {
-      await prepareFlyerForPrint();
+      const canvas = await createExportCanvas();
+      const imageDataUrl = canvas.toDataURL("image/png", 1);
 
-      const previousTitle = document.title;
-      document.title = `${data.title || "flyer"} A4`;
-      document.body.classList.add("flyer-print-open");
-
-      try {
-        window.print();
-      } finally {
-        document.body.classList.remove("flyer-print-open");
-        document.title = previousTitle;
+      if (mode === "download") {
+        const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
+        pdf.addImage(imageDataUrl, "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM, undefined, "FAST");
+        pdf.save(`${sanitizeFilename(data.title)}-a4-landscape.pdf`);
+      } else {
+        await openPrintWindow(imageDataUrl);
       }
 
       toast({
-        title: mode === "download" ? "Dialog pro uložení otevřen" : "Dialog tisku otevřen",
+        title: mode === "download" ? "PDF vytvořeno" : "Tisk připraven",
         description: mode === "download"
-          ? "V dialogu zvolte Uložit jako PDF."
-          : "V dialogu vytiskněte nebo uložte jako PDF.",
+          ? "Leták byl uložen jako přesný A4 landscape bez ořezu."
+          : "Otevřel se tisk z přesného A4 náhledu bez ořezu.",
       });
     } catch (error: unknown) {
       toast({ title: "Tisk se nepodařil", description: getErrorMessage(error), variant: "destructive" });
@@ -489,8 +589,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     }
   };
 
-  const handlePrint = () => openBrowserPrintDialog("print");
-  const handleDownloadPdf = () => openBrowserPrintDialog("download");
+  const handlePrint = () => exportFlyer("print");
+  const handleDownloadPdf = () => exportFlyer("download");
 
   if (!vehicle || !data) return null;
 

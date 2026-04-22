@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { motion } from "framer-motion";
 import {
   Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,

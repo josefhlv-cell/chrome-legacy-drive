@@ -4,27 +4,41 @@ import { motion, AnimatePresence } from "framer-motion";
 import appPreview from "@/assets/app-preview.jpeg";
 
 const SHOWN_KEY = "app-modal-shown";
-const AUTO_CLOSE_MS = 10000;
+const AUTO_CLOSE_MS = 15000;
 
 const APP_MESSAGE =
   "Milí zákazníci, naše aplikace pro vás je v poslední fázi testování a brzy bude spuštěna. Připravili jsme si pro vás něco, co jinde neuvidíte. Představte si váš osobní kapesní servis, kde máte vše, co je potřeba: objednání servisu, servisní knížku, náhradní díly, vaše servisní intervaly a především online diagnostiku vašeho vozu s podporou našich mechaniků, i když s ním budete třeba mimo republiku. Budeme vaše podpora, ať jste kdekoliv. A mnoho dalšího! Máte se na co těšit! Bude to jízda! Společná jízda!";
 
 const AppBanner = () => {
   const [open, setOpen] = useState(false);
+  const [secondsLeft, setSecondsLeft] = useState(AUTO_CLOSE_MS / 1000);
   const timerRef = useRef<number | null>(null);
+  const intervalRef = useRef<number | null>(null);
 
-  const close = () => {
-    setOpen(false);
+  const clearTimers = () => {
     if (timerRef.current) {
       window.clearTimeout(timerRef.current);
       timerRef.current = null;
     }
+    if (intervalRef.current) {
+      window.clearInterval(intervalRef.current);
+      intervalRef.current = null;
+    }
+  };
+
+  const close = () => {
+    setOpen(false);
+    clearTimers();
   };
 
   const openModal = () => {
     setOpen(true);
-    if (timerRef.current) window.clearTimeout(timerRef.current);
+    setSecondsLeft(AUTO_CLOSE_MS / 1000);
+    clearTimers();
     timerRef.current = window.setTimeout(() => setOpen(false), AUTO_CLOSE_MS);
+    intervalRef.current = window.setInterval(() => {
+      setSecondsLeft((s) => (s > 1 ? s - 1 : 0));
+    }, 1000);
   };
 
   // Auto-open for new visitors (once per session)
@@ -36,7 +50,7 @@ const AppBanner = () => {
     }
   }, []);
 
-  // Intercept any link/button to chryslerpardubice.site (the app URL)
+  // Intercept ANY click on a link to the app domain
   useEffect(() => {
     const handler = (e: MouseEvent) => {
       const target = e.target as HTMLElement | null;
@@ -44,12 +58,12 @@ const AppBanner = () => {
       const anchor = target.closest("a") as HTMLAnchorElement | null;
       if (!anchor) return;
       const href = anchor.getAttribute("href") || "";
-      // Match any link pointing to the (yet-to-be-launched) app
       if (
         href.includes("chryslerpardubice.site") &&
         !href.includes("chdp.chryslerpardubice.site")
       ) {
         e.preventDefault();
+        e.stopPropagation();
         openModal();
       }
     };
@@ -58,9 +72,7 @@ const AppBanner = () => {
   }, []);
 
   useEffect(() => {
-    return () => {
-      if (timerRef.current) window.clearTimeout(timerRef.current);
-    };
+    return () => clearTimers();
   }, []);
 
   return (
@@ -82,19 +94,25 @@ const AppBanner = () => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.3 }}
-            className="glass-card relative max-w-3xl w-full p-6 md:p-8 border-primary/40"
+            className="glass-card relative w-[95vw] md:w-[50vw] max-w-3xl p-5 md:p-7 border-primary/40"
             onClick={(e) => e.stopPropagation()}
           >
-            <button
-              onClick={close}
-              className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors p-1"
-              aria-label="Zavřít"
-            >
-              <X className="w-5 h-5" />
-            </button>
+            {/* Countdown header */}
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary/20">
+              <p className="text-xs md:text-sm font-semibold tracking-wider text-primary font-montserrat">
+                Zavře se za: <span className="text-foreground tabular-nums">{secondsLeft}s</span>
+              </p>
+              <button
+                onClick={close}
+                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                aria-label="Zavřít"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
 
-            <div className="flex flex-col md:flex-row items-center gap-6">
-              <div className="shrink-0 w-40 md:w-48">
+            <div className="flex flex-col md:flex-row items-center gap-5">
+              <div className="shrink-0 w-32 md:w-44">
                 <img
                   src={appPreview}
                   alt="Ukázka mobilní aplikace Chrysler - Dodge Pardubice"
@@ -108,9 +126,6 @@ const AppBanner = () => {
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
                   {APP_MESSAGE}
-                </p>
-                <p className="mt-3 text-xs text-primary font-semibold tracking-wider">
-                  Toto okno se za 10 vteřin samo zavře.
                 </p>
               </div>
             </div>

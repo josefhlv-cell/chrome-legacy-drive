@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import appPreview from "@/assets/app-preview.jpeg";
 
 const SHOWN_KEY = "app-modal-shown";
-const AUTO_CLOSE_MS = 15000;
+const AUTO_CLOSE_MS = 20000;
 
 const APP_MESSAGE =
   "Milí zákazníci, naše aplikace pro vás je v poslední fázi testování a brzy bude spuštěna. Připravili jsme si pro vás něco, co jinde neuvidíte. Představte si váš osobní kapesní servis, kde máte vše, co je potřeba: objednání servisu, servisní knížku, náhradní díly, vaše servisní intervaly a především online diagnostiku vašeho vozu s podporou našich mechaniků, i když s ním budete třeba mimo republiku. Budeme vaše podpora, ať jste kdekoliv. A mnoho dalšího! Máte se na co těšit! Bude to jízda! Společná jízda!";
@@ -94,7 +94,7 @@ const AppBanner = () => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.3 }}
-            className="glass-card relative w-[95vw] md:w-[50vw] max-w-3xl p-6 md:p-8 border-primary/40 max-h-[90vh] overflow-y-auto"
+            className="glass-card relative w-[95vw] md:w-[60vw] max-w-4xl p-6 md:p-8 border-primary/40 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Countdown header */}
@@ -115,21 +115,21 @@ const AppBanner = () => {
             </div>
 
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-5">
-              <div className="shrink-0 w-40 md:w-44">
-                <img
-                  src={appPreview}
-                  alt="Ukázka mobilní aplikace Chrysler - Dodge Pardubice"
-                  className="w-full rounded-xl border border-primary/30 shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
-                  loading="lazy"
-                />
-              </div>
-              <div className="flex-1 text-center md:text-left">
+              <div className="flex-1 text-center md:text-left order-2 md:order-1">
                 <h2 className="text-lg md:text-xl font-bold text-foreground font-serif mb-3">
                   Brzy spustíme naši aplikaci
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
                   {APP_MESSAGE}
                 </p>
+              </div>
+              <div className="shrink-0 w-40 md:w-44 order-1 md:order-2">
+                <img
+                  src={appPreview}
+                  alt="Ukázka mobilní aplikace Chrysler - Dodge Pardubice"
+                  className="w-full rounded-xl border border-primary/30 shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
+                  loading="lazy"
+                />
               </div>
             </div>
           </motion.div>

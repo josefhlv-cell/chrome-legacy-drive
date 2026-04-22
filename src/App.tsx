@@ -22,7 +22,6 @@ const SpareParts = lazy(() => import("./pages/SpareParts.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const AppBanner = lazy(() => import("./components/AppBanner.tsx"));
-const AdminSurprise = lazy(() => import("./components/AdminSurprise.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -65,7 +64,6 @@ const App = () => (
           </Suspense>
           <Suspense fallback={null}>
             <AppBanner />
-            <AdminSurprise />
           </Suspense>
         </BrowserRouter>
       </TooltipProvider>

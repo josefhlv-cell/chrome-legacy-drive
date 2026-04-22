@@ -925,30 +925,31 @@ const ScrapeTab = () => {
 
   return (
     <div className="space-y-6">
-      <div className="deep-card p-6">
+      <div className="deep-card p-6 border-2 border-amber-500/40">
         <div className="flex items-center gap-3 mb-4">
-          <RefreshCw className={`w-6 h-6 text-primary ${scraping ? "animate-spin" : ""}`} />
+          <RefreshCw className="w-6 h-6 text-muted-foreground" />
           <div>
             <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Aktualizace nabídky vozidel</h2>
-            <p className="text-xs text-muted-foreground">Stáhne aktuální nabídku a fotky z chrysler.cz</p>
+            <p className="text-xs text-amber-400 font-semibold mt-1">⚠ Funkce je vypnutá — vozidla se spravují výhradně z administrace.</p>
           </div>
         </div>
 
-        <button onClick={startScrape} disabled={scraping} className="gold-button inline-flex items-center gap-2 mb-4">
-          {scraping ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCw className="w-4 h-4" />}
-          {scraping ? "Probíhá aktualizace..." : "Aktualizovat nabídku vozidel"}
+        <button
+          onClick={() => toast({
+            title: "Synchronizace je vypnutá",
+            description: "Vozidla se nyní spravují výhradně z administrace. Synchronizace s chrysler.cz již neprobíhá.",
+            variant: "destructive",
+          })}
+          disabled
+          className="gold-button inline-flex items-center gap-2 mb-4 opacity-50 cursor-not-allowed"
+        >
+          <RefreshCw className="w-4 h-4" />
+          Synchronizace vypnuta
         </button>
-
-        {(scraping || statusText) && (
-          <div className="space-y-2">
-            <Progress value={progress} className="h-3" />
-            <p className="text-xs text-muted-foreground">{statusText}</p>
-          </div>
-        )}
       </div>
 
       <div className="deep-card p-6">
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Historie aktualizací</h3>
+        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Historie aktualizací (archiv)</h3>
         {logs?.length === 0 && <p className="text-xs text-muted-foreground">Zatím žádné aktualizace.</p>}
         <div className="space-y-2">
           {logs?.map((log) => (
@@ -968,7 +969,7 @@ const ScrapeTab = () => {
 
       <div className="glass-card p-4">
         <p className="text-xs text-muted-foreground">
-          <strong>Automatická aktualizace:</strong> Nabídka se automaticky synchronizuje 1× denně. Můžete také spustit aktualizaci ručně tlačítkem výše.
+          <strong>Stav:</strong> Automatická i ruční synchronizace s chrysler.cz je <strong className="text-amber-400">vypnutá</strong>. Veškeré nové vozy a úpravy nabídky probíhají výhradně přes správu vozidel v administraci.
         </p>
       </div>
     </div>

@@ -14,7 +14,6 @@ const ContactPage = () => {
     setLoading(true);
     const form = e.target as HTMLFormElement;
 
-    // --- SEM VLOŽTE SVŮJ KLÍČ Z WEB3FORMS ---
     const ACCESS_KEY = "f88c48be-a30f-477a-b188-1869e7a4f183"; 
 
     try {

@@ -15,7 +15,7 @@ const ContactPage = () => {
     const form = e.target as HTMLFormElement;
 
     // --- SEM VLOŽTE SVŮJ KLÍČ Z WEB3FORMS ---
-    const ACCESS_KEY = f88c48be-a30f-477a-b188-1869e7a4f183; 
+    const ACCESS_KEY = "f88c48be-a30f-477a-b188-1869e7a4f183"; 
 
     try {
       const response = await fetch("https://api.web3forms.com/submit", {

@@ -454,9 +454,21 @@ const VehiclesTab = () => {
 
   return (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
         <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Správa vozidel</h2>
-        <button onClick={() => setShowNew(true)} className="chrome-button inline-flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Přidat vůz</button>
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">Řadit podle</label>
+          <select
+            value={adminSort}
+            onChange={(e) => setAdminSort(e.target.value as AdminSort)}
+            className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border focus:ring-1 focus:ring-primary outline-none"
+          >
+            {adminSortOptions.map((o) => (
+              <option key={o.value} value={o.value}>{o.label}</option>
+            ))}
+          </select>
+          <button onClick={() => setShowNew(true)} className="chrome-button inline-flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Přidat vůz</button>
+        </div>
       </div>
 
       {showNew && (
@@ -465,6 +477,7 @@ const VehiclesTab = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             <InputField label="Název *" value={newData.name || ""} onChange={(v) => setNewData({ ...newData, name: v })} />
             <InputField label="Rok *" type="number" value={String(newData.year)} onChange={(v) => setNewData({ ...newData, year: Number(v) })} />
+            <InputField label="Evidenční číslo" value={(newData as any).inventory_number || ""} onChange={(v) => setNewData({ ...newData, inventory_number: v } as any)} />
             <InputField label="Cena s DPH *" type="number" value={String(newData.price_with_vat)} onChange={(v) => setNewData({ ...newData, price_with_vat: Number(v) })} />
             <InputField label="Nájezd (km)" type="number" value={String(newData.mileage || 0)} onChange={(v) => setNewData({ ...newData, mileage: Number(v) })} />
             <div>
@@ -718,6 +731,7 @@ const VehiclesTab = () => {
                   <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
                     <InputField label="Název" value={editData.name || ""} onChange={(v) => setEditData({ ...editData, name: v })} />
                     <InputField label="Rok" type="number" value={String(editData.year || "")} onChange={(v) => setEditData({ ...editData, year: Number(v) })} />
+                    <InputField label="Evidenční číslo" value={(editData as any).inventory_number || ""} onChange={(v) => setEditData({ ...editData, inventory_number: v } as any)} />
                     <InputField label="Cena" type="number" value={String(editData.price_with_vat || "")} onChange={(v) => setEditData({ ...editData, price_with_vat: Number(v) })} />
                     <InputField label="Nájezd" type="number" value={String(editData.mileage || "")} onChange={(v) => setEditData({ ...editData, mileage: Number(v) })} />
                     <div>

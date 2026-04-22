@@ -44,8 +44,8 @@ const MAX_POPIS_CHARS = 380;
 const MAX_VYBAVA_ITEMS_NOPHOTO = 12;
 const MAX_VYBAVA_CHARS_NOPHOTO = 480;
 const MAX_POPIS_CHARS_NOPHOTO = 700;
-const A4_PREVIEW_WIDTH_PX = 794;
-const A4_PREVIEW_HEIGHT_PX = 1123;
+const A4_PREVIEW_WIDTH_PX = 1123;
+const A4_PREVIEW_HEIGHT_PX = 794;
 const ALPHA_THRESHOLD = 180;
 const EDGE_MARGIN_RATIO = 0.05;
 
@@ -590,65 +590,91 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
                   ref={printFlyerRef}
                   className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none grayscale`}
                 >
-                  <div className="flyer-header">
-                    <div className="flyer-brand-mark">
+                  {/* ROW 1: Shield • Title (big box) • Year box */}
+                  <div className="flyer-row flyer-row-top">
+                    <div className="flyer-shield">
                       <img src={logoPardubice} alt="Chrysler Dodge Pardubice" />
                     </div>
-                    <div className="flyer-contact">
-                      <div className="fc-bold">CHRYSLER PARDUBICE</div>
-                      <div>+420 603 559 767</div>
-                      <div>WWW.CHRYSLERPARDUBICE.SITE</div>
+                    <div className="flyer-box flyer-box-title">
+                      <h1 className="flyer-title" data-flyer-clamp>{data.title}</h1>
+                    </div>
+                    <div className="flyer-box flyer-box-stat">
+                      <div className="fb-label">Rok výroby:</div>
+                      <div className="fb-value">{data.vyrobeno || "—"}</div>
                     </div>
                   </div>
 
-                  <div className="flyer-title-block">
-                    <h1 className="flyer-title" data-flyer-clamp>{data.title}</h1>
-                    <div className="flyer-subtitle" data-flyer-clamp>{data.subtitle}</div>
-                  </div>
-
-                  {!noPhoto && (
-                    <div className={`flyer-hero ${bgRemoved ? "studio" : ""}`}>
-                      <img src={heroPhoto} alt={data.title} crossOrigin="anonymous" />
-                    </div>
-                  )}
-
-                  <div className="flyer-price-bar">
-                    <div className="fp-label">Cena</div>
-                    <div className="flyer-price-values" data-flyer-clamp>
-                      <div className="fp-main">{data.priceMain}</div>
-                      {data.priceVatLine && <div className="fp-sub">{data.priceVatLine}</div>}
-                    </div>
-                  </div>
-
-                  <div className="flyer-mid">
-                    <div className="flyer-specs">
-                      {data.vyrobeno && <div className="fs-row"><span className="fs-key">Rok</span><span className="fs-val">{data.vyrobeno}</span></div>}
-                      {data.najeto && <div className="fs-row"><span className="fs-key">Najeto</span><span className="fs-val">{data.najeto}</span></div>}
-                      {data.palivo && <div className="fs-row"><span className="fs-key">Palivo</span><span className="fs-val">{data.palivo}</span></div>}
-                      {data.prevodovka && <div className="fs-row"><span className="fs-key">Převodovka</span><span className="fs-val">{data.prevodovka}</span></div>}
-                      {data.vykon && <div className="fs-row"><span className="fs-key">Výkon</span><span className="fs-val">{data.vykon}</span></div>}
-                      {data.objem && <div className="fs-row"><span className="fs-key">Objem</span><span className="fs-val">{data.objem}</span></div>}
-                      {data.stkDo && <div className="fs-row"><span className="fs-key">STK do</span><span className="fs-val">{data.stkDo}</span></div>}
-                      {data.barva && <div className="fs-row"><span className="fs-key">Barva</span><span className="fs-val">{data.barva}</span></div>}
-                    </div>
-                    <div className="flyer-qr">
-                      <QRCodeSVG value={qrUrl} size={256} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
-                      <div className="flyer-qr-caption">Naskenujte pro detail vozu</div>
-                    </div>
-                  </div>
-
-                  <div className="flyer-bottom">
-                    <div className="flyer-copy-block">
-                      <div className="fb-heading">Popis vozidla</div>
-                      <div className="fb-text fb-popis" data-flyer-clamp>{data.popis}</div>
-                    </div>
-                    <div className="flyer-copy-block">
-                      <div className="fb-heading">Hlavní výbava</div>
-                      <div className="fb-text" data-flyer-clamp>
-                        {data.vybava.split("\n").filter(Boolean).map((line, i) => (
-                          <div key={i}>{line}</div>
-                        ))}
+                  {/* ROW 2: Photo (spans 2 rows) • Mileage • STK */}
+                  <div className="flyer-row flyer-row-mid">
+                    {!noPhoto ? (
+                      <div className={`flyer-hero ${bgRemoved ? "studio" : ""}`}>
+                        <img src={heroPhoto} alt={data.title} crossOrigin="anonymous" />
                       </div>
+                    ) : (
+                      <div className="flyer-hero flyer-hero-empty" />
+                    )}
+                    <div className="flyer-stack">
+                      <div className="flyer-box flyer-box-stat">
+                        <div className="fb-label">Stav tachometru:</div>
+                        <div className="fb-value">{data.najeto || "—"}</div>
+                      </div>
+                      <div className="flyer-box flyer-box-stat flyer-box-engine">
+                        <div className="fb-label">Motor:</div>
+                        <div className="fb-value-md">
+                          {[data.objem, data.vykon].filter(Boolean).join(" / ") || "—"}
+                        </div>
+                        {data.palivo && (
+                          <div className="fb-label fb-label-inline">palivo: <span>{data.palivo}</span></div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flyer-stack">
+                      <div className="flyer-box flyer-box-stat">
+                        <div className="fb-label">Platnost STK do:</div>
+                        <div className="fb-value">{data.stkDo || "—"}</div>
+                      </div>
+                      <div className="flyer-box flyer-box-info">
+                        <div className="fb-info-line">servisní knížka</div>
+                        <div className="fb-info-line">1. majitel</div>
+                        <div className="fb-info-line">koupeno v: ČR</div>
+                        <div className="fb-info-line">stav: perfektní</div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* ROW 3: Equipment + Description (left) • QR (right) */}
+                  <div className="flyer-row flyer-row-content">
+                    <div className="flyer-box flyer-box-content">
+                      <div className="fb-section">
+                        <div className="fb-section-title">Výbava:</div>
+                        <div className="fb-section-text" data-flyer-clamp>
+                          {data.vybava
+                            .split("\n")
+                            .filter(Boolean)
+                            .join(", ")}
+                        </div>
+                      </div>
+                      {data.popis && (
+                        <div className="fb-section fb-section-popis">
+                          <div className="fb-section-title">Popis:</div>
+                          <div className="fb-section-text" data-flyer-clamp>{data.popis}</div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flyer-box flyer-box-qr">
+                      <QRCodeSVG value={qrUrl} size={256} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin={false} />
+                    </div>
+                  </div>
+
+                  {/* ROW 4: Price box */}
+                  <div className="flyer-row flyer-row-price">
+                    <div className="flyer-box flyer-box-price">
+                      <div className="fb-price-left">
+                        <div className="fb-price-title">Cena</div>
+                        <div className="fb-price-sub">{data.priceVatLine ? "s DPH:" : "bez DPH:"}</div>
+                        <div className="fb-price-finance">Možnosti financování: leasing, spotřebitelský úvěr</div>
+                      </div>
+                      <div className="fb-price-right">{data.priceMain}</div>
                     </div>
                   </div>
                 </div>

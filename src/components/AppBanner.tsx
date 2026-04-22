@@ -94,25 +94,28 @@ const AppBanner = () => {
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 20, opacity: 0, scale: 0.98 }}
             transition={{ duration: 0.3 }}
-            className="glass-card relative w-[95vw] md:w-[50vw] max-w-3xl p-5 md:p-7 border-primary/40"
+            className="glass-card relative w-[95vw] md:w-[50vw] max-w-3xl p-6 md:p-8 border-primary/40 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Countdown header */}
-            <div className="flex items-center justify-between mb-4 pb-3 border-b border-primary/20">
-              <p className="text-xs md:text-sm font-semibold tracking-wider text-primary font-montserrat">
-                Zavře se za: <span className="text-foreground tabular-nums">{secondsLeft}s</span>
+            <div className="flex items-center justify-between mb-5 pb-4 pr-10 border-b border-primary/20">
+              <p className="text-sm md:text-base font-semibold tracking-wider text-primary font-montserrat">
+                Zavře se za:{" "}
+                <span className="text-foreground tabular-nums text-base md:text-lg">
+                  {secondsLeft}s
+                </span>
               </p>
               <button
                 onClick={close}
-                className="text-muted-foreground hover:text-foreground transition-colors p-1"
+                className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-primary/10"
                 aria-label="Zavřít"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <div className="flex flex-col md:flex-row items-center gap-5">
-              <div className="shrink-0 w-32 md:w-44">
+            <div className="flex flex-col md:flex-row items-center gap-6 md:gap-5">
+              <div className="shrink-0 w-40 md:w-44">
                 <img
                   src={appPreview}
                   alt="Ukázka mobilní aplikace Chrysler - Dodge Pardubice"

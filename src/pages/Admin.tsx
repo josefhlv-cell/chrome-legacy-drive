@@ -33,6 +33,7 @@ import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
 import VinDecodePreview from "@/components/admin/VinDecodePreview";
 import PrintFlyerDialog from "@/components/admin/PrintFlyerDialog";
 import { Printer } from "lucide-react";
+import AdminSurprise from "@/components/AdminSurprise";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";
@@ -138,6 +139,7 @@ const AdminPage = () => {
 
   return (
     <div className="min-h-screen bg-background">
+      <AdminSurprise />
       <Navbar />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">

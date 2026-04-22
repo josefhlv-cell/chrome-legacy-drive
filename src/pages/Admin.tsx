@@ -533,7 +533,7 @@ const VehiclesTab = () => {
       {isLoading && <p className="text-muted-foreground text-center py-10">Načítání...</p>}
 
       <div className="space-y-4">
-        {vehicles?.map((vehicle) => (
+        {sortedVehicles.map((vehicle) => (
           <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
             <div className="flex flex-col lg:flex-row gap-4">
               {vehicle.image_url && (
@@ -544,6 +544,9 @@ const VehiclesTab = () => {
                   <div>
                     <h3 className="text-base font-bold text-foreground normal-case">{vehicle.name}</h3>
                     <p className="text-xs text-muted-foreground">{vehicle.year} · {vehicle.vin}</p>
+                    {(vehicle as any).inventory_number && (
+                      <p className="text-xs text-primary font-semibold mt-0.5">Ev.č.: {(vehicle as any).inventory_number}</p>
+                    )}
                     <p className="text-lg font-bold text-primary mt-1">{formatPrice(vehicle.price_with_vat)}</p>
                   </div>
                   <div className="flex items-center gap-1.5">

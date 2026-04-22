@@ -12,6 +12,7 @@ const APP_MESSAGE =
 const AppBanner = () => {
   const [open, setOpen] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(AUTO_CLOSE_MS / 1000);
+  const [keepOpen, setKeepOpen] = useState(false);
   const timerRef = useRef<number | null>(null);
   const intervalRef = useRef<number | null>(null);
 
@@ -33,12 +34,18 @@ const AppBanner = () => {
 
   const openModal = () => {
     setOpen(true);
+    setKeepOpen(false);
     setSecondsLeft(AUTO_CLOSE_MS / 1000);
     clearTimers();
     timerRef.current = window.setTimeout(() => setOpen(false), AUTO_CLOSE_MS);
     intervalRef.current = window.setInterval(() => {
       setSecondsLeft((s) => (s > 1 ? s - 1 : 0));
     }, 1000);
+  };
+
+  const handleKeepOpen = () => {
+    clearTimers();
+    setKeepOpen(true);
   };
 
   // Auto-open for new visitors (once per session)
@@ -98,13 +105,30 @@ const AppBanner = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Countdown header */}
-            <div className="flex items-center justify-between mb-5 pb-4 pr-10 border-b border-primary/20">
-              <p className="text-sm md:text-base font-semibold tracking-wider text-primary font-montserrat">
-                Zavře se za:{" "}
-                <span className="text-foreground tabular-nums text-base md:text-lg">
-                  {secondsLeft}s
-                </span>
-              </p>
+            <div className="flex items-center justify-between gap-3 mb-5 pb-4 pr-10 border-b border-primary/20">
+              {keepOpen ? (
+                <button
+                  onClick={close}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm md:text-base font-semibold font-montserrat"
+                >
+                  Zavřít
+                </button>
+              ) : (
+                <>
+                  <p className="text-sm md:text-base font-semibold tracking-wider text-primary font-montserrat">
+                    Zavře se za:{" "}
+                    <span className="text-foreground tabular-nums text-base md:text-lg">
+                      {secondsLeft}s
+                    </span>
+                  </p>
+                  <button
+                    onClick={handleKeepOpen}
+                    className="px-3 py-1.5 rounded-lg border border-primary/40 text-primary hover:bg-primary/10 transition-colors text-xs md:text-sm font-semibold font-montserrat whitespace-nowrap"
+                  >
+                    Nezavírat okno
+                  </button>
+                </>
+              )}
               <button
                 onClick={close}
                 className="absolute top-3 right-3 text-muted-foreground hover:text-foreground transition-colors p-2 rounded-full hover:bg-primary/10"

@@ -136,7 +136,27 @@ const VehicleDetail = () => {
                 <p className="text-sm text-muted-foreground">Výkon: {vehicle.power}</p>
               </div>
 
-              <p className="mt-4 text-sm text-muted-foreground leading-relaxed">{vehicle.description}</p>
+              {(vehicle as any).inventory_number && (
+                <div className="mt-4 glass-card p-0 overflow-hidden border-primary/30">
+                  <div className="grid grid-cols-2 divide-x divide-border">
+                    <div className="p-4">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Motor</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{vehicle.engine || "—"}</p>
+                    </div>
+                    <div className="p-4 bg-primary/5">
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Evidenční číslo</p>
+                      <p className="text-lg font-black text-primary mt-1 tracking-wider">{(vehicle as any).inventory_number}</p>
+                    </div>
+                  </div>
+                  <div className="px-4 pb-3 pt-1 text-[11px] text-muted-foreground italic font-montserrat border-t border-border/50">
+                    Pro rychlejší vyřízení prosím sdělte ev.č. vozidla.
+                  </div>
+                </div>
+              )}
+
+              {vehicle.description && (
+                <p className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{vehicle.description}</p>
+              )}
 
               {vehicle.lpg_enabled && (
                 <div className="mt-4 glass-card p-4 border-emerald-500/30 flex items-start gap-3">

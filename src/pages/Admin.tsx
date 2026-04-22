@@ -50,7 +50,16 @@ const emptyVehicle: TablesInsert<"vehicles"> = {
   carfax_enabled: false, carfax_url: "", lpg_enabled: false, lpg_description: "",
   video_enabled: false, video_id: "", warranty_enabled: false,
   engine: "", transmission: "", power: "", color: "", description: "",
+  inventory_number: "",
 };
+
+type AdminSort = "price-desc" | "price-asc" | "year" | "newest";
+const adminSortOptions: { value: AdminSort; label: string }[] = [
+  { value: "price-desc", label: "Nejdražší" },
+  { value: "price-asc", label: "Nejlevnější" },
+  { value: "year", label: "Rok výroby" },
+  { value: "newest", label: "Od nejnovějšího přidání" },
+];
 
 const SITE_URL = "https://chryslerpardubice.site";
 

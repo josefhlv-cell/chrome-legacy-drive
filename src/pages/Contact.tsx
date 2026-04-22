@@ -2,32 +2,49 @@ import { useState } from "react";
 import { motion } from "framer-motion";
 import { Send, Phone, Mail, MapPin } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 
 const ContactPage = () => {
   const { toast } = useToast();
-  const createLead = useCreateLead();
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setLoading(true);
     const form = e.target as HTMLFormElement;
-    const fd = new FormData(form);
 
     try {
-      await createLead.mutateAsync({
-        type: "contact",
-        name: fd.get("name") as string,
-        email: fd.get("email") as string,
-        message: `Předmět: ${fd.get("subject") || "—"}\n${fd.get("message")}`,
+      const response = await fetch("https://formsubmit.co/ajax/obchod@chrysler.cz", {
+        method: "POST",
+        headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+            Jméno: form.name.value,
+            Email: form.email.value,
+            Předmět: (form.querySelector('input[name="subject"]') as HTMLInputElement).value || "Bez předmětu",
+            Zpráva: form.message.value,
+            _subject: "Nová poptávka z webu Chrysler.cz"
+        })
       });
-      toast({ title: "Zpráva odeslána", description: "Děkujeme, ozveme se vám co nejdříve." });
-      form.reset();
+
+      if (response.ok) {
+        toast({
+          title: "Zpráva odeslána",
+          description: "Děkujeme, ozveme se vám co nejdříve.",
+        });
+        form.reset();
+      } else {
+        throw new Error();
+      }
     } catch {
-      toast({ title: "Chyba", description: "Nepodařilo se odeslat. Zkuste to znovu.", variant: "destructive" });
+      toast({
+        title: "Chyba",
+        description: "Nepodařilo se odeslat. Zkuste to znovu.",
+        variant: "destructive",
+      });
     } finally {
       setLoading(false);
     }
@@ -38,13 +55,21 @@ const ContactPage = () => {
       <Navbar />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+          >
             <h1 className="section-heading">Kontakt</h1>
-            <p className="section-subheading mt-2">Rádi vám pomůžeme s výběrem vašeho nového Chrysleru</p>
+            <p className="section-subheading mt-2">
+              Rádi vám pomůžeme s výběrem vašeho nového Chrysleru
+            </p>
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-10">
-            <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }}>
+            <motion.div
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+            >
               <div className="glass-card p-6 space-y-6">
                 <div className="flex items-start gap-4">
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
@@ -71,6 +96,7 @@ const ContactPage = () => {
                     </div>
                   </div>
                 </div>
+
                 <div className="flex items-start gap-4">
                   <Mail className="w-5 h-5 text-primary mt-0.5" />
                   <div>
@@ -78,11 +104,12 @@ const ContactPage = () => {
                     <p className="text-muted-foreground text-sm">obchod@chrysler.cz</p>
                   </div>
                 </div>
+
                 <div className="flex items-start gap-4">
                   <MapPin className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Adresa</p>
-                    <p className="text-muted-foreground text-sm">Pardubice, Česká republika</p>
+                    <p className="text-muted-foreground text-sm">Lukovna 11, Pardubice</p>
                   </div>
                 </div>
               </div>
@@ -96,28 +123,61 @@ const ContactPage = () => {
               </div>
             </motion.div>
 
-            <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
+            <motion.div
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+            >
               <form onSubmit={handleSubmit} className="glass-card p-6 space-y-5">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Jméno *</label>
-                    <input name="name" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                    <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">
+                      Jméno *
+                    </label>
+                    <input
+                      name="name"
+                      required
+                      className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                    />
                   </div>
                   <div>
-                    <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">E-mail *</label>
-                    <input name="email" type="email" required className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                    <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">
+                      E-mail *
+                    </label>
+                    <input
+                      name="email"
+                      type="email"
+                      required
+                      className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                    />
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Předmět</label>
-                  <input name="subject" className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">
+                    Předmět
+                  </label>
+                  <input
+                    name="subject"
+                    className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                  />
                 </div>
                 <div>
-                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Zpráva *</label>
-                  <textarea name="message" required rows={5} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none" />
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">
+                    Zpráva *
+                  </label>
+                  <textarea
+                    name="message"
+                    required
+                    rows={5}
+                    className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-none"
+                  />
                 </div>
-                <button type="submit" disabled={loading} className="chrome-button w-full flex items-center justify-center gap-2">
-                  <Send className="w-4 h-4" /> {loading ? "Odesílám..." : "Odeslat zprávu"}
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="chrome-button w-full flex items-center justify-center gap-2"
+                >
+                  <Send className="w-4 h-4" />
+                  {loading ? "Odesílám..." : "Odeslat zprávu"}
                 </button>
               </form>
             </motion.div>

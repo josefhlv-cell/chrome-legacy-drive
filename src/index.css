@@ -393,10 +393,12 @@
 .fb-section { min-width: 0; }
 .fb-section + .fb-section { margin-top: 3mm; }
 .fb-section-title {
-  font-size: 14pt; font-weight: 800; color: #000; margin-bottom: 1.5mm; letter-spacing: 0.01em;
+  font-size: calc(14pt * var(--flyer-text-scale, 1));
+  font-weight: 800; color: #000; margin-bottom: 1.5mm; letter-spacing: 0.01em;
 }
 .fb-section-text {
-  font-size: 12pt; line-height: 1.4; color: #111;
+  font-size: calc(12pt * var(--flyer-text-scale, 1));
+  line-height: 1.4; color: #111;
   display: -webkit-box; -webkit-line-clamp: 9; -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -431,7 +433,7 @@
 .flyer-a4.compact .flyer-title { font-size: clamp(14pt, 2vw, 19pt); }
 .flyer-a4.compact .flyer-box-stat .fb-value { font-size: 18pt; }
 .flyer-a4.compact .fb-price-right { font-size: 28pt; }
-.flyer-a4.compact .fb-section-text { font-size: 11pt; -webkit-line-clamp: 7; }
+.flyer-a4.compact .fb-section-text { font-size: calc(11pt * var(--flyer-text-scale, 1)); -webkit-line-clamp: 7; }
 .flyer-a4.compact .fb-section-popis .fb-section-text { -webkit-line-clamp: 4; }
 
 /* === No photo fallback === */

@@ -254,6 +254,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
   const [previewScale, setPreviewScale] = useState(1);
   const [compactLayout, setCompactLayout] = useState(false);
   const [pdfAction, setPdfAction] = useState<"print" | "download" | null>(null);
+  const [textScale, setTextScale] = useState(1);
 
   const noPhoto = photoMode === "hidden" || !heroPhoto;
   const maxVybavaItems = noPhoto ? MAX_VYBAVA_ITEMS_NOPHOTO : MAX_VYBAVA_ITEMS;
@@ -579,6 +580,29 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
               <Label className="text-xs">Popis ({data.popis.length}/{maxPopisChars})</Label>
               <Textarea rows={5} value={data.popis} onChange={(e) => setData({ ...data, popis: e.target.value.slice(0, maxPopisChars) })} placeholder="Vůz ve výborném stavu..." />
             </div>
+
+            <div className="border rounded-lg p-3 bg-muted/30">
+              <div className="flex items-center justify-between mb-2">
+                <Label className="text-xs font-bold uppercase tracking-wide">
+                  Velikost písma (Výbava + Popis)
+                </Label>
+                <span className="text-xs font-mono tabular-nums">{Math.round(textScale * 100)}%</span>
+              </div>
+              <input
+                type="range"
+                min={0.8}
+                max={1.5}
+                step={0.05}
+                value={textScale}
+                onChange={(e) => setTextScale(Number(e.target.value))}
+                className="w-full accent-primary"
+              />
+              <div className="flex justify-between text-[10px] text-muted-foreground mt-1">
+                <span>80%</span>
+                <button type="button" onClick={() => setTextScale(1)} className="underline hover:text-foreground">reset 100%</button>
+                <span>150%</span>
+              </div>
+            </div>
           </div>
 
           {/* === FLYER === */}
@@ -589,6 +613,7 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
                   id="print-flyer-area"
                   ref={printFlyerRef}
                   className={`flyer-a4 print-page ${noPhoto ? "no-photo" : ""} ${compactLayout ? "compact" : ""} shadow-2xl print:shadow-none grayscale`}
+                  style={{ "--flyer-text-scale": textScale } as CSSProperties}
                 >
                   {/* ROW 1: Shield • Title (big box) • Year box */}
                   <div className="flyer-row flyer-row-top">

@@ -14,35 +14,41 @@ const ContactPage = () => {
     setLoading(true);
     const form = e.target as HTMLFormElement;
 
+    // --- SEM VLOŽTE SVŮJ KLÍČ Z WEB3FORMS ---
+    const ACCESS_KEY = f88c48be-a30f-477a-b188-1869e7a4f183; 
+
     try {
-      const response = await fetch("https://formsubmit.co/ajax/obchod@chrysler.cz", {
+      const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
-        headers: { 
-            'Content-Type': 'application/json',
-            'Accept': 'application/json'
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
         },
         body: JSON.stringify({
-            Jméno: form.name.value,
-            Email: form.email.value,
-            Předmět: (form.querySelector('input[name="subject"]') as HTMLInputElement).value || "Bez předmětu",
-            Zpráva: form.message.value,
-            _subject: "Nová poptávka z webu Chrysler.cz"
-        })
+          access_key: ACCESS_KEY,
+          name: form.name.value,
+          email: form.email.value,
+          subject: "Nová poptávka: " + (form.subject.value || "Chrysler.cz"),
+          message: form.message.value,
+          from_name: "Web Chrysler.cz",
+        }),
       });
 
-      if (response.ok) {
+      const result = await response.json();
+
+      if (result.success) {
         toast({
           title: "Zpráva odeslána",
           description: "Děkujeme, ozveme se vám co nejdříve.",
         });
         form.reset();
       } else {
-        throw new Error();
+        throw new Error("Nepodařilo se odeslat");
       }
-    } catch {
+    } catch (error) {
       toast({
         title: "Chyba",
-        description: "Nepodařilo se odeslat. Zkuste to znovu.",
+        description: "Omlouváme se, zprávu se nepodařilo odeslat. Zkuste to znovu.",
         variant: "destructive",
       });
     } finally {
@@ -66,6 +72,7 @@ const ContactPage = () => {
           </motion.div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-10 mt-10">
+            {/* Levý sloupec - Kontaktní údaje */}
             <motion.div
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -89,10 +96,6 @@ const ContactPage = () => {
                     <div>
                       <p className="font-semibold text-foreground text-sm">Autoservis</p>
                       <p className="text-muted-foreground text-sm">+420 603 559 767</p>
-                    </div>
-                    <div>
-                      <p className="font-semibold text-foreground text-sm">Pevná linka</p>
-                      <p className="text-muted-foreground text-sm">466 931 611</p>
                     </div>
                   </div>
                 </div>
@@ -123,6 +126,7 @@ const ContactPage = () => {
               </div>
             </motion.div>
 
+            {/* Pravý sloupec - Kontaktní formulář */}
             <motion.div
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
@@ -136,6 +140,7 @@ const ContactPage = () => {
                     <input
                       name="name"
                       required
+                      type="text"
                       className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
                     />
                   </div>
@@ -157,6 +162,7 @@ const ContactPage = () => {
                   </label>
                   <input
                     name="subject"
+                    type="text"
                     className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
                   />
                 </div>

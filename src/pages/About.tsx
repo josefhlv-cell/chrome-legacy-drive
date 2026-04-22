@@ -17,7 +17,8 @@ const reasons = [
 ];
 
 const milestones = [
-  { year: "2003", text: "Založení firmy v Lukovně u Pardubic — začátek specializace na americké vozy Chrysler a Dodge." },
+  { year: "1997", text: "Založení firmy v Lukovně u Pardubic — začátek specializace na americké vozy Chrysler a Dodge." },
+  { year: "2003", text: "Založení společnosti CHDP s.r.o., která dodnes Chrysler.cz stoprocentně vlastní. Majitel společnosti pan Lejhanec stál u zrodu Chrysler.cz a dodnes s mnohaletými zkušenostmi firmu hrdě vede." },
   { year: "2008", text: "Naše společnost posouvá služby i autoservis pod autorizaci DaimlerChrysler Praha. Tato spolupráce otevřela možnosti odborné diagnostiky, programování jednotek i školení mechaniků." },
   { year: "2012", text: "Rozšíření servisu o diagnostiku a opravy automatických převodovek. V rámci přípravy vozidel pro zákazníky zajišťujeme u našich partnerů přestavby vozidel na LPG." },
   { year: "2014", text: "Přechod pod správu FCA. V tomto roce vznikl koncern FCA (Fiat Chrysler Automobiles) sloučením Fiatu a Chrysleru." },

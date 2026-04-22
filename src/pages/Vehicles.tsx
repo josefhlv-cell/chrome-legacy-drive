@@ -8,16 +8,16 @@ import VehicleCard from "@/components/VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
-  { label: "Rok", value: "year" },
-  { label: "Cena", value: "price" },
-  { label: "Značka", value: "brand" },
-  { label: "Značka – Model", value: "brand-model" },
+  { label: "Rok výroby (od nejnovějšího)", value: "year" },
+  { label: "Nejdražší", value: "price-desc" },
+  { label: "Nejlevnější", value: "price-asc" },
+  { label: "Podle značky (A–Z)", value: "brand" },
 ];
 
 const PAGE_SIZE = 9;
 
 const VehiclesPage = () => {
-  const [sort, setSort] = useState("year");
+  const [sort, setSort] = useState("price-desc");
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const { data: dbVehicles, isLoading } = useVehicles();
   const loaderRef = useRef<HTMLDivElement>(null);
@@ -25,10 +25,10 @@ const VehiclesPage = () => {
   const filtered = useMemo(() => {
     if (!dbVehicles) return [];
     let result = dbVehicles.filter((v) => v.status !== "prodano");
-    if (sort === "price") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
+    if (sort === "price-asc") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
+    if (sort === "price-desc") result.sort((a, b) => b.price_with_vat - a.price_with_vat);
     if (sort === "year") result.sort((a, b) => b.year - a.year);
     if (sort === "brand") result.sort((a, b) => a.name.localeCompare(b.name, "cs"));
-    if (sort === "brand-model") result.sort((a, b) => a.name.localeCompare(b.name, "cs"));
     return result;
   }, [dbVehicles, sort]);
 

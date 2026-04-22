@@ -61,6 +61,13 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <span className="flex items-center gap-1"><Fuel className="w-3.5 h-3.5" /> {vehicle.fuel}</span>
           </div>
 
+          {(vehicle as any).inventory_number && (
+            <div className="mt-3 inline-flex items-center gap-2 text-[11px] font-montserrat px-2 py-1 rounded-md border border-primary/30 bg-primary/5">
+              <span className="text-muted-foreground uppercase tracking-wider">Ev.č.</span>
+              <span className="text-primary font-bold">{(vehicle as any).inventory_number}</span>
+            </div>
+          )}
+
           <div className="mt-4 pt-3 border-t border-border/50">
             <p className="text-xl font-bold text-primary font-montserrat">
               {formatPrice(vehicle.price_with_vat)}

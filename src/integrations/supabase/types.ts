@@ -288,6 +288,7 @@ export type Database = {
           fuel: string
           id: string
           image_url: string
+          inventory_number: string
           lpg_description: string
           lpg_enabled: boolean
           mileage: number
@@ -314,6 +315,7 @@ export type Database = {
           fuel?: string
           id?: string
           image_url?: string
+          inventory_number?: string
           lpg_description?: string
           lpg_enabled?: boolean
           mileage?: number
@@ -340,6 +342,7 @@ export type Database = {
           fuel?: string
           id?: string
           image_url?: string
+          inventory_number?: string
           lpg_description?: string
           lpg_enabled?: boolean
           mileage?: number

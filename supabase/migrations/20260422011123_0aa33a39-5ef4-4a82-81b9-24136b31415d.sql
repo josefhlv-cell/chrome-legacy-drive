@@ -1,0 +1,1 @@
+ALTER TABLE public.vehicles ADD COLUMN IF NOT EXISTS inventory_number text NOT NULL DEFAULT '';

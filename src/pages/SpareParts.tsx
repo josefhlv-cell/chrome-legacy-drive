@@ -112,8 +112,8 @@ const SpareParts = () => {
           <p className="text-sm text-muted-foreground mb-3">
             Zavolejte nám a náš tým vám pomůže s identifikací a objednáním dílu.
           </p>
-          <a href="tel:+420777123456" className="text-primary font-bold text-lg hover:underline">
-            +420 777 123 456
+          <a href="tel:+420603372911" className="text-primary font-bold text-lg hover:underline">
+            +420 603 372 911
           </a>
         </motion.div>
       </div>

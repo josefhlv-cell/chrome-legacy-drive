@@ -39,9 +39,8 @@ export const optimizeImage = (
   const params = new URLSearchParams({
     width: String(width),
     quality: String(quality),
-    // CSS uses object-cover everywhere — request cover so the API
-    // doesn't ship hidden letterbox pixels.
-    resize: "cover",
+    // Use contain so the whole car is visible (no crop) — matches object-contain in UI.
+    resize: "contain",
   });
   if (format === "webp") params.set("format", "webp");
   else if (format === "avif") params.set("format", "avif");
@@ -60,7 +59,7 @@ export const buildSrcSet = (
   return widths
     .map(
       (w) =>
-        `${base}?width=${w}&quality=${quality}&resize=cover&format=${format} ${w}w`,
+        `${base}?width=${w}&quality=${quality}&resize=contain&format=${format} ${w}w`,
     )
     .join(", ");
 };

@@ -28,6 +28,7 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
+import { optimizeImage } from "@/lib/imageOptimizer";
 import QuickExportButton from "@/components/admin/QuickExportButton";
 import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
 import VinDecodePreview from "@/components/admin/VinDecodePreview";

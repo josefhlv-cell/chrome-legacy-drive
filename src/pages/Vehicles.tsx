@@ -143,9 +143,9 @@ const VehiclesPage = () => {
 
           {isLoading && <p className="text-center text-muted-foreground py-10">Načítání vozidel...</p>}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
             {visibleVehicles.map((vehicle, i) => (
-              <div key={vehicle.id}>
+              <div key={vehicle.id} className="h-full">
                 <VehicleCard vehicle={vehicle} index={i < PAGE_SIZE ? i : 0} />
               </div>
             ))}

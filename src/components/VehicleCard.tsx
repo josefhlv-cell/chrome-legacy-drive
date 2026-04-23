@@ -52,9 +52,10 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       transition={{ duration: 0.5, delay: index * 0.1 }}
+      className="h-full"
     >
-      <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
-        <div className="relative overflow-hidden rounded-t-lg bg-background">
+      <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
+        <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[3/2]">
           <picture>
             <source
               type="image/avif"
@@ -69,7 +70,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <img
               src={optimizeImage(cardImageUrl, "card")}
               alt={vehicle.name}
-              className="block w-full h-auto rounded-t-lg bg-muted/30"
+              className="absolute inset-0 w-full h-full object-cover bg-muted/30"
               loading={index < 2 ? "eager" : "lazy"}
               fetchPriority={index < 2 ? "high" : "auto"}
               decoding="async"
@@ -95,8 +96,8 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
           )}
         </div>
 
-        <div className="p-5">
-          <h3 className="text-lg font-bold text-foreground tracking-wide font-serif">{vehicle.name}</h3>
+        <div className="p-5 flex flex-col flex-grow">
+          <h3 className="text-lg font-bold text-foreground tracking-wide font-serif line-clamp-1">{vehicle.name}</h3>
           <p className="text-sm text-muted-foreground mt-1 font-montserrat">{vehicle.year} · {vehicle.engine}</p>
 
           <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground font-montserrat">
@@ -104,14 +105,26 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <span className="flex items-center gap-1"><Fuel className="w-3.5 h-3.5" /> {vehicle.fuel}</span>
           </div>
 
+          {vehicle.description && (
+            <p className="mt-3 text-xs text-muted-foreground font-montserrat line-clamp-3">
+              {vehicle.description}
+            </p>
+          )}
+
+          {vehicle.description && (
+            <span className="mt-1 text-xs font-semibold text-primary font-montserrat group-hover:underline">
+              Zobrazit více →
+            </span>
+          )}
+
           {(vehicle as any).inventory_number && (
-            <div className="mt-3 inline-flex items-center gap-2 text-[11px] font-montserrat px-2 py-1 rounded-md border border-primary/30 bg-primary/5">
+            <div className="mt-3 inline-flex self-start items-center gap-2 text-[11px] font-montserrat px-2 py-1 rounded-md border border-primary/30 bg-primary/5">
               <span className="text-muted-foreground uppercase tracking-wider">Ev.č.</span>
               <span className="text-primary font-bold">{(vehicle as any).inventory_number}</span>
             </div>
           )}
 
-          <div className="mt-4 pt-3 border-t border-border/50">
+          <div className="mt-auto pt-3 border-t border-border/50">
             <p className="text-xl font-bold text-primary font-montserrat">
               {formatPrice(vehicle.price_with_vat)}
               {vehicle.show_vat && <span className="text-xs font-semibold text-muted-foreground ml-1">Bez DPH</span>}

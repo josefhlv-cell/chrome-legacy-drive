@@ -53,15 +53,15 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
-        <div className="relative overflow-hidden aspect-video rounded-t-lg bg-muted/40">
+        <div className="relative overflow-hidden aspect-[3/2] rounded-t-lg bg-background">
           <img
             src={cardImageUrl}
             alt={vehicle.name}
-            className="absolute inset-0 h-full w-full rounded-t-lg object-contain object-center p-3"
+            className="absolute inset-0 h-full w-full rounded-t-lg object-cover object-center"
             loading="lazy"
             decoding="async"
-            width={800}
-            height={800}
+            width={900}
+            height={600}
           />
           <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">
             <img src={logoPardubice} alt="" className="h-8 w-auto" />

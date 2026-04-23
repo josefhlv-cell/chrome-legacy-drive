@@ -6,7 +6,7 @@ import {
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
   Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink,
   BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer,
-  Sparkles, Wand2
+  Sparkles, Wand2, Inbox
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
@@ -35,9 +35,10 @@ import VinDecodePreview from "@/components/admin/VinDecodePreview";
 import PrintFlyerDialog from "@/components/admin/PrintFlyerDialog";
 import { Printer } from "lucide-react";
 import AdminSurprise from "@/components/AdminSurprise";
+import LeadsTab from "@/components/admin/LeadsTab";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "vehicles" | "scrape" | "contacts" | "ticker" | "facility" | "analytics";
+type AdminTab = "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -67,6 +68,7 @@ const SITE_URL = "https://chryslerpardubice.site";
 
 const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "vehicles", label: "Vozidla", icon: <Car className="w-4 h-4" /> },
+  { key: "leads", label: "Poptávky", icon: <Inbox className="w-4 h-4" /> },
   { key: "scrape", label: "Aktualizace", icon: <RefreshCw className="w-4 h-4" /> },
   { key: "analytics", label: "Statistiky", icon: <BarChart3 className="w-4 h-4" /> },
   { key: "contacts", label: "Kontakty", icon: <Phone className="w-4 h-4" /> },
@@ -172,6 +174,7 @@ const AdminPage = () => {
 
           {/* Tab Content */}
           {activeTab === "vehicles" && <VehiclesTab />}
+          {activeTab === "leads" && <LeadsTab />}
           {activeTab === "scrape" && <ScrapeTab />}
           {activeTab === "analytics" && <AnalyticsTab />}
           {activeTab === "contacts" && <ContactsTab />}

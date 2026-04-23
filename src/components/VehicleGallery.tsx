@@ -108,7 +108,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
               <img
                 src={optimizeImage(img, "thumb")}
                 alt={`${vehicleName} thumbnail ${i + 1}`}
-                className="w-16 h-12 object-cover"
+                className="h-12 w-16 bg-muted/40 object-contain object-center"
                 loading="lazy"
                 decoding="async"
                 width={64}

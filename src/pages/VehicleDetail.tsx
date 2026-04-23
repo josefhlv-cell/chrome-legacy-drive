@@ -168,28 +168,53 @@ const VehicleDetail = () => {
                 <div className="flex items-center gap-2"><Palette className="w-4 h-4 text-primary" /><span className="text-muted-foreground">Barva:</span><span className="text-foreground font-medium">{vehicle.color}</span></div>
               </div>
 
-              <div className="mt-4 glass-card p-5">
-                <p className="text-sm font-semibold text-foreground mb-1">Motor: {vehicle.engine}</p>
-                <p className="text-sm text-muted-foreground">Výkon: {vehicle.power}</p>
-              </div>
-
-              {(vehicle as any).inventory_number && (
-                <div className="mt-4 glass-card p-0 overflow-hidden border-primary/30">
-                  <div className="grid grid-cols-2 divide-x divide-border">
-                    <div className="p-4">
+              <div className="mt-4 glass-card p-0 overflow-hidden border-primary/30">
+                <div className="grid grid-cols-2 divide-x divide-border">
+                  <div className="p-4 bg-primary/5 flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">VIN</p>
+                      {vehicle.vin ? (
+                        <button
+                          type="button"
+                          onClick={() => handleCopyVin(vehicle.vin)}
+                          className="mt-1 group inline-flex items-center gap-1.5 text-sm font-bold text-foreground hover:text-primary transition-colors break-all text-left"
+                          title="Kliknutím zkopírovat VIN"
+                        >
+                          <span className="tracking-wider">{vehicle.vin}</span>
+                          {vinCopied ? (
+                            <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                          ) : (
+                            <Copy className="w-3.5 h-3.5 opacity-60 group-hover:opacity-100 shrink-0" />
+                          )}
+                        </button>
+                      ) : (
+                        <p className="text-sm font-semibold text-muted-foreground mt-1">—</p>
+                      )}
+                    </div>
+                    {(vehicle as any).inventory_number && (
+                      <div>
+                        <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Evidenční číslo</p>
+                        <p className="text-lg font-black text-primary mt-1 tracking-wider">{(vehicle as any).inventory_number}</p>
+                      </div>
+                    )}
+                  </div>
+                  <div className="p-4 flex flex-col justify-between gap-3">
+                    <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Motor</p>
                       <p className="text-sm font-semibold text-foreground mt-1">{vehicle.engine || "—"}</p>
                     </div>
-                    <div className="p-4 bg-primary/5">
-                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Evidenční číslo</p>
-                      <p className="text-lg font-black text-primary mt-1 tracking-wider">{(vehicle as any).inventory_number}</p>
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold">Výkon</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{vehicle.power || "—"}</p>
                     </div>
                   </div>
+                </div>
+                {(vehicle as any).inventory_number && (
                   <div className="px-4 pb-3 pt-1 text-[11px] text-muted-foreground italic font-montserrat border-t border-border/50">
                     Pro rychlejší vyřízení prosím sdělte ev.č. vozidla.
                   </div>
-                </div>
-              )}
+                )}
+              </div>
 
               {vehicle.description && (
                 <p className="mt-4 text-sm text-muted-foreground leading-relaxed whitespace-pre-line">{vehicle.description}</p>

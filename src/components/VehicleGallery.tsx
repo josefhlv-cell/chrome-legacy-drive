@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
-import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleGalleryProps {
@@ -38,9 +37,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
         <AnimatePresence mode="wait">
           <motion.img
             key={selectedIndex}
-            src={optimizeImage(images[selectedIndex], "detail")}
-            srcSet={buildSrcSet(images[selectedIndex], [600, 1024, 1280])}
-            sizes="(max-width: 768px) 100vw, 60vw"
+            src={images[selectedIndex]}
             alt={`${vehicleName} - foto ${selectedIndex + 1}`}
             className="absolute inset-0 h-full w-full object-contain object-center p-2 touch-pan-y"
             decoding="async"
@@ -106,7 +103,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
               }`}
             >
               <img
-                src={optimizeImage(img, "thumb")}
+                  src={img}
                 alt={`${vehicleName} thumbnail ${i + 1}`}
                 className="h-12 w-16 bg-muted/40 object-contain object-center"
                 loading="lazy"
@@ -158,7 +155,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              src={optimizeImage(images[selectedIndex], "hero")}
+              src={images[selectedIndex]}
               alt={`${vehicleName} - foto ${selectedIndex + 1}`}
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg touch-pan-y"
               onClick={(e) => e.stopPropagation()}

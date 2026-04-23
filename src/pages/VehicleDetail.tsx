@@ -17,7 +17,18 @@ const VehicleDetail = () => {
   const { data: vehicleImages, isLoading: galleryLoading } = useVehicleImages(vehicle?.id);
   const [showTimeout, setShowTimeout] = useState(false);
   const [preferredGalleryIndex, setPreferredGalleryIndex] = useState<number | null>(null);
+  const [vinCopied, setVinCopied] = useState(false);
 
+  const handleCopyVin = async (vin: string) => {
+    try {
+      await navigator.clipboard.writeText(vin);
+      setVinCopied(true);
+      toast({ title: "Zkopírováno!", description: `VIN ${vin} byl zkopírován do schránky.` });
+      setTimeout(() => setVinCopied(false), 2000);
+    } catch {
+      toast({ title: "Chyba", description: "Nepodařilo se zkopírovat VIN.", variant: "destructive" });
+    }
+  };
   const galleryUrls = useMemo(() => {
     if (vehicleImages && vehicleImages.length > 0) {
       return dedupeImageUrls(vehicleImages.map((img) => img.image_url));

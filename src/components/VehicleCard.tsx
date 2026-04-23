@@ -5,7 +5,7 @@ import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
-import { optimizeImage } from "@/lib/imageOptimizer";
+import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
@@ -55,16 +55,28 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
         <div className="relative overflow-hidden aspect-[3/2] rounded-t-lg bg-background">
-          <img
-            src={optimizeImage(cardImageUrl, "card")}
-            alt={vehicle.name}
-            className="absolute inset-0 h-full w-full rounded-t-lg object-cover object-center bg-muted/30"
-            loading={index < 3 ? "eager" : "lazy"}
-            fetchPriority={index < 2 ? "high" : "auto"}
-            decoding="async"
-            width={900}
-            height={600}
-          />
+          <picture>
+            <source
+              type="image/avif"
+              srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 65, "avif")}
+              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
+            />
+            <source
+              type="image/webp"
+              srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 72, "webp")}
+              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
+            />
+            <img
+              src={optimizeImage(cardImageUrl, "card")}
+              alt={vehicle.name}
+              className="absolute inset-0 h-full w-full rounded-t-lg object-cover object-center bg-muted/30"
+              loading={index < 2 ? "eager" : "lazy"}
+              fetchPriority={index < 2 ? "high" : "auto"}
+              decoding="async"
+              width={900}
+              height={600}
+            />
+          </picture>
           <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">
             <img src={logoPardubice} alt="" className="h-8 w-auto" />
           </div>

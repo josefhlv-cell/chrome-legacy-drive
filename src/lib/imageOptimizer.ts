@@ -3,7 +3,7 @@
  *
  * Rewrites public storage URLs to the on-the-fly render endpoint
  * (https://...supabase.co/storage/v1/render/image/public/...) so we get:
- *   - smaller file sizes (WebP, configurable width/quality)
+ *   - smaller file sizes (WebP/AVIF, configurable width/quality)
  *   - proper cache-control headers (1h CDN cache vs no-cache on raw object)
  *
  * Non-Supabase URLs (or already-rendered ones) are returned unchanged.
@@ -13,6 +13,7 @@ const PUBLIC_OBJECT_MARKER = "/storage/v1/object/public/";
 const RENDER_MARKER = "/storage/v1/render/image/public/";
 
 export type ImagePreset = "thumb" | "card" | "detail" | "hero" | "print";
+export type ImageFormat = "webp" | "avif" | "origin";
 
 const PRESETS: Record<ImagePreset, { width: number; quality: number }> = {
   thumb: { width: 200, quality: 65 },
@@ -25,7 +26,7 @@ const PRESETS: Record<ImagePreset, { width: number; quality: number }> = {
 export const optimizeImage = (
   url: string | null | undefined,
   preset: ImagePreset = "card",
-  format: "webp" | "origin" = "webp",
+  format: ImageFormat = "webp",
 ): string => {
   if (!url) return "";
   // Already transformed → leave it
@@ -38,9 +39,12 @@ export const optimizeImage = (
   const params = new URLSearchParams({
     width: String(width),
     quality: String(quality),
-    resize: "contain",
+    // CSS uses object-cover everywhere — request cover so the API
+    // doesn't ship hidden letterbox pixels.
+    resize: "cover",
   });
   if (format === "webp") params.set("format", "webp");
+  else if (format === "avif") params.set("format", "avif");
   return `${rewritten}?${params.toString()}`;
 };
 
@@ -49,10 +53,14 @@ export const buildSrcSet = (
   url: string | null | undefined,
   widths: number[] = [400, 800, 1280],
   quality = 72,
+  format: "webp" | "avif" = "webp",
 ): string => {
   if (!url || !url.includes(PUBLIC_OBJECT_MARKER)) return "";
   const base = url.replace(PUBLIC_OBJECT_MARKER, RENDER_MARKER);
   return widths
-    .map((w) => `${base}?width=${w}&quality=${quality}&format=webp ${w}w`)
+    .map(
+      (w) =>
+        `${base}?width=${w}&quality=${quality}&resize=cover&format=${format} ${w}w`,
+    )
     .join(", ");
 };

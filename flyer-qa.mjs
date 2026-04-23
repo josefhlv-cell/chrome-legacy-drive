@@ -2,7 +2,7 @@
 // vyexportuje PNG, vloží jako jediný obraz do PDF (A4 landscape),
 // a uloží PDF + screenshoty pro vizuální kontrolu.
 
-import { chromium } from 'playwright';
+import { chromium } from '@playwright/test';
 import fs from 'fs';
 import path from 'path';
 

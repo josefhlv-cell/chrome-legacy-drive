@@ -235,11 +235,6 @@ const VehicleDetail = () => {
                     </div>
                   </div>
                 </div>
-                {(vehicle as any).inventory_number && (
-                  <div className="px-4 pb-3 pt-1 text-[11px] text-muted-foreground italic font-montserrat border-t border-border/50">
-                    Pro rychlejší vyřízení prosím sdělte ev.č. vozidla.
-                  </div>
-                )}
               </div>
 
               {vehicle.description && (

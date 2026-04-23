@@ -229,10 +229,22 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
                 if (e.touches.length < 2) pinchRef.current = null;
               }}
             >
+              {/* Intermediate placeholder: 1280px WebP shows instantly while 7.5MB original loads behind it */}
+              {!hiResLoaded && (
+                <img
+                  src={optimizeImage(images[selectedIndex], "detail")}
+                  alt=""
+                  aria-hidden="true"
+                  className="absolute max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none pointer-events-none"
+                  style={{ transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)` }}
+                  decoding="async"
+                  draggable={false}
+                />
+              )}
               <motion.img
                 key={selectedIndex}
                 initial={{ opacity: 0 }}
-                animate={{ opacity: hiResLoaded ? 1 : 0.4 }}
+                animate={{ opacity: hiResLoaded ? 1 : 0 }}
                 exit={{ opacity: 0 }}
                 src={images[selectedIndex]}
                 alt={`${vehicleName} - foto ${selectedIndex + 1}`}

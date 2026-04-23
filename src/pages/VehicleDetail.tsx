@@ -8,14 +8,14 @@ import VehicleGallery from "@/components/VehicleGallery";
 import { formatPrice, priceWithVatFromNet, vatAmount, statusLabels, statusStyles } from "@/data/vehicles";
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
-import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
+import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 
 const VehicleDetail = () => {
   const { id } = useParams();
   const { data: vehicle, isLoading, error } = useVehicle(id);
   const { data: vehicleImages, isLoading: galleryLoading } = useVehicleImages(vehicle?.id);
   const [showTimeout, setShowTimeout] = useState(false);
-  const [preferredGalleryIndex, setPreferredGalleryIndex] = useState(0);
+  const [preferredGalleryIndex] = useState(0);
 
   const galleryUrls = useMemo(() => {
     if (vehicleImages && vehicleImages.length > 0) {
@@ -32,23 +32,6 @@ const VehicleDetail = () => {
     }
     setShowTimeout(false);
   }, [isLoading]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const resolvePreferredImage = async () => {
-      const nextIndex = await findPreferredLandscapeIndex(galleryUrls);
-      if (!cancelled) {
-        setPreferredGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
-      }
-    };
-
-    void resolvePreferredImage();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [galleryUrls]);
 
   if (error) {
     console.error("Supabase Error:", error);

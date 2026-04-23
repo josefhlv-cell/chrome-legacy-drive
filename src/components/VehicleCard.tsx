@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
-import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
@@ -23,7 +22,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
     return dedupeImageUrls([...sortedGallery.map((img) => img.image_url), vehicle?.image_url]);
   }, [vehicle?.image_url, vehicle?.vehicle_images]);
 
-  const [cardImageUrl, setCardImageUrl] = useState(imageCandidates[0] ?? vehicle?.image_url ?? "");
+  const [cardImageUrl, setCardImageUrl] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -54,19 +53,11 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
-        <div className="relative overflow-hidden aspect-square rounded-t-lg bg-background">
-          <div
-            className="absolute inset-0 scale-110 bg-cover bg-center opacity-45 blur-xl"
-            style={{ backgroundImage: `url(${optimizeImage(cardImageUrl, "card")})` }}
-            aria-hidden="true"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/30 to-background/60" aria-hidden="true" />
+        <div className="relative overflow-hidden aspect-video rounded-t-lg bg-muted/40">
           <img
-            src={optimizeImage(cardImageUrl, "card")}
-            srcSet={buildSrcSet(cardImageUrl, [400, 800])}
-            sizes="(max-width: 768px) 100vw, 33vw"
+            src={cardImageUrl}
             alt={vehicle.name}
-            className="absolute inset-0 w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-[1.02]"
+            className="absolute inset-0 h-full w-full rounded-t-lg object-contain object-center p-3"
             loading="lazy"
             decoding="async"
             width={800}

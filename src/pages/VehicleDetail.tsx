@@ -15,7 +15,7 @@ const VehicleDetail = () => {
   const { data: vehicle, isLoading, error } = useVehicle(id);
   const { data: vehicleImages, isLoading: galleryLoading } = useVehicleImages(vehicle?.id);
   const [showTimeout, setShowTimeout] = useState(false);
-  const [preferredGalleryIndex, setPreferredGalleryIndex] = useState(0);
+  const [preferredGalleryIndex, setPreferredGalleryIndex] = useState<number | null>(null);
 
   const galleryUrls = useMemo(() => {
     if (vehicleImages && vehicleImages.length > 0) {
@@ -42,6 +42,11 @@ const VehicleDetail = () => {
         setPreferredGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
       }
     };
+
+    if (!galleryUrls.length) {
+      setPreferredGalleryIndex(0);
+      return;
+    }
 
     void resolvePreferredImage();
 
@@ -108,7 +113,9 @@ const VehicleDetail = () => {
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="relative">
               {galleryLoading ? (
                 <div className="w-full rounded-lg bg-secondary animate-pulse aspect-[4/3]" />
-              ) : (
+               ) : preferredGalleryIndex === null ? (
+                <div className="w-full rounded-lg bg-secondary animate-pulse aspect-video max-h-[60vh]" />
+               ) : (
                 <div className="relative">
                   <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} initialIndex={preferredGalleryIndex} />
                   <div className="absolute top-4 left-4 z-10 pointer-events-none">

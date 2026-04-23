@@ -29,7 +29,7 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
   return (
     <>
       {/* Main image with touch swipe */}
-      <div className="relative group cursor-pointer overflow-hidden rounded-lg bg-black/40 aspect-[16/10]" onClick={() => setLightboxOpen(true)}>
+      <div className="relative group cursor-pointer overflow-hidden rounded-lg bg-gradient-to-br from-black/60 via-background to-black/40 aspect-video max-h-[70vh]" onClick={() => setLightboxOpen(true)}>
         <AnimatePresence mode="wait">
           <motion.img
             key={selectedIndex}

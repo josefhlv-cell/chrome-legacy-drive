@@ -24,7 +24,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
-        <div className="relative overflow-hidden bg-black/40 aspect-[16/10]">
+        <div className="relative overflow-hidden bg-gradient-to-br from-black/60 via-background to-black/40 aspect-video">
           <img
             src={optimizeImage(vehicle.image_url, "card")}
             srcSet={buildSrcSet(vehicle.image_url, [400, 800])}

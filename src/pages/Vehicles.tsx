@@ -59,7 +59,7 @@ const VehiclesPage = () => {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="pt-24 pb-16">
-        <div className="container mx-auto px-4">
+        <div className="mx-auto w-full max-w-[1920px] px-4 md:px-12">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
             <h1 className="section-heading">Skladové vozy</h1>
             <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler - Dodge připravené k předání</p>
@@ -143,7 +143,7 @@ const VehiclesPage = () => {
 
           {isLoading && <p className="text-center text-muted-foreground py-10">Načítání vozidel...</p>}
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 auto-rows-fr">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
             {visibleVehicles.map((vehicle, i) => (
               <div key={vehicle.id} className="h-full">
                 <VehicleCard vehicle={vehicle} index={i < PAGE_SIZE ? i : 0} />

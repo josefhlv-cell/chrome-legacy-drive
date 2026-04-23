@@ -30,11 +30,11 @@ const VehicleDetail = () => {
     }
   };
 
-  const shortTransmission = (t: string) => {
+  const fullTransmission = (t: string) => {
     if (!t) return "—";
     const lower = t.toLowerCase();
-    if (lower.startsWith("auto")) return "Aut.";
-    if (lower.startsWith("man")) return "Man.";
+    if (lower.startsWith("auto")) return "Automatická";
+    if (lower.startsWith("man")) return "Manuální";
     return t;
   };
 
@@ -178,7 +178,7 @@ const VehicleDetail = () => {
                     </div>
                     <div>
                       <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5"><Cog className="w-3.5 h-3.5 text-primary" />Převodovka</p>
-                      <p className="text-sm font-semibold text-foreground mt-1">{shortTransmission(vehicle.transmission)}</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{fullTransmission(vehicle.transmission)}</p>
                     </div>
                   </div>
                   <div className="p-4 flex flex-col justify-between gap-3">

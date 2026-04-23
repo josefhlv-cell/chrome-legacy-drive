@@ -46,11 +46,16 @@ const MAX_POPIS_CHARS = 380;
 const MAX_VYBAVA_ITEMS_NOPHOTO = 12;
 const MAX_VYBAVA_CHARS_NOPHOTO = 480;
 const MAX_POPIS_CHARS_NOPHOTO = 700;
+// A4 landscape přesně @ 96 DPI (CSS px)
 const A4_PREVIEW_WIDTH_PX = 1123;
 const A4_PREVIEW_HEIGHT_PX = 794;
 const A4_WIDTH_MM = 297;
 const A4_HEIGHT_MM = 210;
-const EXPORT_SCALE = 2;
+// 200 DPI = výborný tisk i přijatelná velikost PDF (~600KB JPEG q0.92)
+const EXPORT_DPI = 200;
+const EXPORT_PX_WIDTH = Math.round((A4_WIDTH_MM / 25.4) * EXPORT_DPI);   // 2339
+const EXPORT_PX_HEIGHT = Math.round((A4_HEIGHT_MM / 25.4) * EXPORT_DPI); // 1654
+const EXPORT_SCALE = EXPORT_PX_WIDTH / A4_PREVIEW_WIDTH_PX;              // ~2.08
 const ALPHA_THRESHOLD = 180;
 const EDGE_MARGIN_RATIO = 0.05;
 
@@ -482,12 +487,15 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
     await prepareFlyerForPrint();
 
+    // Hostujeme klon ve stejných px rozměrech jako preview canvas (1123×794)
+    // a html2canvas ho povýší na EXPORT_PX_WIDTH × EXPORT_PX_HEIGHT (200 DPI).
+    // Tím se vyhneme rozdílům mezi mm a px interpretací mezi prohlížeči.
     const exportHost = document.createElement("div");
     exportHost.style.position = "fixed";
     exportHost.style.left = "-10000px";
     exportHost.style.top = "0";
-    exportHost.style.width = `${A4_WIDTH_MM}mm`;
-    exportHost.style.height = `${A4_HEIGHT_MM}mm`;
+    exportHost.style.width = `${A4_PREVIEW_WIDTH_PX}px`;
+    exportHost.style.height = `${A4_PREVIEW_HEIGHT_PX}px`;
     exportHost.style.background = "#ffffff";
     exportHost.style.overflow = "hidden";
     exportHost.style.pointerEvents = "none";
@@ -497,6 +505,13 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
     clone.classList.remove("shadow-2xl", "print:shadow-none");
     clone.style.margin = "0";
     clone.style.transform = "none";
+    // Force exact pixel dimensions on the clone so html2canvas can't drift
+    clone.style.width = `${A4_PREVIEW_WIDTH_PX}px`;
+    clone.style.height = `${A4_PREVIEW_HEIGHT_PX}px`;
+    clone.style.minWidth = `${A4_PREVIEW_WIDTH_PX}px`;
+    clone.style.minHeight = `${A4_PREVIEW_HEIGHT_PX}px`;
+    clone.style.maxWidth = `${A4_PREVIEW_WIDTH_PX}px`;
+    clone.style.maxHeight = `${A4_PREVIEW_HEIGHT_PX}px`;
 
     exportHost.appendChild(clone);
     document.body.appendChild(exportHost);
@@ -509,12 +524,14 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       return await html2canvas(clone, {
         backgroundColor: "#ffffff",
         useCORS: true,
+        allowTaint: false,
         scale: EXPORT_SCALE,
         logging: false,
-        width: clone.offsetWidth,
-        height: clone.offsetHeight,
+        width: A4_PREVIEW_WIDTH_PX,
+        height: A4_PREVIEW_HEIGHT_PX,
         windowWidth: A4_PREVIEW_WIDTH_PX,
         windowHeight: A4_PREVIEW_HEIGHT_PX,
+        imageTimeout: 15000,
       });
     } finally {
       document.body.removeChild(exportHost);
@@ -527,34 +544,71 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
       throw new Error("Pro tisk povolte v prohlížeči vyskakovací okna.");
     }
 
+    // Klíč k cross-browser tisku bez ořezu:
+    //   1) @page size: A4 landscape; margin: 0  → fyzický papír 297×210
+    //   2) html/body i .sheet 100% výška → vyplní stránku
+    //   3) <img> width:100%; height:100%; object-fit: contain → nikdy se neořízne
+    //   4) v Print Preview MUSÍ uživatel mít "Margins: None" / "Měřítko: 100 %"
+    //      proto přidáme JS instrukci přímo do okna pro Chromium (preferCSSPageSize)
     printWindow.document.write(`<!doctype html>
 <html lang="cs">
   <head>
     <meta charset="utf-8" />
-    <title>${data.title || "Leták"}</title>
+    <title>${data!.title || "Leták"}</title>
     <style>
       @page { size: A4 landscape; margin: 0; }
-      html, body { margin: 0; padding: 0; background: #fff; }
-      body { width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; overflow: hidden; }
-      .sheet { width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; overflow: hidden; }
-      img { display: block; width: ${A4_WIDTH_MM}mm; height: ${A4_HEIGHT_MM}mm; object-fit: fill; }
+      *, *::before, *::after { box-sizing: border-box; }
+      html, body {
+        margin: 0; padding: 0;
+        background: #fff;
+        width: 100%; height: 100%;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      .sheet {
+        width: 100vw; height: 100vh;
+        display: flex; align-items: center; justify-content: center;
+        overflow: hidden;
+        background: #fff;
+      }
+      .sheet img {
+        display: block;
+        width: 100%; height: 100%;
+        object-fit: contain;
+        object-position: center;
+        image-rendering: -webkit-optimize-contrast;
+      }
+      @media print {
+        html, body, .sheet { width: 297mm !important; height: 210mm !important; }
+        .sheet img { width: 297mm !important; height: 210mm !important; object-fit: fill; }
+      }
     </style>
   </head>
   <body>
     <div class="sheet">
-      <img src="${imageDataUrl}" alt="${data.title || "Leták"}" />
+      <img src="${imageDataUrl}" alt="${data!.title || "Leták"}" />
     </div>
     <script>
+      // Chromium: zachovat @page size z CSS
+      try { document.documentElement.style.setProperty('print-color-adjust', 'exact'); } catch (e) {}
       const triggerPrint = () => {
-        setTimeout(() => {
-          window.focus();
-          window.print();
-        }, 150);
+        // Dáme prohlížeči chvíli na layout & decode
+        requestAnimationFrame(() => requestAnimationFrame(() => {
+          setTimeout(() => {
+            try { window.focus(); } catch (e) {}
+            window.print();
+          }, 250);
+        }));
       };
-
-      window.addEventListener('afterprint', () => window.close());
-      if (document.images[0]?.complete) triggerPrint();
-      else document.images[0]?.addEventListener('load', triggerPrint, { once: true });
+      window.addEventListener('afterprint', () => { try { window.close(); } catch (e) {} });
+      const img = document.images[0];
+      if (img && img.complete && img.naturalWidth > 0) triggerPrint();
+      else if (img) {
+        img.addEventListener('load', triggerPrint, { once: true });
+        img.addEventListener('error', triggerPrint, { once: true });
+      } else {
+        triggerPrint();
+      }
     </script>
   </body>
 </html>`);
@@ -566,21 +620,33 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
 
     try {
       const canvas = await createExportCanvas();
-      const imageDataUrl = canvas.toDataURL("image/png", 1);
 
       if (mode === "download") {
-        const pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: "a4", compress: true });
-        pdf.addImage(imageDataUrl, "PNG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM, undefined, "FAST");
-        pdf.save(`${sanitizeFilename(data.title)}-a4-landscape.pdf`);
+        // JPEG q0.92 → ~10× menší než PNG, kvalita pro tisk dostatečná
+        const imageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+        const pdf = new jsPDF({
+          orientation: "landscape",
+          unit: "mm",
+          format: "a4",
+          compress: true,
+        });
+        // Přesně 297×210 mm, bez ořezu, bez okrajů
+        pdf.addImage(imageDataUrl, "JPEG", 0, 0, A4_WIDTH_MM, A4_HEIGHT_MM, undefined, "FAST");
+        pdf.save(`${sanitizeFilename(data!.title)}-a4-landscape.pdf`);
       } else {
+        // Pro tisk preferujeme PNG (ostřejší text z canvasu); pokud je obří, fallback na JPEG
+        let imageDataUrl = canvas.toDataURL("image/png");
+        if (imageDataUrl.length > 4_500_000) {
+          imageDataUrl = canvas.toDataURL("image/jpeg", 0.92);
+        }
         await openPrintWindow(imageDataUrl);
       }
 
       toast({
         title: mode === "download" ? "PDF vytvořeno" : "Tisk připraven",
         description: mode === "download"
-          ? "Leták byl uložen jako přesný A4 landscape bez ořezu."
-          : "Otevřel se tisk z přesného A4 náhledu bez ořezu.",
+          ? `A4 landscape, 297×210 mm, ${EXPORT_DPI} DPI, bez ořezu.`
+          : "Otevřel se tiskový dialog. V náhledu nastavte „Měřítko: 100 %\" a „Okraje: žádné\".",
       });
     } catch (error: unknown) {
       toast({ title: "Tisk se nepodařil", description: getErrorMessage(error), variant: "destructive" });

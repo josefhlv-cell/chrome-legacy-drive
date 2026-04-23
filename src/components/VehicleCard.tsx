@@ -1,9 +1,11 @@
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
+import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
@@ -12,6 +14,34 @@ interface VehicleCardProps {
 }
 
 const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
+  const imageCandidates = useMemo(() => {
+    const sortedGallery = [...(vehicle.vehicle_images ?? [])].sort((a, b) => {
+      if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
+      return a.sort_order - b.sort_order;
+    });
+
+    return dedupeImageUrls([...sortedGallery.map((img) => img.image_url), vehicle.image_url]);
+  }, [vehicle.image_url, vehicle.vehicle_images]);
+
+  const [cardImageUrl, setCardImageUrl] = useState(imageCandidates[0] ?? vehicle.image_url ?? "");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolvePreferredImage = async () => {
+      const preferredIndex = await findPreferredLandscapeIndex(imageCandidates);
+      if (!cancelled) {
+        setCardImageUrl(imageCandidates[preferredIndex] ?? imageCandidates[0] ?? vehicle.image_url ?? "");
+      }
+    };
+
+    void resolvePreferredImage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageCandidates, vehicle.image_url]);
+
   if (!vehicle?.name || !vehicle?.id) return null;
 
   const status = vehicle.status as keyof typeof statusLabels;
@@ -27,13 +57,13 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
         <div className="relative overflow-hidden aspect-square rounded-t-lg bg-background">
           <div
             className="absolute inset-0 scale-110 bg-cover bg-center opacity-45 blur-xl"
-            style={{ backgroundImage: `url(${optimizeImage(vehicle.image_url, "card")})` }}
+            style={{ backgroundImage: `url(${optimizeImage(cardImageUrl, "card")})` }}
             aria-hidden="true"
           />
           <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/30 to-background/60" aria-hidden="true" />
           <img
-            src={optimizeImage(vehicle.image_url, "card")}
-            srcSet={buildSrcSet(vehicle.image_url, [400, 800])}
+            src={optimizeImage(cardImageUrl, "card")}
+            srcSet={buildSrcSet(cardImageUrl, [400, 800])}
             sizes="(max-width: 768px) 100vw, 33vw"
             alt={vehicle.name}
             className="absolute inset-0 w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-[1.02]"

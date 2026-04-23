@@ -28,6 +28,7 @@ import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 import { supabase } from "@/integrations/supabase/client";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
+import { optimizeImage } from "@/lib/imageOptimizer";
 import QuickExportButton from "@/components/admin/QuickExportButton";
 import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
 import VinDecodePreview from "@/components/admin/VinDecodePreview";
@@ -539,7 +540,7 @@ const VehiclesTab = () => {
           <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
             <div className="flex flex-col lg:flex-row gap-4">
               {vehicle.image_url && (
-                <img src={vehicle.image_url} alt={vehicle.name} className="w-full lg:w-44 h-28 object-cover rounded-md" loading="lazy" />
+                <img src={optimizeImage(vehicle.image_url, "card")} alt={vehicle.name} className="w-full lg:w-44 h-28 object-cover rounded-md" loading="lazy" decoding="async" width={176} height={112} />
               )}
               <div className="flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -1153,7 +1154,7 @@ const FacilityTab = () => {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
         {photos?.map((photo) => (
           <div key={photo.id} className="relative group rounded-lg overflow-hidden border border-border">
-            <img src={photo.image_url} alt={photo.alt_text} className="w-full h-32 object-cover" loading="lazy" />
+            <img src={optimizeImage(photo.image_url, "card")} alt={photo.alt_text} className="w-full h-32 object-cover" loading="lazy" decoding="async" />
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
               <p className="text-xs text-white px-2 text-center">{photo.caption}</p>
               <button onClick={() => { if (confirm("Smazat?")) deletePhoto.mutate(photo.id); }} className="text-xs text-white bg-destructive/80 px-2 py-1 rounded">Smazat</button>
@@ -1197,7 +1198,7 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
         {images.map((img) => (
           <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${img.is_main ? "border-primary" : "border-border"}`}>
-            <img src={img.image_url} alt="" className="w-full h-14 object-cover" loading="lazy" />
+            <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-14 object-cover" loading="lazy" decoding="async" />
             {img.is_main && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">HLAVNÍ</div>}
             <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
               {!img.is_main && <button onClick={() => onSetMain(img.id, img.image_url)} className="text-[9px] text-white bg-primary/80 px-1 py-0.5 rounded">★</button>}

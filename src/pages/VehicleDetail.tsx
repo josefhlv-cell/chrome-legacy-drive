@@ -29,6 +29,15 @@ const VehicleDetail = () => {
       toast({ title: "Chyba", description: "Nepodařilo se zkopírovat VIN.", variant: "destructive" });
     }
   };
+
+  const shortTransmission = (t: string) => {
+    if (!t) return "—";
+    const lower = t.toLowerCase();
+    if (lower.startsWith("auto")) return "Aut.";
+    if (lower.startsWith("man")) return "Man.";
+    return t;
+  };
+
   const galleryUrls = useMemo(() => {
     if (vehicleImages && vehicleImages.length > 0) {
       return dedupeImageUrls(vehicleImages.map((img) => img.image_url));
@@ -146,7 +155,6 @@ const VehicleDetail = () => {
 
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-wide normal-case">{vehicle.name}</h1>
-              <p className="text-muted-foreground mt-1">{vehicle.year}</p>
 
               <div className="mt-6">
                 <p className="text-4xl font-black text-primary">
@@ -161,11 +169,29 @@ const VehicleDetail = () => {
                 )}
               </div>
 
-              <div className="glass-card p-5 mt-6 grid grid-cols-2 gap-4 text-sm">
-                <div className="flex items-center gap-2"><Gauge className="w-4 h-4 text-primary" /><span className="text-muted-foreground">Tachometr:</span><span className="text-foreground font-medium">{vehicle.mileage.toLocaleString("cs-CZ")} km</span></div>
-                <div className="flex items-center gap-2"><Fuel className="w-4 h-4 text-primary" /><span className="text-muted-foreground">Palivo:</span><span className="text-foreground font-medium">{vehicle.fuel}</span></div>
-                <div className="flex items-center gap-2"><Cog className="w-4 h-4 text-primary" /><span className="text-muted-foreground">Převodovka:</span><span className="text-foreground font-medium">{vehicle.transmission}</span></div>
-                <div className="flex items-center gap-2"><Palette className="w-4 h-4 text-primary" /><span className="text-muted-foreground">Barva:</span><span className="text-foreground font-medium">{vehicle.color}</span></div>
+              <div className="mt-6 glass-card p-0 overflow-hidden">
+                <div className="grid grid-cols-2 divide-x divide-border">
+                  <div className="p-4 bg-primary/5 flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5"><Gauge className="w-3.5 h-3.5 text-primary" />Tachometr</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{vehicle.mileage.toLocaleString("cs-CZ")} km</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5"><Cog className="w-3.5 h-3.5 text-primary" />Převodovka</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{shortTransmission(vehicle.transmission)}</p>
+                    </div>
+                  </div>
+                  <div className="p-4 flex flex-col justify-between gap-3">
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5"><Fuel className="w-3.5 h-3.5 text-primary" />Palivo</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{vehicle.fuel}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wider text-muted-foreground font-semibold flex items-center gap-1.5"><Palette className="w-3.5 h-3.5 text-primary" />Barva</p>
+                      <p className="text-sm font-semibold text-foreground mt-1">{vehicle.color}</p>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="mt-4 glass-card p-0 overflow-hidden border-primary/30">

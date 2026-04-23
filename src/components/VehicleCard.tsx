@@ -15,15 +15,15 @@ interface VehicleCardProps {
 
 const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
   const imageCandidates = useMemo(() => {
-    const sortedGallery = [...(vehicle.vehicle_images ?? [])].sort((a, b) => {
+    const sortedGallery = [...(vehicle?.vehicle_images ?? [])].sort((a, b) => {
       if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
       return a.sort_order - b.sort_order;
     });
 
-    return dedupeImageUrls([...sortedGallery.map((img) => img.image_url), vehicle.image_url]);
-  }, [vehicle.image_url, vehicle.vehicle_images]);
+    return dedupeImageUrls([...sortedGallery.map((img) => img.image_url), vehicle?.image_url]);
+  }, [vehicle?.image_url, vehicle?.vehicle_images]);
 
-  const [cardImageUrl, setCardImageUrl] = useState(imageCandidates[0] ?? vehicle.image_url ?? "");
+  const [cardImageUrl, setCardImageUrl] = useState(imageCandidates[0] ?? vehicle?.image_url ?? "");
 
   useEffect(() => {
     let cancelled = false;

@@ -54,7 +54,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
-        <div className="relative overflow-hidden aspect-[3/2] rounded-t-lg bg-background">
+        <div className="relative overflow-hidden rounded-t-lg bg-background">
           <picture>
             <source
               type="image/avif"
@@ -69,12 +69,10 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <img
               src={optimizeImage(cardImageUrl, "card")}
               alt={vehicle.name}
-              className="absolute inset-0 h-full w-full rounded-t-lg object-contain object-center bg-muted/30"
+              className="block w-full h-auto rounded-t-lg bg-muted/30"
               loading={index < 2 ? "eager" : "lazy"}
               fetchPriority={index < 2 ? "high" : "auto"}
               decoding="async"
-              width={900}
-              height={600}
             />
           </picture>
           <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">

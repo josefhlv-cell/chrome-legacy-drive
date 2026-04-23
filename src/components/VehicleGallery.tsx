@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+import { optimizeImage } from "@/lib/imageOptimizer";
 
 interface VehicleGalleryProps {
   images: string[];
@@ -37,10 +38,11 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
         <AnimatePresence mode="wait">
           <motion.img
             key={selectedIndex}
-            src={images[selectedIndex]}
+            src={optimizeImage(images[selectedIndex], "detail")}
             alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-            className="absolute inset-0 h-full w-full object-cover object-center touch-pan-y"
+            className="absolute inset-0 h-full w-full object-cover object-center touch-pan-y bg-muted/30"
             decoding="async"
+            loading={selectedIndex === 0 ? "eager" : "lazy"}
             fetchPriority={selectedIndex === 0 ? "high" : "auto"}
             width={1280}
             height={800}
@@ -103,9 +105,9 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
               }`}
             >
               <img
-                  src={img}
+                src={optimizeImage(img, "thumb")}
                 alt={`${vehicleName} thumbnail ${i + 1}`}
-                className="h-12 w-16 bg-muted/40 object-contain object-center"
+                className="h-12 w-16 bg-muted/40 object-cover object-center"
                 loading="lazy"
                 decoding="async"
                 width={64}
@@ -155,7 +157,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
-              src={images[selectedIndex]}
+              src={optimizeImage(images[selectedIndex], "hero")}
               alt={`${vehicleName} - foto ${selectedIndex + 1}`}
               className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg touch-pan-y"
               onClick={(e) => e.stopPropagation()}

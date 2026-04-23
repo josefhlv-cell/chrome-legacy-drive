@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
+import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
@@ -25,10 +26,13 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
         <div className="relative overflow-hidden">
           <img
-            src={vehicle.image_url}
+            src={optimizeImage(vehicle.image_url, "card")}
+            srcSet={buildSrcSet(vehicle.image_url, [400, 800])}
+            sizes="(max-width: 768px) 100vw, 33vw"
             alt={vehicle.name}
             className="w-full h-56 object-cover transition-transform duration-500 group-hover:scale-105"
             loading="lazy"
+            decoding="async"
             width={800}
             height={600}
           />

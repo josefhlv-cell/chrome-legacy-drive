@@ -13,6 +13,7 @@ const ContactPage = () => {
     e.preventDefault();
     setLoading(true);
     const form = e.target as HTMLFormElement;
+    const fd = new FormData(form);
 
     const ACCESS_KEY = "f88c48be-a30f-477a-b188-1869e7a4f183"; 
 
@@ -25,10 +26,10 @@ const ContactPage = () => {
         },
         body: JSON.stringify({
           access_key: ACCESS_KEY,
-          name: form.name.value,
-          email: form.email.value,
-          subject: "Nová poptávka: " + (form.subject.value || "Chrysler.cz"),
-          message: form.message.value,
+          name: String(fd.get("name") || ""),
+          email: String(fd.get("email") || ""),
+          subject: "Nová poptávka: " + (String(fd.get("subject") || "") || "Chrysler.cz"),
+          message: String(fd.get("message") || ""),
           from_name: "Web Chrysler.cz",
         }),
       });

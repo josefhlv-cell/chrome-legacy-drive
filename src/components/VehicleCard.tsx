@@ -97,25 +97,17 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
         </div>
 
         <div className="p-5 flex flex-col flex-grow">
-          <h3 className="text-lg font-bold text-foreground tracking-wide font-serif line-clamp-1">{vehicle.name}</h3>
-          <p className="text-sm text-muted-foreground mt-1 font-montserrat">{vehicle.year} · {vehicle.engine}</p>
+          <h3 className="text-lg font-bold text-foreground tracking-wide font-serif line-clamp-2">{vehicle.name}</h3>
 
-          <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground font-montserrat">
+          <div className="flex flex-col gap-1.5 mt-3 text-xs text-muted-foreground font-montserrat">
             <span className="flex items-center gap-1"><Gauge className="w-3.5 h-3.5" /> {vehicle.mileage.toLocaleString("cs-CZ")} km</span>
             <span className="flex items-center gap-1"><Fuel className="w-3.5 h-3.5" /> {vehicle.fuel}</span>
+            {vehicle.vin && (
+              <span className="flex items-center gap-1 text-foreground">
+                <span className="uppercase tracking-wider text-muted-foreground">VIN:</span> {vehicle.vin}
+              </span>
+            )}
           </div>
-
-          {vehicle.description && (
-            <p className="mt-3 text-xs text-muted-foreground font-montserrat line-clamp-3">
-              {vehicle.description}
-            </p>
-          )}
-
-          {vehicle.description && (
-            <span className="mt-1 text-xs font-semibold text-primary font-montserrat group-hover:underline">
-              Zobrazit více →
-            </span>
-          )}
 
           {(vehicle as any).inventory_number && (
             <div className="mt-3 inline-flex self-start items-center gap-2 text-[11px] font-montserrat px-2 py-1 rounded-md border border-primary/30 bg-primary/5">

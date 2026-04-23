@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
 import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
@@ -7,13 +7,18 @@ import logoPardubice from "@/assets/logo-pardubice.webp";
 interface VehicleGalleryProps {
   images: string[];
   vehicleName: string;
+  initialIndex?: number;
 }
 
 const SWIPE_THRESHOLD = 50;
 
-const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
-  const [selectedIndex, setSelectedIndex] = useState(0);
+const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGalleryProps) => {
+  const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    setSelectedIndex(initialIndex);
+  }, [initialIndex]);
 
   if (images.length === 0) return null;
 

@@ -8,17 +8,18 @@ import VehicleGallery from "@/components/VehicleGallery";
 import { formatPrice, priceWithVatFromNet, vatAmount, statusLabels, statusStyles } from "@/data/vehicles";
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
+import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
 
 const VehicleDetail = () => {
   const { id } = useParams();
   const { data: vehicle, isLoading, error } = useVehicle(id);
   const { data: vehicleImages, isLoading: galleryLoading } = useVehicleImages(vehicle?.id);
   const [showTimeout, setShowTimeout] = useState(false);
+  const [preferredGalleryIndex, setPreferredGalleryIndex] = useState(0);
 
-  // Build gallery URLs from vehicle_images table, fallback to vehicle.image_url
   const galleryUrls = useMemo(() => {
     if (vehicleImages && vehicleImages.length > 0) {
-      return vehicleImages.map((img) => img.image_url);
+      return dedupeImageUrls(vehicleImages.map((img) => img.image_url));
     }
     if (vehicle?.image_url) return [vehicle.image_url];
     return [];
@@ -31,6 +32,23 @@ const VehicleDetail = () => {
     }
     setShowTimeout(false);
   }, [isLoading]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolvePreferredImage = async () => {
+      const nextIndex = await findPreferredLandscapeIndex(galleryUrls);
+      if (!cancelled) {
+        setPreferredGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
+      }
+    };
+
+    void resolvePreferredImage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [galleryUrls]);
 
   if (error) {
     console.error("Supabase Error:", error);
@@ -92,7 +110,7 @@ const VehicleDetail = () => {
                 <div className="w-full rounded-lg bg-secondary animate-pulse aspect-[4/3]" />
               ) : (
                 <div className="relative">
-                  <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} />
+                  <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} initialIndex={preferredGalleryIndex} />
                   <div className="absolute top-4 left-4 z-10 pointer-events-none">
                     <span className={`${statusStyles[status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
                       {statusLabels[status]}

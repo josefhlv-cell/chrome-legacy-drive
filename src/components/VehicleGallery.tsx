@@ -34,7 +34,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
   return (
     <>
       {/* Main image with touch swipe */}
-      <div className="relative group cursor-pointer overflow-hidden rounded-lg bg-gradient-to-br from-black/60 via-background to-black/40 aspect-video max-h-[70vh]" onClick={() => setLightboxOpen(true)}>
+      <div className="relative group cursor-pointer overflow-hidden rounded-lg bg-muted/40 aspect-video max-h-[60vh]" onClick={() => setLightboxOpen(true)}>
         <AnimatePresence mode="wait">
           <motion.img
             key={selectedIndex}
@@ -42,7 +42,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
             srcSet={buildSrcSet(images[selectedIndex], [600, 1024, 1280])}
             sizes="(max-width: 768px) 100vw, 60vw"
             alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-            className="absolute inset-0 w-full h-full object-contain touch-pan-y"
+            className="absolute inset-0 h-full w-full object-contain object-center p-2 touch-pan-y"
             decoding="async"
             fetchPriority={selectedIndex === 0 ? "high" : "auto"}
             width={1280}

@@ -5,6 +5,7 @@ import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
+import { optimizeImage } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {

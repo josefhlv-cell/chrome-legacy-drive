@@ -29,7 +29,7 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
   return (
     <>
       {/* Main image with touch swipe */}
-      <div className="relative group cursor-pointer overflow-hidden rounded-lg" onClick={() => setLightboxOpen(true)}>
+      <div className="relative group cursor-pointer overflow-hidden rounded-lg bg-black/40 aspect-[16/10]" onClick={() => setLightboxOpen(true)}>
         <AnimatePresence mode="wait">
           <motion.img
             key={selectedIndex}
@@ -37,11 +37,11 @@ const VehicleGallery = ({ images, vehicleName }: VehicleGalleryProps) => {
             srcSet={buildSrcSet(images[selectedIndex], [600, 1024, 1280])}
             sizes="(max-width: 768px) 100vw, 60vw"
             alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-            className="w-full object-cover aspect-[4/3] touch-pan-y"
+            className="absolute inset-0 w-full h-full object-contain touch-pan-y"
             decoding="async"
             fetchPriority={selectedIndex === 0 ? "high" : "auto"}
-            width={800}
-            height={600}
+            width={1280}
+            height={800}
             drag="x"
             dragConstraints={{ left: 0, right: 0 }}
             dragElastic={0.2}

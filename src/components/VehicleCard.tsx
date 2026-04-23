@@ -1,11 +1,11 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
-import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
+import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
@@ -14,14 +14,33 @@ interface VehicleCardProps {
 }
 
 const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
-  const cardImageUrl = useMemo(() => {
+  const imageCandidates = useMemo(() => {
     const sortedGallery = [...(vehicle?.vehicle_images ?? [])].sort((a, b) => {
       if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
       return a.sort_order - b.sort_order;
     });
 
-    return dedupeImageUrls([vehicle?.image_url, ...sortedGallery.map((img) => img.image_url)])[0] ?? "";
+    return dedupeImageUrls([...sortedGallery.map((img) => img.image_url), vehicle?.image_url]);
   }, [vehicle?.image_url, vehicle?.vehicle_images]);
+
+  const [cardImageUrl, setCardImageUrl] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const resolvePreferredImage = async () => {
+      const preferredIndex = await findPreferredLandscapeIndex(imageCandidates);
+      if (!cancelled) {
+        setCardImageUrl(imageCandidates[preferredIndex] ?? imageCandidates[0] ?? vehicle.image_url ?? "");
+      }
+    };
+
+    void resolvePreferredImage();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [imageCandidates, vehicle.image_url]);
 
   if (!vehicle?.name || !vehicle?.id) return null;
 

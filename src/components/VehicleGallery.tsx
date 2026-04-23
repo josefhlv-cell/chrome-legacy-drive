@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { optimizeImage } from "@/lib/imageOptimizer";
 
@@ -8,13 +8,27 @@ interface VehicleGalleryProps {
   images: string[];
   vehicleName: string;
   initialIndex?: number;
+  inventoryNumber?: string;
 }
 
 const SWIPE_THRESHOLD = 50;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 5;
 
-const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGalleryProps) => {
+const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber }: VehicleGalleryProps) => {
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [hiResLoaded, setHiResLoaded] = useState(false);
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+
+  // Reset zoom when image changes or lightbox opens/closes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setHiResLoaded(false);
+  }, [selectedIndex, lightboxOpen]);
 
   useEffect(() => {
     setSelectedIndex(initialIndex);
@@ -152,23 +166,108 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGaller
               </>
             )}
 
-            <motion.img
-              key={selectedIndex}
-              initial={{ opacity: 0, scale: 0.95 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.95 }}
-              src={optimizeImage(images[selectedIndex], "hero")}
-              alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-              className="max-w-[90vw] max-h-[85vh] object-contain rounded-lg touch-pan-y"
-              onClick={(e) => e.stopPropagation()}
-              drag="x"
-              dragConstraints={{ left: 0, right: 0 }}
-              dragElastic={0.2}
-              onDragEnd={handleDragEnd}
-            />
+            {/* Zoom controls */}
+            <div className="absolute top-4 left-4 z-10 flex gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); setZoom((z) => Math.min(MAX_ZOOM, z + 0.5)); }}
+                className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"
+                aria-label="Přiblížit"
+              >
+                <ZoomIn className="w-5 h-5" />
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); setZoom((z) => { const n = Math.max(MIN_ZOOM, z - 0.5); if (n <= 1) setPan({ x: 0, y: 0 }); return n; }); }}
+                className="bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition-colors"
+                aria-label="Oddálit"
+              >
+                <ZoomOut className="w-5 h-5" />
+              </button>
+              {zoom > 1 && (
+                <span className="bg-white/10 text-white text-xs px-3 py-2 rounded-full font-montserrat">
+                  {zoom.toFixed(1)}×
+                </span>
+              )}
+            </div>
 
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-white/70 text-sm">
-              {selectedIndex + 1} / {images.length}
+            {/* Loading spinner for hi-res */}
+            {!hiResLoaded && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                <Loader2 className="w-10 h-10 text-white/70 animate-spin" />
+              </div>
+            )}
+
+            <div
+              className="relative max-w-[95vw] max-h-[90vh] overflow-hidden flex items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+              onWheel={(e) => {
+                const delta = e.deltaY > 0 ? -0.25 : 0.25;
+                setZoom((z) => {
+                  const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, z + delta));
+                  if (next <= 1) setPan({ x: 0, y: 0 });
+                  return next;
+                });
+              }}
+              onTouchStart={(e) => {
+                if (e.touches.length === 2) {
+                  const dx = e.touches[0].clientX - e.touches[1].clientX;
+                  const dy = e.touches[0].clientY - e.touches[1].clientY;
+                  pinchRef.current = { dist: Math.hypot(dx, dy), zoom };
+                }
+              }}
+              onTouchMove={(e) => {
+                if (e.touches.length === 2 && pinchRef.current) {
+                  const dx = e.touches[0].clientX - e.touches[1].clientX;
+                  const dy = e.touches[0].clientY - e.touches[1].clientY;
+                  const dist = Math.hypot(dx, dy);
+                  const ratio = dist / pinchRef.current.dist;
+                  const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, pinchRef.current.zoom * ratio));
+                  setZoom(next);
+                  if (next <= 1) setPan({ x: 0, y: 0 });
+                }
+              }}
+              onTouchEnd={(e) => {
+                if (e.touches.length < 2) pinchRef.current = null;
+              }}
+            >
+              <motion.img
+                key={selectedIndex}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: hiResLoaded ? 1 : 0.4 }}
+                exit={{ opacity: 0 }}
+                src={images[selectedIndex]}
+                alt={`${vehicleName} - foto ${selectedIndex + 1}`}
+                className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none"
+                style={{
+                  transform: `scale(${zoom}) translate(${pan.x}px, ${pan.y}px)`,
+                  cursor: zoom > 1 ? "grab" : "zoom-in",
+                  transition: pinchRef.current ? "none" : "transform 0.15s ease-out",
+                }}
+                onLoad={() => setHiResLoaded(true)}
+                onClick={() => {
+                  if (zoom === 1) setZoom(2);
+                  else { setZoom(1); setPan({ x: 0, y: 0 }); }
+                }}
+                drag={zoom > 1 ? true : "x"}
+                dragConstraints={zoom > 1 ? undefined : { left: 0, right: 0 }}
+                dragElastic={0.2}
+                onDragEnd={(_, info) => {
+                  if (zoom > 1) {
+                    setPan((p) => ({ x: p.x + info.offset.x / zoom, y: p.y + info.offset.y / zoom }));
+                  } else {
+                    handleDragEnd(_, info);
+                  }
+                }}
+                draggable={false}
+              />
+            </div>
+
+            {/* Caption */}
+            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 text-center pointer-events-none px-4">
+              <p className="text-white text-sm font-semibold font-serif">{vehicleName}</p>
+              <p className="text-white/60 text-xs font-montserrat mt-0.5">
+                {inventoryNumber ? `Ev.č. ${inventoryNumber} · ` : ""}
+                {selectedIndex + 1} / {images.length}
+              </p>
             </div>
           </motion.div>
         )}

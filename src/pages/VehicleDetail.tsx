@@ -117,7 +117,7 @@ const VehicleDetail = () => {
                 <div className="w-full rounded-lg bg-secondary animate-pulse aspect-video max-h-[60vh]" />
                ) : (
                 <div className="relative">
-                  <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} initialIndex={preferredGalleryIndex} />
+                  <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} initialIndex={preferredGalleryIndex} inventoryNumber={(vehicle as any).inventory_number} />
                   <div className="absolute top-4 left-4 z-10 pointer-events-none">
                     <span className={`${statusStyles[status]} text-xs font-semibold px-3 py-1.5 rounded-full`}>
                       {statusLabels[status]}

@@ -56,10 +56,11 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
         <div className="relative overflow-hidden aspect-[3/2] rounded-t-lg bg-background">
           <img
-            src={cardImageUrl}
+            src={optimizeImage(cardImageUrl, "card")}
             alt={vehicle.name}
-            className="absolute inset-0 h-full w-full rounded-t-lg object-cover object-center"
-            loading="lazy"
+            className="absolute inset-0 h-full w-full rounded-t-lg object-cover object-center bg-muted/30"
+            loading={index < 3 ? "eager" : "lazy"}
+            fetchPriority={index < 2 ? "high" : "auto"}
             decoding="async"
             width={900}
             height={600}

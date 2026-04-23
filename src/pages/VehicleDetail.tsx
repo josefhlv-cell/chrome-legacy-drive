@@ -146,7 +146,7 @@ const VehicleDetail = () => {
 
             <motion.div initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }}>
               <h1 className="text-3xl md:text-4xl font-bold text-foreground tracking-wide normal-case">{vehicle.name}</h1>
-              <p className="text-muted-foreground mt-1">{vehicle.year}{vehicle.vin ? ` · VIN: ${vehicle.vin}` : ""}</p>
+              <p className="text-muted-foreground mt-1">{vehicle.year}</p>
 
               <div className="mt-6">
                 <p className="text-4xl font-black text-primary">

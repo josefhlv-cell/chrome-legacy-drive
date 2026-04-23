@@ -15,7 +15,7 @@ const VehicleDetail = () => {
   const { data: vehicle, isLoading, error } = useVehicle(id);
   const { data: vehicleImages, isLoading: galleryLoading } = useVehicleImages(vehicle?.id);
   const [showTimeout, setShowTimeout] = useState(false);
-  const [preferredGalleryIndex] = useState(0);
+  const preferredGalleryIndex = 0;
 
   const galleryUrls = useMemo(() => {
     if (vehicleImages && vehicleImages.length > 0) {

@@ -2,7 +2,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-export type DbVehicle = Tables<"vehicles">;
+export type VehicleImageRecord = Pick<Tables<"vehicle_images">, "image_url" | "is_main" | "sort_order">;
+export type DbVehicle = Tables<"vehicles"> & { vehicle_images?: VehicleImageRecord[] };
 
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -11,7 +12,10 @@ export const useVehicles = (includeHidden = false) => {
   return useQuery({
     queryKey: ["vehicles", includeHidden],
     queryFn: async () => {
-      let query = supabase.from("vehicles").select("*").order("created_at", { ascending: false });
+      let query = supabase
+        .from("vehicles")
+        .select("*, vehicle_images(image_url, is_main, sort_order)")
+        .order("created_at", { ascending: false });
       if (!includeHidden) {
         query = query.neq("status", "prodano");
       }

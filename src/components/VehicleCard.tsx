@@ -24,17 +24,23 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
       transition={{ duration: 0.5, delay: index * 0.1 }}
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card block group overflow-hidden">
-        <div className="relative overflow-hidden bg-gradient-to-br from-black/60 via-background to-black/40 aspect-video">
+        <div className="relative overflow-hidden aspect-square rounded-t-lg bg-background">
+          <div
+            className="absolute inset-0 scale-110 bg-cover bg-center opacity-45 blur-xl"
+            style={{ backgroundImage: `url(${optimizeImage(vehicle.image_url, "card")})` }}
+            aria-hidden="true"
+          />
+          <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/30 to-background/60" aria-hidden="true" />
           <img
             src={optimizeImage(vehicle.image_url, "card")}
             srcSet={buildSrcSet(vehicle.image_url, [400, 800])}
             sizes="(max-width: 768px) 100vw, 33vw"
             alt={vehicle.name}
-            className="absolute inset-0 w-full h-full object-contain transition-transform duration-500 group-hover:scale-105"
+            className="absolute inset-0 w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-[1.02]"
             loading="lazy"
             decoding="async"
             width={800}
-            height={500}
+            height={800}
           />
           <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">
             <img src={logoPardubice} alt="" className="h-8 w-auto" />

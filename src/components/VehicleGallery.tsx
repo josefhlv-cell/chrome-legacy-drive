@@ -1,6 +1,6 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
-import { ChevronLeft, ChevronRight, X, ZoomIn } from "lucide-react";
+import { ChevronLeft, ChevronRight, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import { optimizeImage } from "@/lib/imageOptimizer";
 
@@ -8,13 +8,27 @@ interface VehicleGalleryProps {
   images: string[];
   vehicleName: string;
   initialIndex?: number;
+  inventoryNumber?: string;
 }
 
 const SWIPE_THRESHOLD = 50;
+const MIN_ZOOM = 1;
+const MAX_ZOOM = 5;
 
-const VehicleGallery = ({ images, vehicleName, initialIndex = 0 }: VehicleGalleryProps) => {
+const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber }: VehicleGalleryProps) => {
   const [selectedIndex, setSelectedIndex] = useState(initialIndex);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const [hiResLoaded, setHiResLoaded] = useState(false);
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+
+  // Reset zoom when image changes or lightbox opens/closes
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    setHiResLoaded(false);
+  }, [selectedIndex, lightboxOpen]);
 
   useEffect(() => {
     setSelectedIndex(initialIndex);

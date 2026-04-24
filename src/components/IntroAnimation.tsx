@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
+// Use sessionStorage so the intro plays once per browser session
+// (i.e. on each new tab/window opening) but not on every navigation.
 const INTRO_KEY = "chrysler_intro_seen";
 const ALWAYS_SHOW_EMAILS = ["admin@chrysler-pardubice.cz"];
 
@@ -18,7 +20,7 @@ const IntroAnimation = () => {
     setFading(true);
     setTimeout(() => {
       setShow(false);
-      localStorage.setItem(INTRO_KEY, "1");
+      sessionStorage.setItem(INTRO_KEY, "1");
       document.body.style.overflow = "";
     }, 800);
   }, [fading]);
@@ -26,7 +28,10 @@ const IntroAnimation = () => {
   useEffect(() => {
     if (isBot) return;
 
-    const alreadySeen = localStorage.getItem(INTRO_KEY);
+    // Migrate away from old persistent flag if present
+    if (localStorage.getItem(INTRO_KEY)) localStorage.removeItem(INTRO_KEY);
+
+    const alreadySeen = sessionStorage.getItem(INTRO_KEY);
     if (alreadySeen) return;
 
     setShow(true);

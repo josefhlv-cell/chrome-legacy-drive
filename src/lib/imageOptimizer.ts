@@ -39,9 +39,9 @@ export const optimizeImage = (
   const params = new URLSearchParams({
     width: String(width),
     quality: String(quality),
-    // resize=cover keeps file size 2-4× smaller than `contain` (no transparent padding,
-    // no PNG fallback). Card uses object-cover + aspect-[3/2] so framing is stable.
-    resize: "cover",
+    // resize=contain → server keeps full image, no crop. UI uses object-contain
+    // on a dark background so the entire car is visible regardless of source ratio.
+    resize: "contain",
   });
   if (format === "webp") params.set("format", "webp");
   else if (format === "avif") params.set("format", "avif");
@@ -60,7 +60,7 @@ export const buildSrcSet = (
   return widths
     .map(
       (w) =>
-        `${base}?width=${w}&quality=${quality}&resize=cover&format=${format} ${w}w`,
+        `${base}?width=${w}&quality=${quality}&resize=contain&format=${format} ${w}w`,
     )
     .join(", ");
 };

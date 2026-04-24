@@ -74,7 +74,7 @@ export const useVehicles = (includeHidden = false) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      const rows = (data as DbVehicle[]) ?? [];
+      const rows = ((data as unknown) as DbVehicle[]) ?? [];
 
       // For the public list, keep only the main image per vehicle to minimise client-side work.
       // (Admin still gets the full gallery — used by the management table.)

@@ -124,13 +124,13 @@ const ImportPage = () => {
                         <button
                           key={m.id}
                           onClick={() => setSelectedModel(m.id)}
-                          className={`p-3 rounded-lg border text-center transition-all flex flex-col items-center justify-between gap-2 ${
+                          className={`p-3 pt-0 rounded-lg border text-center transition-all flex flex-col items-center justify-between gap-2 ${
                             selectedModel === m.id
                               ? "border-primary bg-primary/10 text-foreground"
                               : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/50"
                           }`}
                         >
-                          <div className="w-full aspect-square flex items-center justify-center">
+                          <div className="w-[120%] -mt-[20%] aspect-square flex items-center justify-center">
                             {m.image ? (
                               <img
                                 src={m.image}

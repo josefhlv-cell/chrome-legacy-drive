@@ -69,7 +69,14 @@ const BannerVisualEditor = ({ banner, onChange, onClose, onSave }: Props) => {
     onChange({ ...banner, position_matrix: { ...matrix, ...next, z_index: matrix.z_index ?? 10 } as any });
   };
 
-  const previewUrl = `/${banner.target_page === "home" ? "" : banner.target_page}`;
+  // Map admin slugs → real Czech routes
+  const PAGE_ROUTES: Record<string, string> = {
+    home: "/",
+    vehicles: "/vozidla",
+    service: "/servis",
+    "spare-parts": "/nahradni-dily",
+  };
+  const previewUrl = PAGE_ROUTES[banner.target_page || "home"] || "/";
   const styles = (banner.styles as any) || {};
   const content = (banner.content_data as any) || {};
 

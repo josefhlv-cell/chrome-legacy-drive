@@ -6,22 +6,35 @@ export type Banner = Tables<"marketing_banners">;
 export type BannerInsert = TablesInsert<"marketing_banners">;
 export type BannerUpdate = TablesUpdate<"marketing_banners">;
 
-// Public: fetch only active banners for a given page+position (RLS filters automatically)
+const PREVIEW_KEY = "cms-preview-mode";
+export const isPreviewMode = () =>
+  typeof window !== "undefined" && window.sessionStorage.getItem(PREVIEW_KEY) === "1";
+export const setPreviewMode = (on: boolean) => {
+  if (typeof window === "undefined") return;
+  if (on) window.sessionStorage.setItem(PREVIEW_KEY, "1");
+  else window.sessionStorage.removeItem(PREVIEW_KEY);
+  // Force consumers to refetch
+  window.dispatchEvent(new Event("cms-preview-changed"));
+};
+
+// Public: fetch active banners (or ALL when preview mode is on, for admins)
 export const useActiveBanners = (page: string, position: string) =>
   useQuery({
-    queryKey: ["banners", "active", page, position],
+    queryKey: ["banners", "active", page, position, isPreviewMode() ? "preview" : "live"],
     queryFn: async () => {
       const nowIso = new Date().toISOString();
-      const { data, error } = await supabase
+      const preview = isPreviewMode();
+      let q = supabase
         .from("marketing_banners")
         .select("*")
-        .eq("is_active", true)
         .eq("target_page", page)
         .eq("target_position", position)
         .order("sort_order", { ascending: true });
+      if (!preview) q = q.eq("is_active", true);
+      const { data, error } = await q;
       if (error) throw error;
-      // client-side date window filter (start/end nullable)
       return (data ?? []).filter((b) => {
+        if (preview) return true;
         if (b.start_date && b.start_date > nowIso) return false;
         if (b.end_date && b.end_date < nowIso) return false;
         return true;
@@ -30,7 +43,6 @@ export const useActiveBanners = (page: string, position: string) =>
     staleTime: 60_000,
   });
 
-// Admin: full list
 export const useAllBanners = () =>
   useQuery({
     queryKey: ["banners", "all"],

@@ -107,6 +107,7 @@ export type Database = {
       marketing_banners: {
         Row: {
           click_count: number
+          content_data: Json
           content_type: string
           created_at: string
           cta_text: string
@@ -116,14 +117,17 @@ export type Database = {
           impression_count: number
           is_active: boolean
           layout_variant: string
+          link_config: Json
           link_url: string
           media_url: string
           name: string
+          position_matrix: Json
           show_desktop: boolean
           show_mobile: boolean
           show_tablet: boolean
           sort_order: number
           start_date: string | null
+          style_preset: string
           styles: Json
           subheadline: string
           target_page: string
@@ -132,6 +136,7 @@ export type Database = {
         }
         Insert: {
           click_count?: number
+          content_data?: Json
           content_type?: string
           created_at?: string
           cta_text?: string
@@ -141,14 +146,17 @@ export type Database = {
           impression_count?: number
           is_active?: boolean
           layout_variant?: string
+          link_config?: Json
           link_url?: string
           media_url?: string
           name: string
+          position_matrix?: Json
           show_desktop?: boolean
           show_mobile?: boolean
           show_tablet?: boolean
           sort_order?: number
           start_date?: string | null
+          style_preset?: string
           styles?: Json
           subheadline?: string
           target_page?: string
@@ -157,6 +165,7 @@ export type Database = {
         }
         Update: {
           click_count?: number
+          content_data?: Json
           content_type?: string
           created_at?: string
           cta_text?: string
@@ -166,14 +175,17 @@ export type Database = {
           impression_count?: number
           is_active?: boolean
           layout_variant?: string
+          link_config?: Json
           link_url?: string
           media_url?: string
           name?: string
+          position_matrix?: Json
           show_desktop?: boolean
           show_mobile?: boolean
           show_tablet?: boolean
           sort_order?: number
           start_date?: string | null
+          style_preset?: string
           styles?: Json
           subheadline?: string
           target_page?: string

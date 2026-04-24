@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { memo, useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
@@ -7,6 +7,14 @@ import type { DbVehicle } from "@/hooks/useVehicles";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+
+// Card max width per breakpoint:
+//   mobile  ~ 92vw  (≤640px) → ~600 CSS px
+//   tablet  ~ 46vw  (≤1024px) → ~470 CSS px
+//   desktop ~ 25vw  (xl 4-col on 1920px max) → ~470 CSS px
+// 300/500/700 covers DPR 1–2 without overdraw. (Old 400-1200 was 2-3× too big.)
+const CARD_WIDTHS = [300, 500, 700];
+const CARD_SIZES = "(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 25vw";
 
 interface VehicleCardProps {
   vehicle: DbVehicle;
@@ -61,13 +69,13 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <picture>
               <source
                 type="image/avif"
-                srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 65, "avif")}
-                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
+                srcSet={buildSrcSet(cardImageUrl, CARD_WIDTHS, 65, "avif")}
+                sizes={CARD_SIZES}
               />
               <source
                 type="image/webp"
-                srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 72, "webp")}
-                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
+                srcSet={buildSrcSet(cardImageUrl, CARD_WIDTHS, 72, "webp")}
+                sizes={CARD_SIZES}
               />
               <img
                 src={optimizeImage(cardImageUrl, "card")}
@@ -151,4 +159,10 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
   );
 };
 
-export default VehicleCard;
+// Memoize so changing a sort/filter in the parent doesn't re-render every card.
+// Re-renders only when the underlying vehicle row or its position changes.
+export default memo(VehicleCard, (prev, next) =>
+  prev.index === next.index &&
+  prev.vehicle.id === next.vehicle.id &&
+  prev.vehicle.updated_at === next.vehicle.updated_at,
+);

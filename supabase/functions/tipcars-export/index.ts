@@ -289,21 +289,27 @@ class FtpClient {
   async uploadFile(remotePath: string, data: Uint8Array): Promise<string> {
     await this.sendCommand("TYPE I");
     const { host, port } = await this.passive();
-    
+
     const dataConn = await Deno.connect({ hostname: host, port });
-    
+
     const storResp = this.sendCommand(`STOR ${remotePath}`);
-    
+
     const writer = dataConn.writable.getWriter();
     await writer.write(data);
     await writer.close();
-    
+
     const resp = await storResp;
     console.log(`[FTP] STOR: ${resp.trim()}`);
-    
+    if (!resp.startsWith("150") && !resp.startsWith("125")) {
+      throw new Error(`STOR rejected: ${resp.trim()}`);
+    }
+
     const transferResp = await this.readResponse();
     console.log(`[FTP] Transfer: ${transferResp.trim()}`);
-    
+    if (!transferResp.startsWith("226") && !transferResp.startsWith("250")) {
+      throw new Error(`Transfer not confirmed (expected 226): ${transferResp.trim()}`);
+    }
+
     return transferResp;
   }
 
@@ -321,6 +327,66 @@ class FtpClient {
   }
 }
 
+// ─── Hash + validation + DB logger ───
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function validateTipcarsXml(xml: string): { ok: boolean; error?: string } {
+  if (!xml.startsWith("<?xml")) return { ok: false, error: "Missing XML declaration" };
+  if (!xml.includes("<tipcars")) return { ok: false, error: "Missing <tipcars> root" };
+  if (!xml.includes("</tipcars>")) return { ok: false, error: "Unclosed <tipcars> root" };
+  if (!xml.includes("<firma>")) return { ok: false, error: "Missing <firma> block" };
+  // crude tag balance check on key elements
+  const opens = (xml.match(/<inzerat>/g) || []).length;
+  const closes = (xml.match(/<\/inzerat>/g) || []).length;
+  if (opens !== closes) return { ok: false, error: `Unbalanced <inzerat>: ${opens} open vs ${closes} close` };
+  if (opens === 0) return { ok: false, error: "No <inzerat> entries" };
+  return { ok: true };
+}
+
+// deno-lint-ignore no-explicit-any
+async function logExport(supabase: any, row: { vehicle_id?: string | null; portal: string; operation: string; level: string; message: string; context?: any }) {
+  try {
+    await supabase.from("export_logs").insert({
+      vehicle_id: row.vehicle_id || null,
+      portal: row.portal,
+      operation: row.operation,
+      level: row.level,
+      message: row.message.slice(0, 4000),
+      context: row.context || {},
+    });
+  } catch (e) {
+    console.warn("[log] insert failed:", e);
+  }
+}
+
+async function ftpUploadWithRetry(opts: { host: string; user: string; pass: string; filename: string; data: Uint8Array; maxAttempts?: number; }): Promise<{ ok: boolean; message: string; attempts: number; lastResponse?: string; }> {
+  const max = opts.maxAttempts ?? 3;
+  let lastErr = "";
+  let lastResp = "";
+  for (let attempt = 1; attempt <= max; attempt++) {
+    const ftp = new FtpClient();
+    try {
+      console.log(`[TipCars] FTP attempt ${attempt}/${max} → ${opts.host}`);
+      const welcome = await ftp.connect(opts.host, 21);
+      console.log(`[TipCars] welcome: ${welcome.trim()}`);
+      await ftp.login(opts.user, opts.pass);
+      const tr = await ftp.uploadFile(opts.filename, opts.data);
+      lastResp = tr;
+      await ftp.quit();
+      return { ok: true, message: `226 Transfer complete (attempt ${attempt})`, attempts: attempt, lastResponse: tr.trim() };
+    } catch (err) {
+      lastErr = (err as Error).message;
+      console.warn(`[TipCars] FTP attempt ${attempt} failed: ${lastErr}`);
+      try { await ftp.quit(); } catch { /* ignore */ }
+      if (attempt < max) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+  return { ok: false, message: lastErr || "FTP upload failed", attempts: max, lastResponse: lastResp };
+}
+
 // ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
@@ -335,6 +401,7 @@ Deno.serve(async (req) => {
       ftp_host = "ftp.tipcars.com",
       ftp_user,
       ftp_password,
+      test_mode = false,
     } = await req.json();
 
     if (!vehicle_ids || !Array.isArray(vehicle_ids) || vehicle_ids.length === 0) {
@@ -353,7 +420,14 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch vehicles
+    await logExport(supabase, {
+      portal: "tipcars",
+      operation: "export",
+      level: "info",
+      message: `Export started: ${vehicle_ids.length} vehicles${test_mode ? " (TEST MODE)" : ""}`,
+      context: { vehicle_ids, test_mode },
+    });
+
     const { data: vehicles, error: vErr } = await supabase
       .from("vehicles")
       .select("*")
@@ -363,6 +437,7 @@ Deno.serve(async (req) => {
 
     const allInzeratyXml: string[] = [];
     const allPhotoFiles: { name: string; data: Uint8Array }[] = [];
+    const perVehicle: Array<{ id: string; photos: number; xml: string }> = [];
     let photosDownloaded = 0;
 
     for (let i = 0; i < vehicles.length; i++) {
@@ -376,105 +451,133 @@ Deno.serve(async (req) => {
         .order("sort_order");
 
       const { xml, photoFiles } = buildInzeratXml(
-        vehicle,
-        images || [],
-        adNumber,
-        tipcars_kod_firmy,
+        vehicle, images || [], adNumber, tipcars_kod_firmy,
       );
       allInzeratyXml.push(xml);
+      let vehiclePhotoCount = 0;
 
       for (const pf of photoFiles) {
         try {
-          console.log(`[TipCars] Downloading photo: ${pf.url}`);
           const resp = await fetch(pf.url);
           if (!resp.ok) {
-            console.warn(`[TipCars] Failed to download ${pf.name}: ${resp.status}`);
+            await logExport(supabase, {
+              vehicle_id: vehicle.id, portal: "tipcars", operation: "photo", level: "warn",
+              message: `Photo HTTP ${resp.status}: ${pf.name}`, context: { url: pf.url },
+            });
             continue;
           }
           const buf = await resp.arrayBuffer();
           allPhotoFiles.push({ name: pf.name, data: new Uint8Array(buf) });
           photosDownloaded++;
+          vehiclePhotoCount++;
         } catch (err) {
-          console.warn(`[TipCars] Photo download error: ${err}`);
+          await logExport(supabase, {
+            vehicle_id: vehicle.id, portal: "tipcars", operation: "photo", level: "warn",
+            message: `Photo download error: ${(err as Error).message}`, context: { url: pf.url },
+          });
         }
       }
+
+      perVehicle.push({ id: vehicle.id, photos: vehiclePhotoCount, xml });
     }
 
-    // Build the full XML
     const xmlContent = buildFullXml(
-      tipcars_kod_firmy,
-      tipcars_heslo,
-      firma_nazev,
-      firma_info,
-      allInzeratyXml,
+      tipcars_kod_firmy, tipcars_heslo, firma_nazev, firma_info, allInzeratyXml,
     );
 
-    console.log(`[TipCars] XML generated, ${vehicles.length} vehicles, ${photosDownloaded} photos`);
-
-    // Create ZIP using fflate
-    const zipData: Record<string, Uint8Array> = {};
-    zipData["inzerce.xml"] = new TextEncoder().encode(xmlContent);
-    for (const pf of allPhotoFiles) {
-      zipData[pf.name] = pf.data;
+    // ─── Validate XML ───
+    const validation = validateTipcarsXml(xmlContent);
+    if (!validation.ok) {
+      await logExport(supabase, {
+        portal: "tipcars", operation: "validate", level: "error",
+        message: `XML validation failed: ${validation.error}`,
+        context: { xml_preview: xmlContent.slice(0, 500) },
+      });
+      throw new Error(`XML validace selhala: ${validation.error}`);
     }
 
+    const payloadHash = await sha256Hex(xmlContent);
+    console.log(`[TipCars] XML OK, ${vehicles.length} vehicles, ${photosDownloaded} photos, hash=${payloadHash.slice(0, 12)}`);
+
+    // Test mode: stop here
+    if (test_mode) {
+      await logExport(supabase, {
+        portal: "tipcars", operation: "export", level: "info",
+        message: `TEST MODE OK — XML valid, ${vehicles.length} vehicles, ${photosDownloaded} photos`,
+        context: { xml_size: xmlContent.length, payload_hash: payloadHash },
+      });
+      return new Response(JSON.stringify({
+        success: true, test_mode: true,
+        vehicles_count: vehicles.length, photos_count: photosDownloaded,
+        xml_size: xmlContent.length, payload_hash: payloadHash,
+        xml_preview: xmlContent.slice(0, 1000),
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─── Build ZIP ───
+    const zipData: Record<string, Uint8Array> = {};
+    zipData["inzerce.xml"] = new TextEncoder().encode(xmlContent);
+    for (const pf of allPhotoFiles) zipData[pf.name] = pf.data;
     const zipped = zipSync(zipData);
 
-    // Generate ZIP filename: {kod_firmy}_{date_time}.zip
     const now = new Date();
     const dateStr = [
-      now.getFullYear(),
-      String(now.getMonth() + 1).padStart(2, "0"),
-      String(now.getDate()).padStart(2, "0"),
-      String(now.getHours()).padStart(2, "0"),
-      String(now.getMinutes()).padStart(2, "0"),
-      String(now.getSeconds()).padStart(2, "0"),
+      now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"), String(now.getHours()).padStart(2, "0"),
+      String(now.getMinutes()).padStart(2, "0"), String(now.getSeconds()).padStart(2, "0"),
     ].join("_");
     const zipFileName = `${tipcars_kod_firmy}_${dateStr}.zip`;
 
-    console.log(`[TipCars] ZIP created: ${zipFileName} (${(zipped.length / 1024 / 1024).toFixed(2)} MB)`);
-
-    // Upload to FTP if credentials provided
+    // ─── FTP upload with retry ───
     let ftpUploaded = false;
     let ftpMessage = "";
+    let ftpAttempts = 0;
+    let ftpResponse = "";
 
     if (ftp_user && ftp_password) {
-      const ftp = new FtpClient();
-      try {
-        console.log(`[TipCars] Connecting to FTP: ${ftp_host}`);
-        const welcome = await ftp.connect(ftp_host, 21);
-        console.log(`[TipCars] FTP welcome: ${welcome.trim()}`);
-        
-        await ftp.login(ftp_user, ftp_password);
-        console.log(`[TipCars] FTP logged in as ${ftp_user}`);
-        
-        await ftp.uploadFile(zipFileName, zipped);
-        console.log(`[TipCars] FTP upload complete: ${zipFileName}`);
-        
-        ftpUploaded = true;
-        ftpMessage = `Soubor ${zipFileName} úspěšně nahrán na FTP ${ftp_host}`;
-        
-        await ftp.quit();
-      } catch (ftpErr: any) {
-        console.error(`[TipCars] FTP error:`, ftpErr);
-        ftpMessage = `FTP upload selhal: ${ftpErr.message}`;
-        try { await ftp.quit(); } catch { /* ignore */ }
-      }
+      const result = await ftpUploadWithRetry({
+        host: ftp_host, user: ftp_user, pass: ftp_password,
+        filename: zipFileName, data: zipped, maxAttempts: 3,
+      });
+      ftpUploaded = result.ok;
+      ftpMessage = result.message;
+      ftpAttempts = result.attempts;
+      ftpResponse = result.lastResponse || "";
+
+      await logExport(supabase, {
+        portal: "tipcars", operation: "ftp", level: result.ok ? "info" : "error",
+        message: `FTP ${result.ok ? "OK" : "FAILED"} (${ftpAttempts} attempts): ${ftpMessage}`,
+        context: { filename: zipFileName, host: ftp_host, response: ftpResponse },
+      });
     }
 
-    // Also upload to storage as backup
+    // Storage backup
     const { error: uploadErr } = await supabase.storage
       .from("vehicles")
       .upload(`tipcars-export/${zipFileName}`, zipped, {
-        contentType: "application/zip",
-        upsert: true,
+        contentType: "application/zip", upsert: true,
       });
-
     if (uploadErr) console.warn(`[TipCars] Storage upload warning: ${uploadErr.message}`);
-
     const { data: urlData } = supabase.storage
-      .from("vehicles")
-      .getPublicUrl(`tipcars-export/${zipFileName}`);
+      .from("vehicles").getPublicUrl(`tipcars-export/${zipFileName}`);
+
+    // ─── Update per-vehicle export status ───
+    const finalStatus = ftpUploaded ? "online" : (ftp_user ? "error" : "pending");
+    const finalError = ftpUploaded ? "" : ftpMessage;
+    for (const v of perVehicle) {
+      await supabase.from("vehicle_exports").upsert({
+        vehicle_id: v.id,
+        portal: "tipcars",
+        external_id: `${tipcars_kod_firmy}_${pad4(perVehicle.indexOf(v) + 1)}`,
+        status: finalStatus,
+        last_export_at: new Date().toISOString(),
+        last_success_at: ftpUploaded ? new Date().toISOString() : null,
+        last_error: finalError,
+        payload_hash: payloadHash,
+        attempts: ftpAttempts || 1,
+        metadata: { zip_filename: zipFileName, photos: v.photos },
+      }, { onConflict: "vehicle_id,portal" });
+    }
 
     return new Response(JSON.stringify({
       success: true,
@@ -484,16 +587,26 @@ Deno.serve(async (req) => {
       photos_count: photosDownloaded,
       zip_size_mb: (zipped.length / 1024 / 1024).toFixed(2),
       ftp_uploaded: ftpUploaded,
+      ftp_attempts: ftpAttempts,
       ftp_message: ftpMessage || (ftp_user ? undefined : "FTP přihlašovací údaje nebyly zadány, ZIP pouze uložen ke stažení"),
-    }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+      payload_hash: payloadHash,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
 
-  } catch (err: any) {
-    console.error("[TipCars] Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+  } catch (err) {
+    const e = err as Error;
+    console.error("[TipCars] Error:", e);
+    try {
+      const supabase = createClient(
+        Deno.env.get("SUPABASE_URL")!,
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+      );
+      await logExport(supabase, {
+        portal: "tipcars", operation: "export", level: "error",
+        message: e.message, context: { stack: e.stack?.slice(0, 1000) },
+      });
+    } catch { /* ignore */ }
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

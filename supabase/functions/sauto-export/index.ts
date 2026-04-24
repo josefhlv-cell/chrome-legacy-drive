@@ -207,51 +207,113 @@ async function fetchCarList(): Promise<CarListEntry[]> {
   return entries;
 }
 
-function findBestMatch(vehicleName: string, carList: CarListEntry[]): { manufacturer_id: number; model_id: number; kind_id: number; body_id: number } | null {
-  const nameLower = vehicleName.toLowerCase().trim();
+// ─── Normalization & matching ───
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // strip diacritics
+    .replace(/[-_./]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  // Try to find manufacturer from first word(s) of vehicle name
-  const manufacturers = [...new Set(carList.map(e => e.manufacturer_name))];
+interface MatchResult {
+  manufacturer_id: number;
+  model_id: number;
+  kind_id: number;
+  body_id: number;
+  manufacturer_name: string;
+  model_name: string;
+  confidence: "exact" | "partial" | "fuzzy" | "fallback";
+}
+
+function findBestMatch(vehicleName: string, carList: CarListEntry[], allowFallback = false): MatchResult | null {
+  const nameNorm = normalize(vehicleName);
+
+  // Step 1: longest manufacturer match at the start of the string
+  const manufacturers = [...new Set(carList.map(e => e.manufacturer_name))]
+    .map(m => ({ raw: m, norm: normalize(m) }))
+    .sort((a, b) => b.norm.length - a.norm.length);
+
   let bestMfg = "";
-  for (const mfg of manufacturers) {
-    if (nameLower.startsWith(mfg.toLowerCase())) {
-      if (mfg.length > bestMfg.length) bestMfg = mfg;
+  for (const m of manufacturers) {
+    if (nameNorm === m.norm || nameNorm.startsWith(m.norm + " ") || nameNorm.startsWith(m.norm)) {
+      bestMfg = m.raw;
+      break;
+    }
+  }
+  if (!bestMfg) return null;
+
+  const remaining = nameNorm.slice(normalize(bestMfg).length).trim();
+  const mfgEntries = carList.filter(e => normalize(e.manufacturer_name) === normalize(bestMfg));
+
+  // Step 2: longest model match
+  let bestEntry: CarListEntry | null = null;
+  let bestScore = 0;
+  let confidence: MatchResult["confidence"] = "partial";
+
+  const sortedModels = [...mfgEntries].sort(
+    (a, b) => normalize(b.model_name).length - normalize(a.model_name).length,
+  );
+
+  for (const entry of sortedModels) {
+    const modelNorm = normalize(entry.model_name);
+    if (!modelNorm) continue;
+    if (remaining === modelNorm || remaining.startsWith(modelNorm + " ") || remaining.startsWith(modelNorm)) {
+      bestEntry = entry;
+      confidence = remaining === modelNorm ? "exact" : "partial";
+      bestScore = modelNorm.length;
+      break;
     }
   }
 
-  if (!bestMfg) return null;
-
-  // Find model in remaining text
-  const remaining = nameLower.slice(bestMfg.length).trim();
-  const mfgEntries = carList.filter(e => e.manufacturer_name.toLowerCase() === bestMfg.toLowerCase());
-
-  let bestEntry: CarListEntry | null = null;
-  let bestScore = 0;
-
-  for (const entry of mfgEntries) {
-    const modelLower = entry.model_name.toLowerCase();
-    if (remaining.startsWith(modelLower) || remaining.includes(modelLower)) {
-      const score = entry.model_name.length;
-      if (score > bestScore) {
-        bestScore = score;
-        bestEntry = entry;
+  // Step 3: substring fuzzy
+  if (!bestEntry) {
+    for (const entry of sortedModels) {
+      const modelNorm = normalize(entry.model_name);
+      if (modelNorm && modelNorm.length >= 2 && remaining.includes(modelNorm)) {
+        if (modelNorm.length > bestScore) {
+          bestEntry = entry;
+          bestScore = modelNorm.length;
+          confidence = "fuzzy";
+        }
       }
     }
   }
 
-  // Fallback: use "Ostatní" (Other) model
+  // Step 4: explicit fallback (only when allowed)
   if (!bestEntry) {
-    bestEntry = mfgEntries.find(e => e.model_name === "Ostatní") || mfgEntries[0];
+    if (!allowFallback) return null;
+    bestEntry = mfgEntries.find(e => normalize(e.model_name) === "ostatni") || mfgEntries[0];
+    if (!bestEntry) return null;
+    confidence = "fallback";
   }
-
-  if (!bestEntry) return null;
 
   return {
     manufacturer_id: bestEntry.manufacturer_id,
     model_id: bestEntry.model_id,
     kind_id: bestEntry.kind_id,
-    body_id: bestEntry.body_ids[0] || 9, // default SUV
+    body_id: bestEntry.body_ids[0] || 9,
+    manufacturer_name: bestEntry.manufacturer_name,
+    model_name: bestEntry.model_name,
+    confidence,
   };
+}
+
+// deno-lint-ignore no-explicit-any
+async function logExport(supabase: any, row: { vehicle_id?: string | null; portal: string; operation: string; level: string; message: string; context?: any }) {
+  try {
+    await supabase.from("export_logs").insert({
+      vehicle_id: row.vehicle_id || null,
+      portal: row.portal,
+      operation: row.operation,
+      level: row.level,
+      message: row.message.slice(0, 4000),
+      context: row.context || {},
+    });
+  } catch (e) {
+    console.warn("[log] insert failed:", e);
+  }
 }
 
 // ─── Fuel/Color/Gearbox mapping ───
@@ -299,8 +361,19 @@ function mapGearbox(transmission: string): number {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
+  // deno-lint-ignore no-explicit-any
+  let supabase: any = null;
+  let vehicleId: string | undefined;
+
   try {
-    const { vehicle_id, sauto_login, sauto_password, sauto_sw_key, overrides } = await req.json();
+    const {
+      vehicle_id,
+      sauto_login, sauto_password, sauto_sw_key,
+      overrides,
+      test_mode = false,
+      allow_fallback_match = false,
+    } = await req.json();
+    vehicleId = vehicle_id;
 
     if (!vehicle_id || !sauto_login || !sauto_password || !sauto_sw_key) {
       return new Response(JSON.stringify({ error: "Chybí povinné parametry (vehicle_id, sauto_login, sauto_password, sauto_sw_key)" }), {
@@ -308,182 +381,251 @@ Deno.serve(async (req) => {
       });
     }
 
-    const supabase = createClient(
+    supabase = createClient(
       Deno.env.get("SUPABASE_URL")!,
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Fetch vehicle
+    await logExport(supabase, {
+      vehicle_id, portal: "sauto", operation: "export", level: "info",
+      message: `Sauto export started${test_mode ? " (TEST MODE)" : ""}`,
+      context: { test_mode, has_overrides: !!overrides },
+    });
+
     const { data: vehicle, error: vErr } = await supabase
-      .from("vehicles")
-      .select("*")
-      .eq("id", vehicle_id)
-      .single();
+      .from("vehicles").select("*").eq("id", vehicle_id).single();
     if (vErr || !vehicle) throw new Error(`Vozidlo nenalezeno: ${vErr?.message}`);
 
-    // Fetch images
     const { data: images } = await supabase
-      .from("vehicle_images")
+      .from("vehicle_images").select("*").eq("vehicle_id", vehicle_id).order("sort_order");
+
+    // Existing export record (for cached IDs and external_id)
+    const { data: existingExport } = await supabase
+      .from("vehicle_exports")
       .select("*")
-      .eq("vehicle_id", vehicle_id)
-      .order("sort_order");
+      .eq("vehicle_id", vehicle_id).eq("portal", "sauto").maybeSingle();
 
-    // Fetch carList and find matching manufacturer/model
-    console.log("[Sauto] Fetching carList...");
-    const carList = await fetchCarList();
-    console.log(`[Sauto] CarList loaded: ${carList.length} entries`);
+    const cachedMeta = (existingExport?.metadata as Record<string, unknown>) || {};
 
-    const match = findBestMatch(vehicle.name, carList);
-    if (!match && !overrides?.manufacturer_id) {
-      return new Response(JSON.stringify({
-        error: `Nepodařilo se automaticky najít výrobce/model pro "${vehicle.name}". Zadejte manufacturer_id, model_id a body_id ručně.`,
-        suggestion: "Zkuste zadat overrides s hodnotami z číselníku Sauto.cz",
-      }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    // ─── Match manufacturer/model ───
+    let manufacturerId: number;
+    let modelId: number;
+    let kindId: number;
+    let bodyId: number;
+    let matchInfo: { confidence: string; manufacturer?: string; model?: string; source: string };
+
+    if (overrides?.manufacturer_id && overrides?.model_id) {
+      manufacturerId = overrides.manufacturer_id;
+      modelId = overrides.model_id;
+      kindId = overrides.kind_id || (cachedMeta.kind_id as number) || 1;
+      bodyId = overrides.body_id || (cachedMeta.body_id as number) || 9;
+      matchInfo = { confidence: "override", source: "override" };
+    } else if (cachedMeta.manufacturer_id && cachedMeta.model_id) {
+      manufacturerId = cachedMeta.manufacturer_id as number;
+      modelId = cachedMeta.model_id as number;
+      kindId = (cachedMeta.kind_id as number) || 1;
+      bodyId = (cachedMeta.body_id as number) || 9;
+      matchInfo = { confidence: "cached", source: "cached", manufacturer: cachedMeta.manufacturer_name as string, model: cachedMeta.model_name as string };
+    } else {
+      console.log("[Sauto] Fetching carList...");
+      const carList = await fetchCarList();
+      const match = findBestMatch(vehicle.name, carList, allow_fallback_match);
+      if (!match) {
+        await logExport(supabase, {
+          vehicle_id, portal: "sauto", operation: "match", level: "error",
+          message: `No match found for "${vehicle.name}"`,
+          context: { allow_fallback: allow_fallback_match },
+        });
+        return new Response(JSON.stringify({
+          error: `Nepodařilo se najít výrobce/model pro "${vehicle.name}".`,
+          suggestion: "Zadejte overrides s manufacturer_id, model_id, body_id (najdete v Sauto číselníku) nebo nastavte allow_fallback_match=true.",
+          needs_override: true,
+        }), { status: 422, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      }
+      if (match.confidence === "fallback") {
+        await logExport(supabase, {
+          vehicle_id, portal: "sauto", operation: "match", level: "warn",
+          message: `Fallback match used: ${match.manufacturer_name} / ${match.model_name}`,
+          context: match,
+        });
+      }
+      manufacturerId = match.manufacturer_id;
+      modelId = match.model_id;
+      kindId = match.kind_id;
+      bodyId = match.body_id;
+      matchInfo = { confidence: match.confidence, source: "auto", manufacturer: match.manufacturer_name, model: match.model_name };
     }
 
-    const manufacturerId = overrides?.manufacturer_id || match!.manufacturer_id;
-    const modelId = overrides?.model_id || match!.model_id;
-    const kindId = overrides?.kind_id || match!.kind_id || 1;
-    const bodyId = overrides?.body_id || match!.body_id || 9;
+    // Parse engine info
+    let engineVolume = 0;
+    if (vehicle.engine) {
+      const ccmMatch = vehicle.engine.match(/(\d[\d\s]*)\s*ccm/i);
+      if (ccmMatch) engineVolume = parseInt(ccmMatch[1].replace(/\s/g, ""));
+    }
+    let enginePower = 0;
+    if (vehicle.power) {
+      const kwMatch = vehicle.power.match(/(\d+)\s*kW/i);
+      if (kwMatch) enginePower = parseInt(kwMatch[1]);
+    }
 
-    // Auth with Sauto
+    const priceToSend = vehicle.show_vat
+      ? Math.round(vehicle.price_with_vat * 1.21)
+      : vehicle.price_with_vat;
+
+    const carData: Record<string, unknown> = {
+      kind_id: kindId, manufacturer_id: manufacturerId, model_id: modelId, body_id: bodyId,
+      condition: 2, price: priceToSend, dph: vehicle.show_vat ? 1 : 0,
+      fuel: mapFuel(vehicle.fuel), tachometr: vehicle.mileage, tachometr_unit: 1,
+      made_date: String(vehicle.year), state_id: 1, availability: 2,
+      custom_id: vehicle.id,
+    };
+    if (vehicle.vin) carData.vin = vehicle.vin;
+    if (vehicle.color) carData.color = mapColor(vehicle.color);
+    if (engineVolume > 0) carData.engine_volume = engineVolume;
+    if (enginePower > 0) carData.engine_power = enginePower;
+    if (vehicle.transmission) carData.gearbox = mapGearbox(vehicle.transmission);
+    if (vehicle.description) carData.note = vehicle.description.slice(0, 1000);
+    if (overrides) {
+      for (const [key, val] of Object.entries(overrides)) {
+        if (val !== undefined && val !== null && val !== "") carData[key] = val;
+      }
+    }
+
+    // Test mode: don't actually call API
+    if (test_mode) {
+      await logExport(supabase, {
+        vehicle_id, portal: "sauto", operation: "export", level: "info",
+        message: `TEST MODE OK — match=${matchInfo.confidence}`,
+        context: { match: matchInfo, car_data: carData, photos: images?.length || 0 },
+      });
+      return new Response(JSON.stringify({
+        success: true, test_mode: true, match: matchInfo,
+        car_data_preview: carData, photos_count: images?.length || 0,
+      }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+    }
+
+    // ─── Live: auth + addEditCar + photos ───
     console.log("[Sauto] Authenticating...");
     const sessionId = await sautoAuth(sauto_login, sauto_password, sauto_sw_key);
-    console.log("[Sauto] Authenticated successfully");
+
+    let carId: number | undefined;
+    let photosUploaded = 0;
+    let photosFailed = 0;
+    const photoErrors: string[] = [];
 
     try {
-      // Parse engine volume (ccm)
-      let engineVolume = 0;
-      if (vehicle.engine) {
-        const ccmMatch = vehicle.engine.match(/(\d[\d\s]*)\s*ccm/i);
-        if (ccmMatch) engineVolume = parseInt(ccmMatch[1].replace(/\s/g, ""));
-      }
-
-      // Parse engine power (kW)
-      let enginePower = 0;
-      if (vehicle.power) {
-        const kwMatch = vehicle.power.match(/(\d+)\s*kW/i);
-        if (kwMatch) enginePower = parseInt(kwMatch[1]);
-      }
-
-      // Pricing: DB stores NETTO. If show_vat=true → send price including 21% VAT and dph=1.
-      const priceToSend = vehicle.show_vat
-        ? Math.round(vehicle.price_with_vat * 1.21)
-        : vehicle.price_with_vat;
-
-      const carData: Record<string, unknown> = {
-        kind_id: kindId,
-        manufacturer_id: manufacturerId,
-        model_id: modelId,
-        body_id: bodyId,
-        condition: 2, // ojeté
-        price: priceToSend,
-        dph: vehicle.show_vat ? 1 : 0,
-        fuel: mapFuel(vehicle.fuel),
-        tachometr: vehicle.mileage,
-        tachometr_unit: 1, // km
-        made_date: String(vehicle.year),
-        state_id: 1, // ČR
-        availability: 2, // Skladem
-        custom_id: vehicle.id,
-      };
-
-      if (vehicle.vin) carData.vin = vehicle.vin;
-      if (vehicle.color) carData.color = mapColor(vehicle.color);
-      if (engineVolume > 0) carData.engine_volume = engineVolume;
-      if (enginePower > 0) carData.engine_power = enginePower;
-      if (vehicle.transmission) carData.gearbox = mapGearbox(vehicle.transmission);
-      if (vehicle.description) carData.note = vehicle.description.slice(0, 1000);
-
-      // Apply any manual overrides
-      if (overrides) {
-        for (const [key, val] of Object.entries(overrides)) {
-          if (val !== undefined && val !== null && val !== "") {
-            carData[key] = val;
-          }
-        }
-      }
-
-      console.log("[Sauto] Calling addEditCar...", JSON.stringify(carData));
       const addResult = await callXmlRpc("addEditCar", [sessionId, carData]);
-      console.log("[Sauto] addEditCar result:", JSON.stringify(addResult));
-
       if (addResult.status !== 200) {
         const errorMsg = addResult.output?.error || addResult.status_message || `Status ${addResult.status}`;
         const errorItems = addResult.output?.error_items;
         throw new Error(`addEditCar failed: ${errorMsg}${errorItems ? " | " + JSON.stringify(errorItems) : ""}`);
       }
+      carId = addResult.output?.car_id;
+      await logExport(supabase, {
+        vehicle_id, portal: "sauto", operation: "xmlrpc", level: "info",
+        message: `addEditCar OK car_id=${carId}`, context: { car_id: carId },
+      });
 
-      const carId = addResult.output?.car_id;
-      console.log(`[Sauto] Car created/updated with car_id: ${carId}`);
-
-      // Upload photos
-      let photosUploaded = 0;
       if (carId && images && images.length > 0) {
-        for (let i = 0; i < images.length && i < 50; i++) {
+        const limit = Math.min(images.length, 50);
+        for (let i = 0; i < limit; i++) {
           const img = images[i];
           try {
-            console.log(`[Sauto] Downloading image ${i + 1}/${images.length}: ${img.image_url}`);
             const imgResp = await fetch(img.image_url);
             if (!imgResp.ok) {
-              console.warn(`[Sauto] Failed to download image: ${imgResp.status}`);
+              photosFailed++;
+              photoErrors.push(`#${i + 1}: HTTP ${imgResp.status}`);
               continue;
             }
-
             const imgBuffer = await imgResp.arrayBuffer();
-            const base64 = btoa(String.fromCharCode(...new Uint8Array(imgBuffer)));
-
+            const bytes = new Uint8Array(imgBuffer);
+            // chunked btoa to avoid stack overflow on large images
+            let bin = "";
+            const CHUNK = 0x8000;
+            for (let off = 0; off < bytes.length; off += CHUNK) {
+              bin += String.fromCharCode(...bytes.subarray(off, off + CHUNK));
+            }
+            const base64 = btoa(bin);
             const photoData: Record<string, unknown> = {
-              main: img.is_main ? 1 : (i + 2), // main=1 for primary, sequential for others
-              b64: base64,
-              alt: vehicle.name,
-              client_photo_id: img.id,
+              main: img.is_main ? 1 : (i + 2),
+              b64: base64, alt: vehicle.name, client_photo_id: img.id,
             };
-
-            console.log(`[Sauto] Uploading photo ${i + 1}...`);
             const photoResult = await callXmlRpc("addEditPhoto", [sessionId, carId, photoData]);
-            console.log(`[Sauto] Photo ${i + 1} result:`, JSON.stringify(photoResult));
-
             if (photoResult.status === 200) {
               photosUploaded++;
             } else {
-              console.warn(`[Sauto] Photo upload failed: ${photoResult.status_message}`);
+              photosFailed++;
+              photoErrors.push(`#${i + 1}: ${photoResult.status_message || photoResult.status}`);
             }
           } catch (photoErr) {
-            console.warn(`[Sauto] Photo ${i + 1} error:`, photoErr);
+            photosFailed++;
+            photoErrors.push(`#${i + 1}: ${(photoErr as Error).message}`);
           }
         }
       }
 
-      // Logout
-      try {
-        await callXmlRpc("logout", [sessionId]);
-      } catch (_) {
-        // ignore logout errors
-      }
-
-      return new Response(JSON.stringify({
-        success: true,
-        car_id: carId,
-        photos_uploaded: photosUploaded,
-        photos_total: images?.length || 0,
-        matched_manufacturer: match?.manufacturer_id ? `ID ${match.manufacturer_id}` : "manual",
-        matched_model: match?.model_id ? `ID ${match.model_id}` : "manual",
-      }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-
+      try { await callXmlRpc("logout", [sessionId]); } catch { /* ignore */ }
     } catch (err) {
-      // Try to logout even on error
-      try { await callXmlRpc("logout", [sessionId]); } catch (_) {}
+      try { await callXmlRpc("logout", [sessionId]); } catch { /* ignore */ }
       throw err;
     }
 
-  } catch (err: any) {
-    console.error("[Sauto] Error:", err);
-    return new Response(JSON.stringify({ error: err.message }), {
-      status: 500,
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
+    // Persist export status + IDs
+    await supabase.from("vehicle_exports").upsert({
+      vehicle_id,
+      portal: "sauto",
+      external_id: carId ? String(carId) : (existingExport?.external_id || ""),
+      status: "online",
+      last_export_at: new Date().toISOString(),
+      last_success_at: new Date().toISOString(),
+      last_error: photosFailed > 0 ? `${photosFailed} photo(s) failed` : "",
+      attempts: (existingExport?.attempts || 0) + 1,
+      metadata: {
+        manufacturer_id: manufacturerId, model_id: modelId,
+        kind_id: kindId, body_id: bodyId,
+        manufacturer_name: matchInfo.manufacturer || cachedMeta.manufacturer_name || null,
+        model_name: matchInfo.model || cachedMeta.model_name || null,
+        match_confidence: matchInfo.confidence,
+        match_source: matchInfo.source,
+        photos_uploaded: photosUploaded, photos_failed: photosFailed,
+        photo_errors: photoErrors.slice(0, 10),
+      },
+    }, { onConflict: "vehicle_id,portal" });
+
+    await logExport(supabase, {
+      vehicle_id, portal: "sauto", operation: "export", level: "info",
+      message: `Sauto export OK car_id=${carId} photos=${photosUploaded}/${(images?.length || 0)}`,
+      context: { car_id: carId, photos_uploaded: photosUploaded, photos_failed: photosFailed, match: matchInfo },
+    });
+
+    return new Response(JSON.stringify({
+      success: true, car_id: carId,
+      photos_uploaded: photosUploaded, photos_failed: photosFailed,
+      photos_total: images?.length || 0,
+      photo_errors: photoErrors,
+      match: matchInfo,
+    }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
+
+  } catch (err) {
+    const e = err as Error;
+    console.error("[Sauto] Error:", e);
+    if (supabase) {
+      try {
+        await logExport(supabase, {
+          vehicle_id: vehicleId || null, portal: "sauto", operation: "export", level: "error",
+          message: e.message, context: { stack: e.stack?.slice(0, 1000) },
+        });
+        if (vehicleId) {
+          await supabase.from("vehicle_exports").upsert({
+            vehicle_id: vehicleId, portal: "sauto",
+            status: "error", last_export_at: new Date().toISOString(),
+            last_error: e.message,
+          }, { onConflict: "vehicle_id,portal" });
+        }
+      } catch { /* ignore */ }
+    }
+    return new Response(JSON.stringify({ error: e.message }), {
+      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
 });

@@ -41,6 +41,47 @@ export type Database = {
         }
         Relationships: []
       }
+      export_logs: {
+        Row: {
+          context: Json
+          created_at: string
+          id: string
+          level: string
+          message: string
+          operation: string
+          portal: Database["public"]["Enums"]["export_portal"] | null
+          vehicle_id: string | null
+        }
+        Insert: {
+          context?: Json
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          operation?: string
+          portal?: Database["public"]["Enums"]["export_portal"] | null
+          vehicle_id?: string | null
+        }
+        Update: {
+          context?: Json
+          created_at?: string
+          id?: string
+          level?: string
+          message?: string
+          operation?: string
+          portal?: Database["public"]["Enums"]["export_portal"] | null
+          vehicle_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "export_logs_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       facility_photos: {
         Row: {
           alt_text: string
@@ -332,6 +373,62 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_exports: {
+        Row: {
+          attempts: number
+          created_at: string
+          external_id: string
+          id: string
+          last_error: string
+          last_export_at: string | null
+          last_success_at: string | null
+          metadata: Json
+          payload_hash: string
+          portal: Database["public"]["Enums"]["export_portal"]
+          status: Database["public"]["Enums"]["export_status"]
+          updated_at: string
+          vehicle_id: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          external_id?: string
+          id?: string
+          last_error?: string
+          last_export_at?: string | null
+          last_success_at?: string | null
+          metadata?: Json
+          payload_hash?: string
+          portal: Database["public"]["Enums"]["export_portal"]
+          status?: Database["public"]["Enums"]["export_status"]
+          updated_at?: string
+          vehicle_id: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          external_id?: string
+          id?: string
+          last_error?: string
+          last_export_at?: string | null
+          last_success_at?: string | null
+          metadata?: Json
+          payload_hash?: string
+          portal?: Database["public"]["Enums"]["export_portal"]
+          status?: Database["public"]["Enums"]["export_status"]
+          updated_at?: string
+          vehicle_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_exports_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_images: {
         Row: {
           created_at: string
@@ -474,6 +571,8 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "moderator" | "user"
+      export_portal: "tipcars" | "sauto"
+      export_status: "pending" | "online" | "error" | "removed" | "disabled"
       vehicle_status: "skladem" | "na-ceste" | "rezervovano" | "prodano"
     }
     CompositeTypes: {
@@ -603,6 +702,8 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "moderator", "user"],
+      export_portal: ["tipcars", "sauto"],
+      export_status: ["pending", "online", "error", "removed", "disabled"],
       vehicle_status: ["skladem", "na-ceste", "rezervovano", "prodano"],
     },
   },

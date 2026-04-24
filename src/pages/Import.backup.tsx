@@ -1,28 +1,21 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Ship, Car, DollarSign, User, ChevronRight, ChevronLeft, Check, Wrench } from "lucide-react";
+import { Send, Ship, Car, DollarSign, User, ChevronRight, ChevronLeft, Check } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import holoPacifica from "@/assets/holo-pacifica.png";
-import holo300 from "@/assets/holo-300.png";
-import holoVoyager from "@/assets/holo-voyager.png";
-import holoChallenger from "@/assets/holo-challenger.png";
-import holoCharger from "@/assets/holo-charger.png";
-import holoDurango from "@/assets/holo-durango.png";
-import holoRam from "@/assets/holo-ram.png";
 
-const models: { id: string; name: string; image?: string }[] = [
-  { id: "pacifica", name: "Chrysler Pacifica", image: holoPacifica },
-  { id: "300", name: "Chrysler 300", image: holo300 },
-  { id: "voyager", name: "Chrysler Town & Country", image: holoVoyager },
-  { id: "challenger", name: "Dodge Challenger", image: holoChallenger },
-  { id: "charger", name: "Dodge Charger", image: holoCharger },
-  { id: "durango", name: "Dodge Durango", image: holoDurango },
-  { id: "ram", name: "RAM 1500", image: holoRam },
-  { id: "other", name: "Jiný model" },
+const models = [
+  { id: "pacifica", name: "Chrysler Pacifica", icon: "🚐" },
+  { id: "300", name: "Chrysler 300", icon: "🏎️" },
+  { id: "voyager", name: "Chrysler Voyager", icon: "🚐" },
+  { id: "challenger", name: "Dodge Challenger", icon: "💪" },
+  { id: "charger", name: "Dodge Charger", icon: "⚡" },
+  { id: "durango", name: "Dodge Durango", icon: "🏔️" },
+  { id: "ram", name: "RAM 1500", icon: "🛻" },
+  { id: "other", name: "Jiný model", icon: "🔧" },
 ];
 
 const regions = ["USA", "EU", "Kanada"];
@@ -124,27 +117,14 @@ const ImportPage = () => {
                         <button
                           key={m.id}
                           onClick={() => setSelectedModel(m.id)}
-                          className={`p-3 rounded-lg border text-center transition-all flex flex-col items-center justify-between gap-2 ${
+                          className={`p-4 rounded-lg border text-center transition-all ${
                             selectedModel === m.id
                               ? "border-primary bg-primary/10 text-foreground"
                               : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/50"
                           }`}
                         >
-                          <div className="w-full aspect-[4/3] flex items-center justify-center">
-                            {m.image ? (
-                              <img
-                                src={m.image}
-                                alt={m.name}
-                                loading="lazy"
-                                width={512}
-                                height={512}
-                                className="max-h-full max-w-full object-contain drop-shadow-[0_0_8px_hsl(var(--primary)/0.4)]"
-                              />
-                            ) : (
-                              <Wrench className="w-12 h-12 text-primary" strokeWidth={1.25} />
-                            )}
-                          </div>
-                          <span className="text-xs font-semibold tracking-wide">{m.name}</span>
+                          <span className="text-2xl block mb-1">{m.icon}</span>
+                          <span className="text-xs font-semibold">{m.name}</span>
                         </button>
                       ))}
                     </div>

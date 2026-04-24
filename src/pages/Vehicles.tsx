@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleCardSkeleton from "@/components/VehicleCardSkeleton";
 import BannerSlot from "@/components/BannerSlot";
-import { useVehicles } from "@/hooks/useVehicles";
+import { useInfiniteVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
   { label: "Rok výroby (od nejnovějšího)", value: "year" },
@@ -17,46 +17,50 @@ const sortOptions = [
   { label: "Podle značky (A–Z)", value: "brand" },
 ];
 
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 12;
 
 const VehiclesPage = () => {
   const [sort, setSort] = useState("price-desc");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const { data: dbVehicles, isLoading } = useVehicles();
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteVehicles(PAGE_SIZE);
   const loaderRef = useRef<HTMLDivElement>(null);
 
+  // Flatten all paginated rows.
+  const allVehicles = useMemo(
+    () => (data?.pages ?? []).flatMap((p) => p.rows),
+    [data],
+  );
+
+  // Sort client-side over what we've already fetched (server orders by created_at DESC by default).
   const filtered = useMemo(() => {
-    if (!dbVehicles) return [];
-    let result = dbVehicles.filter((v) => v.status !== "prodano");
+    const result = [...allVehicles];
     if (sort === "price-asc") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
     if (sort === "price-desc") result.sort((a, b) => b.price_with_vat - a.price_with_vat);
     if (sort === "year") result.sort((a, b) => b.year - a.year);
     if (sort === "brand") result.sort((a, b) => a.name.localeCompare(b.name, "cs"));
     return result;
-  }, [dbVehicles, sort]);
+  }, [allVehicles, sort]);
 
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [sort]);
-
-  // Infinite scroll via IntersectionObserver
+  // Infinite scroll: when the loader sentinel appears, ask the next page from the DB.
   useEffect(() => {
     const el = loaderRef.current;
-    if (!el) return;
+    if (!el || !hasNextPage) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => prev + PAGE_SIZE);
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: "300px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-
-  const visibleVehicles = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="min-h-screen bg-background">

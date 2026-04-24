@@ -37,7 +37,8 @@ async function fetchVehiclesFromApi(): Promise<ApiVehicle[]> {
 }
 
 async function downloadImageToStorage(
-  supabase: ReturnType<typeof createClient>,
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
   imageUrl: string,
   vehicleId: string,
   index: number

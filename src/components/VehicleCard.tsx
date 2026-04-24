@@ -1,6 +1,5 @@
 import { memo, useMemo } from "react";
 import { Link } from "react-router-dom";
-import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
@@ -56,13 +55,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
   const status = vehicle.status as keyof typeof statusLabels;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, delay: index * 0.1 }}
-      className="h-full"
-    >
+    <div className="h-full">
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
         <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[3/2]">
           {hasImage ? (
@@ -155,7 +148,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
           </div>
         </div>
       </Link>
-    </motion.div>
+    </div>
   );
 };
 

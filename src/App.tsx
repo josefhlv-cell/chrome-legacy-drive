@@ -7,10 +7,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { usePageTracking } from "@/hooks/usePageTracking";
-import Index from "./pages/Index.tsx";
 import ScrollToTop from "./components/ScrollToTop.tsx";
 
-// Lazy load non-critical routes
+// Lazy load all routes — keeps the initial bundle minimal and lets each page stream its own chunk
+const Index = lazy(() => import("./pages/Index.tsx"));
 const Vehicles = lazy(() => import("./pages/Vehicles.tsx"));
 const VehicleDetail = lazy(() => import("./pages/VehicleDetail.tsx"));
 const ImportPage = lazy(() => import("./pages/Import.tsx"));

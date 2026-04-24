@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleCardSkeleton from "@/components/VehicleCardSkeleton";
 import BannerSlot from "@/components/BannerSlot";
-import { useVehicles } from "@/hooks/useVehicles";
+import { useInfiniteVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
   { label: "Rok výroby (od nejnovějšího)", value: "year" },
@@ -17,46 +17,50 @@ const sortOptions = [
   { label: "Podle značky (A–Z)", value: "brand" },
 ];
 
-const PAGE_SIZE = 9;
+const PAGE_SIZE = 12;
 
 const VehiclesPage = () => {
   const [sort, setSort] = useState("price-desc");
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
-  const { data: dbVehicles, isLoading } = useVehicles();
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useInfiniteVehicles(PAGE_SIZE);
   const loaderRef = useRef<HTMLDivElement>(null);
 
+  // Flatten all paginated rows.
+  const allVehicles = useMemo(
+    () => (data?.pages ?? []).flatMap((p) => p.rows),
+    [data],
+  );
+
+  // Sort client-side over what we've already fetched (server orders by created_at DESC by default).
   const filtered = useMemo(() => {
-    if (!dbVehicles) return [];
-    let result = dbVehicles.filter((v) => v.status !== "prodano");
+    const result = [...allVehicles];
     if (sort === "price-asc") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
     if (sort === "price-desc") result.sort((a, b) => b.price_with_vat - a.price_with_vat);
     if (sort === "year") result.sort((a, b) => b.year - a.year);
     if (sort === "brand") result.sort((a, b) => a.name.localeCompare(b.name, "cs"));
     return result;
-  }, [dbVehicles, sort]);
+  }, [allVehicles, sort]);
 
-  useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [sort]);
-
-  // Infinite scroll via IntersectionObserver
+  // Infinite scroll: when the loader sentinel appears, ask the next page from the DB.
   useEffect(() => {
     const el = loaderRef.current;
-    if (!el) return;
+    if (!el || !hasNextPage) return;
     const observer = new IntersectionObserver(
       (entries) => {
-        if (entries[0].isIntersecting) {
-          setVisibleCount((prev) => prev + PAGE_SIZE);
+        if (entries[0].isIntersecting && !isFetchingNextPage) {
+          fetchNextPage();
         }
       },
-      { threshold: 0.1 }
+      { threshold: 0.1, rootMargin: "300px" },
     );
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
-
-  const visibleVehicles = filtered.slice(0, visibleCount);
-  const hasMore = visibleCount < filtered.length;
+  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -153,22 +157,22 @@ const VehiclesPage = () => {
             <span className="ml-auto text-xs text-muted-foreground font-montserrat">{filtered.length} vozů</span>
           </div>
 
-          <BannerSlot page="vehicles" position="mid" />
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
             {isLoading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <VehicleCardSkeleton key={`sk-${i}`} />
                 ))
-              : visibleVehicles.map((vehicle, i) => (
+              : filtered.map((vehicle, i) => (
                   <div key={vehicle.id} className="h-full">
                     {/* Pass real index so only the first row gets eager/high priority. */}
                     <VehicleCard vehicle={vehicle} index={i} />
                   </div>
                 ))}
+            {isFetchingNextPage &&
+              Array.from({ length: 4 }).map((_, i) => <VehicleCardSkeleton key={`sk-next-${i}`} />)}
           </div>
 
-          {hasMore && (
+          {hasNextPage && (
             <div ref={loaderRef} className="text-center py-10">
               <p className="text-sm text-muted-foreground">Načítání dalších vozů...</p>
             </div>
@@ -179,7 +183,6 @@ const VehiclesPage = () => {
           )}
         </div>
       </div>
-      <BannerSlot page="vehicles" position="footer" />
       <Footer />
     </div>
   );

@@ -2,7 +2,8 @@ import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ArrowRight, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
-import ownerPulling from "@/assets/owner-pulling.gif";
+import ownerPullingMp4 from "@/assets/owner-pulling.mp4";
+import ownerPullingWebm from "@/assets/owner-pulling.webm";
 import VehicleCard from "./VehicleCard";
 import { useVehicles } from "@/hooks/useVehicles";
 
@@ -32,12 +33,20 @@ const FeaturedVehicles = () => {
         {/* Scrolling guarantee banner – duplicate from Vehicles page */}
         <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 flex items-stretch min-h-[72px] md:min-h-[90px]">
           <div className="shrink-0 relative z-10 flex items-end overflow-hidden">
-            <img
-              src={ownerPulling}
-              alt="Majitel táhne lano"
+            <video
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-label="Majitel táhne lano"
               className="w-20 md:w-28 h-full object-cover object-center"
-              loading="lazy"
-            />
+              width={200}
+              height={181}
+            >
+              <source src={ownerPullingWebm} type="video/webm" />
+              <source src={ownerPullingMp4} type="video/mp4" />
+            </video>
             <div className="absolute inset-y-0 right-0 w-4 bg-gradient-to-l from-secondary/30 to-transparent" />
           </div>
 

@@ -36,6 +36,7 @@ import PrintFlyerDialog from "@/components/admin/PrintFlyerDialog";
 import { Printer } from "lucide-react";
 import AdminSurprise from "@/components/AdminSurprise";
 import LeadsTab from "@/components/admin/LeadsTab";
+import AdminDailyReport from "@/components/admin/AdminDailyReport";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics";
@@ -143,6 +144,7 @@ const AdminPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <AdminSurprise />
+      <AdminDailyReport />
       <Navbar />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4">

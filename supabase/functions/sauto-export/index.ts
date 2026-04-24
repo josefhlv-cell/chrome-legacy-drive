@@ -366,15 +366,19 @@ Deno.serve(async (req) => {
         if (kwMatch) enginePower = parseInt(kwMatch[1]);
       }
 
-      // Build car_data
+      // Pricing: DB stores NETTO. If show_vat=true → send price including 21% VAT and dph=1.
+      const priceToSend = vehicle.show_vat
+        ? Math.round(vehicle.price_with_vat * 1.21)
+        : vehicle.price_with_vat;
+
       const carData: Record<string, unknown> = {
         kind_id: kindId,
         manufacturer_id: manufacturerId,
         model_id: modelId,
         body_id: bodyId,
         condition: 2, // ojeté
-        price: vehicle.price_with_vat,
-        dph: 1,
+        price: priceToSend,
+        dph: vehicle.show_vat ? 1 : 0,
         fuel: mapFuel(vehicle.fuel),
         tachometr: vehicle.mileage,
         tachometr_unit: 1, // km

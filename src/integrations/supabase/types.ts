@@ -104,6 +104,84 @@ export type Database = {
         }
         Relationships: []
       }
+      marketing_banners: {
+        Row: {
+          click_count: number
+          content_type: string
+          created_at: string
+          cta_text: string
+          end_date: string | null
+          headline: string
+          id: string
+          impression_count: number
+          is_active: boolean
+          layout_variant: string
+          link_url: string
+          media_url: string
+          name: string
+          show_desktop: boolean
+          show_mobile: boolean
+          show_tablet: boolean
+          sort_order: number
+          start_date: string | null
+          styles: Json
+          subheadline: string
+          target_page: string
+          target_position: string
+          updated_at: string
+        }
+        Insert: {
+          click_count?: number
+          content_type?: string
+          created_at?: string
+          cta_text?: string
+          end_date?: string | null
+          headline?: string
+          id?: string
+          impression_count?: number
+          is_active?: boolean
+          layout_variant?: string
+          link_url?: string
+          media_url?: string
+          name: string
+          show_desktop?: boolean
+          show_mobile?: boolean
+          show_tablet?: boolean
+          sort_order?: number
+          start_date?: string | null
+          styles?: Json
+          subheadline?: string
+          target_page?: string
+          target_position?: string
+          updated_at?: string
+        }
+        Update: {
+          click_count?: number
+          content_type?: string
+          created_at?: string
+          cta_text?: string
+          end_date?: string | null
+          headline?: string
+          id?: string
+          impression_count?: number
+          is_active?: boolean
+          layout_variant?: string
+          link_url?: string
+          media_url?: string
+          name?: string
+          show_desktop?: boolean
+          show_mobile?: boolean
+          show_tablet?: boolean
+          sort_order?: number
+          start_date?: string | null
+          styles?: Json
+          subheadline?: string
+          target_page?: string
+          target_position?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       page_views: {
         Row: {
           created_at: string
@@ -372,6 +450,14 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      increment_banner_click: {
+        Args: { _banner_id: string }
+        Returns: undefined
+      }
+      increment_banner_impression: {
+        Args: { _banner_id: string }
+        Returns: undefined
       }
     }
     Enums: {

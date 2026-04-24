@@ -5,6 +5,7 @@ import ownerPulling from "@/assets/owner-pulling.gif";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
+import BannerSlot from "@/components/BannerSlot";
 import { useVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
@@ -58,6 +59,7 @@ const VehiclesPage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <BannerSlot page="vehicles" position="hero" priority="high" />
       <div className="pt-24 pb-16">
         <div className="mx-auto w-full max-w-[1920px] px-4 md:px-12">
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
@@ -141,6 +143,8 @@ const VehiclesPage = () => {
             <span className="ml-auto text-xs text-muted-foreground font-montserrat">{filtered.length} vozů</span>
           </div>
 
+          <BannerSlot page="vehicles" position="mid" />
+
           {isLoading && <p className="text-center text-muted-foreground py-10">Načítání vozidel...</p>}
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
@@ -162,6 +166,7 @@ const VehiclesPage = () => {
           )}
         </div>
       </div>
+      <BannerSlot page="vehicles" position="footer" />
       <Footer />
     </div>
   );

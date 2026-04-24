@@ -3,6 +3,7 @@ import { Wrench, Search, Smartphone, Phone, ShieldCheck, Truck, Package } from "
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+import BannerSlot from "@/components/BannerSlot";
 
 const APP_URL = "https://chryslerpardubice.site/";
 
@@ -17,6 +18,7 @@ const SpareParts = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <BannerSlot page="spare-parts" position="hero" priority="high" />
 
       {/* Hero with blueprint pattern */}
       <div className="pt-20 relative overflow-hidden">
@@ -68,6 +70,8 @@ const SpareParts = () => {
           ))}
         </motion.div>
 
+        <BannerSlot page="spare-parts" position="mid" />
+
         {/* App CTA — primary */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -118,6 +122,7 @@ const SpareParts = () => {
         </motion.div>
       </div>
 
+      <BannerSlot page="spare-parts" position="footer" />
       <Footer />
     </div>
   );

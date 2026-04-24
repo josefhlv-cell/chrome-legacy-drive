@@ -6,6 +6,7 @@ import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LPGCalculator from "@/components/LPGCalculator";
+import BannerSlot from "@/components/BannerSlot";
 
 const services = [
   {
@@ -62,6 +63,7 @@ const ServicePage = () => {
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
+      <BannerSlot page="service" position="hero" priority="high" />
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4 lg:max-w-[1920px] lg:px-12">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
@@ -140,6 +142,8 @@ const ServicePage = () => {
             </motion.div>
           </div>
 
+          <BannerSlot page="service" position="mid" />
+
           {/* LPG Calculator */}
           <LPGCalculator />
 
@@ -208,6 +212,7 @@ const ServicePage = () => {
           </div>
         </div>
       </div>
+      <BannerSlot page="service" position="footer" />
       <Footer />
     </div>
   );

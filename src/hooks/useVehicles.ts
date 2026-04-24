@@ -24,16 +24,25 @@ export const useVehicles = (includeHidden = false) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      // Dedupe by VIN (fallback to id when VIN missing) — keeps first (newest) occurrence
-      const seen = new Set<string>();
-      const deduped: DbVehicle[] = [];
+      // Dedupe by VIN (fallback to id). When duplicates exist, prefer the row that
+      // actually has gallery images in vehicle_images — this avoids picking a stale
+      // duplicate whose only image is a dead legacy URL (chrysler-pardubice.cz).
+      const byKey = new Map<string, DbVehicle>();
       for (const v of (data as DbVehicle[]) ?? []) {
         const key = (v.vin && v.vin.trim()) || v.id;
-        if (seen.has(key)) continue;
-        seen.add(key);
-        deduped.push(v);
+        const existing = byKey.get(key);
+        if (!existing) {
+          byKey.set(key, v);
+          continue;
+        }
+        const existingHasImages = (existing.vehicle_images?.length ?? 0) > 0;
+        const candidateHasImages = (v.vehicle_images?.length ?? 0) > 0;
+        // Upgrade only if the new candidate has images and the existing one doesn't.
+        if (!existingHasImages && candidateHasImages) {
+          byKey.set(key, v);
+        }
       }
-      return deduped;
+      return Array.from(byKey.values());
     },
   });
 };

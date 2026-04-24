@@ -1,15 +1,10 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Play } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
-// Re-trigger intro animation from anywhere in the app via a window event.
-// IntroAnimation listens for this and re-mounts itself.
-const replayIntro = () => {
-  // Clear the "already seen" flag so IntroAnimation will play again
-  sessionStorage.removeItem("chrysler_intro_seen");
-  window.dispatchEvent(new CustomEvent("intro:replay"));
-};
+// Pending-replay flag is read by IntroAnimation when it mounts on the homepage.
+const REPLAY_FLAG = "intro:replay-pending";
 
 const navItems = [
   { label: "Nabídka vozidel", path: "/vozidla" },

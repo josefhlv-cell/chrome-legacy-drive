@@ -207,51 +207,113 @@ async function fetchCarList(): Promise<CarListEntry[]> {
   return entries;
 }
 
-function findBestMatch(vehicleName: string, carList: CarListEntry[]): { manufacturer_id: number; model_id: number; kind_id: number; body_id: number } | null {
-  const nameLower = vehicleName.toLowerCase().trim();
+// ─── Normalization & matching ───
+function normalize(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")  // strip diacritics
+    .replace(/[-_./]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
 
-  // Try to find manufacturer from first word(s) of vehicle name
-  const manufacturers = [...new Set(carList.map(e => e.manufacturer_name))];
+interface MatchResult {
+  manufacturer_id: number;
+  model_id: number;
+  kind_id: number;
+  body_id: number;
+  manufacturer_name: string;
+  model_name: string;
+  confidence: "exact" | "partial" | "fuzzy" | "fallback";
+}
+
+function findBestMatch(vehicleName: string, carList: CarListEntry[], allowFallback = false): MatchResult | null {
+  const nameNorm = normalize(vehicleName);
+
+  // Step 1: longest manufacturer match at the start of the string
+  const manufacturers = [...new Set(carList.map(e => e.manufacturer_name))]
+    .map(m => ({ raw: m, norm: normalize(m) }))
+    .sort((a, b) => b.norm.length - a.norm.length);
+
   let bestMfg = "";
-  for (const mfg of manufacturers) {
-    if (nameLower.startsWith(mfg.toLowerCase())) {
-      if (mfg.length > bestMfg.length) bestMfg = mfg;
+  for (const m of manufacturers) {
+    if (nameNorm === m.norm || nameNorm.startsWith(m.norm + " ") || nameNorm.startsWith(m.norm)) {
+      bestMfg = m.raw;
+      break;
+    }
+  }
+  if (!bestMfg) return null;
+
+  const remaining = nameNorm.slice(normalize(bestMfg).length).trim();
+  const mfgEntries = carList.filter(e => normalize(e.manufacturer_name) === normalize(bestMfg));
+
+  // Step 2: longest model match
+  let bestEntry: CarListEntry | null = null;
+  let bestScore = 0;
+  let confidence: MatchResult["confidence"] = "partial";
+
+  const sortedModels = [...mfgEntries].sort(
+    (a, b) => normalize(b.model_name).length - normalize(a.model_name).length,
+  );
+
+  for (const entry of sortedModels) {
+    const modelNorm = normalize(entry.model_name);
+    if (!modelNorm) continue;
+    if (remaining === modelNorm || remaining.startsWith(modelNorm + " ") || remaining.startsWith(modelNorm)) {
+      bestEntry = entry;
+      confidence = remaining === modelNorm ? "exact" : "partial";
+      bestScore = modelNorm.length;
+      break;
     }
   }
 
-  if (!bestMfg) return null;
-
-  // Find model in remaining text
-  const remaining = nameLower.slice(bestMfg.length).trim();
-  const mfgEntries = carList.filter(e => e.manufacturer_name.toLowerCase() === bestMfg.toLowerCase());
-
-  let bestEntry: CarListEntry | null = null;
-  let bestScore = 0;
-
-  for (const entry of mfgEntries) {
-    const modelLower = entry.model_name.toLowerCase();
-    if (remaining.startsWith(modelLower) || remaining.includes(modelLower)) {
-      const score = entry.model_name.length;
-      if (score > bestScore) {
-        bestScore = score;
-        bestEntry = entry;
+  // Step 3: substring fuzzy
+  if (!bestEntry) {
+    for (const entry of sortedModels) {
+      const modelNorm = normalize(entry.model_name);
+      if (modelNorm && modelNorm.length >= 2 && remaining.includes(modelNorm)) {
+        if (modelNorm.length > bestScore) {
+          bestEntry = entry;
+          bestScore = modelNorm.length;
+          confidence = "fuzzy";
+        }
       }
     }
   }
 
-  // Fallback: use "Ostatní" (Other) model
+  // Step 4: explicit fallback (only when allowed)
   if (!bestEntry) {
-    bestEntry = mfgEntries.find(e => e.model_name === "Ostatní") || mfgEntries[0];
+    if (!allowFallback) return null;
+    bestEntry = mfgEntries.find(e => normalize(e.model_name) === "ostatni") || mfgEntries[0];
+    if (!bestEntry) return null;
+    confidence = "fallback";
   }
-
-  if (!bestEntry) return null;
 
   return {
     manufacturer_id: bestEntry.manufacturer_id,
     model_id: bestEntry.model_id,
     kind_id: bestEntry.kind_id,
-    body_id: bestEntry.body_ids[0] || 9, // default SUV
+    body_id: bestEntry.body_ids[0] || 9,
+    manufacturer_name: bestEntry.manufacturer_name,
+    model_name: bestEntry.model_name,
+    confidence,
   };
+}
+
+// deno-lint-ignore no-explicit-any
+async function logExport(supabase: any, row: { vehicle_id?: string | null; portal: string; operation: string; level: string; message: string; context?: any }) {
+  try {
+    await supabase.from("export_logs").insert({
+      vehicle_id: row.vehicle_id || null,
+      portal: row.portal,
+      operation: row.operation,
+      level: row.level,
+      message: row.message.slice(0, 4000),
+      context: row.context || {},
+    });
+  } catch (e) {
+    console.warn("[log] insert failed:", e);
+  }
 }
 
 // ─── Fuel/Color/Gearbox mapping ───

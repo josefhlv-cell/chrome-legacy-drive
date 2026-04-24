@@ -53,7 +53,7 @@ const Navbar = () => {
         {/* Chrome Play button — replays the intro animation */}
         <button
           type="button"
-          onClick={replayIntro}
+          onClick={handleReplayIntro}
           aria-label="Přehrát úvodní animaci"
           title="Přehrát úvodní animaci"
           className="ml-1 md:ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full transition-transform duration-200 hover:scale-110 active:scale-95"

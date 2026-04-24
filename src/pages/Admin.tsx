@@ -160,7 +160,12 @@ const AdminPage = () => {
                 <p className="text-xs text-muted-foreground">{user.email} · Autorizovaný přístup</p>
               </div>
             </div>
-            <button onClick={signOut} className="outline-button inline-flex items-center gap-2 text-sm"><LogOut className="w-4 h-4" /> Odhlásit</button>
+            <div className="flex items-center gap-2">
+              <a href="/admin/exports" className="outline-button inline-flex items-center gap-2 text-sm">
+                <ExternalLink className="w-4 h-4" /> Export Dashboard
+              </a>
+              <button onClick={signOut} className="outline-button inline-flex items-center gap-2 text-sm"><LogOut className="w-4 h-4" /> Odhlásit</button>
+            </div>
           </motion.div>
 
           {/* Tabs */}

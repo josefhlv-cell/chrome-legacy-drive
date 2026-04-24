@@ -4,16 +4,7 @@ import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
-import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
-
-// Card max width per breakpoint:
-//   mobile  ~ 92vw  (≤640px) → ~600 CSS px
-//   tablet  ~ 46vw  (≤1024px) → ~470 CSS px
-//   desktop ~ 25vw  (xl 4-col on 1920px max) → ~470 CSS px
-// 300/500/700 covers DPR 1–2 without overdraw. (Old 400-1200 was 2-3× too big.)
-const CARD_WIDTHS = [300, 500, 700];
-const CARD_SIZES = "(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 25vw";
 
 interface VehicleCardProps {
   vehicle: DbVehicle;
@@ -57,45 +48,28 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
   return (
     <div className="h-full">
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
-        {/*
-          Strict 3:2 frame guarantees stable layout on all breakpoints.
-          object-contain + dark bg = whole car always visible (no zoom/crop),
-          even if the source photo has portrait or unusual aspect ratio.
-        */}
-        <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[3/2]">
+        <div className="relative overflow-hidden rounded-t-lg bg-background">
           {hasImage ? (
-            <picture>
-              <source
-                type="image/avif"
-                srcSet={buildSrcSet(cardImageUrl, CARD_WIDTHS, 65, "avif")}
-                sizes={CARD_SIZES}
-              />
-              <source
-                type="image/webp"
-                srcSet={buildSrcSet(cardImageUrl, CARD_WIDTHS, 72, "webp")}
-                sizes={CARD_SIZES}
-              />
-              <img
-                src={optimizeImage(cardImageUrl, "card")}
-                alt={vehicle.name}
-                className="absolute inset-0 w-full h-full object-contain object-center"
-                loading={isPriority ? "eager" : "lazy"}
-                fetchPriority={isPriority ? "high" : "auto"}
-                decoding="async"
-                onError={(e) => {
-                  const img = e.currentTarget;
-                  if (!img.src.endsWith(PLACEHOLDER)) {
-                    img.src = PLACEHOLDER;
-                    img.srcset = "";
-                  }
-                }}
-              />
-            </picture>
+            <img
+              src={cardImageUrl}
+              alt={vehicle.name}
+              className="block w-full h-auto"
+              loading={isPriority ? "eager" : "lazy"}
+              fetchPriority={isPriority ? "high" : "auto"}
+              decoding="async"
+              onError={(e) => {
+                const img = e.currentTarget;
+                if (!img.src.endsWith(PLACEHOLDER)) {
+                  img.src = PLACEHOLDER;
+                  img.srcset = "";
+                }
+              }}
+            />
           ) : (
             <img
               src={PLACEHOLDER}
               alt={vehicle.name}
-              className="absolute inset-0 w-full h-full object-contain object-center p-6 opacity-80"
+              className="block w-full h-auto"
               loading="lazy"
               decoding="async"
             />

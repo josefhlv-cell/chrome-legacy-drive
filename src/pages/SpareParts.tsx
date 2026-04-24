@@ -35,7 +35,7 @@ const SpareParts = () => {
           backgroundSize: "8px 8px",
         }} />
 
-        <div className="container mx-auto px-4 py-16 md:py-24 relative z-10">
+        <div className="container mx-auto px-4 py-16 md:py-24 relative z-10 lg:max-w-[1920px] lg:px-12">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="max-w-3xl">
             <div className="flex items-center gap-3 mb-4">
               <Wrench className="w-8 h-8 text-primary" />
@@ -49,7 +49,7 @@ const SpareParts = () => {
         </div>
       </div>
 
-      <div className="container mx-auto px-4 pb-16 max-w-4xl">
+      <div className="container mx-auto px-4 pb-16 max-w-4xl lg:max-w-[1920px] lg:px-12">
         {/* Advantages */}
         <motion.div
           initial={{ opacity: 0, y: 20 }}

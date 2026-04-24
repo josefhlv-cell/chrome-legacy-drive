@@ -44,9 +44,15 @@ async function downloadImageToStorage(
 ): Promise<string | null> {
   try {
     const response = await fetch(imageUrl);
-    if (!response.ok) return null;
+    if (!response.ok) {
+      console.warn(`[img] HTTP ${response.status} for ${imageUrl}`);
+      return null;
+    }
     const blob = await response.blob();
-    if (blob.size < 5000) return null;
+    if (blob.size < 5000) {
+      console.warn(`[img] too small (${blob.size}B) for ${imageUrl}`);
+      return null;
+    }
 
     const ext = imageUrl.match(/\.(jpg|jpeg|png|webp)/i)?.[1] || "jpg";
     const filename = `${vehicleId}/${index}.${ext}`;
@@ -55,12 +61,12 @@ async function downloadImageToStorage(
       .from("vehicles")
       .upload(filename, blob, { upsert: true, contentType: `image/${ext === "jpg" ? "jpeg" : ext}` });
 
-    if (error) { console.error(`Upload error:`, error.message); return null; }
+    if (error) { console.error(`[img] upload error for ${filename}:`, error.message); return null; }
 
     const { data: urlData } = supabase.storage.from("vehicles").getPublicUrl(filename);
     return urlData.publicUrl;
   } catch (e) {
-    console.error(`Download failed for ${imageUrl}:`, e);
+    console.error(`[img] fetch failed for ${imageUrl}:`, e);
     return null;
   }
 }

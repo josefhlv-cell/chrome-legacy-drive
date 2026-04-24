@@ -130,7 +130,7 @@ const ImportPage = () => {
                               : "border-border bg-secondary/50 text-muted-foreground hover:border-primary/50"
                           }`}
                         >
-                          <div className="w-full aspect-[4/3] flex items-center justify-center">
+                          <div className="w-full aspect-square flex items-center justify-center">
                             {m.image ? (
                               <img
                                 src={m.image}

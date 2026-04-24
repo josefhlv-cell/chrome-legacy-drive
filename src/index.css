@@ -155,6 +155,10 @@
     @apply text-muted-foreground text-lg font-light tracking-wide font-montserrat;
   }
 
+  .admin-input {
+    @apply w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none;
+  }
+
   .status-skladem { @apply bg-emerald-500/20 text-emerald-400 border border-emerald-500/30; }
   .status-na-ceste { @apply bg-blue-500/20 text-blue-400 border border-blue-500/30; }
   .status-rezervovano { @apply bg-amber-500/20 text-amber-400 border border-amber-500/30; }

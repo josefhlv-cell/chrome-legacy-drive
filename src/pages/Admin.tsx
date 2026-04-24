@@ -37,9 +37,11 @@ import { Printer } from "lucide-react";
 import AdminSurprise from "@/components/AdminSurprise";
 import LeadsTab from "@/components/admin/LeadsTab";
 import AdminDailyReport from "@/components/admin/AdminDailyReport";
+import BannerManagerTab from "@/components/admin/BannerManagerTab";
+import { Megaphone } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics";
+type AdminTab = "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -72,6 +74,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "leads", label: "Poptávky", icon: <Inbox className="w-4 h-4" /> },
   { key: "scrape", label: "Aktualizace", icon: <RefreshCw className="w-4 h-4" /> },
   { key: "analytics", label: "Statistiky", icon: <BarChart3 className="w-4 h-4" /> },
+  { key: "banners", label: "Bannery", icon: <Megaphone className="w-4 h-4" /> },
   { key: "contacts", label: "Kontakty", icon: <Phone className="w-4 h-4" /> },
   { key: "ticker", label: "Novinky", icon: <Type className="w-4 h-4" /> },
   { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },
@@ -179,6 +182,7 @@ const AdminPage = () => {
           {activeTab === "leads" && <LeadsTab />}
           {activeTab === "scrape" && <ScrapeTab />}
           {activeTab === "analytics" && <AnalyticsTab />}
+          {activeTab === "banners" && <BannerManagerTab />}
           {activeTab === "contacts" && <ContactsTab />}
           {activeTab === "ticker" && <TickerTab />}
           {activeTab === "facility" && <FacilityTab />}

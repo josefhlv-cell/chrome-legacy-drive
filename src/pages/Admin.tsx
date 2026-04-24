@@ -216,19 +216,24 @@ const VehiclesTab = () => {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
   const [adminSort, setAdminSort] = useState<AdminSort>("price-desc");
+  const [priceFilter, setPriceFilter] = useState<string>("");
   const addImage = useAddVehicleImage();
   const deleteImage = useDeleteVehicleImage();
   const setMainImage = useSetMainImage();
 
   const sortedVehicles = useMemo(() => {
     if (!vehicles) return [];
-    const arr = [...vehicles];
+    let arr = [...vehicles];
+    const priceNum = Number(priceFilter);
+    if (priceFilter.trim() !== "" && !isNaN(priceNum) && priceNum > 0) {
+      arr = arr.filter((v) => v.price_with_vat === priceNum);
+    }
     if (adminSort === "price-desc") arr.sort((a, b) => b.price_with_vat - a.price_with_vat);
     if (adminSort === "price-asc") arr.sort((a, b) => a.price_with_vat - b.price_with_vat);
     if (adminSort === "year") arr.sort((a, b) => b.year - a.year);
     if (adminSort === "newest") arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return arr;
-  }, [vehicles, adminSort]);
+  }, [vehicles, adminSort, priceFilter]);
 
   // Sauto export state
   const [sautoVehicleId, setSautoVehicleId] = useState<string | null>(null);

@@ -557,11 +557,11 @@ const VehiclesTab = () => {
           return (
           <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
             <div className="flex flex-col lg:flex-row gap-4">
-              <div className="w-full lg:w-44 h-28 shrink-0 rounded-md bg-muted/30 overflow-hidden flex items-center justify-center">
+              <div className="w-full lg:w-44 h-28 shrink-0 rounded-md bg-muted/30 overflow-hidden">
                 <img
                   src={thumbSrc}
                   alt={vehicle.name}
-                  className="w-full h-full object-contain"
+                  className="w-full h-full object-cover object-center"
                   loading="lazy"
                   decoding="async"
                   width={176}

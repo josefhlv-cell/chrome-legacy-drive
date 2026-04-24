@@ -17,13 +17,19 @@
       ]
     },
     {
-      "source": "/(.*)\\.(webp|avif|jpg|jpeg|png|svg|ico|woff2)",
+      "source": "/(.*)\\.(webp|avif|jpg|jpeg|png|gif|svg|ico|woff|woff2|ttf|otf|mp4|webm|js|css)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]
     },
     {
       "source": "/hero-chrysler.webp",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/intro.(webm|mp4)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
       ]

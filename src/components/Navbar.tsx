@@ -24,6 +24,18 @@ const navItems = [
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleReplayIntro = () => {
+    sessionStorage.removeItem("chrysler_intro_seen");
+    if (location.pathname === "/") {
+      window.dispatchEvent(new CustomEvent("intro:replay"));
+    } else {
+      // IntroAnimation only mounts on the homepage — go there and trigger on arrival.
+      sessionStorage.setItem(REPLAY_FLAG, "1");
+      navigate("/");
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50" style={{

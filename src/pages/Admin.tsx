@@ -545,12 +545,33 @@ const VehiclesTab = () => {
       {isLoading && <p className="text-muted-foreground text-center py-10">Načítání...</p>}
 
       <div className="space-y-4">
-        {sortedVehicles.map((vehicle) => (
+        {sortedVehicles.map((vehicle) => {
+          // Prefer Supabase gallery (main image first), filter dead legacy server URLs.
+          const sortedGallery = [...((vehicle as any).vehicle_images ?? [])].sort((a: any, b: any) => {
+            if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
+            return a.sort_order - b.sort_order;
+          });
+          const isUsable = (u: string | null | undefined): u is string => !!u && !u.includes("chrysler-pardubice.cz");
+          const candidate = sortedGallery.map((g: any) => g.image_url).find(isUsable) ?? (isUsable(vehicle.image_url) ? vehicle.image_url : "");
+          const thumbSrc = candidate ? optimizeImage(candidate, "card") : "/vehicle-placeholder.svg";
+          return (
           <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
             <div className="flex flex-col lg:flex-row gap-4">
-              {vehicle.image_url && (
-                <img src={optimizeImage(vehicle.image_url, "card")} alt={vehicle.name} className="w-full lg:w-44 h-28 object-cover rounded-md" loading="lazy" decoding="async" width={176} height={112} />
-              )}
+              <div className="w-full lg:w-44 h-28 shrink-0 rounded-md bg-muted/30 overflow-hidden flex items-center justify-center">
+                <img
+                  src={thumbSrc}
+                  alt={vehicle.name}
+                  className="w-full h-full object-contain"
+                  loading="lazy"
+                  decoding="async"
+                  width={176}
+                  height={112}
+                  onError={(e) => {
+                    const img = e.currentTarget;
+                    if (!img.src.endsWith("/vehicle-placeholder.svg")) img.src = "/vehicle-placeholder.svg";
+                  }}
+                />
+              </div>
               <div className="flex-1">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>

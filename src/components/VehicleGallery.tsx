@@ -246,7 +246,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
                 initial={{ opacity: 0 }}
                 animate={{ opacity: hiResLoaded ? 1 : 0 }}
                 exit={{ opacity: 0 }}
-                src={images[selectedIndex]}
+                src={optimizeImage(images[selectedIndex], "hero")}
                 alt={`${vehicleName} - foto ${selectedIndex + 1}`}
                 className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none"
                 style={{

@@ -16,6 +16,8 @@ const MottoSection = lazy(() => import("@/components/MottoSection"));
 const FamilyAdvantage = lazy(() => import("@/components/FamilyAdvantage"));
 const ContactCTA = lazy(() => import("@/components/ContactCTA"));
 const Footer = lazy(() => import("@/components/Footer"));
+// App-launch onboarding modal — only shown on the homepage now (was global, wasted on every route).
+const AppBanner = isBot ? null : lazy(() => import("@/components/AppBanner"));
 
 const Index = () => (
   <div className="min-h-screen bg-background">
@@ -36,6 +38,11 @@ const Index = () => (
       <ContactCTA />
       <Footer />
     </Suspense>
+    {AppBanner && (
+      <Suspense fallback={null}>
+        <AppBanner />
+      </Suspense>
+    )}
   </div>
 );
 

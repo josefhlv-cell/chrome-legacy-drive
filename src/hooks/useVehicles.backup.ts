@@ -17,13 +17,6 @@ const LIST_COLUMNS =
 const LIST_COLUMNS_LEFT =
   "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,image_url,inventory_number,updated_at,created_at,vehicle_images(image_url,is_main,sort_order)";
 
-// Admin needs FULL row data (description, engine, transmission, power, color,
-// lpg_description, carfax_url, video_id, etc.) so the edit form is pre-filled.
-// The lean LIST_COLUMNS_LEFT drops those for performance — fine for the public
-// catalog, but breaks admin editing.
-const ADMIN_COLUMNS_FULL =
-  "*,vehicle_images(image_url,is_main,sort_order)";
-
 // Dedupe by VIN (fallback to id). When duplicates exist, prefer the row that
 // actually has gallery images. Avoids picking a stale duplicate whose only
 // image is a dead legacy URL (chrysler-pardubice.cz).
@@ -64,7 +57,7 @@ export const useVehicles = (includeHidden = false) => {
       // Admin view: keep full gallery so management UI works.
       let query = supabase
         .from("vehicles")
-        .select(includeHidden ? ADMIN_COLUMNS_FULL : LIST_COLUMNS_LEFT)
+        .select(includeHidden ? LIST_COLUMNS_LEFT : LIST_COLUMNS_LEFT)
         .order("created_at", { ascending: false });
 
       if (!includeHidden) {
@@ -74,7 +67,7 @@ export const useVehicles = (includeHidden = false) => {
       const { data, error } = await query;
       if (error) throw error;
 
-      const rows = ((data as unknown) as DbVehicle[]) ?? [];
+      const rows = (data as DbVehicle[]) ?? [];
 
       // For the public list, keep only the main image per vehicle to minimise client-side work.
       // (Admin still gets the full gallery — used by the management table.)

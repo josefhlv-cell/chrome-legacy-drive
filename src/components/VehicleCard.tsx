@@ -57,6 +57,11 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
   return (
     <div className="h-full">
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
+        {/*
+          Strict 3:2 frame guarantees stable layout on all breakpoints.
+          object-contain + dark bg = whole car always visible (no zoom/crop),
+          even if the source photo has portrait or unusual aspect ratio.
+        */}
         <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[3/2]">
           {hasImage ? (
             <picture>
@@ -73,7 +78,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
               <img
                 src={optimizeImage(cardImageUrl, "card")}
                 alt={vehicle.name}
-                className="absolute inset-0 w-full h-full object-cover object-center bg-muted/30"
+                className="absolute inset-0 w-full h-full object-contain object-center"
                 loading={isPriority ? "eager" : "lazy"}
                 fetchPriority={isPriority ? "high" : "auto"}
                 decoding="async"

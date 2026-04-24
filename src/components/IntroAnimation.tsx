@@ -25,6 +25,7 @@ const IntroAnimation = () => {
     }, 800);
   }, [fading]);
 
+  // Auto-show once per session for new visitors
   useEffect(() => {
     if (isBot) return;
 
@@ -37,17 +38,20 @@ const IntroAnimation = () => {
     setShow(true);
     document.body.style.overflow = "hidden";
 
-    import("@/integrations/supabase/client").then(({ supabase }) => {
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (user?.email && ALWAYS_SHOW_EMAILS.includes(user.email)) {
-          // Already showing, nothing to do
-        }
-      });
-    });
-
     return () => {
       document.body.style.overflow = "";
     };
+  }, []);
+
+  // Manual replay — listens for a window event fired by the Navbar Play button.
+  useEffect(() => {
+    const onReplay = () => {
+      setFading(false);
+      setShow(true);
+      document.body.style.overflow = "hidden";
+    };
+    window.addEventListener("intro:replay", onReplay);
+    return () => window.removeEventListener("intro:replay", onReplay);
   }, []);
 
   // Force autoplay on iOS – retry until the video starts

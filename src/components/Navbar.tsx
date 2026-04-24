@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { Link, useLocation } from "react-router-dom";
-import { Menu, X } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { Menu, X, Play } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+
+// Pending-replay flag is read by IntroAnimation when it mounts on the homepage.
+const REPLAY_FLAG = "intro:replay-pending";
 
 const navItems = [
   { label: "Nabídka vozidel", path: "/vozidla" },
@@ -16,6 +19,18 @@ const navItems = [
 const Navbar = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
+
+  const handleReplayIntro = () => {
+    sessionStorage.removeItem("chrysler_intro_seen");
+    if (location.pathname === "/") {
+      window.dispatchEvent(new CustomEvent("intro:replay"));
+    } else {
+      // IntroAnimation only mounts on the homepage — go there and trigger on arrival.
+      sessionStorage.setItem(REPLAY_FLAG, "1");
+      navigate("/");
+    }
+  };
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50" style={{
@@ -29,6 +44,24 @@ const Navbar = () => {
         <Link to="/" className="flex items-center gap-2">
           <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 w-auto drop-shadow-lg" width={179} height={200} />
         </Link>
+
+        {/* Chrome Play button — replays the intro animation */}
+        <button
+          type="button"
+          onClick={handleReplayIntro}
+          aria-label="Přehrát úvodní animaci"
+          title="Přehrát úvodní animaci"
+          className="ml-1 md:ml-2 inline-flex items-center justify-center w-8 h-8 rounded-full transition-transform duration-200 hover:scale-110 active:scale-95"
+          style={{
+            background:
+              "linear-gradient(145deg, hsl(210 15% 92%), hsl(210 12% 70%) 45%, hsl(210 14% 50%) 75%, hsl(210 16% 35%))",
+            boxShadow:
+              "inset 0 1px 1px hsla(0,0%,100%,0.7), inset 0 -1px 2px hsla(0,0%,0%,0.45), 0 2px 6px hsla(0,0%,0%,0.45)",
+            border: "1px solid hsla(0,0%,100%,0.25)",
+          }}
+        >
+          <Play className="w-3.5 h-3.5 fill-current" style={{ color: "hsl(218 45% 12%)" }} />
+        </button>
 
         <div className="hidden md:flex items-center gap-8">
           {navItems.map((item) => (

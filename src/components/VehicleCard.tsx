@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
-import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
+import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 import { optimizeImage, buildSrcSet } from "@/lib/imageOptimizer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
@@ -14,35 +14,22 @@ interface VehicleCardProps {
 }
 
 const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
-  const imageCandidates = useMemo(() => {
+  const cardImageUrl = useMemo(() => {
     const sortedGallery = [...(vehicle?.vehicle_images ?? [])].sort((a, b) => {
       if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
       return a.sort_order - b.sort_order;
     });
 
-    return dedupeImageUrls([...sortedGallery.map((img) => img.image_url), vehicle?.image_url]);
+    const candidates = dedupeImageUrls([
+      ...sortedGallery.map((img) => img.image_url),
+      vehicle?.image_url,
+    ]);
+    return candidates[0] ?? "";
   }, [vehicle?.image_url, vehicle?.vehicle_images]);
 
-  const [cardImageUrl, setCardImageUrl] = useState("");
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const resolvePreferredImage = async () => {
-      const preferredIndex = await findPreferredLandscapeIndex(imageCandidates);
-      if (!cancelled) {
-        setCardImageUrl(imageCandidates[preferredIndex] ?? imageCandidates[0] ?? vehicle.image_url ?? "");
-      }
-    };
-
-    void resolvePreferredImage();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [imageCandidates, vehicle.image_url]);
-
   if (!vehicle?.name || !vehicle?.id) return null;
+
+  const isPriority = index < 4;
 
   const status = vehicle.status as keyof typeof statusLabels;
 
@@ -56,26 +43,28 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
         <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[3/2]">
-          <picture>
-            <source
-              type="image/avif"
-              srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 65, "avif")}
-              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
-            />
-            <source
-              type="image/webp"
-              srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 72, "webp")}
-              sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
-            />
-            <img
-              src={optimizeImage(cardImageUrl, "card")}
-              alt={vehicle.name}
-              className="absolute inset-0 w-full h-full object-cover bg-muted/30"
-              loading={index < 2 ? "eager" : "lazy"}
-              fetchPriority={index < 2 ? "high" : "auto"}
-              decoding="async"
-            />
-          </picture>
+          {cardImageUrl && (
+            <picture>
+              <source
+                type="image/avif"
+                srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 65, "avif")}
+                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
+              />
+              <source
+                type="image/webp"
+                srcSet={buildSrcSet(cardImageUrl, [400, 600, 800, 1200], 72, "webp")}
+                sizes="(max-width: 640px) 92vw, (max-width: 1024px) 46vw, 30vw"
+              />
+              <img
+                src={optimizeImage(cardImageUrl, "card")}
+                alt={vehicle.name}
+                className="absolute inset-0 w-full h-full object-cover object-center bg-muted/30"
+                loading={isPriority ? "eager" : "lazy"}
+                fetchPriority={isPriority ? "high" : "auto"}
+                decoding="async"
+              />
+            </picture>
+          )}
           <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">
             <img src={logoPardubice} alt="" className="h-8 w-auto" />
           </div>

@@ -11,6 +11,8 @@ const UUID_REGEX =
 export const useVehicles = (includeHidden = false) => {
   return useQuery({
     queryKey: ["vehicles", includeHidden],
+    staleTime: 5 * 60 * 1000,
+    gcTime: 10 * 60 * 1000,
     queryFn: async () => {
       let query = supabase
         .from("vehicles")
@@ -21,7 +23,17 @@ export const useVehicles = (includeHidden = false) => {
       }
       const { data, error } = await query;
       if (error) throw error;
-      return data as DbVehicle[];
+
+      // Dedupe by VIN (fallback to id when VIN missing) — keeps first (newest) occurrence
+      const seen = new Set<string>();
+      const deduped: DbVehicle[] = [];
+      for (const v of (data as DbVehicle[]) ?? []) {
+        const key = (v.vin && v.vin.trim()) || v.id;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        deduped.push(v);
+      }
+      return deduped;
     },
   });
 };

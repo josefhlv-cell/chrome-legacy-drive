@@ -9,7 +9,7 @@ import VehicleGallery from "@/components/VehicleGallery";
 import { formatPrice, priceWithVatFromNet, vatAmount, statusLabels, statusStyles } from "@/data/vehicles";
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
-import { dedupeImageUrls, findPreferredLandscapeIndex } from "@/lib/vehicleImageSelection";
+import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 
 const VehicleDetail = () => {
   const { id } = useParams();
@@ -55,25 +55,9 @@ const VehicleDetail = () => {
   }, [isLoading]);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const resolvePreferredImage = async () => {
-      const nextIndex = await findPreferredLandscapeIndex(galleryUrls);
-      if (!cancelled) {
-        setPreferredGalleryIndex(nextIndex >= 0 ? nextIndex : 0);
-      }
-    };
-
-    if (!galleryUrls.length) {
-      setPreferredGalleryIndex(0);
-      return;
-    }
-
-    void resolvePreferredImage();
-
-    return () => {
-      cancelled = true;
-    };
+    // Use first image immediately (gallery is already sorted: main first, then by sort_order).
+    // Avoids JS-blocking image preloading for orientation detection.
+    setPreferredGalleryIndex(0);
   }, [galleryUrls]);
 
   if (error) {

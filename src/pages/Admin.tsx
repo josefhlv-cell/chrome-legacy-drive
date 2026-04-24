@@ -855,7 +855,8 @@ const VehiclesTab = () => {
               </div>
             </div>
           </motion.div>
-        ))}
+          );
+        })}
       </div>
 
       {vehicles?.length === 0 && !isLoading && (

@@ -39,6 +39,7 @@ const ImportPage = () => {
 
   // Step 2
   const [budget, setBudget] = useState(800000);
+  const [budgetInput, setBudgetInput] = useState("800000");
   const [yearRange, setYearRange] = useState(2022);
   const [region, setRegion] = useState("USA");
 
@@ -73,6 +74,7 @@ const ImportPage = () => {
       setSelectedModel("");
       setCustomModel("");
       setBudget(800000);
+      setBudgetInput("800000");
       setYearRange(2022);
       setName("");
       setEmail("");
@@ -172,10 +174,32 @@ const ImportPage = () => {
                         <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-3">
                           Maximální rozpočet: <span className="text-primary">{budget.toLocaleString("cs-CZ")} Kč</span>
                         </label>
-                        <Slider value={[budget]} onValueChange={(v) => setBudget(v[0])} min={200000} max={3000000} step={50000} />
+                        <Slider value={[budget]} onValueChange={(v) => { setBudget(v[0]); setBudgetInput(String(v[0])); }} min={100000} max={3000000} step={5000} />
                         <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                          <span>200 000 Kč</span>
+                          <span>100 000 Kč</span>
                           <span>3 000 000 Kč</span>
+                        </div>
+                        <div className="mt-3 flex items-center gap-2">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            value={budgetInput}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, "");
+                              setBudgetInput(raw);
+                              const n = parseInt(raw || "0", 10);
+                              if (!isNaN(n)) setBudget(Math.min(3000000, Math.max(100000, n)));
+                            }}
+                            onBlur={() => {
+                              const n = parseInt(budgetInput || "0", 10);
+                              const clamped = isNaN(n) ? 100000 : Math.min(3000000, Math.max(100000, Math.round(n / 5000) * 5000));
+                              setBudget(clamped);
+                              setBudgetInput(String(clamped));
+                            }}
+                            className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
+                            placeholder="Zadejte rozpočet"
+                          />
+                          <span className="text-xs text-muted-foreground">Kč</span>
                         </div>
                       </div>
                       <div>

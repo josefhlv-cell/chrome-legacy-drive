@@ -361,7 +361,8 @@ function mapGearbox(transmission: string): number {
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
-  let supabase: ReturnType<typeof createClient> | null = null;
+  // deno-lint-ignore no-explicit-any
+  let supabase: any = null;
   let vehicleId: string | undefined;
 
   try {

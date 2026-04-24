@@ -216,19 +216,24 @@ const VehiclesTab = () => {
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);
   const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
   const [adminSort, setAdminSort] = useState<AdminSort>("price-desc");
+  const [priceFilter, setPriceFilter] = useState<string>("");
   const addImage = useAddVehicleImage();
   const deleteImage = useDeleteVehicleImage();
   const setMainImage = useSetMainImage();
 
   const sortedVehicles = useMemo(() => {
     if (!vehicles) return [];
-    const arr = [...vehicles];
+    let arr = [...vehicles];
+    const priceNum = Number(priceFilter);
+    if (priceFilter.trim() !== "" && !isNaN(priceNum) && priceNum > 0) {
+      arr = arr.filter((v) => v.price_with_vat === priceNum);
+    }
     if (adminSort === "price-desc") arr.sort((a, b) => b.price_with_vat - a.price_with_vat);
     if (adminSort === "price-asc") arr.sort((a, b) => a.price_with_vat - b.price_with_vat);
     if (adminSort === "year") arr.sort((a, b) => b.year - a.year);
     if (adminSort === "newest") arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
     return arr;
-  }, [vehicles, adminSort]);
+  }, [vehicles, adminSort, priceFilter]);
 
   // Sauto export state
   const [sautoVehicleId, setSautoVehicleId] = useState<string | null>(null);
@@ -473,7 +478,28 @@ const VehiclesTab = () => {
     <div>
       <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
         <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Správa vozidel</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <label className="text-xs text-muted-foreground uppercase tracking-wider">Cena (Kč)</label>
+          <div className="flex items-center gap-1">
+            <input
+              type="number"
+              inputMode="numeric"
+              value={priceFilter}
+              onChange={(e) => setPriceFilter(e.target.value)}
+              placeholder="např. 849000"
+              className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border focus:ring-1 focus:ring-primary outline-none w-36"
+            />
+            {priceFilter && (
+              <button
+                type="button"
+                onClick={() => setPriceFilter("")}
+                className="text-xs px-2 py-2 rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                title="Vymazat filtr"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
           <label className="text-xs text-muted-foreground uppercase tracking-wider">Řadit podle</label>
           <select
             value={adminSort}

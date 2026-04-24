@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Fotografie vozu připravujeme">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#1e293b"/>
+      <stop offset="100%" stop-color="#0f172a"/>
+    </linearGradient>
+  </defs>
+  <rect width="600" height="400" fill="url(#bg)"/>
+  <g fill="none" stroke="#475569" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" transform="translate(120,140)">
+    <path d="M10 90 L30 50 Q40 35 60 32 L210 32 Q235 32 255 50 L300 80 L350 90 Q360 92 360 105 L360 130 Q360 140 350 140 L320 140" />
+    <path d="M40 140 L10 140 Q0 140 0 130 L0 110 Q0 100 10 95 Z" />
+    <path d="M75 140 L240 140" />
+    <circle cx="65" cy="142" r="22" fill="#0f172a"/>
+    <circle cx="285" cy="142" r="22" fill="#0f172a"/>
+    <circle cx="65" cy="142" r="22"/>
+    <circle cx="285" cy="142" r="22"/>
+    <path d="M70 50 L130 50 L140 78 L60 78 Z" />
+    <path d="M150 50 L210 50 Q220 50 225 60 L240 78 L150 78 Z" />
+  </g>
+  <text x="300" y="320" text-anchor="middle" font-family="Montserrat, system-ui, sans-serif" font-size="20" font-weight="600" fill="#94a3b8" letter-spacing="2">FOTO PŘIPRAVUJEME</text>
+</svg>

@@ -57,7 +57,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
     >
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
         <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[3/2]">
-          {cardImageUrl && (
+          {hasImage ? (
             <picture>
               <source
                 type="image/avif"
@@ -76,8 +76,23 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
                 loading={isPriority ? "eager" : "lazy"}
                 fetchPriority={isPriority ? "high" : "auto"}
                 decoding="async"
+                onError={(e) => {
+                  const img = e.currentTarget;
+                  if (!img.src.endsWith(PLACEHOLDER)) {
+                    img.src = PLACEHOLDER;
+                    img.srcset = "";
+                  }
+                }}
               />
             </picture>
+          ) : (
+            <img
+              src={PLACEHOLDER}
+              alt={vehicle.name}
+              className="absolute inset-0 w-full h-full object-contain object-center p-6 opacity-80"
+              loading="lazy"
+              decoding="async"
+            />
           )}
           <div className="absolute bottom-2 right-2 pointer-events-none opacity-20">
             <img src={logoPardubice} alt="" className="h-8 w-auto" />

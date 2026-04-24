@@ -123,10 +123,10 @@ const VehicleDetail = () => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             <motion.div initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} className="relative">
-              {galleryLoading ? (
-                <div className="w-full rounded-lg bg-secondary animate-pulse aspect-[4/3]" />
-               ) : preferredGalleryIndex === null ? (
-                <div className="w-full rounded-lg bg-secondary animate-pulse aspect-video max-h-[60vh]" />
+              {galleryLoading || preferredGalleryIndex === null ? (
+                // Match VehicleGallery's aspect-[3/2] + max-h-[70vh] exactly so
+                // the real gallery slots in with zero CLS (no layout shift).
+                <div className="w-full rounded-lg bg-secondary animate-pulse aspect-[3/2] max-h-[70vh]" />
                ) : (
                 <div className="relative">
                   <VehicleGallery images={galleryUrls} vehicleName={vehicle.name} initialIndex={preferredGalleryIndex} inventoryNumber={(vehicle as any).inventory_number} />

@@ -39,10 +39,17 @@ const VehicleDetail = () => {
   };
 
   const galleryUrls = useMemo(() => {
+    // Treat dead legacy server URLs as missing — they reliably 404.
+    const isUsable = (url: string | null | undefined): url is string =>
+      !!url && !url.includes("chrysler-pardubice.cz");
+
+    // Prefer Supabase gallery (already sorted main-first by useVehicleImages).
     if (vehicleImages && vehicleImages.length > 0) {
-      return dedupeImageUrls(vehicleImages.map((img) => img.image_url));
+      const fromGallery = dedupeImageUrls(vehicleImages.map((img) => img.image_url)).filter(isUsable);
+      if (fromGallery.length > 0) return fromGallery;
     }
-    if (vehicle?.image_url) return [vehicle.image_url];
+    // Only fall back to vehicles.image_url if it's NOT a legacy URL.
+    if (isUsable(vehicle?.image_url)) return [vehicle!.image_url];
     return [];
   }, [vehicleImages, vehicle]);
 

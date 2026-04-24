@@ -1,6 +1,7 @@
 import { lazy, Suspense } from "react";
 import Navbar from "@/components/Navbar";
 import HeroSection from "@/components/HeroSection";
+import BannerSlot from "@/components/BannerSlot";
 
 // Bot detection — skip intro entirely for Lighthouse/PageSpeed so LCP is measured on hero
 const isBot = typeof navigator !== "undefined" &&
@@ -25,15 +26,18 @@ const Index = () => (
       </Suspense>
     )}
     <Navbar />
+    <BannerSlot page="home" position="hero" priority="high" />
     <HeroSection />
     <Suspense fallback={null}>
       <StockTicker />
       <FeaturedVehicles />
+      <BannerSlot page="home" position="mid" />
       <ServicePreview />
       <WhyUs />
       <MottoSection />
       <FamilyAdvantage />
       <ContactCTA />
+      <BannerSlot page="home" position="footer" />
       <Footer />
     </Suspense>
   </div>

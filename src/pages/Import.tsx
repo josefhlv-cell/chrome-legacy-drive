@@ -144,7 +144,7 @@ const ImportPage = () => {
                               <Wrench className="w-12 h-12 text-primary" strokeWidth={1.25} />
                             )}
                           </div>
-                          <span className="text-[0.9rem] md:text-[1.08rem] font-semibold tracking-wide text-white drop-shadow-[0_0_6px_hsl(var(--primary)/0.5)]">{m.name}</span>
+                          <span className="text-[1.08rem] md:text-[1.296rem] -mt-[20%] font-semibold tracking-wide text-white drop-shadow-[0_0_6px_hsl(var(--primary)/0.5)]">{m.name}</span>
                         </button>
                       ))}
                     </div>

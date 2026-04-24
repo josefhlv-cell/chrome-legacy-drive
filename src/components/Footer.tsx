@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+import MobileViewToggle from "@/components/MobileViewToggle";
 
 const Footer = () => (
   <footer className="border-t border-border" style={{
@@ -64,6 +65,7 @@ const Footer = () => (
         © {new Date().getFullYear()} Chrysler - Dodge Pardubice — Všechna práva vyhrazena.
       </div>
     </div>
+    <MobileViewToggle />
   </footer>
 );
 

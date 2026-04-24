@@ -152,7 +152,11 @@ const AppBanner = () => {
                   src={appPreview}
                   alt="Ukázka mobilní aplikace Chrysler - Dodge Pardubice"
                   className="w-full rounded-xl border border-primary/30 shadow-[0_10px_30px_rgba(0,0,0,0.4)]"
-                  loading="lazy"
+                  width={360}
+                  height={1152}
+                  loading="eager"
+                  fetchPriority="high"
+                  decoding="async"
                 />
               </div>
             </div>

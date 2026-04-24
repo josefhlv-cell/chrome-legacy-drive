@@ -289,21 +289,27 @@ class FtpClient {
   async uploadFile(remotePath: string, data: Uint8Array): Promise<string> {
     await this.sendCommand("TYPE I");
     const { host, port } = await this.passive();
-    
+
     const dataConn = await Deno.connect({ hostname: host, port });
-    
+
     const storResp = this.sendCommand(`STOR ${remotePath}`);
-    
+
     const writer = dataConn.writable.getWriter();
     await writer.write(data);
     await writer.close();
-    
+
     const resp = await storResp;
     console.log(`[FTP] STOR: ${resp.trim()}`);
-    
+    if (!resp.startsWith("150") && !resp.startsWith("125")) {
+      throw new Error(`STOR rejected: ${resp.trim()}`);
+    }
+
     const transferResp = await this.readResponse();
     console.log(`[FTP] Transfer: ${transferResp.trim()}`);
-    
+    if (!transferResp.startsWith("226") && !transferResp.startsWith("250")) {
+      throw new Error(`Transfer not confirmed (expected 226): ${transferResp.trim()}`);
+    }
+
     return transferResp;
   }
 

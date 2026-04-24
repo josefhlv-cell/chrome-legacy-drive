@@ -157,22 +157,22 @@ const VehiclesPage = () => {
             <span className="ml-auto text-xs text-muted-foreground font-montserrat">{filtered.length} vozů</span>
           </div>
 
-          <BannerSlot page="vehicles" position="mid" />
-
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 auto-rows-fr">
             {isLoading
               ? Array.from({ length: 8 }).map((_, i) => (
                   <VehicleCardSkeleton key={`sk-${i}`} />
                 ))
-              : visibleVehicles.map((vehicle, i) => (
+              : filtered.map((vehicle, i) => (
                   <div key={vehicle.id} className="h-full">
                     {/* Pass real index so only the first row gets eager/high priority. */}
                     <VehicleCard vehicle={vehicle} index={i} />
                   </div>
                 ))}
+            {isFetchingNextPage &&
+              Array.from({ length: 4 }).map((_, i) => <VehicleCardSkeleton key={`sk-next-${i}`} />)}
           </div>
 
-          {hasMore && (
+          {hasNextPage && (
             <div ref={loaderRef} className="text-center py-10">
               <p className="text-sm text-muted-foreground">Načítání dalších vozů...</p>
             </div>
@@ -183,7 +183,6 @@ const VehiclesPage = () => {
           )}
         </div>
       </div>
-      <BannerSlot page="vehicles" position="footer" />
       <Footer />
     </div>
   );

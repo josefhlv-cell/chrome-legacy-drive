@@ -327,6 +327,66 @@ class FtpClient {
   }
 }
 
+// ─── Hash + validation + DB logger ───
+async function sha256Hex(s: string): Promise<string> {
+  const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+}
+
+function validateTipcarsXml(xml: string): { ok: boolean; error?: string } {
+  if (!xml.startsWith("<?xml")) return { ok: false, error: "Missing XML declaration" };
+  if (!xml.includes("<tipcars")) return { ok: false, error: "Missing <tipcars> root" };
+  if (!xml.includes("</tipcars>")) return { ok: false, error: "Unclosed <tipcars> root" };
+  if (!xml.includes("<firma>")) return { ok: false, error: "Missing <firma> block" };
+  // crude tag balance check on key elements
+  const opens = (xml.match(/<inzerat>/g) || []).length;
+  const closes = (xml.match(/<\/inzerat>/g) || []).length;
+  if (opens !== closes) return { ok: false, error: `Unbalanced <inzerat>: ${opens} open vs ${closes} close` };
+  if (opens === 0) return { ok: false, error: "No <inzerat> entries" };
+  return { ok: true };
+}
+
+// deno-lint-ignore no-explicit-any
+async function logExport(supabase: any, row: { vehicle_id?: string | null; portal: string; operation: string; level: string; message: string; context?: any }) {
+  try {
+    await supabase.from("export_logs").insert({
+      vehicle_id: row.vehicle_id || null,
+      portal: row.portal,
+      operation: row.operation,
+      level: row.level,
+      message: row.message.slice(0, 4000),
+      context: row.context || {},
+    });
+  } catch (e) {
+    console.warn("[log] insert failed:", e);
+  }
+}
+
+async function ftpUploadWithRetry(opts: { host: string; user: string; pass: string; filename: string; data: Uint8Array; maxAttempts?: number; }): Promise<{ ok: boolean; message: string; attempts: number; lastResponse?: string; }> {
+  const max = opts.maxAttempts ?? 3;
+  let lastErr = "";
+  let lastResp = "";
+  for (let attempt = 1; attempt <= max; attempt++) {
+    const ftp = new FtpClient();
+    try {
+      console.log(`[TipCars] FTP attempt ${attempt}/${max} → ${opts.host}`);
+      const welcome = await ftp.connect(opts.host, 21);
+      console.log(`[TipCars] welcome: ${welcome.trim()}`);
+      await ftp.login(opts.user, opts.pass);
+      const tr = await ftp.uploadFile(opts.filename, opts.data);
+      lastResp = tr;
+      await ftp.quit();
+      return { ok: true, message: `226 Transfer complete (attempt ${attempt})`, attempts: attempt, lastResponse: tr.trim() };
+    } catch (err) {
+      lastErr = (err as Error).message;
+      console.warn(`[TipCars] FTP attempt ${attempt} failed: ${lastErr}`);
+      try { await ftp.quit(); } catch { /* ignore */ }
+      if (attempt < max) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+  return { ok: false, message: lastErr || "FTP upload failed", attempts: max, lastResponse: lastResp };
+}
+
 // ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });

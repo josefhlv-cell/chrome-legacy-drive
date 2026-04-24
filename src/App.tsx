@@ -21,7 +21,7 @@ const Service = lazy(() => import("./pages/Service.tsx"));
 const SpareParts = lazy(() => import("./pages/SpareParts.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
-const AppBanner = lazy(() => import("./components/AppBanner.tsx"));
+// AppBanner moved into Index page only — used to mount globally on every route.
 
 const queryClient = new QueryClient();
 
@@ -61,9 +61,6 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
-          </Suspense>
-          <Suspense fallback={null}>
-            <AppBanner />
           </Suspense>
         </BrowserRouter>
       </TooltipProvider>

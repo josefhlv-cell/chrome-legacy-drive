@@ -117,7 +117,8 @@ export const useInfiniteVehicles = (pageSize = 12) => {
         const main = v.vehicle_images?.find((i) => i.is_main) ?? v.vehicle_images?.[0];
         return { ...v, vehicle_images: main ? [main] : [] };
       });
-      return { rows: trimmed, page: pageParam as number };
+      // Safety net: dedupe by VIN in case DB still has duplicates from legacy data
+      return { rows: dedupeVehicles(trimmed), page: pageParam as number };
     },
     getNextPageParam: (last, all) => (last.rows.length < pageSize ? undefined : (last.page as number) + 1),
   });

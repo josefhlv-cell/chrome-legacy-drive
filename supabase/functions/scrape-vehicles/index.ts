@@ -108,10 +108,14 @@ Deno.serve(async (req) => {
     // Step 2: Get existing vehicles
     await updateLog({ status: "syncing", vehicles_found: apiVehicles.length });
 
-    const { data: existingVehicles } = await supabase.from("vehicles").select("id, name, image_url");
+    const { data: existingVehicles } = await supabase.from("vehicles").select("id, name, vin, image_url");
     const existingByName = new Map<string, { id: string; image_url: string }>();
+    const existingByVin = new Map<string, { id: string; image_url: string }>();
     for (const v of existingVehicles || []) {
       existingByName.set(v.name.toLowerCase().trim(), { id: v.id, image_url: v.image_url });
+      if (v.vin && v.vin.trim() !== "") {
+        existingByVin.set(v.vin.trim().toUpperCase(), { id: v.id, image_url: v.image_url });
+      }
     }
 
     const seenNames = new Set<string>();

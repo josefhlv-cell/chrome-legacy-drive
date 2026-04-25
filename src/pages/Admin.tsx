@@ -38,10 +38,11 @@ import AdminSurprise from "@/components/AdminSurprise";
 import LeadsTab from "@/components/admin/LeadsTab";
 import AdminDailyReport from "@/components/admin/AdminDailyReport";
 import BannerManagerTab from "@/components/admin/BannerManagerTab";
-import { Megaphone } from "lucide-react";
+import DashboardTab from "@/components/admin/DashboardTab";
+import { Megaphone, LayoutDashboard } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners";
+type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -70,6 +71,7 @@ const adminSortOptions: { value: AdminSort; label: string }[] = [
 const SITE_URL = "https://chryslerpardubice.site";
 
 const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
+  { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
   { key: "vehicles", label: "Vozidla", icon: <Car className="w-4 h-4" /> },
   { key: "leads", label: "Poptávky", icon: <Inbox className="w-4 h-4" /> },
   { key: "scrape", label: "Aktualizace", icon: <RefreshCw className="w-4 h-4" /> },
@@ -83,7 +85,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
 const AdminPage = () => {
   const { user, isAdmin, loading: authLoading, signIn, signOut } = useAuth();
   const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<AdminTab>("vehicles");
+  const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
   const [loginEmail, setLoginEmail] = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [loginLoading, setLoginLoading] = useState(false);
@@ -183,6 +185,7 @@ const AdminPage = () => {
           </div>
 
           {/* Tab Content */}
+          {activeTab === "dashboard" && <DashboardTab />}
           {activeTab === "vehicles" && <VehiclesTab />}
           {activeTab === "leads" && <LeadsTab />}
           {activeTab === "scrape" && <ScrapeTab />}

@@ -185,17 +185,30 @@ Deno.serve(async (req) => {
       };
 
       let vehicleId: string;
-      const existing = existingByName.get(nameKey);
+      // Match by VIN first (definitive), fall back to name (legacy entries without VIN)
+      const vinKey = (av.vin || "").trim().toUpperCase();
+      const existing = (vinKey && existingByVin.get(vinKey)) || existingByName.get(nameKey);
 
       if (existing) {
         await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
         vehicleId = existing.id;
         updatedCount++;
       } else {
-        const { data: created } = await supabase
-          .from("vehicles").insert(vehicleData).select("id").single();
+        // Use upsert on VIN as a safety net against race conditions / concurrent inserts
+        const { data: created, error: insErr } = await supabase
+          .from("vehicles")
+          .upsert(vehicleData, { onConflict: "vin", ignoreDuplicates: false })
+          .select("id")
+          .single();
+        if (insErr) {
+          console.error("Insert/upsert failed for", av.nazev, insErr);
+          continue;
+        }
         vehicleId = created?.id || "";
         createdCount++;
+        // Cache the new entry so subsequent rows in same run don't duplicate
+        if (vehicleId && vinKey) existingByVin.set(vinKey, { id: vehicleId, image_url: mainImageUrl });
+        if (vehicleId) existingByName.set(nameKey, { id: vehicleId, image_url: mainImageUrl });
       }
 
       // Download ALL gallery images (not just main)

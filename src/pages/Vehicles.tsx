@@ -21,22 +21,11 @@ const PAGE_SIZE = 12;
 
 const VehiclesPage = () => {
   const [sort, setSort] = useState("price-desc");
-  const {
-    data,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteVehicles(PAGE_SIZE);
-  const loaderRef = useRef<HTMLDivElement>(null);
+  const { data, isLoading } = useVehicles(false);
 
-  // Flatten all paginated rows.
-  const allVehicles = useMemo(
-    () => (data?.pages ?? []).flatMap((p) => p.rows),
-    [data],
-  );
+  const allVehicles = useMemo(() => data ?? [], [data]);
 
-  // Sort client-side over what we've already fetched (server orders by created_at DESC by default).
+  // Sort client-side over the full list — order is stable across navigation.
   const filtered = useMemo(() => {
     const result = [...allVehicles];
     if (sort === "price-asc") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
@@ -45,22 +34,6 @@ const VehiclesPage = () => {
     if (sort === "brand") result.sort((a, b) => a.name.localeCompare(b.name, "cs"));
     return result;
   }, [allVehicles, sort]);
-
-  // Infinite scroll: when the loader sentinel appears, ask the next page from the DB.
-  useEffect(() => {
-    const el = loaderRef.current;
-    if (!el || !hasNextPage) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { threshold: 0.1, rootMargin: "300px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="min-h-screen bg-background">

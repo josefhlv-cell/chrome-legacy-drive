@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { motion } from "framer-motion";
 import { Filter, ShieldCheck } from "lucide-react";
 import ownerPullingMp4 from "@/assets/owner-pulling.mp4";
@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleCardSkeleton from "@/components/VehicleCardSkeleton";
 import BannerSlot from "@/components/BannerSlot";
-import { useInfiniteVehicles } from "@/hooks/useVehicles";
+import { useVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
   { label: "Rok výroby (od nejnovějšího)", value: "year" },
@@ -21,22 +21,11 @@ const PAGE_SIZE = 12;
 
 const VehiclesPage = () => {
   const [sort, setSort] = useState("price-desc");
-  const {
-    data,
-    isLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-  } = useInfiniteVehicles(PAGE_SIZE);
-  const loaderRef = useRef<HTMLDivElement>(null);
+  const { data, isLoading } = useVehicles(false);
 
-  // Flatten all paginated rows.
-  const allVehicles = useMemo(
-    () => (data?.pages ?? []).flatMap((p) => p.rows),
-    [data],
-  );
+  const allVehicles = useMemo(() => data ?? [], [data]);
 
-  // Sort client-side over what we've already fetched (server orders by created_at DESC by default).
+  // Sort client-side over the full list — order is stable across navigation.
   const filtered = useMemo(() => {
     const result = [...allVehicles];
     if (sort === "price-asc") result.sort((a, b) => a.price_with_vat - b.price_with_vat);
@@ -45,22 +34,6 @@ const VehiclesPage = () => {
     if (sort === "brand") result.sort((a, b) => a.name.localeCompare(b.name, "cs"));
     return result;
   }, [allVehicles, sort]);
-
-  // Infinite scroll: when the loader sentinel appears, ask the next page from the DB.
-  useEffect(() => {
-    const el = loaderRef.current;
-    if (!el || !hasNextPage) return;
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting && !isFetchingNextPage) {
-          fetchNextPage();
-        }
-      },
-      { threshold: 0.1, rootMargin: "300px" },
-    );
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [hasNextPage, isFetchingNextPage, fetchNextPage]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -168,15 +141,7 @@ const VehiclesPage = () => {
                     <VehicleCard vehicle={vehicle} index={i} />
                   </div>
                 ))}
-            {isFetchingNextPage &&
-              Array.from({ length: 4 }).map((_, i) => <VehicleCardSkeleton key={`sk-next-${i}`} />)}
           </div>
-
-          {hasNextPage && (
-            <div ref={loaderRef} className="text-center py-10">
-              <p className="text-sm text-muted-foreground">Načítání dalších vozů...</p>
-            </div>
-          )}
 
           {filtered.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádné vozy neodpovídají zvoleným filtrům.</p>

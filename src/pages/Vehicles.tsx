@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Filter, ShieldCheck } from "lucide-react";
 import ownerPullingMp4 from "@/assets/owner-pulling.mp4";
@@ -8,7 +8,7 @@ import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleCardSkeleton from "@/components/VehicleCardSkeleton";
 import BannerSlot from "@/components/BannerSlot";
-import { useInfiniteVehicles } from "@/hooks/useVehicles";
+import { useVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
   { label: "Rok výroby (od nejnovějšího)", value: "year" },

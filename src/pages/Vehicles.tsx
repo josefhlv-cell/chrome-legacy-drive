@@ -141,15 +141,7 @@ const VehiclesPage = () => {
                     <VehicleCard vehicle={vehicle} index={i} />
                   </div>
                 ))}
-            {isFetchingNextPage &&
-              Array.from({ length: 4 }).map((_, i) => <VehicleCardSkeleton key={`sk-next-${i}`} />)}
           </div>
-
-          {hasNextPage && (
-            <div ref={loaderRef} className="text-center py-10">
-              <p className="text-sm text-muted-foreground">Načítání dalších vozů...</p>
-            </div>
-          )}
 
           {filtered.length === 0 && !isLoading && (
             <p className="text-center text-muted-foreground py-20">Žádné vozy neodpovídají zvoleným filtrům.</p>

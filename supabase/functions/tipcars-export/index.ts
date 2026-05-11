@@ -595,7 +595,22 @@ Deno.serve(async (req) => {
     let ftpAttempts = 0;
     let ftpResponse = "";
 
-    if (ftp_user && ftp_password) {
+    if (use_sftp && sftp_host && sftp_user && sftp_password) {
+      const result = await sftpUploadWithRetry({
+        host: sftp_host, port: sftp_port || 22, user: sftp_user, pass: sftp_password,
+        filename: zipFileName, data: zipped, maxAttempts: 3,
+      });
+      ftpUploaded = result.ok;
+      ftpMessage = result.message;
+      ftpAttempts = result.attempts;
+      ftpResponse = result.lastResponse || "";
+
+      await logExport(supabase, {
+        portal: "tipcars", operation: "sftp", level: result.ok ? "info" : "error",
+        message: `SFTP ${result.ok ? "OK" : "FAILED"} (${ftpAttempts} attempts): ${ftpMessage}`,
+        context: { filename: zipFileName, host: sftp_host, port: sftp_port },
+      });
+    } else if (ftp_user && ftp_password) {
       const result = await ftpUploadWithRetry({
         host: ftp_host, user: ftp_user, pass: ftp_password,
         filename: zipFileName, data: zipped, maxAttempts: 3,

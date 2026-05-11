@@ -39,6 +39,7 @@ import LeadsTab from "@/components/admin/LeadsTab";
 import AdminDailyReport from "@/components/admin/AdminDailyReport";
 import BannerManagerTab from "@/components/admin/BannerManagerTab";
 import DashboardTab from "@/components/admin/DashboardTab";
+import TipCarsFields from "@/components/admin/TipCarsFields";
 import { Megaphone, LayoutDashboard } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";

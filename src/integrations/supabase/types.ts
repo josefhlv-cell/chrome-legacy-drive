@@ -355,6 +355,72 @@ export type Database = {
         }
         Relationships: []
       }
+      tipcars_settings: {
+        Row: {
+          auto_export_enabled: boolean
+          created_at: string
+          firma_email: string | null
+          firma_mesto: string | null
+          firma_nazev: string
+          firma_psc: string | null
+          firma_telefon: string | null
+          firma_ulice: string | null
+          firma_www: string | null
+          heslo: string
+          id: string
+          kod_firmy: string
+          last_auto_run_at: string | null
+          sftp_host: string
+          sftp_password: string
+          sftp_port: number
+          sftp_user: string
+          test_mode: boolean
+          updated_at: string
+        }
+        Insert: {
+          auto_export_enabled?: boolean
+          created_at?: string
+          firma_email?: string | null
+          firma_mesto?: string | null
+          firma_nazev?: string
+          firma_psc?: string | null
+          firma_telefon?: string | null
+          firma_ulice?: string | null
+          firma_www?: string | null
+          heslo?: string
+          id?: string
+          kod_firmy?: string
+          last_auto_run_at?: string | null
+          sftp_host?: string
+          sftp_password?: string
+          sftp_port?: number
+          sftp_user?: string
+          test_mode?: boolean
+          updated_at?: string
+        }
+        Update: {
+          auto_export_enabled?: boolean
+          created_at?: string
+          firma_email?: string | null
+          firma_mesto?: string | null
+          firma_nazev?: string
+          firma_psc?: string | null
+          firma_telefon?: string | null
+          firma_ulice?: string | null
+          firma_www?: string | null
+          heslo?: string
+          id?: string
+          kod_firmy?: string
+          last_auto_run_at?: string | null
+          sftp_host?: string
+          sftp_password?: string
+          sftp_port?: number
+          sftp_user?: string
+          test_mode?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string
@@ -484,6 +550,15 @@ export type Database = {
           price_with_vat: number
           show_vat: boolean
           status: Database["public"]["Enums"]["vehicle_status"]
+          tipcars_export_enabled: boolean | null
+          tipcars_karoserie_kod: string | null
+          tipcars_karoserie_popis: string | null
+          tipcars_nebourane: boolean | null
+          tipcars_pocet_dveri: number | null
+          tipcars_pocet_mist: number | null
+          tipcars_prvni_majitel: boolean | null
+          tipcars_servisni_knizka: boolean | null
+          tipcars_stk_do: string | null
           transmission: string
           updated_at: string
           video_enabled: boolean
@@ -511,6 +586,15 @@ export type Database = {
           price_with_vat: number
           show_vat?: boolean
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tipcars_export_enabled?: boolean | null
+          tipcars_karoserie_kod?: string | null
+          tipcars_karoserie_popis?: string | null
+          tipcars_nebourane?: boolean | null
+          tipcars_pocet_dveri?: number | null
+          tipcars_pocet_mist?: number | null
+          tipcars_prvni_majitel?: boolean | null
+          tipcars_servisni_knizka?: boolean | null
+          tipcars_stk_do?: string | null
           transmission?: string
           updated_at?: string
           video_enabled?: boolean
@@ -538,6 +622,15 @@ export type Database = {
           price_with_vat?: number
           show_vat?: boolean
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tipcars_export_enabled?: boolean | null
+          tipcars_karoserie_kod?: string | null
+          tipcars_karoserie_popis?: string | null
+          tipcars_nebourane?: boolean | null
+          tipcars_pocet_dveri?: number | null
+          tipcars_pocet_mist?: number | null
+          tipcars_prvni_majitel?: boolean | null
+          tipcars_servisni_knizka?: boolean | null
+          tipcars_stk_do?: string | null
           transmission?: string
           updated_at?: string
           video_enabled?: boolean

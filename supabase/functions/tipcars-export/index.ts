@@ -389,22 +389,54 @@ async function ftpUploadWithRetry(opts: { host: string; user: string; pass: stri
   return { ok: false, message: lastErr || "FTP upload failed", attempts: max, lastResponse: lastResp };
 }
 
+// ─── SFTP upload via npm:ssh2-sftp-client ───
+async function sftpUploadWithRetry(opts: { host: string; port: number; user: string; pass: string; filename: string; data: Uint8Array; maxAttempts?: number; }): Promise<{ ok: boolean; message: string; attempts: number; lastResponse?: string; }> {
+  const max = opts.maxAttempts ?? 3;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= max; attempt++) {
+    const sftp = new SftpClient();
+    try {
+      console.log(`[TipCars] SFTP attempt ${attempt}/${max} → ${opts.host}:${opts.port}`);
+      await sftp.connect({ host: opts.host, port: opts.port, username: opts.user, password: opts.pass, readyTimeout: 20000 });
+      // Convert Uint8Array → Buffer for ssh2
+      // @ts-ignore - Buffer is available via Node compat in Deno
+      const buf = (globalThis as any).Buffer ? (globalThis as any).Buffer.from(opts.data) : opts.data;
+      await sftp.put(buf, `/${opts.filename}`);
+      await sftp.end();
+      return { ok: true, message: `SFTP upload OK (attempt ${attempt})`, attempts: attempt, lastResponse: "OK" };
+    } catch (err) {
+      lastErr = (err as Error).message;
+      console.warn(`[TipCars] SFTP attempt ${attempt} failed: ${lastErr}`);
+      try { await sftp.end(); } catch { /* ignore */ }
+      if (attempt < max) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+  return { ok: false, message: lastErr || "SFTP upload failed", attempts: max };
+}
+
 // ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const {
+    const body = await req.json().catch(() => ({}));
+    let {
       vehicle_ids,
       tipcars_kod_firmy,
       tipcars_heslo,
-      firma_nazev = "Chrysler Pardubice",
+      firma_nazev,
       firma_info = {},
-      ftp_host = "ftp.tipcars.com",
+      ftp_host,
       ftp_user,
       ftp_password,
+      sftp_host,
+      sftp_port,
+      sftp_user,
+      sftp_password,
+      use_sftp,
       test_mode = false,
-    } = await req.json();
+      use_settings = false,
+    } = body;
 
     if (!vehicle_ids || !Array.isArray(vehicle_ids) || vehicle_ids.length === 0) {
       return new Response(JSON.stringify({ error: "Chybí vehicle_ids (pole ID vozidel)" }), {

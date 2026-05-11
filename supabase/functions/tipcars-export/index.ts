@@ -182,9 +182,10 @@ ${vehicle.description ? `\t\t<poznamka>${escapeXml(vehicle.description.slice(0, 
 ${power > 0 ? `\t\t\t<vykon>${power}</vykon>\n\t\t\t<kod_jednotky>A</kod_jednotky>\n\t\t\t<popis_jednotky>kW</popis_jednotky>` : "\t\t\t<vykon></vykon>\n\t\t\t<kod_jednotky></kod_jednotky>\n\t\t\t<popis_jednotky></popis_jednotky>"}
 \t\t</vykon_motoru>
 ${equipmentItems.length > 0 ? `\t\t<vybava>\n\t\t\t<razeni></razeni>\n\t\t\t<seznam>\n${equipmentItems.join("\n")}\n\t\t\t</seznam>\n\t\t</vybava>` : ""}
-\t\t<nebourane></nebourane>
-\t\t<mista>5</mista>
-\t\t<dvere>5</dvere>
+\t\t<nebourane>${vehicle.tipcars_nebourane === false ? "N" : "A"}</nebourane>
+\t\t<mista>${vehicle.tipcars_pocet_mist || 5}</mista>
+\t\t<dvere>${vehicle.tipcars_pocet_dveri || 5}</dvere>
+${vehicle.tipcars_stk_do ? `\t\t<stk_do>${vehicle.tipcars_stk_do}</stk_do>` : ""}
 \t\t<fotky>
 \t\t\t<seznam_kodu>${photoCodes.join(",")}</seznam_kodu>
 \t\t</fotky>

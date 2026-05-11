@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.100.1";
 import { zipSync } from "https://esm.sh/fflate@0.8.2";
+import SftpClient from "npm:ssh2-sftp-client@10.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -82,6 +82,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "contacts", label: "Kontakty", icon: <Phone className="w-4 h-4" /> },
   { key: "ticker", label: "Novinky", icon: <Type className="w-4 h-4" /> },
   { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },
+  { key: "tipcars", label: "TipCars", icon: <Send className="w-4 h-4" /> },
 ];
 
 const AdminPage = () => {

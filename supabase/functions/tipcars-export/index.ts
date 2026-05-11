@@ -1,5 +1,6 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.100.1";
 import { zipSync } from "https://esm.sh/fflate@0.8.2";
+import SftpClient from "npm:ssh2-sftp-client@10.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -133,8 +134,8 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t\t<popis_model>${escapeXml(extractModel(vehicle.name))}</popis_model>
 \t\t</znacka_model>
 \t\t<karoserie>
-\t\t\t<kod></kod>
-\t\t\t<popis></popis>
+\t\t\t<kod>${escapeXml(vehicle.tipcars_karoserie_kod || "")}</kod>
+\t\t\t<popis>${escapeXml(vehicle.tipcars_karoserie_popis || "")}</popis>
 \t\t</karoserie>
 \t\t<barva>
 \t\t\t<kod>${color.kod}</kod>
@@ -174,16 +175,17 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t</cenove_udaje>
 \t\t<ekologicka_dan>N</ekologicka_dan>
 ${engineVolume > 0 ? `\t\t<obsah_motoru>${engineVolume}</obsah_motoru>` : "\t\t<obsah_motoru></obsah_motoru>"}
-\t\t<prvni_majitel>N</prvni_majitel>
-\t\t<servisni_knizka></servisni_knizka>
+\t\t<prvni_majitel>${vehicle.tipcars_prvni_majitel ? "A" : "N"}</prvni_majitel>
+\t\t<servisni_knizka>${vehicle.tipcars_servisni_knizka ? "A" : "N"}</servisni_knizka>
 ${vehicle.description ? `\t\t<poznamka>${escapeXml(vehicle.description.slice(0, 3000))}</poznamka>` : "\t\t<poznamka></poznamka>"}
 \t\t<vykon_motoru>
 ${power > 0 ? `\t\t\t<vykon>${power}</vykon>\n\t\t\t<kod_jednotky>A</kod_jednotky>\n\t\t\t<popis_jednotky>kW</popis_jednotky>` : "\t\t\t<vykon></vykon>\n\t\t\t<kod_jednotky></kod_jednotky>\n\t\t\t<popis_jednotky></popis_jednotky>"}
 \t\t</vykon_motoru>
 ${equipmentItems.length > 0 ? `\t\t<vybava>\n\t\t\t<razeni></razeni>\n\t\t\t<seznam>\n${equipmentItems.join("\n")}\n\t\t\t</seznam>\n\t\t</vybava>` : ""}
-\t\t<nebourane></nebourane>
-\t\t<mista>5</mista>
-\t\t<dvere>5</dvere>
+\t\t<nebourane>${vehicle.tipcars_nebourane === false ? "N" : "A"}</nebourane>
+\t\t<mista>${vehicle.tipcars_pocet_mist || 5}</mista>
+\t\t<dvere>${vehicle.tipcars_pocet_dveri || 5}</dvere>
+${vehicle.tipcars_stk_do ? `\t\t<stk_do>${vehicle.tipcars_stk_do}</stk_do>` : ""}
 \t\t<fotky>
 \t\t\t<seznam_kodu>${photoCodes.join(",")}</seznam_kodu>
 \t\t</fotky>
@@ -387,25 +389,89 @@ async function ftpUploadWithRetry(opts: { host: string; user: string; pass: stri
   return { ok: false, message: lastErr || "FTP upload failed", attempts: max, lastResponse: lastResp };
 }
 
+// ─── SFTP upload via npm:ssh2-sftp-client ───
+async function sftpUploadWithRetry(opts: { host: string; port: number; user: string; pass: string; filename: string; data: Uint8Array; maxAttempts?: number; }): Promise<{ ok: boolean; message: string; attempts: number; lastResponse?: string; }> {
+  const max = opts.maxAttempts ?? 3;
+  let lastErr = "";
+  for (let attempt = 1; attempt <= max; attempt++) {
+    const sftp = new SftpClient();
+    try {
+      console.log(`[TipCars] SFTP attempt ${attempt}/${max} → ${opts.host}:${opts.port}`);
+      await sftp.connect({ host: opts.host, port: opts.port, username: opts.user, password: opts.pass, readyTimeout: 20000 });
+      // Convert Uint8Array → Buffer for ssh2
+      // @ts-ignore - Buffer is available via Node compat in Deno
+      const buf = (globalThis as any).Buffer ? (globalThis as any).Buffer.from(opts.data) : opts.data;
+      await sftp.put(buf, `/${opts.filename}`);
+      await sftp.end();
+      return { ok: true, message: `SFTP upload OK (attempt ${attempt})`, attempts: attempt, lastResponse: "OK" };
+    } catch (err) {
+      lastErr = (err as Error).message;
+      console.warn(`[TipCars] SFTP attempt ${attempt} failed: ${lastErr}`);
+      try { await sftp.end(); } catch { /* ignore */ }
+      if (attempt < max) await new Promise(r => setTimeout(r, 1000 * attempt));
+    }
+  }
+  return { ok: false, message: lastErr || "SFTP upload failed", attempts: max };
+}
+
 // ─── Main handler ───
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
 
   try {
-    const {
+    const body = await req.json().catch(() => ({}));
+    let {
       vehicle_ids,
       tipcars_kod_firmy,
       tipcars_heslo,
-      firma_nazev = "Chrysler Pardubice",
+      firma_nazev,
       firma_info = {},
-      ftp_host = "ftp.tipcars.com",
+      ftp_host,
       ftp_user,
       ftp_password,
+      sftp_host,
+      sftp_port,
+      sftp_user,
+      sftp_password,
+      use_sftp,
       test_mode = false,
-    } = await req.json();
+      use_settings = false,
+    } = body;
+
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Optionally load credentials & defaults from tipcars_settings table
+    if (use_settings) {
+      const { data: s } = await supabase.from("tipcars_settings").select("*").limit(1).maybeSingle();
+      if (s) {
+        tipcars_kod_firmy = tipcars_kod_firmy || s.kod_firmy;
+        tipcars_heslo = tipcars_heslo || s.heslo;
+        sftp_host = sftp_host || s.sftp_host;
+        sftp_port = sftp_port || s.sftp_port;
+        sftp_user = sftp_user || s.sftp_user;
+        sftp_password = sftp_password || s.sftp_password;
+        firma_nazev = firma_nazev || s.firma_nazev;
+        firma_info = {
+          ulice: firma_info.ulice || s.firma_ulice,
+          psc: firma_info.psc || s.firma_psc,
+          mesto: firma_info.mesto || s.firma_mesto,
+          telefon: firma_info.telefon || s.firma_telefon,
+          email: firma_info.email || s.firma_email,
+          www: firma_info.www || s.firma_www,
+        };
+        if (use_sftp === undefined) use_sftp = true;
+        if (test_mode === undefined) test_mode = s.test_mode;
+      }
+    }
+
+    firma_nazev = firma_nazev || "Chrysler Pardubice";
+    ftp_host = ftp_host || "ftp.tipcars.com";
 
     if (!vehicle_ids || !Array.isArray(vehicle_ids) || vehicle_ids.length === 0) {
-      return new Response(JSON.stringify({ error: "Chybí vehicle_ids (pole ID vozidel)" }), {
+      return new Response(JSON.stringify({ error: "Chybí vehicle_ids" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -414,11 +480,6 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     await logExport(supabase, {
       portal: "tipcars",
@@ -534,7 +595,22 @@ Deno.serve(async (req) => {
     let ftpAttempts = 0;
     let ftpResponse = "";
 
-    if (ftp_user && ftp_password) {
+    if (use_sftp && sftp_host && sftp_user && sftp_password) {
+      const result = await sftpUploadWithRetry({
+        host: sftp_host, port: sftp_port || 22, user: sftp_user, pass: sftp_password,
+        filename: zipFileName, data: zipped, maxAttempts: 3,
+      });
+      ftpUploaded = result.ok;
+      ftpMessage = result.message;
+      ftpAttempts = result.attempts;
+      ftpResponse = result.lastResponse || "";
+
+      await logExport(supabase, {
+        portal: "tipcars", operation: "sftp", level: result.ok ? "info" : "error",
+        message: `SFTP ${result.ok ? "OK" : "FAILED"} (${ftpAttempts} attempts): ${ftpMessage}`,
+        context: { filename: zipFileName, host: sftp_host, port: sftp_port },
+      });
+    } else if (ftp_user && ftp_password) {
       const result = await ftpUploadWithRetry({
         host: ftp_host, user: ftp_user, pass: ftp_password,
         filename: zipFileName, data: zipped, maxAttempts: 3,

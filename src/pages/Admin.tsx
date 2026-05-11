@@ -40,10 +40,11 @@ import AdminDailyReport from "@/components/admin/AdminDailyReport";
 import BannerManagerTab from "@/components/admin/BannerManagerTab";
 import DashboardTab from "@/components/admin/DashboardTab";
 import TipCarsFields from "@/components/admin/TipCarsFields";
-import { Megaphone, LayoutDashboard } from "lucide-react";
+import TipCarsTab from "@/components/admin/TipCarsTab";
+import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners";
+type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -81,6 +82,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "contacts", label: "Kontakty", icon: <Phone className="w-4 h-4" /> },
   { key: "ticker", label: "Novinky", icon: <Type className="w-4 h-4" /> },
   { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },
+  { key: "tipcars", label: "TipCars", icon: <Send className="w-4 h-4" /> },
 ];
 
 const AdminPage = () => {
@@ -195,6 +197,7 @@ const AdminPage = () => {
           {activeTab === "contacts" && <ContactsTab />}
           {activeTab === "ticker" && <TickerTab />}
           {activeTab === "facility" && <FacilityTab />}
+          {activeTab === "tipcars" && <TipCarsTab />}
         </div>
       </div>
       <Footer />

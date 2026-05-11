@@ -359,6 +359,8 @@ export type Database = {
         Row: {
           auto_export_enabled: boolean
           created_at: string
+          cron_schedule: string
+          cron_timezone: string
           firma_email: string | null
           firma_mesto: string | null
           firma_nazev: string
@@ -380,6 +382,8 @@ export type Database = {
         Insert: {
           auto_export_enabled?: boolean
           created_at?: string
+          cron_schedule?: string
+          cron_timezone?: string
           firma_email?: string | null
           firma_mesto?: string | null
           firma_nazev?: string
@@ -401,6 +405,8 @@ export type Database = {
         Update: {
           auto_export_enabled?: boolean
           created_at?: string
+          cron_schedule?: string
+          cron_timezone?: string
           firma_email?: string | null
           firma_mesto?: string | null
           firma_nazev?: string
@@ -659,6 +665,10 @@ export type Database = {
       }
       increment_banner_impression: {
         Args: { _banner_id: string }
+        Returns: undefined
+      }
+      set_tipcars_cron_schedule: {
+        Args: { p_schedule: string }
         Returns: undefined
       }
     }

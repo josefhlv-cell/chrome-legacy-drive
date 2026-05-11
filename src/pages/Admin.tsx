@@ -850,6 +850,20 @@ const VehiclesTab = () => {
                       </div>
                       <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
                     </div>
+                    <TipCarsFields
+                      data={{
+                        tipcars_export_enabled: (editData as any).tipcars_export_enabled ?? (vehicle as any).tipcars_export_enabled ?? true,
+                        tipcars_karoserie_kod: (editData as any).tipcars_karoserie_kod ?? (vehicle as any).tipcars_karoserie_kod,
+                        tipcars_karoserie_popis: (editData as any).tipcars_karoserie_popis ?? (vehicle as any).tipcars_karoserie_popis,
+                        tipcars_pocet_mist: (editData as any).tipcars_pocet_mist ?? (vehicle as any).tipcars_pocet_mist ?? 5,
+                        tipcars_pocet_dveri: (editData as any).tipcars_pocet_dveri ?? (vehicle as any).tipcars_pocet_dveri ?? 5,
+                        tipcars_prvni_majitel: (editData as any).tipcars_prvni_majitel ?? (vehicle as any).tipcars_prvni_majitel ?? false,
+                        tipcars_servisni_knizka: (editData as any).tipcars_servisni_knizka ?? (vehicle as any).tipcars_servisni_knizka ?? false,
+                        tipcars_nebourane: (editData as any).tipcars_nebourane ?? (vehicle as any).tipcars_nebourane ?? true,
+                        tipcars_stk_do: (editData as any).tipcars_stk_do ?? (vehicle as any).tipcars_stk_do,
+                      }}
+                      onChange={(patch) => setEditData({ ...editData, ...patch } as any)}
+                    />
                     <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
                       <button onClick={saveEdit} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>
                       <button onClick={() => setEditingId(null)} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>

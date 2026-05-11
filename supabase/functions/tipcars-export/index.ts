@@ -175,8 +175,8 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t</cenove_udaje>
 \t\t<ekologicka_dan>N</ekologicka_dan>
 ${engineVolume > 0 ? `\t\t<obsah_motoru>${engineVolume}</obsah_motoru>` : "\t\t<obsah_motoru></obsah_motoru>"}
-\t\t<prvni_majitel>N</prvni_majitel>
-\t\t<servisni_knizka></servisni_knizka>
+\t\t<prvni_majitel>${vehicle.tipcars_prvni_majitel ? "A" : "N"}</prvni_majitel>
+\t\t<servisni_knizka>${vehicle.tipcars_servisni_knizka ? "A" : "N"}</servisni_knizka>
 ${vehicle.description ? `\t\t<poznamka>${escapeXml(vehicle.description.slice(0, 3000))}</poznamka>` : "\t\t<poznamka></poznamka>"}
 \t\t<vykon_motoru>
 ${power > 0 ? `\t\t\t<vykon>${power}</vykon>\n\t\t\t<kod_jednotky>A</kod_jednotky>\n\t\t\t<popis_jednotky>kW</popis_jednotky>` : "\t\t\t<vykon></vykon>\n\t\t\t<kod_jednotky></kod_jednotky>\n\t\t\t<popis_jednotky></popis_jednotky>"}

@@ -134,8 +134,8 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t\t<popis_model>${escapeXml(extractModel(vehicle.name))}</popis_model>
 \t\t</znacka_model>
 \t\t<karoserie>
-\t\t\t<kod></kod>
-\t\t\t<popis></popis>
+\t\t\t<kod>${escapeXml(vehicle.tipcars_karoserie_kod || "")}</kod>
+\t\t\t<popis>${escapeXml(vehicle.tipcars_karoserie_popis || "")}</popis>
 \t\t</karoserie>
 \t\t<barva>
 \t\t\t<kod>${color.kod}</kod>

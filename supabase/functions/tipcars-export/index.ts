@@ -438,8 +438,40 @@ Deno.serve(async (req) => {
       use_settings = false,
     } = body;
 
+    const supabase = createClient(
+      Deno.env.get("SUPABASE_URL")!,
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
+    );
+
+    // Optionally load credentials & defaults from tipcars_settings table
+    if (use_settings) {
+      const { data: s } = await supabase.from("tipcars_settings").select("*").limit(1).maybeSingle();
+      if (s) {
+        tipcars_kod_firmy = tipcars_kod_firmy || s.kod_firmy;
+        tipcars_heslo = tipcars_heslo || s.heslo;
+        sftp_host = sftp_host || s.sftp_host;
+        sftp_port = sftp_port || s.sftp_port;
+        sftp_user = sftp_user || s.sftp_user;
+        sftp_password = sftp_password || s.sftp_password;
+        firma_nazev = firma_nazev || s.firma_nazev;
+        firma_info = {
+          ulice: firma_info.ulice || s.firma_ulice,
+          psc: firma_info.psc || s.firma_psc,
+          mesto: firma_info.mesto || s.firma_mesto,
+          telefon: firma_info.telefon || s.firma_telefon,
+          email: firma_info.email || s.firma_email,
+          www: firma_info.www || s.firma_www,
+        };
+        if (use_sftp === undefined) use_sftp = true;
+        if (test_mode === undefined) test_mode = s.test_mode;
+      }
+    }
+
+    firma_nazev = firma_nazev || "Chrysler Pardubice";
+    ftp_host = ftp_host || "ftp.tipcars.com";
+
     if (!vehicle_ids || !Array.isArray(vehicle_ids) || vehicle_ids.length === 0) {
-      return new Response(JSON.stringify({ error: "Chybí vehicle_ids (pole ID vozidel)" }), {
+      return new Response(JSON.stringify({ error: "Chybí vehicle_ids" }), {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
@@ -448,11 +480,6 @@ Deno.serve(async (req) => {
         status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
-
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL")!,
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
-    );
 
     await logExport(supabase, {
       portal: "tipcars",

@@ -859,6 +859,8 @@ const VehiclesTab = () => {
                     <TipCarsFields
                       data={{
                         tipcars_export_enabled: (editData as any).tipcars_export_enabled ?? (vehicle as any).tipcars_export_enabled ?? true,
+                        tipcars_znacka_kod: (editData as any).tipcars_znacka_kod ?? (vehicle as any).tipcars_znacka_kod ?? "AW",
+                        tipcars_model_kod: (editData as any).tipcars_model_kod ?? (vehicle as any).tipcars_model_kod ?? "AWM",
                         tipcars_karoserie_kod: (editData as any).tipcars_karoserie_kod ?? (vehicle as any).tipcars_karoserie_kod,
                         tipcars_karoserie_popis: (editData as any).tipcars_karoserie_popis ?? (vehicle as any).tipcars_karoserie_popis,
                         tipcars_pocet_mist: (editData as any).tipcars_pocet_mist ?? (vehicle as any).tipcars_pocet_mist ?? 5,
@@ -867,6 +869,25 @@ const VehiclesTab = () => {
                         tipcars_servisni_knizka: (editData as any).tipcars_servisni_knizka ?? (vehicle as any).tipcars_servisni_knizka ?? false,
                         tipcars_nebourane: (editData as any).tipcars_nebourane ?? (vehicle as any).tipcars_nebourane ?? true,
                         tipcars_stk_do: (editData as any).tipcars_stk_do ?? (vehicle as any).tipcars_stk_do,
+                        tipcars_emisni_norma: (editData as any).tipcars_emisni_norma ?? (vehicle as any).tipcars_emisni_norma ?? "",
+                        tipcars_pohon: (editData as any).tipcars_pohon ?? (vehicle as any).tipcars_pohon ?? "",
+                        tipcars_prevodovka_pocet: (editData as any).tipcars_prevodovka_pocet ?? (vehicle as any).tipcars_prevodovka_pocet,
+                        tipcars_garantovany_najezd: (editData as any).tipcars_garantovany_najezd ?? (vehicle as any).tipcars_garantovany_najezd ?? true,
+                        tipcars_klimatizace: (editData as any).tipcars_klimatizace ?? (vehicle as any).tipcars_klimatizace ?? "",
+                        tipcars_airbagy: (editData as any).tipcars_airbagy ?? (vehicle as any).tipcars_airbagy,
+                      }}
+                      mirrored={{
+                        name: editData.name ?? vehicle.name,
+                        vin: editData.vin ?? vehicle.vin,
+                        year: editData.year ?? vehicle.year,
+                        mileage: editData.mileage ?? vehicle.mileage,
+                        fuel: editData.fuel ?? vehicle.fuel,
+                        color: editData.color ?? vehicle.color,
+                        engine: editData.engine ?? vehicle.engine,
+                        power: editData.power ?? vehicle.power,
+                        transmission: editData.transmission ?? vehicle.transmission,
+                        price_with_vat: editData.price_with_vat ?? vehicle.price_with_vat,
+                        show_vat: editData.show_vat ?? vehicle.show_vat,
                       }}
                       onChange={(patch) => setEditData({ ...editData, ...patch } as any)}
                     />

@@ -462,8 +462,13 @@ Deno.serve(async (req) => {
           email: firma_info.email || s.firma_email,
           www: firma_info.www || s.firma_www,
         };
-        if (use_sftp === undefined) use_sftp = true;
+        // Default to plain FTP — ssh2-sftp-client is incompatible with Deno
+        if (use_sftp === undefined) use_sftp = false;
         if (test_mode === undefined) test_mode = s.test_mode;
+        // Mirror SFTP creds onto FTP fields so plain FTP path uses the configured host
+        ftp_host = ftp_host || s.sftp_host;
+        ftp_user = ftp_user || s.sftp_user;
+        ftp_password = ftp_password || s.sftp_password;
       }
     }
 

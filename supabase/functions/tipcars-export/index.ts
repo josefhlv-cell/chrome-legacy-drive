@@ -515,8 +515,8 @@ Deno.serve(async (req) => {
       portal: "tipcars",
       operation: "export",
       level: "info",
-      message: `Export started: ${vehicle_ids.length} vehicles${test_mode ? " (TEST MODE)" : ""}`,
-      context: { vehicle_ids, test_mode },
+      message: `Export started: ${vehicle_ids.length} vehicles (${test_mode ? "TEST" : "LIVE"}${dry_run ? " · DRY RUN" : ""})`,
+      context: { vehicle_ids, test_mode, dry_run, target_host: ftp_host },
     });
 
     const { data: vehicles, error: vErr } = await supabase

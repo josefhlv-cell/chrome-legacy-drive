@@ -167,6 +167,7 @@ const AdminPage = () => {
               </div>
             </div>
             <div className="flex items-center gap-2">
+              <RevertButton />
               <a href="/admin/tipcars" className="outline-button inline-flex items-center gap-2 text-sm">
                 <Send className="w-4 h-4" /> TipCars import
               </a>

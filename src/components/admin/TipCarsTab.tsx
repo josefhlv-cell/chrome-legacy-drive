@@ -225,8 +225,8 @@ export default function TipCarsTab() {
             <span className={`px-3 py-1.5 rounded-full font-semibold ${settings.auto_export_enabled ? "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30" : "bg-muted text-muted-foreground border border-border"}`}>
               Auto-export: {settings.auto_export_enabled ? "ZAPNUTO" : "VYPNUTO"}
             </span>
-            <span className={`px-3 py-1.5 rounded-full font-semibold ${settings.test_mode ? "bg-amber-500/15 text-amber-300 border border-amber-500/30" : "bg-muted text-muted-foreground border border-border"}`}>
-              {settings.test_mode ? "TEST MODE" : "LIVE"}
+            <span className={`px-3 py-1.5 rounded-full font-semibold ${settings.test_mode ? "bg-amber-500/15 text-amber-300 border border-amber-500/30" : "bg-emerald-500/15 text-emerald-300 border border-emerald-500/30"}`}>
+              Režim: {settings.test_mode ? "TEST (testovací prostředí TipCars)" : "OSTRÝ (produkce)"}
             </span>
             <span className="px-3 py-1.5 rounded-full bg-secondary text-secondary-foreground border border-border">
               Plán: <code className="font-mono">{settings.cron_schedule}</code> UTC

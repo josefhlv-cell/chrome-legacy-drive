@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Send, Lock } from "lucide-react";
+import { detectTipCarsCode } from "@/lib/tipcarsCodebook";
 
 // Karoserie codes from TipCars CiselnikyXmlImport
 const KAROSERIE_OPTIONS: { kod: string; popis: string }[] = [

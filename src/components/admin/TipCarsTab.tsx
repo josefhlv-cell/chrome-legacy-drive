@@ -35,6 +35,7 @@ type Settings = {
   // Automation
   auto_export_enabled: boolean;
   test_mode: boolean; // true = use TEST creds, false = use LIVE creds
+  test_mode_locked: boolean; // hard lock — server-side enforced safety against accidental LIVE
   cron_schedule: string;
   cron_timezone: string;
   last_auto_run_at: string | null;

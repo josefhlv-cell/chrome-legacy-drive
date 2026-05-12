@@ -622,7 +622,7 @@ Deno.serve(async (req) => {
     }
 
     const xmlContent = buildFullXml(
-      tipcars_kod_firmy, tipcars_heslo, firma_nazev, firma_info, allInzeratyXml,
+      tipcars_kod_firmy, tipcars_heslo, firma_nazev, firma_info, allInzeratyXml, !!test_mode,
     );
 
     // ─── Validate XML ───

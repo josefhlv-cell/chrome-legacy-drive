@@ -119,43 +119,35 @@ function buildInzeratXml(
     photoCodes.push(String(photoNum));
   });
 
+  // Equipment (vybava) — codes must come from CiselnikyXmlImport.xml seznam_vybav.
+  // Until we mirror & validate the codebook, we DO NOT emit any <vybava> entries.
+  // Posting unverified codes ("32", "EN", etc.) is what causes TipCars to reject the batch.
   const equipmentItems: string[] = [];
-  const trans = mapTransmission(vehicle.transmission || "");
-  if (trans) {
-    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>${trans}</kod>\n\t\t\t\t<popis>aut. převodovka</popis>`);
-  }
-  // Klimatizace
-  const klimaMap: Record<string, { kod: string; popis: string }> = {
-    manual: { kod: "32", popis: "klimatizace" },
-    auto: { kod: "33", popis: "automatická klimatizace" },
-    dual: { kod: "34", popis: "dvouzónová klimatizace" },
-    tri: { kod: "35", popis: "tříznová klimatizace" },
-  };
-  const klima = klimaMap[(vehicle.tipcars_klimatizace || "").toLowerCase()];
-  if (klima) {
-    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>${klima.kod}</kod>\n\t\t\t\t<popis>${klima.popis}</popis>`);
-  }
-  // Pohon 4×4
-  if ((vehicle.tipcars_pohon || "").toUpperCase() === "AWD") {
-    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>20</kod>\n\t\t\t\t<popis>pohon 4x4</popis>`);
-  }
-  // Airbagy
-  if (vehicle.tipcars_airbagy && vehicle.tipcars_airbagy > 0) {
-    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>10</kod>\n\t\t\t\t<popis>airbagy: ${vehicle.tipcars_airbagy}</popis>`);
-  }
-  // Emisní norma
-  if (vehicle.tipcars_emisni_norma) {
-    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>EN</kod>\n\t\t\t\t<popis>${escapeXml(vehicle.tipcars_emisni_norma)}</popis>`);
-  }
 
   const modelKod = FORCED_TIPCARS_MODEL.modelKod;
   const modelInfo = FORCED_TIPCARS_MODEL;
 
+  // Cap cislo_inzeratu at 6999 per spec (4.65: range changed from 0001-9999 to 0001-6999)
+  const safeAdNumber = ((adNumber - 1) % 6999) + 1;
+  const cisloFinal = pad4(safeAdNumber);
+
+  // <karoserie> — emit ONLY if a valid kod from the codebook is selected.
+  const karoserieXml = vehicle.tipcars_karoserie_kod
+    ? `\t\t<karoserie>\n\t\t\t<kod>${escapeXml(vehicle.tipcars_karoserie_kod)}</kod>\n\t\t\t<popis>${escapeXml(vehicle.tipcars_karoserie_popis || "")}</popis>\n\t\t</karoserie>\n`
+    : "";
+
+  // <barva> — if our color mapping does not produce a valid codebook kod,
+  // omit <kod> entirely and send only the textual description (per spec, point 2 of <popis>).
+  const barvaXml = color.kod
+    ? `\t\t<barva>\n\t\t\t<kod>${color.kod}</kod>\n\t\t\t<popis>${escapeXml(color.popis)}</popis>\n\t\t</barva>\n`
+    : (color.popis
+        ? `\t\t<barva>\n\t\t\t<popis>${escapeXml(color.popis)}</popis>\n\t\t</barva>\n`
+        : "");
+
   const xml = `\t<inzerat>
-\t\t<cislo_inzeratu>${cislo}</cislo_inzeratu>
+\t\t<cislo_inzeratu>${cisloFinal}</cislo_inzeratu>
 \t\t<datum>${today}</datum>
-${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</vin_verejny>` : ""}
-\t\t<kategorie>
+${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</vin_verejny>\n` : ""}\t\t<kategorie>
 \t\t\t<kod>O</kod>
 \t\t\t<popis>Ojetý</popis>
 \t\t</kategorie>
@@ -168,19 +160,7 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t\t<popis_znacka>${escapeXml(modelInfo.znacka)}</popis_znacka>
 \t\t\t<popis_model>${escapeXml(modelInfo.model)}</popis_model>
 \t\t</znacka_model>
-\t\t<karoserie>
-\t\t\t<kod>${escapeXml(vehicle.tipcars_karoserie_kod || "")}</kod>
-\t\t\t<popis>${escapeXml(vehicle.tipcars_karoserie_popis || "")}</popis>
-\t\t</karoserie>
-\t\t<barva>
-\t\t\t<kod>${color.kod}</kod>
-\t\t\t<popis>${escapeXml(color.popis)}</popis>
-\t\t</barva>
-\t\t<stat_puvodu>
-\t\t\t<kod>A</kod>
-\t\t\t<popis>CZ</popis>
-\t\t</stat_puvodu>
-\t\t<palivo>
+${karoserieXml}${barvaXml}\t\t<palivo>
 \t\t\t<kod>${fuel.kod}</kod>
 \t\t\t<popis>${escapeXml(fuel.popis)}</popis>
 \t\t</palivo>
@@ -190,38 +170,19 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t\t<popis_jednotky>km</popis_jednotky>
 \t\t</tachometr>
 \t\t<rok_vyroby>${vehicle.year}</rok_vyroby>
-\t\t<stav>
-\t\t\t<kod>XX</kod>
-\t\t\t<popis>ojeté vozidlo</popis>
-\t\t</stav>
 \t\t<cenove_udaje>
 \t\t\t<cena>${vehicle.show_vat ? Math.round(vehicle.price_with_vat * 1.21) : vehicle.price_with_vat}</cena>
 \t\t\t<dph>${vehicle.show_vat ? "A" : "N"}</dph>
 \t\t\t<kod_meny>A</kod_meny>
 \t\t\t<popis_meny>Kč</popis_meny>
-\t\t\t<dobra_cena></dobra_cena>
-\t\t\t<puvodni_cena></puvodni_cena>
-\t\t\t<dealerska_cena></dealerska_cena>
-\t\t\t<moznosti_financovani></moznosti_financovani>
-\t\t\t<leasing_splatka></leasing_splatka>
-\t\t\t<leasing_pocet></leasing_pocet>
-\t\t\t<cenova_kategorie></cenova_kategorie>
-\t\t\t<horni_hranice></horni_hranice>
 \t\t</cenove_udaje>
 \t\t<ekologicka_dan>N</ekologicka_dan>
-${engineVolume > 0 ? `\t\t<obsah_motoru>${engineVolume}</obsah_motoru>` : "\t\t<obsah_motoru></obsah_motoru>"}
-\t\t<prvni_majitel>${vehicle.tipcars_prvni_majitel ? "A" : "N"}</prvni_majitel>
+${engineVolume > 0 ? `\t\t<obsah_motoru>${engineVolume}</obsah_motoru>\n` : ""}\t\t<prvni_majitel>${vehicle.tipcars_prvni_majitel ? "A" : "N"}</prvni_majitel>
 \t\t<servisni_knizka>${vehicle.tipcars_servisni_knizka ? "A" : "N"}</servisni_knizka>
-${vehicle.description ? `\t\t<poznamka>${escapeXml(vehicle.description.slice(0, 3000))}</poznamka>` : "\t\t<poznamka></poznamka>"}
-\t\t<vykon_motoru>
-${power > 0 ? `\t\t\t<vykon>${power}</vykon>\n\t\t\t<kod_jednotky>A</kod_jednotky>\n\t\t\t<popis_jednotky>kW</popis_jednotky>` : "\t\t\t<vykon></vykon>\n\t\t\t<kod_jednotky></kod_jednotky>\n\t\t\t<popis_jednotky></popis_jednotky>"}
-\t\t</vykon_motoru>
-${equipmentItems.length > 0 ? `\t\t<vybava>\n\t\t\t<razeni></razeni>\n\t\t\t<seznam>\n${equipmentItems.join("\n")}\n\t\t\t</seznam>\n\t\t</vybava>` : ""}
-\t\t<nebourane>${vehicle.tipcars_nebourane === false ? "N" : "A"}</nebourane>
+${vehicle.description ? `\t\t<poznamka>${escapeXml(vehicle.description.slice(0, 3000))}</poznamka>\n` : ""}${power > 0 ? `\t\t<vykon_motoru>\n\t\t\t<vykon>${power}</vykon>\n\t\t\t<kod_jednotky>A</kod_jednotky>\n\t\t\t<popis_jednotky>kW</popis_jednotky>\n\t\t</vykon_motoru>\n` : ""}\t\t<nebourane>${vehicle.tipcars_nebourane === false ? "N" : "A"}</nebourane>
 \t\t<mista>${vehicle.tipcars_pocet_mist || 5}</mista>
 \t\t<dvere>${vehicle.tipcars_pocet_dveri || 5}</dvere>
-${vehicle.tipcars_stk_do ? `\t\t<stk_do>${vehicle.tipcars_stk_do}</stk_do>` : ""}
-\t\t<fotky>
+${vehicle.tipcars_stk_do ? `\t\t<stk>${vehicle.tipcars_stk_do.slice(0, 7)}</stk>\n` : ""}\t\t<fotky>
 \t\t\t<seznam_kodu>${photoCodes.join(",")}</seznam_kodu>
 \t\t</fotky>
 \t</inzerat>`;
@@ -237,26 +198,28 @@ function buildFullXml(
   inzeraty: string[],
   testMode: boolean
 ): string {
-  // Per TipCars docs: <test> with any non-empty value marks the batch as TEST
-  // (data is validated but NOT published). Empty = production publish.
+  // Per TipCars docs (XmlVstupSchema verze 5.10):
+  // "<test> - nepovinný. Element neobsahuje žádný údaj a pokud ano, tak je ignorován.
+  //  Přítomnost tohoto elementu určuje, že při příjmu na serveru TipCars jsou
+  //  inzertní data zapracována jen pro testovací účely."
+  // ⇒ Mere PRESENCE of <test/> (even empty!) marks the batch as TEST.
+  // For LIVE publishing, the element MUST be omitted entirely.
+  const testTag = testMode ? "\t\t<test/>\n" : "";
   return `<?xml version="1.0" encoding="UTF-8" ?>
 <tipcars xmlns:xs="http://www.w3.org/2001/XMLSchema">
 \t<firma>
-\t\t<test>${testMode ? "A" : ""}</test>
-\t\t<kod_firmy>${escapeXml(kodFirmy)}</kod_firmy>
+${testTag}\t\t<kod_firmy>${escapeXml(kodFirmy)}</kod_firmy>
 \t\t<heslo>${escapeXml(heslo)}</heslo>
 \t\t<jazyk>C</jazyk>
-\t\t<verze>5.06</verze>
+\t\t<verze>5.05</verze>
 \t\t<nazev>${escapeXml(firmaNazev)}</nazev>
 \t\t<ulice>${escapeXml(firmaInfo.ulice || "")}</ulice>
-\t\t<psc>${escapeXml(firmaInfo.psc || "")}</psc>
+\t\t<psc>${escapeXml((firmaInfo.psc || "").replace(/\s+/g, ""))}</psc>
 \t\t<mesto>${escapeXml(firmaInfo.mesto || "")}</mesto>
 \t\t<telefon>${escapeXml(firmaInfo.telefon || "")}</telefon>
-\t\t<fax></fax>
 \t\t<email>${escapeXml(firmaInfo.email || "")}</email>
 \t\t<www>${escapeXml(firmaInfo.www || "")}</www>
 \t\t<cinnosti>S</cinnosti>
-\t\t<znacky></znacky>
 \t</firma>
 ${inzeraty.join("\n")}
 </tipcars>`;

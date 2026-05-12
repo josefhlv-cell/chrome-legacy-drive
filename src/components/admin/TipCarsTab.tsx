@@ -544,7 +544,7 @@ export default function TipCarsTab() {
           <button
             onClick={() => runExport("live")}
             disabled={testRunning || liveRunning || dryRunning || !settings.live_sftp_host || !settings.live_sftp_user || settings.test_mode_locked}
-            title={settings.test_mode_locked ? "Zámek TEST režimu je aktivní — odemkni ho v sekci „Aktivní prostředí"." : (!settings.live_sftp_host ? "Nejprve vyplň přístupové údaje pro OSTRÝ provoz." : undefined)}
+            title={settings.test_mode_locked ? 'Zámek TEST režimu je aktivní — odemkni ho v sekci "Aktivní prostředí".' : (!settings.live_sftp_host ? "Nejprve vyplň přístupové údaje pro OSTRÝ provoz." : undefined)}
             className="chrome-button inline-flex items-center gap-2"
           >
             {liveRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Server className="w-4 h-4" />}

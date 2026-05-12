@@ -574,15 +574,23 @@ export type Database = {
           price_with_vat: number
           show_vat: boolean
           status: Database["public"]["Enums"]["vehicle_status"]
+          tipcars_airbagy: number | null
+          tipcars_emisni_norma: string | null
           tipcars_export_enabled: boolean | null
+          tipcars_garantovany_najezd: boolean | null
           tipcars_karoserie_kod: string | null
           tipcars_karoserie_popis: string | null
+          tipcars_klimatizace: string | null
+          tipcars_model_kod: string | null
           tipcars_nebourane: boolean | null
           tipcars_pocet_dveri: number | null
           tipcars_pocet_mist: number | null
+          tipcars_pohon: string | null
+          tipcars_prevodovka_pocet: number | null
           tipcars_prvni_majitel: boolean | null
           tipcars_servisni_knizka: boolean | null
           tipcars_stk_do: string | null
+          tipcars_znacka_kod: string | null
           transmission: string
           updated_at: string
           video_enabled: boolean
@@ -610,15 +618,23 @@ export type Database = {
           price_with_vat: number
           show_vat?: boolean
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tipcars_airbagy?: number | null
+          tipcars_emisni_norma?: string | null
           tipcars_export_enabled?: boolean | null
+          tipcars_garantovany_najezd?: boolean | null
           tipcars_karoserie_kod?: string | null
           tipcars_karoserie_popis?: string | null
+          tipcars_klimatizace?: string | null
+          tipcars_model_kod?: string | null
           tipcars_nebourane?: boolean | null
           tipcars_pocet_dveri?: number | null
           tipcars_pocet_mist?: number | null
+          tipcars_pohon?: string | null
+          tipcars_prevodovka_pocet?: number | null
           tipcars_prvni_majitel?: boolean | null
           tipcars_servisni_knizka?: boolean | null
           tipcars_stk_do?: string | null
+          tipcars_znacka_kod?: string | null
           transmission?: string
           updated_at?: string
           video_enabled?: boolean
@@ -646,15 +662,23 @@ export type Database = {
           price_with_vat?: number
           show_vat?: boolean
           status?: Database["public"]["Enums"]["vehicle_status"]
+          tipcars_airbagy?: number | null
+          tipcars_emisni_norma?: string | null
           tipcars_export_enabled?: boolean | null
+          tipcars_garantovany_najezd?: boolean | null
           tipcars_karoserie_kod?: string | null
           tipcars_karoserie_popis?: string | null
+          tipcars_klimatizace?: string | null
+          tipcars_model_kod?: string | null
           tipcars_nebourane?: boolean | null
           tipcars_pocet_dveri?: number | null
           tipcars_pocet_mist?: number | null
+          tipcars_pohon?: string | null
+          tipcars_prevodovka_pocet?: number | null
           tipcars_prvni_majitel?: boolean | null
           tipcars_servisni_knizka?: boolean | null
           tipcars_stk_do?: string | null
+          tipcars_znacka_kod?: string | null
           transmission?: string
           updated_at?: string
           video_enabled?: boolean

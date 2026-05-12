@@ -78,6 +78,26 @@ function extractModel(name: string): string {
   return name.slice(brand.length).trim() || name;
 }
 
+// TipCars catalog mapping for znacka_model (subset matching the admin form)
+const TIPCARS_MODELS: Record<string, { znacka: string; model: string }> = {
+  AWM: { znacka: "Lancia", model: "Flavia" },
+  AWE: { znacka: "Lancia", model: "Thema" },
+  AWL: { znacka: "Lancia", model: "Voyager" },
+  AWB: { znacka: "Lancia", model: "Delta" },
+  AWA: { znacka: "Lancia", model: "Y" },
+  AWZ: { znacka: "Lancia", model: "Ostatní" },
+  ASW: { znacka: "Chrysler", model: "200" },
+  ASU: { znacka: "Chrysler", model: "300C" },
+  AST: { znacka: "Chrysler", model: "Pacifica" },
+  ASG: { znacka: "Chrysler", model: "Grand Voyager" },
+  ASF: { znacka: "Chrysler", model: "Voyager" },
+  ASS: { znacka: "Chrysler", model: "PT Cruiser" },
+  ASO: { znacka: "Chrysler", model: "Sebring" },
+  ASV: { znacka: "Chrysler", model: "Crossfire" },
+  ASP: { znacka: "Chrysler", model: "Town & Country" },
+  ASZ: { znacka: "Chrysler", model: "Ostatní" },
+};
+
 function buildInzeratXml(
   vehicle: any,
   images: any[],
@@ -115,6 +135,32 @@ function buildInzeratXml(
   if (trans) {
     equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>${trans}</kod>\n\t\t\t\t<popis>aut. převodovka</popis>`);
   }
+  // Klimatizace
+  const klimaMap: Record<string, { kod: string; popis: string }> = {
+    manual: { kod: "32", popis: "klimatizace" },
+    auto: { kod: "33", popis: "automatická klimatizace" },
+    dual: { kod: "34", popis: "dvouzónová klimatizace" },
+    tri: { kod: "35", popis: "tříznová klimatizace" },
+  };
+  const klima = klimaMap[(vehicle.tipcars_klimatizace || "").toLowerCase()];
+  if (klima) {
+    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>${klima.kod}</kod>\n\t\t\t\t<popis>${klima.popis}</popis>`);
+  }
+  // Pohon 4×4
+  if ((vehicle.tipcars_pohon || "").toUpperCase() === "AWD") {
+    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>20</kod>\n\t\t\t\t<popis>pohon 4x4</popis>`);
+  }
+  // Airbagy
+  if (vehicle.tipcars_airbagy && vehicle.tipcars_airbagy > 0) {
+    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>10</kod>\n\t\t\t\t<popis>airbagy: ${vehicle.tipcars_airbagy}</popis>`);
+  }
+  // Emisní norma
+  if (vehicle.tipcars_emisni_norma) {
+    equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>EN</kod>\n\t\t\t\t<popis>${escapeXml(vehicle.tipcars_emisni_norma)}</popis>`);
+  }
+
+  const modelKod = vehicle.tipcars_model_kod || "AWM";
+  const modelInfo = TIPCARS_MODELS[modelKod] || { znacka: "Lancia", model: "Flavia" };
 
   const xml = `\t<inzerat>
 \t\t<cislo_inzeratu>${cislo}</cislo_inzeratu>
@@ -129,9 +175,9 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t\t<popis>Osobní</popis>
 \t\t</skupina>
 \t\t<znacka_model>
-\t\t\t<kod></kod>
-\t\t\t<popis_znacka>Lancia</popis_znacka>
-\t\t\t<popis_model>Flavia</popis_model>
+\t\t\t<kod>${escapeXml(modelKod)}</kod>
+\t\t\t<popis_znacka>${escapeXml(modelInfo.znacka)}</popis_znacka>
+\t\t\t<popis_model>${escapeXml(modelInfo.model)}</popis_model>
 \t\t</znacka_model>
 \t\t<karoserie>
 \t\t\t<kod>${escapeXml(vehicle.tipcars_karoserie_kod || "")}</kod>

@@ -434,7 +434,8 @@ Deno.serve(async (req) => {
       sftp_user,
       sftp_password,
       use_sftp,
-      test_mode = false,
+      test_mode,
+      dry_run = false,
       use_settings = false,
     } = body;
 
@@ -443,16 +444,39 @@ Deno.serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,
     );
 
-    // Optionally load credentials & defaults from tipcars_settings table
+    // Optionally load credentials & defaults from tipcars_settings table.
+    // The `test_mode` flag chooses between the TEST credential set (sftp_*, kod_firmy, heslo)
+    // and the LIVE credential set (live_sftp_*, live_kod_firmy, live_heslo).
     if (use_settings) {
       const { data: s } = await supabase.from("tipcars_settings").select("*").limit(1).maybeSingle();
       if (s) {
-        tipcars_kod_firmy = tipcars_kod_firmy || s.kod_firmy;
-        tipcars_heslo = tipcars_heslo || s.heslo;
-        sftp_host = sftp_host || s.sftp_host;
-        sftp_port = sftp_port || s.sftp_port;
-        sftp_user = sftp_user || s.sftp_user;
-        sftp_password = sftp_password || s.sftp_password;
+        // Resolve which environment to use
+        if (test_mode === undefined) test_mode = s.test_mode;
+        const useLive = !test_mode;
+
+        if (useLive) {
+          tipcars_kod_firmy = tipcars_kod_firmy || s.live_kod_firmy;
+          tipcars_heslo = tipcars_heslo || s.live_heslo;
+          sftp_host = sftp_host || s.live_sftp_host;
+          sftp_port = sftp_port || s.live_sftp_port;
+          sftp_user = sftp_user || s.live_sftp_user;
+          sftp_password = sftp_password || s.live_sftp_password;
+
+          if (!tipcars_kod_firmy || !sftp_host || !sftp_user || !sftp_password) {
+            return new Response(JSON.stringify({
+              success: false,
+              error: "Pro OSTRÝ provoz nejsou vyplněny přihlašovací údaje (live_*). Doplň je v admin → TipCars → OSTRÝ provoz, nebo přepni na TEST.",
+            }), { status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+          }
+        } else {
+          tipcars_kod_firmy = tipcars_kod_firmy || s.kod_firmy;
+          tipcars_heslo = tipcars_heslo || s.heslo;
+          sftp_host = sftp_host || s.sftp_host;
+          sftp_port = sftp_port || s.sftp_port;
+          sftp_user = sftp_user || s.sftp_user;
+          sftp_password = sftp_password || s.sftp_password;
+        }
+
         firma_nazev = firma_nazev || s.firma_nazev;
         firma_info = {
           ulice: firma_info.ulice || s.firma_ulice,
@@ -464,13 +488,14 @@ Deno.serve(async (req) => {
         };
         // Default to plain FTP — ssh2-sftp-client is incompatible with Deno
         if (use_sftp === undefined) use_sftp = false;
-        if (test_mode === undefined) test_mode = s.test_mode;
         // Mirror SFTP creds onto FTP fields so plain FTP path uses the configured host
-        ftp_host = ftp_host || s.sftp_host;
-        ftp_user = ftp_user || s.sftp_user;
-        ftp_password = ftp_password || s.sftp_password;
+        ftp_host = ftp_host || sftp_host;
+        ftp_user = ftp_user || sftp_user;
+        ftp_password = ftp_password || sftp_password;
       }
     }
+
+    if (test_mode === undefined) test_mode = false;
 
     firma_nazev = firma_nazev || "Chrysler Pardubice";
     ftp_host = ftp_host || "ftp.tipcars.com";

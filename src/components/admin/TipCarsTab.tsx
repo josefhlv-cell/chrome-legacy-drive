@@ -10,12 +10,21 @@ import { useVehicles, type DbVehicle } from "@/hooks/useVehicles";
 
 type Settings = {
   id?: string;
+  // TEST environment (currently provided by TipCars for testing)
   kod_firmy: string;
   heslo: string;
   sftp_host: string;
   sftp_port: number;
   sftp_user: string;
   sftp_password: string;
+  // LIVE environment (production credentials — supplied later by TipCars)
+  live_kod_firmy: string;
+  live_heslo: string;
+  live_sftp_host: string;
+  live_sftp_port: number;
+  live_sftp_user: string;
+  live_sftp_password: string;
+  // Company info
   firma_nazev: string;
   firma_email: string | null;
   firma_telefon: string | null;
@@ -23,8 +32,9 @@ type Settings = {
   firma_ulice: string | null;
   firma_psc: string | null;
   firma_mesto: string | null;
+  // Automation
   auto_export_enabled: boolean;
-  test_mode: boolean;
+  test_mode: boolean; // true = use TEST creds, false = use LIVE creds
   cron_schedule: string;
   cron_timezone: string;
   last_auto_run_at: string | null;

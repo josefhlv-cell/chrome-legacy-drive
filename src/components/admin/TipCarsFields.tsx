@@ -1,4 +1,6 @@
+import { useEffect } from "react";
 import { Send, Lock } from "lucide-react";
+import { detectTipCarsCode } from "@/lib/tipcarsCodebook";
 
 // Karoserie codes from TipCars CiselnikyXmlImport
 const KAROSERIE_OPTIONS: { kod: string; popis: string }[] = [
@@ -18,9 +20,8 @@ const KAROSERIE_OPTIONS: { kod: string; popis: string }[] = [
   { kod: "X", popis: "Ostatní" },
 ];
 
-// TipCars confirmed this import must always use their codebook value:
-// značka Lancia (AW), model Flavia (AWM). Admin cannot override it.
-const FORCED_TIPCARS_MODEL = { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" } as const;
+// Značka & model se odvozuje automaticky z názvu vozu podle TipCars číselníku
+// (CiselnikyXmlImport.xml). Admin nemusí nic vybírat — sleduje to název.
 
 // Emission norms (Euro 1–6)
 const EMISNI_OPTIONS = ["", "Euro 1", "Euro 2", "Euro 3", "Euro 4", "Euro 5", "Euro 6", "Euro 6d"];
@@ -102,7 +103,18 @@ export default function TipCarsFields({ data, mirrored, onChange }: Props) {
         : m.price_with_vat
       : 0;
 
-  const selectedModel = FORCED_TIPCARS_MODEL;
+  const detected = detectTipCarsCode(m.name);
+  const selectedModel = detected ?? { znacka_kod: "", znacka: "—", model_kod: "", model: "Nerozpoznáno (uveď značku v názvu)" };
+
+  // Synchronizuj odvozenou značku/model do formData, aby se uložily do DB při Save
+  useEffect(() => {
+    if (!detected) return;
+    if (data.tipcars_znacka_kod !== detected.znacka_kod || data.tipcars_model_kod !== detected.model_kod) {
+      onChange({ tipcars_znacka_kod: detected.znacka_kod, tipcars_model_kod: detected.model_kod });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [detected?.znacka_kod, detected?.model_kod]);
+
 
   return (
     <div className="sm:col-span-2 lg:col-span-3 mt-4 p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5">

@@ -78,14 +78,51 @@ function extractModel(name: string): string {
   return name.slice(brand.length).trim() || name;
 }
 
-// TipCars requires znacka_model to use the model code from their current codebook.
-// For this showroom every exported car must be sent as: značka Lancia / model Flavia.
-const FORCED_TIPCARS_MODEL = {
-  znackaKod: "AW",
-  modelKod: "AWM",
-  znacka: "Lancia",
-  model: "Flavia",
-} as const;
+// TipCars vyžaduje, aby <znacka_model> obsahoval kód značky a modelu z aktuálního
+// CiselnikyXmlImport.xml. Mapujeme z názvu vozu — viz src/lib/tipcarsCodebook.ts.
+type TipCarsCode = { znacka_kod: string; znacka: string; model_kod: string; model: string };
+
+const TIPCARS_MAP: Array<{ keywords: string[]; code: TipCarsCode }> = [
+  { keywords: ["pacifica"],      code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "AST", model: "Pacifica" } },
+  { keywords: ["grand voyager"], code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASG", model: "Grand Voyager" } },
+  { keywords: ["grand caravan"], code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRL", model: "Grand Caravan" } },
+  { keywords: ["town"],          code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASP", model: "Town & Country" } },
+  { keywords: ["300c", "300 c"], code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASU", model: "300C" } },
+  { keywords: ["300m"],          code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASJ", model: "300M" } },
+  { keywords: ["voyager"],       code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASF", model: "Voyager" } },
+  { keywords: ["sebring"],       code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASO", model: "Sebring" } },
+  { keywords: ["crossfire"],     code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASV", model: "Crossfire" } },
+  { keywords: ["pt cruiser"],    code: { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASS", model: "PT Cruiser" } },
+  { keywords: ["challenger"],    code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRT", model: "Challenger" } },
+  { keywords: ["charger"],       code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRU", model: "Charger" } },
+  { keywords: ["durango"],       code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRG", model: "Durango" } },
+  { keywords: ["ram 1500"],      code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CR0", model: "RAM 1500" } },
+  { keywords: ["ram"],           code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRF", model: "RAM" } },
+  { keywords: ["caravan"],       code: { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRE", model: "Caravan" } },
+  { keywords: ["flavia"],        code: { znacka_kod: "AW", znacka: "Lancia",   model_kod: "AWM", model: "Flavia" } },
+  { keywords: ["thema"],         code: { znacka_kod: "AW", znacka: "Lancia",   model_kod: "AWE", model: "Thema" } },
+  { keywords: ["delta"],         code: { znacka_kod: "AW", znacka: "Lancia",   model_kod: "AWB", model: "Delta" } },
+];
+
+function detectTipCarsCode(name: string): TipCarsCode {
+  const lower = (name || "").toLowerCase();
+  let best: { idx: number; code: TipCarsCode } | null = null;
+  for (const e of TIPCARS_MAP) {
+    for (const kw of e.keywords) {
+      const i = lower.indexOf(kw);
+      if (i >= 0 && (!best || i < best.idx)) best = { idx: i, code: e.code };
+    }
+  }
+  if (best) {
+    if (best.code.model.toLowerCase() === "voyager" && lower.includes("lancia"))
+      return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWL", model: "Voyager" };
+    return best.code;
+  }
+  if (lower.includes("chrysler")) return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASZ", model: "Ostatní" };
+  if (lower.includes("dodge"))    return { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRZ", model: "Ostatní" };
+  if (lower.includes("lancia"))   return { znacka_kod: "AW", znacka: "Lancia",   model_kod: "AWZ", model: "Ostatní" };
+  return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" };
+}
 
 function buildInzeratXml(
   vehicle: any,
@@ -124,8 +161,8 @@ function buildInzeratXml(
   // Posting unverified codes ("32", "EN", etc.) is what causes TipCars to reject the batch.
   const equipmentItems: string[] = [];
 
-  const modelKod = FORCED_TIPCARS_MODEL.modelKod;
-  const modelInfo = FORCED_TIPCARS_MODEL;
+  const modelInfo = detectTipCarsCode(vehicle.name || "");
+  const modelKod = modelInfo.model_kod;
 
   // Cap cislo_inzeratu at 6999 per spec (4.65: range changed from 0001-9999 to 0001-6999)
   const safeAdNumber = ((adNumber - 1) % 6999) + 1;

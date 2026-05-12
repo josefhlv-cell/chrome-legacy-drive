@@ -161,8 +161,8 @@ function buildInzeratXml(
   // Posting unverified codes ("32", "EN", etc.) is what causes TipCars to reject the batch.
   const equipmentItems: string[] = [];
 
-  const modelKod = FORCED_TIPCARS_MODEL.modelKod;
-  const modelInfo = FORCED_TIPCARS_MODEL;
+  const modelInfo = detectTipCarsCode(vehicle.name || "");
+  const modelKod = modelInfo.model_kod;
 
   // Cap cislo_inzeratu at 6999 per spec (4.65: range changed from 0001-9999 to 0001-6999)
   const safeAdNumber = ((adNumber - 1) % 6999) + 1;

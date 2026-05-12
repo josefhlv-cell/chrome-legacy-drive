@@ -372,6 +372,12 @@ export type Database = {
           id: string
           kod_firmy: string
           last_auto_run_at: string | null
+          live_heslo: string
+          live_kod_firmy: string
+          live_sftp_host: string
+          live_sftp_password: string
+          live_sftp_port: number
+          live_sftp_user: string
           sftp_host: string
           sftp_password: string
           sftp_port: number
@@ -395,6 +401,12 @@ export type Database = {
           id?: string
           kod_firmy?: string
           last_auto_run_at?: string | null
+          live_heslo?: string
+          live_kod_firmy?: string
+          live_sftp_host?: string
+          live_sftp_password?: string
+          live_sftp_port?: number
+          live_sftp_user?: string
           sftp_host?: string
           sftp_password?: string
           sftp_port?: number
@@ -418,6 +430,12 @@ export type Database = {
           id?: string
           kod_firmy?: string
           last_auto_run_at?: string | null
+          live_heslo?: string
+          live_kod_firmy?: string
+          live_sftp_host?: string
+          live_sftp_password?: string
+          live_sftp_port?: number
+          live_sftp_user?: string
           sftp_host?: string
           sftp_password?: string
           sftp_port?: number

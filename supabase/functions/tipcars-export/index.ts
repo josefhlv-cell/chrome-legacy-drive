@@ -130,8 +130,8 @@ ${vehicle.vin ? `\t\t<vin>${escapeXml(vehicle.vin)}</vin>\n\t\t<vin_verejny>A</v
 \t\t</skupina>
 \t\t<znacka_model>
 \t\t\t<kod></kod>
-\t\t\t<popis_znacka>${escapeXml(extractBrand(vehicle.name))}</popis_znacka>
-\t\t\t<popis_model>${escapeXml(extractModel(vehicle.name))}</popis_model>
+\t\t\t<popis_znacka>Lancia</popis_znacka>
+\t\t\t<popis_model>Flavia</popis_model>
 \t\t</znacka_model>
 \t\t<karoserie>
 \t\t\t<kod>${escapeXml(vehicle.tipcars_karoserie_kod || "")}</kod>

@@ -162,7 +162,7 @@ export default function TipCarsTab() {
     setLastResult(null);
     try {
       const { data, error } = await supabase.functions.invoke("tipcars-export", {
-        body: { vehicle_ids: ids, use_settings: true, use_sftp: true, test_mode: mode === "test" },
+        body: { vehicle_ids: ids, use_settings: true, use_sftp: false, test_mode: mode === "test" },
       });
       if (error) throw error;
       setLastResult(data);

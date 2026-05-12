@@ -245,12 +245,15 @@ function buildFullXml(
   heslo: string,
   firmaNazev: string,
   firmaInfo: { ulice?: string; psc?: string; mesto?: string; telefon?: string; email?: string; www?: string },
-  inzeraty: string[]
+  inzeraty: string[],
+  testMode: boolean
 ): string {
+  // Per TipCars docs: <test> with any non-empty value marks the batch as TEST
+  // (data is validated but NOT published). Empty = production publish.
   return `<?xml version="1.0" encoding="UTF-8" ?>
 <tipcars xmlns:xs="http://www.w3.org/2001/XMLSchema">
 \t<firma>
-\t\t<test></test>
+\t\t<test>${testMode ? "A" : ""}</test>
 \t\t<kod_firmy>${escapeXml(kodFirmy)}</kod_firmy>
 \t\t<heslo>${escapeXml(heslo)}</heslo>
 \t\t<jazyk>C</jazyk>
@@ -619,7 +622,7 @@ Deno.serve(async (req) => {
     }
 
     const xmlContent = buildFullXml(
-      tipcars_kod_firmy, tipcars_heslo, firma_nazev, firma_info, allInzeratyXml,
+      tipcars_kod_firmy, tipcars_heslo, firma_nazev, firma_info, allInzeratyXml, !!test_mode,
     );
 
     // ─── Validate XML ───

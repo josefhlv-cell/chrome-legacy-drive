@@ -161,27 +161,33 @@ export default function TipCarsTab() {
     }
   };
 
-  // Run export (test or live) for selected vehicles
-  const runExport = async (mode: "test" | "live") => {
+  // Run export. mode "test" = TEST creds + upload; "live" = LIVE creds + upload; "dry" = current env, only XML validation
+  const [dryRunning, setDryRunning] = useState(false);
+  const runExport = async (mode: "test" | "live" | "dry") => {
     const ids = selectedIds.length > 0 ? selectedIds : eligibleVehicles.map((v) => v.id);
     if (ids.length === 0) {
       toast({ title: "Žádná vozidla", description: "Vyber alespoň jedno vozidlo.", variant: "destructive" });
       return;
     }
-    if (mode === "test") setTestRunning(true); else setLiveRunning(true);
+    if (mode === "test") setTestRunning(true);
+    else if (mode === "live") setLiveRunning(true);
+    else setDryRunning(true);
     setLastResult(null);
     try {
+      const test_mode = mode === "live" ? false : true; // dry follows test creds by default
+      const dry_run = mode === "dry";
       const { data, error } = await supabase.functions.invoke("tipcars-export", {
-        body: { vehicle_ids: ids, use_settings: true, use_sftp: false, test_mode: mode === "test" },
+        body: { vehicle_ids: ids, use_settings: true, use_sftp: false, test_mode, dry_run },
       });
       if (error) throw error;
       setLastResult(data);
+      const envLabel = data?.env === "live" ? "OSTRÝ" : "TEST";
       toast({
-        title: mode === "test" ? "Test dokončen" : "Export dokončen",
+        title: dry_run ? `Validace XML (${envLabel})` : (mode === "test" ? `TEST upload (${envLabel})` : `OSTRÝ upload`),
         description: data?.success
-          ? mode === "test"
+          ? dry_run
             ? `XML OK · ${data.vehicles_count} voz · ${data.photos_count} foto`
-            : `SFTP: ${data.ftp_uploaded ? "OK" : "FAIL"} · ${data.zip_filename}`
+            : `FTP: ${data.ftp_uploaded ? "OK" : "FAIL"} → ${data.ftp_host} · ${data.zip_filename}`
           : data?.error || "Neznámá chyba",
         variant: data?.success ? "default" : "destructive",
       });
@@ -192,6 +198,7 @@ export default function TipCarsTab() {
     } finally {
       setTestRunning(false);
       setLiveRunning(false);
+      setDryRunning(false);
     }
   };
 

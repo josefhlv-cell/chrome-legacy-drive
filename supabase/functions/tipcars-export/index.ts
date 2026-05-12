@@ -499,9 +499,15 @@ Deno.serve(async (req) => {
     if (use_settings) {
       const { data: s } = await supabase.from("tipcars_settings").select("*").limit(1).maybeSingle();
       if (s) {
-        // Resolve which environment to use
-        if (test_mode === undefined) test_mode = s.test_mode;
+        // SAFETY LOCK: if test_mode_locked is on, force test_mode = true regardless of caller intent.
+        // This prevents accidental LIVE publishing while TipCars hasn't approved the production import.
+        if ((s as any).test_mode_locked) {
+          test_mode = true;
+        } else if (test_mode === undefined) {
+          test_mode = s.test_mode;
+        }
         const useLive = !test_mode;
+
 
         if (useLive) {
           tipcars_kod_firmy = tipcars_kod_firmy || s.live_kod_firmy;

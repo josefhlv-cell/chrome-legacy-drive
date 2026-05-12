@@ -78,25 +78,14 @@ function extractModel(name: string): string {
   return name.slice(brand.length).trim() || name;
 }
 
-// TipCars catalog mapping for znacka_model (subset matching the admin form)
-const TIPCARS_MODELS: Record<string, { znacka: string; model: string }> = {
-  AWM: { znacka: "Lancia", model: "Flavia" },
-  AWE: { znacka: "Lancia", model: "Thema" },
-  AWL: { znacka: "Lancia", model: "Voyager" },
-  AWB: { znacka: "Lancia", model: "Delta" },
-  AWA: { znacka: "Lancia", model: "Y" },
-  AWZ: { znacka: "Lancia", model: "Ostatní" },
-  ASW: { znacka: "Chrysler", model: "200" },
-  ASU: { znacka: "Chrysler", model: "300C" },
-  AST: { znacka: "Chrysler", model: "Pacifica" },
-  ASG: { znacka: "Chrysler", model: "Grand Voyager" },
-  ASF: { znacka: "Chrysler", model: "Voyager" },
-  ASS: { znacka: "Chrysler", model: "PT Cruiser" },
-  ASO: { znacka: "Chrysler", model: "Sebring" },
-  ASV: { znacka: "Chrysler", model: "Crossfire" },
-  ASP: { znacka: "Chrysler", model: "Town & Country" },
-  ASZ: { znacka: "Chrysler", model: "Ostatní" },
-};
+// TipCars requires znacka_model to use the model code from their current codebook.
+// For this showroom every exported car must be sent as: značka Lancia / model Flavia.
+const FORCED_TIPCARS_MODEL = {
+  znackaKod: "AW",
+  modelKod: "AWM",
+  znacka: "Lancia",
+  model: "Flavia",
+} as const;
 
 function buildInzeratXml(
   vehicle: any,
@@ -159,8 +148,8 @@ function buildInzeratXml(
     equipmentItems.push(`\t\t\t\t<typ>E</typ>\n\t\t\t\t<kod>EN</kod>\n\t\t\t\t<popis>${escapeXml(vehicle.tipcars_emisni_norma)}</popis>`);
   }
 
-  const modelKod = vehicle.tipcars_model_kod || "AWM";
-  const modelInfo = TIPCARS_MODELS[modelKod] || { znacka: "Lancia", model: "Flavia" };
+  const modelKod = FORCED_TIPCARS_MODEL.modelKod;
+  const modelInfo = FORCED_TIPCARS_MODEL;
 
   const xml = `\t<inzerat>
 \t\t<cislo_inzeratu>${cislo}</cislo_inzeratu>

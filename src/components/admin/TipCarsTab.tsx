@@ -240,11 +240,59 @@ export default function TipCarsTab() {
         </div>
       </motion.div>
 
-      {/* Settings */}
+      {/* Mode switch */}
       <div className="deep-card p-6">
+        <div className="flex items-center gap-2 mb-3">
+          <Server className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-bold uppercase tracking-wider">Aktivní prostředí (TEST / OSTRÝ)</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          TipCars zatím povolil pouze testovací odesílání. Po schválení dostaneš nové přihlašovací údaje pro ostrý provoz — vyplň je dole v sekci „OSTRÝ provoz" a teprve pak přepni přepínač na OSTRÝ.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => set({ test_mode: true })}
+            className={`p-4 rounded-lg border text-left transition ${settings.test_mode ? "border-amber-500/60 bg-amber-500/10" : "border-border bg-secondary/40 hover:border-amber-500/40"}`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-bold uppercase tracking-wider text-amber-300">TEST</span>
+              {settings.test_mode && <CheckCircle2 className="w-4 h-4 text-amber-300" />}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Posílá data na testovací server TipCars (<code>{settings.sftp_host || "—"}</code>) přihlašovacími údaji ze sekce „TEST prostředí".
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => set({ test_mode: false })}
+            className={`p-4 rounded-lg border text-left transition ${!settings.test_mode ? "border-emerald-500/60 bg-emerald-500/10" : "border-border bg-secondary/40 hover:border-emerald-500/40"}`}
+          >
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-sm font-bold uppercase tracking-wider text-emerald-300">OSTRÝ</span>
+              {!settings.test_mode && <CheckCircle2 className="w-4 h-4 text-emerald-300" />}
+            </div>
+            <p className="text-xs text-muted-foreground">
+              Posílá inzeráty na produkční server TipCars (<code>{settings.live_sftp_host || "— nevyplněno —"}</code>) přihlašovacími údaji ze sekce „OSTRÝ provoz".
+            </p>
+          </button>
+        </div>
+
+        <div className="mt-4">
+          <ToggleRow
+            label="Automatický denní export na TipCars"
+            desc="Pokud je vypnuto, plánovaný cron job se nespustí. Cron používá aktivní prostředí (TEST/OSTRÝ) zvolené výše."
+            value={settings.auto_export_enabled}
+            onChange={(b) => set({ auto_export_enabled: b })}
+          />
+        </div>
+      </div>
+
+      {/* TEST environment */}
+      <div className="deep-card p-6 border-amber-500/30">
         <div className="flex items-center gap-2 mb-4">
-          <SettingsIcon className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold uppercase tracking-wider">Nastavení & SFTP</h3>
+          <Bug className="w-4 h-4 text-amber-300" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-amber-300">TEST prostředí (aktuálně schválené TipCars)</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <Field label="Kód firmy (TipCars)" value={settings.kod_firmy} onChange={(v) => set({ kod_firmy: v })} />
@@ -253,7 +301,35 @@ export default function TipCarsTab() {
           <Field label="SFTP port" type="number" value={String(settings.sftp_port)} onChange={(v) => set({ sftp_port: Number(v) || 22 })} />
           <Field label="SFTP user" value={settings.sftp_user} onChange={(v) => set({ sftp_user: v })} />
           <Field label="SFTP password" type="password" value={settings.sftp_password} onChange={(v) => set({ sftp_password: v })} />
+        </div>
+      </div>
 
+      {/* LIVE environment */}
+      <div className="deep-card p-6 border-emerald-500/30">
+        <div className="flex items-center gap-2 mb-2">
+          <Server className="w-4 h-4 text-emerald-300" />
+          <h3 className="text-sm font-bold uppercase tracking-wider text-emerald-300">OSTRÝ provoz (produkce)</h3>
+        </div>
+        <p className="text-xs text-muted-foreground mb-4">
+          Pole vyplň, až ti TipCars pošle produkční přístupy. Do té doby nech přepínač nahoře na <strong>TEST</strong>.
+        </p>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+          <Field label="Kód firmy (LIVE)" value={settings.live_kod_firmy} onChange={(v) => set({ live_kod_firmy: v })} />
+          <Field label="Heslo (LIVE)" value={settings.live_heslo} onChange={(v) => set({ live_heslo: v })} type="password" />
+          <Field label="SFTP host (LIVE)" value={settings.live_sftp_host} onChange={(v) => set({ live_sftp_host: v })} />
+          <Field label="SFTP port (LIVE)" type="number" value={String(settings.live_sftp_port)} onChange={(v) => set({ live_sftp_port: Number(v) || 22 })} />
+          <Field label="SFTP user (LIVE)" value={settings.live_sftp_user} onChange={(v) => set({ live_sftp_user: v })} />
+          <Field label="SFTP password (LIVE)" type="password" value={settings.live_sftp_password} onChange={(v) => set({ live_sftp_password: v })} />
+        </div>
+      </div>
+
+      {/* Company info */}
+      <div className="deep-card p-6">
+        <div className="flex items-center gap-2 mb-4">
+          <SettingsIcon className="w-4 h-4 text-primary" />
+          <h3 className="text-sm font-bold uppercase tracking-wider">Údaje o firmě (společné pro oba režimy)</h3>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
           <Field label="Firma — název" value={settings.firma_nazev} onChange={(v) => set({ firma_nazev: v })} />
           <Field label="Firma — email" value={settings.firma_email || ""} onChange={(v) => set({ firma_email: v })} />
           <Field label="Firma — telefon" value={settings.firma_telefon || ""} onChange={(v) => set({ firma_telefon: v })} />
@@ -262,24 +338,11 @@ export default function TipCarsTab() {
           <Field label="PSČ" value={settings.firma_psc || ""} onChange={(v) => set({ firma_psc: v })} />
           <Field label="Město" value={settings.firma_mesto || ""} onChange={(v) => set({ firma_mesto: v })} />
         </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mt-4">
-          <ToggleRow
-            label="Automatický denní export na TipCars"
-            desc="Pokud je vypnuto, plánovaný cron job se nespustí."
-            value={settings.auto_export_enabled}
-            onChange={(b) => set({ auto_export_enabled: b })}
-          />
-          <ToggleRow
-            label="Test mode (negenerovat ZIP, neodesílat na SFTP)"
-            desc="Pouze sestaví a zvaliduje XML — bezpečné pro ladění."
-            value={settings.test_mode}
-            onChange={(b) => set({ test_mode: b })}
-          />
-        </div>
-
-        {/* Schedule */}
-        <div className="mt-6 p-4 rounded-lg border border-primary/20 bg-primary/5">
+      {/* Schedule */}
+      <div className="deep-card p-6">
+        <div className="mt-0 p-4 rounded-lg border border-primary/20 bg-primary/5">
           <div className="flex items-center gap-2 mb-3">
             <Calendar className="w-4 h-4 text-primary" />
             <h4 className="text-sm font-bold uppercase tracking-wider">Plán automatického exportu</h4>

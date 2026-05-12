@@ -35,6 +35,7 @@ type Settings = {
   // Automation
   auto_export_enabled: boolean;
   test_mode: boolean; // true = use TEST creds, false = use LIVE creds
+  test_mode_locked: boolean; // hard lock — server-side enforced safety against accidental LIVE
   cron_schedule: string;
   cron_timezone: string;
   last_auto_run_at: string | null;
@@ -265,11 +266,13 @@ export default function TipCarsTab() {
           </button>
           <button
             type="button"
-            onClick={() => set({ test_mode: false })}
-            className={`p-4 rounded-lg border text-left transition ${!settings.test_mode ? "border-emerald-500/60 bg-emerald-500/10" : "border-border bg-secondary/40 hover:border-emerald-500/40"}`}
+            disabled={settings.test_mode_locked}
+            onClick={() => !settings.test_mode_locked && set({ test_mode: false })}
+            title={settings.test_mode_locked ? "Zámek TEST režimu je aktivní — odemkni ho dole." : undefined}
+            className={`p-4 rounded-lg border text-left transition ${!settings.test_mode ? "border-emerald-500/60 bg-emerald-500/10" : "border-border bg-secondary/40 hover:border-emerald-500/40"} ${settings.test_mode_locked ? "opacity-50 cursor-not-allowed" : ""}`}
           >
             <div className="flex items-center justify-between mb-1">
-              <span className="text-sm font-bold uppercase tracking-wider text-emerald-300">OSTRÝ</span>
+              <span className="text-sm font-bold uppercase tracking-wider text-emerald-300">OSTRÝ {settings.test_mode_locked && "🔒"}</span>
               {!settings.test_mode && <CheckCircle2 className="w-4 h-4 text-emerald-300" />}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -277,6 +280,29 @@ export default function TipCarsTab() {
             </p>
           </button>
         </div>
+
+        {/* Safety lock */}
+        <div className={`mt-4 p-3 rounded-lg border ${settings.test_mode_locked ? "border-amber-500/40 bg-amber-500/5" : "border-emerald-500/40 bg-emerald-500/5"}`}>
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={settings.test_mode_locked}
+              onChange={(e) => set({ test_mode_locked: e.target.checked, ...(e.target.checked ? { test_mode: true } : {}) })}
+              className="mt-1"
+            />
+            <div className="flex-1">
+              <div className="text-sm font-bold flex items-center gap-2">
+                {settings.test_mode_locked ? "🔒 Zámek TEST režimu zapnutý" : "🔓 Zámek TEST režimu vypnutý"}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {settings.test_mode_locked
+                  ? "Server vynucuje TEST režim u všech exportů (manuálních i cronových). Nelze přepnout na OSTRÝ ani omylem odeslat ostrá data. Doporučeno nechat zapnuté, dokud TipCars neschválí ostrý import."
+                  : "Pojistka je vypnutá. Můžeš ručně přepnout na OSTRÝ a odeslat živá data — používej jen po schválení od TipCars."}
+              </p>
+            </div>
+          </label>
+        </div>
+
 
         <div className="mt-4">
           <ToggleRow
@@ -517,12 +543,12 @@ export default function TipCarsTab() {
           </button>
           <button
             onClick={() => runExport("live")}
-            disabled={testRunning || liveRunning || dryRunning || !settings.live_sftp_host || !settings.live_sftp_user}
-            title={!settings.live_sftp_host ? "Nejprve vyplň přístupové údaje pro OSTRÝ provoz." : undefined}
+            disabled={testRunning || liveRunning || dryRunning || !settings.live_sftp_host || !settings.live_sftp_user || settings.test_mode_locked}
+            title={settings.test_mode_locked ? 'Zámek TEST režimu je aktivní — odemkni ho v sekci "Aktivní prostředí".' : (!settings.live_sftp_host ? "Nejprve vyplň přístupové údaje pro OSTRÝ provoz." : undefined)}
             className="chrome-button inline-flex items-center gap-2"
           >
             {liveRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Server className="w-4 h-4" />}
-            Odeslat na OSTRÝ server
+            Odeslat na OSTRÝ server {settings.test_mode_locked && "🔒"}
           </button>
         </div>
 

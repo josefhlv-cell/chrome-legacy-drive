@@ -383,6 +383,7 @@ export type Database = {
           sftp_port: number
           sftp_user: string
           test_mode: boolean
+          test_mode_locked: boolean
           updated_at: string
         }
         Insert: {
@@ -412,6 +413,7 @@ export type Database = {
           sftp_port?: number
           sftp_user?: string
           test_mode?: boolean
+          test_mode_locked?: boolean
           updated_at?: string
         }
         Update: {
@@ -441,6 +443,7 @@ export type Database = {
           sftp_port?: number
           sftp_user?: string
           test_mode?: boolean
+          test_mode_locked?: boolean
           updated_at?: string
         }
         Relationships: []

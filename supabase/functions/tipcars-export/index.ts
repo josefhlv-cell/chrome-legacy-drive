@@ -591,14 +591,15 @@ Deno.serve(async (req) => {
     console.log(`[TipCars] XML OK, ${vehicles.length} vehicles, ${photosDownloaded} photos, hash=${payloadHash.slice(0, 12)}`);
 
     // Test mode: stop here
-    if (test_mode) {
+    // Dry run: stop after building/validating XML, do not ZIP or upload
+    if (dry_run) {
       await logExport(supabase, {
         portal: "tipcars", operation: "export", level: "info",
-        message: `TEST MODE OK — XML valid, ${vehicles.length} vehicles, ${photosDownloaded} photos`,
-        context: { xml_size: xmlContent.length, payload_hash: payloadHash },
+        message: `DRY RUN OK — XML valid, ${vehicles.length} vehicles, ${photosDownloaded} photos (${test_mode ? "TEST" : "LIVE"})`,
+        context: { xml_size: xmlContent.length, payload_hash: payloadHash, test_mode },
       });
       return new Response(JSON.stringify({
-        success: true, test_mode: true,
+        success: true, dry_run: true, test_mode,
         vehicles_count: vehicles.length, photos_count: photosDownloaded,
         xml_size: xmlContent.length, payload_hash: payloadHash,
         xml_preview: xmlContent.slice(0, 1000),

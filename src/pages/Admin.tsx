@@ -575,7 +575,23 @@ const VehiclesTab = () => {
               </div>
               <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
             </div>
-            <TipCarsFields data={newData as any} onChange={(patch) => setNewData({ ...newData, ...patch } as any)} />
+            <TipCarsFields
+              data={newData as any}
+              mirrored={{
+                name: newData.name,
+                vin: newData.vin,
+                year: newData.year,
+                mileage: newData.mileage,
+                fuel: newData.fuel,
+                color: newData.color,
+                engine: newData.engine,
+                power: newData.power,
+                transmission: newData.transmission,
+                price_with_vat: newData.price_with_vat,
+                show_vat: newData.show_vat,
+              }}
+              onChange={(patch) => setNewData({ ...newData, ...patch } as any)}
+            />
           </div>
           <div className="flex gap-3 mt-4">
             <button onClick={handleCreate} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>

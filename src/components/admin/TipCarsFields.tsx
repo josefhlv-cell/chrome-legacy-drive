@@ -18,27 +18,9 @@ const KAROSERIE_OPTIONS: { kod: string; popis: string }[] = [
   { kod: "X", popis: "Ostatní" },
 ];
 
-// TipCars značka/model codebook (subset that matters for our showroom — Lancia, Chrysler, Dodge)
-const ZNACKA_MODEL_OPTIONS: { znacka_kod: string; znacka: string; model_kod: string; model: string }[] = [
-  // Lancia
-  { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" },
-  { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWE", model: "Thema" },
-  { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWL", model: "Voyager" },
-  { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWB", model: "Delta" },
-  { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWA", model: "Y" },
-  { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWZ", model: "Ostatní" },
-  // Chrysler
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASW", model: "200" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASU", model: "300C" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "AST", model: "Pacifica" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASG", model: "Grand Voyager" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASF", model: "Voyager" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASS", model: "PT Cruiser" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASO", model: "Sebring" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASV", model: "Crossfire" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASP", model: "Town & Country" },
-  { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASZ", model: "Ostatní" },
-];
+// TipCars confirmed this import must always use their codebook value:
+// značka Lancia (AW), model Flavia (AWM). Admin cannot override it.
+const FORCED_TIPCARS_MODEL = { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" } as const;
 
 // Emission norms (Euro 1–6)
 const EMISNI_OPTIONS = ["", "Euro 1", "Euro 2", "Euro 3", "Euro 4", "Euro 5", "Euro 6", "Euro 6d"];
@@ -120,7 +102,7 @@ export default function TipCarsFields({ data, mirrored, onChange }: Props) {
         : m.price_with_vat
       : 0;
 
-  const selectedModel = ZNACKA_MODEL_OPTIONS.find((o) => o.model_kod === (data.tipcars_model_kod || "AWM"));
+  const selectedModel = FORCED_TIPCARS_MODEL;
 
   return (
     <div className="sm:col-span-2 lg:col-span-3 mt-4 p-4 rounded-lg border border-emerald-500/30 bg-emerald-500/5">
@@ -157,20 +139,9 @@ export default function TipCarsFields({ data, mirrored, onChange }: Props) {
           <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">
             Značka / model (číselník TipCars)
           </label>
-          <select
-            value={data.tipcars_model_kod || "AWM"}
-            onChange={(e) => {
-              const opt = ZNACKA_MODEL_OPTIONS.find((o) => o.model_kod === e.target.value);
-              if (opt) onChange({ tipcars_model_kod: opt.model_kod, tipcars_znacka_kod: opt.znacka_kod });
-            }}
-            className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm"
-          >
-            {ZNACKA_MODEL_OPTIONS.map((o) => (
-              <option key={o.model_kod} value={o.model_kod}>
-                {o.znacka} {o.model} ({o.model_kod})
-              </option>
-            ))}
-          </select>
+          <div className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm font-semibold">
+            {selectedModel.znacka} {selectedModel.model} ({selectedModel.model_kod})
+          </div>
           {selectedModel && (
             <p className="mt-1 text-[10px] text-muted-foreground">
               Odešle se: značka <code>{selectedModel.znacka_kod}</code> · model <code>{selectedModel.model_kod}</code>

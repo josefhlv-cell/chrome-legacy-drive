@@ -20,9 +20,8 @@ const KAROSERIE_OPTIONS: { kod: string; popis: string }[] = [
   { kod: "X", popis: "Ostatní" },
 ];
 
-// TipCars confirmed this import must always use their codebook value:
-// značka Lancia (AW), model Flavia (AWM). Admin cannot override it.
-const FORCED_TIPCARS_MODEL = { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" } as const;
+// Značka & model se odvozuje automaticky z názvu vozu podle TipCars číselníku
+// (CiselnikyXmlImport.xml). Admin nemusí nic vybírat — sleduje to název.
 
 // Emission norms (Euro 1–6)
 const EMISNI_OPTIONS = ["", "Euro 1", "Euro 2", "Euro 3", "Euro 4", "Euro 5", "Euro 6", "Euro 6d"];

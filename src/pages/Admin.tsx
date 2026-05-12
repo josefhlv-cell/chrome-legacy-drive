@@ -41,6 +41,7 @@ import BannerManagerTab from "@/components/admin/BannerManagerTab";
 import DashboardTab from "@/components/admin/DashboardTab";
 import TipCarsFields from "@/components/admin/TipCarsFields";
 import TipCarsTab from "@/components/admin/TipCarsTab";
+import RevertButton from "@/components/admin/RevertButton";
 import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";

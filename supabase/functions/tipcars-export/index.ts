@@ -688,6 +688,8 @@ Deno.serve(async (req) => {
 
     return new Response(JSON.stringify({
       success: true,
+      env: test_mode ? "test" : "live",
+      test_mode,
       zip_url: urlData.publicUrl,
       zip_filename: zipFileName,
       vehicles_count: vehicles.length,
@@ -695,6 +697,7 @@ Deno.serve(async (req) => {
       zip_size_mb: (zipped.length / 1024 / 1024).toFixed(2),
       ftp_uploaded: ftpUploaded,
       ftp_attempts: ftpAttempts,
+      ftp_host,
       ftp_message: ftpMessage || (ftp_user ? undefined : "FTP přihlašovací údaje nebyly zadány, ZIP pouze uložen ke stažení"),
       payload_hash: payloadHash,
     }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

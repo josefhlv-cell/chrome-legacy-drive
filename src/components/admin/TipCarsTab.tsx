@@ -489,28 +489,40 @@ export default function TipCarsTab() {
         </p>
       </div>
 
-      {/* Test export */}
+      {/* Run export */}
       <div className="deep-card p-6">
         <div className="flex items-center gap-2 mb-4">
           <PlayCircle className="w-4 h-4 text-primary" />
-          <h3 className="text-sm font-bold uppercase tracking-wider">Spustit export</h3>
+          <h3 className="text-sm font-bold uppercase tracking-wider">Spustit export ručně</h3>
         </div>
+        <p className="text-xs text-muted-foreground mb-3">
+          Tlačítka níže ignorují přepínač nahoře — vždy odešlou na zvolené prostředí.
+        </p>
         <div className="flex flex-wrap gap-2">
           <button
-            onClick={() => runExport("test")}
-            disabled={testRunning || liveRunning}
+            onClick={() => runExport("dry")}
+            disabled={testRunning || liveRunning || dryRunning}
             className="outline-button inline-flex items-center gap-2"
           >
+            {dryRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bug className="w-4 h-4" />}
+            Pouze validace XML (neodesílá)
+          </button>
+          <button
+            onClick={() => runExport("test")}
+            disabled={testRunning || liveRunning || dryRunning}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-md bg-amber-500/15 border border-amber-500/40 text-amber-200 hover:bg-amber-500/25 font-semibold text-sm"
+          >
             {testRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Bug className="w-4 h-4" />}
-            Spustit TEST (jen XML, neodesílá)
+            Odeslat na TEST server
           </button>
           <button
             onClick={() => runExport("live")}
-            disabled={testRunning || liveRunning}
+            disabled={testRunning || liveRunning || dryRunning || !settings.live_sftp_host || !settings.live_sftp_user}
+            title={!settings.live_sftp_host ? "Nejprve vyplň přístupové údaje pro OSTRÝ provoz." : undefined}
             className="chrome-button inline-flex items-center gap-2"
           >
             {liveRunning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Server className="w-4 h-4" />}
-            Spustit LIVE export přes SFTP
+            Odeslat na OSTRÝ server
           </button>
         </div>
 

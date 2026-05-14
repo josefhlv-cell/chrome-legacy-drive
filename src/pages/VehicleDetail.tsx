@@ -18,6 +18,7 @@ const VehicleDetail = () => {
   const [showTimeout, setShowTimeout] = useState(false);
   const [preferredGalleryIndex, setPreferredGalleryIndex] = useState<number | null>(null);
   const [vinCopied, setVinCopied] = useState(false);
+  const [showExtra, setShowExtra] = useState(false);
 
   const handleCopyVin = async (vin: string) => {
     try {

@@ -253,6 +253,54 @@ const VehicleDetail = () => {
                 </a>
               )}
 
+              {(() => {
+                const v: any = vehicle;
+                const pohonMap: Record<string, string> = { FWD: "Přední (FWD)", RWD: "Zadní (RWD)", AWD: "4×4 (AWD)" };
+                const klimaMap: Record<string, string> = { manual: "Manuální", auto: "Automatická", dual: "Dvouzónová", tri: "Tříznová", none: "Žádná" };
+                const rows: { label: string; value: string }[] = [
+                  { label: "Karoserie", value: v.tipcars_karoserie_popis || "" },
+                  { label: "Počet míst", value: v.tipcars_pocet_mist ? String(v.tipcars_pocet_mist) : "" },
+                  { label: "Počet dveří", value: v.tipcars_pocet_dveri ? String(v.tipcars_pocet_dveri) : "" },
+                  { label: "Pohon", value: pohonMap[v.tipcars_pohon] || "" },
+                  { label: "Převodovka (st.)", value: v.tipcars_prevodovka_pocet ? String(v.tipcars_prevodovka_pocet) : "" },
+                  { label: "Klimatizace", value: klimaMap[v.tipcars_klimatizace] || "" },
+                  { label: "Emisní norma", value: v.tipcars_emisni_norma || "" },
+                  { label: "Počet airbagů", value: v.tipcars_airbagy ? String(v.tipcars_airbagy) : "" },
+                  { label: "STK do", value: v.tipcars_stk_do || "" },
+                  { label: "1. majitel", value: v.tipcars_prvni_majitel ? "Ano" : "Ne" },
+                  { label: "Servisní knížka", value: v.tipcars_servisni_knizka ? "Ano" : "Ne" },
+                  { label: "Nebourané", value: v.tipcars_nebourane ? "Ano" : "Ne" },
+                  { label: "Garantovaný nájezd", value: v.tipcars_garantovany_najezd ? "Ano" : "Ne" },
+                ].filter((r) => r.value && r.value !== "");
+                if (rows.length === 0) return null;
+                return (
+                  <div className="mt-6">
+                    <button
+                      type="button"
+                      onClick={() => setShowExtra((s) => !s)}
+                      className="w-full flex items-center justify-between gap-2 px-4 py-2.5 rounded-md border border-border/60 bg-secondary/40 hover:bg-secondary/60 text-sm font-medium text-foreground/90 transition-colors"
+                      aria-expanded={showExtra}
+                    >
+                      <span className="inline-flex items-center gap-2">
+                        <Info className="w-4 h-4 text-muted-foreground" />
+                        Doplňující informace
+                      </span>
+                      <ChevronDown className={`w-4 h-4 transition-transform ${showExtra ? "rotate-180" : ""}`} />
+                    </button>
+                    {showExtra && (
+                      <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        {rows.map((r) => (
+                          <div key={r.label} className="flex items-center justify-between gap-2 px-3 py-2 rounded-md bg-secondary/30 border border-border/40 text-sm">
+                            <span className="text-xs uppercase tracking-wider text-muted-foreground">{r.label}</span>
+                            <span className="font-medium text-foreground text-right truncate">{r.value}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
+
               <div className="mt-6 flex gap-4">
                 <Link to="/kontakt" className="chrome-button inline-block text-center flex-1">Mám zájem o tento vůz</Link>
               </div>

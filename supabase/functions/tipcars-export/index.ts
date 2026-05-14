@@ -176,7 +176,8 @@ function buildInzeratXml(
   const photoCodes: string[] = [];
   images.forEach((img, i) => {
     const photoNum = i + 1;
-    const fileName = `${kodFirmy}${cislo}_${photoNum}.jpg`;
+    // Per TipCars spec: kod_firmy_cislo_inzeratu_poradi.jpg (s podtržítky mezi všemi částmi)
+    const fileName = `${kodFirmy}_${cislo}_${photoNum}.jpg`;
     photoFiles.push({ name: fileName, url: img.image_url });
     photoCodes.push(String(photoNum));
   });

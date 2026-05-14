@@ -269,7 +269,7 @@ const VehicleDetail = () => {
                   { label: "STK do", value: v.tipcars_stk_do || "" },
                   { label: "1. majitel", value: v.tipcars_prvni_majitel ? "Ano" : "Ne" },
                   { label: "Servisní knížka", value: v.tipcars_servisni_knizka ? "Ano" : "Ne" },
-                  { label: "Nebourané", value: v.tipcars_nebourane ? "Ano" : "Ne" },
+                  
                   { label: "Garantovaný nájezd", value: v.tipcars_garantovany_najezd ? "Ano" : "Ne" },
                 ].filter((r) => r.value && r.value !== "");
                 if (rows.length === 0) return null;

@@ -58,10 +58,24 @@ const emptyVehicle: TablesInsert<"vehicles"> = {
   name: "", year: new Date().getFullYear(), price_with_vat: 0, mileage: 0, vin: "",
   fuel: "Benzín", image_url: "", status: "skladem", show_vat: false,
   carfax_enabled: false, carfax_url: "", lpg_enabled: false, lpg_description: "",
-  video_enabled: false, video_id: "", warranty_enabled: false,
+  video_enabled: false, video_id: "", warranty_enabled: true,
   engine: "", transmission: "", power: "", color: "", description: "",
   inventory_number: "",
-};
+  // TipCars defaults — používají se při vkládání nového vozu
+  tipcars_export_enabled: true,
+  tipcars_karoserie_kod: "M",
+  tipcars_karoserie_popis: "MPV",
+  tipcars_pocet_mist: 7,
+  tipcars_pocet_dveri: 5,
+  tipcars_emisni_norma: "Euro 5",
+  tipcars_pohon: "FWD",
+  tipcars_klimatizace: "auto",
+  tipcars_airbagy: 8,
+  tipcars_prvni_majitel: true,
+  tipcars_servisni_knizka: true,
+  tipcars_nebourane: false,
+  tipcars_garantovany_najezd: true,
+} as TablesInsert<"vehicles">;
 
 type AdminSort = "price-desc" | "price-asc" | "year" | "newest";
 const adminSortOptions: { value: AdminSort; label: string }[] = [

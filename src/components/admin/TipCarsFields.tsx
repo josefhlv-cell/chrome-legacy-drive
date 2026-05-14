@@ -2,22 +2,24 @@ import { useEffect } from "react";
 import { Send, Lock } from "lucide-react";
 import { detectTipCarsCode } from "@/lib/tipcarsCodebook";
 
-// Karoserie codes from TipCars CiselnikyXmlImport
+// Karoserie codes from TipCars CiselnikyXmlImport.xml — skupina A "Osobní".
+// POZOR: kódy jsou case-sensitive a TipCars používá u některých malá písmena!
 const KAROSERIE_OPTIONS: { kod: string; popis: string }[] = [
-  { kod: "", popis: "— Nevybráno —" },
-  { kod: "S", popis: "Sedan" },
-  { kod: "L", popis: "Liftback" },
-  { kod: "H", popis: "Hatchback" },
-  { kod: "K", popis: "Kombi" },
-  { kod: "C", popis: "Coupé" },
-  { kod: "B", popis: "Cabriolet" },
-  { kod: "V", popis: "Van" },
-  { kod: "M", popis: "MPV" },
-  { kod: "U", popis: "SUV" },
-  { kod: "P", popis: "Pickup" },
-  { kod: "O", popis: "Off-road" },
-  { kod: "T", popis: "Terénní" },
-  { kod: "X", popis: "Ostatní" },
+  { kod: "",   popis: "— Nevybráno —" },
+  { kod: "a",  popis: "Hatchback" },
+  { kod: "w",  popis: "Liftback" },
+  { kod: "b",  popis: "Sedan" },
+  { kod: "A",  popis: "Limuzína" },
+  { kod: "C",  popis: "Kabriolet" },
+  { kod: "D",  popis: "Kupé" },
+  { kod: "B",  popis: "Kombi" },
+  { kod: "G",  popis: "VAN" },
+  { kod: "c",  popis: "MPV" },
+  { kod: "d",  popis: "SUV" },
+  { kod: "A1", popis: "CUV" },
+  { kod: "}",  popis: "Pick up" },
+  { kod: "[",  popis: "Terénní" },
+  { kod: "A2", popis: "Minibus" },
 ];
 
 // Značka & model se odvozuje automaticky z názvu vozu podle TipCars číselníku

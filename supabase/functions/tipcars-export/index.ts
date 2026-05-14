@@ -7,35 +7,55 @@ const corsHeaders = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-// ─── Fuel mapping: our DB → TipCars kód ───
+// ─── Fuel mapping: our DB → TipCars kód (CiselnikyXmlImport.xml verze 5.06) ───
+// A=benzin, B=nafta, C=LPG, D=ethanol, E=elektro, F=hybridní-benzin,
+// G=vodík, H=CNG, J=LNG, K=hybridní-nafta
 function mapFuel(fuel: string): { kod: string; popis: string } {
-  const f = fuel.toLowerCase();
-  if (f.includes("nafta") || f.includes("diesel")) return { kod: "B", popis: "nafta" };
+  const f = (fuel || "").toLowerCase();
+  // Hybrid first — text often contains both "ba 95" and "hybrid"
+  if (f.includes("hybrid")) {
+    if (f.includes("nafta") || f.includes("diesel")) return { kod: "K", popis: "hybridní - nafta" };
+    return { kod: "F", popis: "hybridní - benzin" };
+  }
   if (f.includes("lpg")) return { kod: "C", popis: "LPG" };
-  if (f.includes("cng")) return { kod: "D", popis: "CNG" };
-  if (f.includes("elektr") || f.includes("ev") || f.includes("electric")) return { kod: "E", popis: "elektro" };
-  if (f.includes("hybrid")) return { kod: "F", popis: "hybridní" };
-  if (f.includes("ethanol")) return { kod: "G", popis: "ethanol" };
-  if (f.includes("vodík") || f.includes("hydrogen")) return { kod: "H", popis: "vodík" };
-  return { kod: "A", popis: "benzín" };
+  if (f.includes("cng")) return { kod: "H", popis: "CNG" };
+  if (f.includes("lng")) return { kod: "J", popis: "LNG" };
+  if (f.includes("ethanol") || f.includes("e85")) return { kod: "D", popis: "ethanol" };
+  if (f.includes("elektr") || f.includes("electric")) return { kod: "E", popis: "elektro" };
+  if (f.includes("vodík") || f.includes("vodik") || f.includes("hydrogen")) return { kod: "G", popis: "vodík" };
+  if (f.includes("nafta") || f.includes("diesel")) return { kod: "B", popis: "nafta" };
+  return { kod: "A", popis: "benzin" };
 }
 
-// ─── Color mapping ───
+// ─── Color mapping → TipCars BARVA codes ───
+// Detekuje metalízu (suffix M), např. WBM = bílá metalíza.
 function mapColor(color: string): { kod: string; popis: string } {
-  const c = color.toLowerCase();
-  if (c.includes("bíl") || c.includes("bil")) return { kod: "WB", popis: "bílá" };
-  if (c.includes("čern") || c.includes("cern")) return { kod: "AB", popis: "černá" };
-  if (c.includes("šed") || c.includes("sed") || c.includes("grey") || c.includes("gray")) return { kod: "SB", popis: "šedá" };
-  if (c.includes("stříbr") || c.includes("stribr") || c.includes("silver")) return { kod: "SM", popis: "stříbrná" };
-  if (c.includes("modr") || c.includes("blue")) return { kod: "LB", popis: "modrá" };
-  if (c.includes("červen") || c.includes("cerven") || c.includes("red")) return { kod: "RB", popis: "červená" };
-  if (c.includes("zelen") || c.includes("green")) return { kod: "GB", popis: "zelená" };
+  const c = (color || "").toLowerCase();
+  const isMet = c.includes("metalíz") || c.includes("metaliz") || c.includes("perl");
+  const pick = (base: string, label: string): { kod: string; popis: string } => ({
+    kod: isMet ? `${base}M` : base,
+    popis: isMet ? `${label} metalíza` : label,
+  });
+  if (c.includes("bíl") || c.includes("bil") || c.includes("white"))   return pick("WB", "bílá");
+  if (c.includes("čern") || c.includes("cern") || c.includes("black")) return pick("CB", "černá");
+  if (c.includes("stříbr") || c.includes("stribr") || c.includes("silver")) return pick("SB", "stříbrná");
+  if (c.includes("šed") || c.includes("sed") || c.includes("grey") || c.includes("gray")) return pick("EB", "šedá");
+  if (c.includes("tmavě modr") || c.includes("tmave modr") || c.includes("dark blue")) return pick("BD", "tmavě modrá");
+  if (c.includes("světle modr") || c.includes("svetle modr")) return pick("BC", "světle modrá");
+  if (c.includes("modr") || c.includes("blue"))   return pick("BB", "modrá");
+  if (c.includes("tmavě červen") || c.includes("tmave cerven")) return pick("RD", "tmavě červená");
+  if (c.includes("červen") || c.includes("cerven") || c.includes("red")) return pick("RB", "červená");
+  if (c.includes("vínov") || c.includes("vinov"))  return pick("VB", "vínová");
+  if (c.includes("tmavě zelen") || c.includes("tmave zelen")) return pick("GD", "tmavě zelená");
+  if (c.includes("zelen") || c.includes("green"))  return pick("GB", "zelená");
   if (c.includes("žlut") || c.includes("zlut") || c.includes("yellow")) return { kod: "YB", popis: "žlutá" };
-  if (c.includes("hněd") || c.includes("hned") || c.includes("brown")) return { kod: "NB", popis: "hnědá" };
-  if (c.includes("oranž") || c.includes("oranz") || c.includes("orange")) return { kod: "OB", popis: "oranžová" };
-  if (c.includes("béžov") || c.includes("bezov") || c.includes("beige")) return { kod: "BB", popis: "béžová" };
-  if (c.includes("fialov") || c.includes("purple")) return { kod: "VB", popis: "fialová" };
-  if (c.includes("zlat") || c.includes("gold")) return { kod: "DB", popis: "zlatá" };
+  if (c.includes("tmavě hněd") || c.includes("tmave hned")) return pick("ND", "tmavě hnědá");
+  if (c.includes("hněd") || c.includes("hned") || c.includes("brown")) return pick("NB", "hnědá");
+  if (c.includes("oranž") || c.includes("oranz") || c.includes("orange")) return pick("OB", "oranžová");
+  if (c.includes("béžov") || c.includes("bezov") || c.includes("beige")) return pick("BE", "béžová");
+  if (c.includes("fialov") || c.includes("purple")) return pick("FB", "fialová");
+  if (c.includes("růžov") || c.includes("ruzov") || c.includes("pink")) return { kod: "ZB", popis: "růžová" };
+  if (c.includes("zlat") || c.includes("gold")) return { kod: "QBM", popis: "zlatá metalíza" };
   return { kod: "", popis: color.slice(0, 20) };
 }
 
@@ -106,6 +126,15 @@ const TIPCARS_MAP: Array<{ keywords: string[]; code: TipCarsCode }> = [
 
 function detectTipCarsCode(name: string): TipCarsCode {
   const lower = (name || "").toLowerCase();
+
+  // Brand-aware special cases (must run first to avoid Chrysler/Dodge collision)
+  if (lower.includes("grand caravan")) {
+    if (lower.includes("chrysler")) return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "AS2", model: "Grand Caravan" };
+    return { znacka_kod: "CR", znacka: "Dodge", model_kod: "CRL", model: "Grand Caravan" };
+  }
+  if (lower.includes("voyager") && lower.includes("lancia"))
+    return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWL", model: "Voyager" };
+
   let best: { idx: number; code: TipCarsCode } | null = null;
   for (const e of TIPCARS_MAP) {
     for (const kw of e.keywords) {
@@ -113,15 +142,11 @@ function detectTipCarsCode(name: string): TipCarsCode {
       if (i >= 0 && (!best || i < best.idx)) best = { idx: i, code: e.code };
     }
   }
-  if (best) {
-    if (best.code.model.toLowerCase() === "voyager" && lower.includes("lancia"))
-      return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWL", model: "Voyager" };
-    return best.code;
-  }
+  if (best) return best.code;
   if (lower.includes("chrysler")) return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASZ", model: "Ostatní" };
   if (lower.includes("dodge"))    return { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRZ", model: "Ostatní" };
   if (lower.includes("lancia"))   return { znacka_kod: "AW", znacka: "Lancia",   model_kod: "AWZ", model: "Ostatní" };
-  return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" };
+  return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASZ", model: "Ostatní" };
 }
 
 function buildInzeratXml(

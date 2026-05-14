@@ -63,8 +63,8 @@ const emptyVehicle: TablesInsert<"vehicles"> = {
   inventory_number: "",
   // TipCars defaults — používají se při vkládání nového vozu
   tipcars_export_enabled: true,
-  tipcars_karoserie_kod: "M",
-  tipcars_karoserie_popis: "MPV",
+ tipcars_karoserie_kod: "c",
+ tipcars_karoserie_popis: "MPV",
   tipcars_pocet_mist: 7,
   tipcars_pocet_dveri: 5,
   tipcars_emisni_norma: "Euro 5",

@@ -126,6 +126,15 @@ const TIPCARS_MAP: Array<{ keywords: string[]; code: TipCarsCode }> = [
 
 function detectTipCarsCode(name: string): TipCarsCode {
   const lower = (name || "").toLowerCase();
+
+  // Brand-aware special cases (must run first to avoid Chrysler/Dodge collision)
+  if (lower.includes("grand caravan")) {
+    if (lower.includes("chrysler")) return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "AS2", model: "Grand Caravan" };
+    return { znacka_kod: "CR", znacka: "Dodge", model_kod: "CRL", model: "Grand Caravan" };
+  }
+  if (lower.includes("voyager") && lower.includes("lancia"))
+    return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWL", model: "Voyager" };
+
   let best: { idx: number; code: TipCarsCode } | null = null;
   for (const e of TIPCARS_MAP) {
     for (const kw of e.keywords) {
@@ -133,15 +142,11 @@ function detectTipCarsCode(name: string): TipCarsCode {
       if (i >= 0 && (!best || i < best.idx)) best = { idx: i, code: e.code };
     }
   }
-  if (best) {
-    if (best.code.model.toLowerCase() === "voyager" && lower.includes("lancia"))
-      return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWL", model: "Voyager" };
-    return best.code;
-  }
+  if (best) return best.code;
   if (lower.includes("chrysler")) return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASZ", model: "Ostatní" };
   if (lower.includes("dodge"))    return { znacka_kod: "CR", znacka: "Dodge",    model_kod: "CRZ", model: "Ostatní" };
   if (lower.includes("lancia"))   return { znacka_kod: "AW", znacka: "Lancia",   model_kod: "AWZ", model: "Ostatní" };
-  return { znacka_kod: "AW", znacka: "Lancia", model_kod: "AWM", model: "Flavia" };
+  return { znacka_kod: "AS", znacka: "Chrysler", model_kod: "ASZ", model: "Ostatní" };
 }
 
 function buildInzeratXml(

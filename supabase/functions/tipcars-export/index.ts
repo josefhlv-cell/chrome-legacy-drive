@@ -1,6 +1,5 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.100.1";
 import { Zip, ZipPassThrough } from "https://esm.sh/fflate@0.8.2";
-import SftpClient from "npm:ssh2-sftp-client@10.0.3";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -387,6 +386,44 @@ class FtpClient {
     }
 
     return transferResp;
+  }
+
+  async uploadGeneratedFile(
+    remotePath: string,
+    buildData: (writeChunk: (chunk: Uint8Array) => Promise<void>) => Promise<void>,
+  ): Promise<{ response: string; bytes: number }> {
+    await this.sendCommand("TYPE I");
+    const { host, port } = await this.passive();
+    const dataConn = await Deno.connect({ hostname: host, port });
+    const storResp = this.sendCommand(`STOR ${remotePath}`);
+    const writer = dataConn.writable.getWriter();
+    let bytes = 0;
+
+    try {
+      await buildData(async (chunk) => {
+        bytes += chunk.length;
+        await writer.write(chunk);
+      });
+      await writer.close();
+    } catch (err) {
+      try { await writer.abort(err); } catch { /* ignore */ }
+      try { dataConn.close(); } catch { /* ignore */ }
+      throw err;
+    }
+
+    const resp = await storResp;
+    console.log(`[FTP] STOR: ${resp.trim()}`);
+    if (!resp.startsWith("150") && !resp.startsWith("125")) {
+      throw new Error(`STOR rejected: ${resp.trim()}`);
+    }
+
+    const transferResp = await this.readResponse();
+    console.log(`[FTP] Transfer: ${transferResp.trim()}`);
+    if (!transferResp.startsWith("226") && !transferResp.startsWith("250")) {
+      throw new Error(`Transfer not confirmed (expected 226): ${transferResp.trim()}`);
+    }
+
+    return { response: transferResp, bytes };
   }
 
   async quit(): Promise<void> {

@@ -153,9 +153,11 @@ function buildInzeratXml(
   vehicle: any,
   images: any[],
   adNumber: number,
-  kodFirmy: string
+  kodFirmy: string,
+  opts: { skipPhotos?: boolean; existingPhotoCount?: number } = {},
 ): { xml: string; photoFiles: { name: string; url: string }[] } {
   const cislo = pad4(adNumber);
+  const skipPhotos = !!opts.skipPhotos;
   const today = new Date().toISOString().split("T")[0];
   const fuel = mapFuel(vehicle.fuel || "");
   const color = mapColor(vehicle.color || "");

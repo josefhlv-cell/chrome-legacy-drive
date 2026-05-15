@@ -661,19 +661,20 @@ Deno.serve(async (req) => {
     const perVehicle: Array<{ id: string; photos: number; cislo: number; carried: boolean }> = [];
     let photosDownloaded = 0;
 
-    // Limit fotek na vůz — edge runtime má ~256 MB RAM, 25 vozů × 30 fotek
-    // by způsobilo "Memory limit exceeded". 12 = bezpečné maximum pro velké dávky.
-    const MAX_PHOTOS_PER_VEHICLE = 12;
+    // Limit fotek na vůz — TipCars typicky zobrazí ~max 30, my dáme 15 jako
+    // kompromis mezi kvalitou nabídky a RAM (i se streamingem ZIP každá fotka
+    // přibližně 500 kB jde do růstajícího outputního bufferu ZIPu).
+    const MAX_PHOTOS_PER_VEHICLE = 15;
 
-    // Fotky ukládáme PŘÍMO do zipData (žádné mezilehlé pole) — šetří 1 kopii v RAM.
-    const zipData: Record<string, Uint8Array> = {};
+    // PASS 1 — postavíme XML a uložíme si seznam URL fotek per vůz (jen metadata).
+    // Skutečné byty fotek nestahujeme, aby v RAM nebylo nic navíc.
+    const newPhotoQueue: Array<{ vehicleId: string; cislo: number; urls: string[] }> = [];
 
-    // 1) NEW vehicles → full export with photos
     for (const vehicle of newVehicles) {
       const adNumber = allocCislo(vehicle.id);
       const { data: imagesAll } = await supabase
         .from("vehicle_images")
-        .select("*")
+        .select("image_url, sort_order")
         .eq("vehicle_id", vehicle.id)
         .order("sort_order");
 
@@ -686,37 +687,19 @@ Deno.serve(async (req) => {
         });
       }
 
-      const { xml, photoFiles } = buildInzeratXml(
+      const { xml } = buildInzeratXml(
         vehicle, images, adNumber, tipcars_kod_firmy,
       );
       allInzeratyXml.push(xml);
-      let vehiclePhotoCount = 0;
-
-      for (const pf of photoFiles) {
-        try {
-          const resp = await fetch(pf.url);
-          if (!resp.ok) {
-            await logExport(supabase, {
-              vehicle_id: vehicle.id, portal: "tipcars", operation: "photo", level: "warn",
-              message: `Photo HTTP ${resp.status}: ${pf.name}`, context: { url: pf.url },
-            });
-            continue;
-          }
-          const buf = await resp.arrayBuffer();
-          zipData[pf.name] = new Uint8Array(buf);
-          photosDownloaded++;
-          vehiclePhotoCount++;
-        } catch (err) {
-          await logExport(supabase, {
-            vehicle_id: vehicle.id, portal: "tipcars", operation: "photo", level: "warn",
-            message: `Photo download error: ${(err as Error).message}`, context: { url: pf.url },
-          });
-        }
-      }
-      perVehicle.push({ id: vehicle.id, photos: vehiclePhotoCount, cislo: adNumber, carried: false });
+      newPhotoQueue.push({
+        vehicleId: vehicle.id,
+        cislo: adNumber,
+        urls: images.map((i: any) => i.image_url),
+      });
+      perVehicle.push({ id: vehicle.id, photos: images.length, cislo: adNumber, carried: false });
     }
 
-    // 2) CARRIED vehicles → XML only, NO photo bytes (server keeps existing)
+    // CARRIED vehicles → XML only, NO photo bytes (server keeps existing)
     for (const vehicle of carriedVehicles) {
       const adNumber = allocCislo(vehicle.id);
       const existingPhotoCount = photoCountByVehicle.get(vehicle.id) || 0;

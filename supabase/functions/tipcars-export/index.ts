@@ -774,7 +774,8 @@ Deno.serve(async (req) => {
     }
 
     const payloadHash = await sha256Hex(xmlContent);
-    console.log(`[TipCars] XML OK, ${vehicles.length} vehicles, ${photosDownloaded} photos, hash=${payloadHash.slice(0, 12)}`);
+    const photosQueued = newPhotoQueue.reduce((sum, q) => sum + q.urls.length, 0);
+    console.log(`[TipCars] XML OK, ${vehicles.length} vehicles, ${photosQueued} queued photos, hash=${payloadHash.slice(0, 12)}`);
 
     // Test mode: stop here
     // Dry run: stop after building/validating XML, do not ZIP or upload
@@ -792,67 +793,6 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── Streaming ZIP build ───
-    // Místo zipSync (drží VŠE v RAM dvakrát) používáme fflate.Zip stream:
-    //   - každá fotka: fetch → push do ZipPassThrough → entry.end() → buf out of scope
-    //   - peak RAM = jeden photo buf (~500 kB) + rostoucí output ZIP
-    // ZipPassThrough = "stored" (bez deflate) — JPG stejně nekomprimuje a šetří CPU+RAM.
-    const zipChunks: Uint8Array[] = [];
-    let zipErr: Error | null = null;
-    const zip = new Zip((err, data, _final) => {
-      if (err) { zipErr = err; return; }
-      if (data && data.length) zipChunks.push(data);
-    });
-
-    // 1) inzerce.xml jako první entry
-    {
-      const xmlEntry = new ZipPassThrough("inzerce.xml");
-      zip.add(xmlEntry);
-      xmlEntry.push(new TextEncoder().encode(xmlContent), true);
-    }
-
-    // 2) Streamované fotky pro NEW vehicles
-    for (const q of newPhotoQueue) {
-      const cisloStr = pad4(q.cislo);
-      for (let i = 0; i < q.urls.length; i++) {
-        const photoNum = i + 1;
-        const url = q.urls[i];
-        const fileName = `${tipcars_kod_firmy}_${cisloStr}_${photoNum}.jpg`;
-        try {
-          const resp = await fetch(url);
-          if (!resp.ok) {
-            await logExport(supabase, {
-              vehicle_id: q.vehicleId, portal: "tipcars", operation: "photo", level: "warn",
-              message: `Photo HTTP ${resp.status}: ${fileName}`, context: { url },
-            });
-            continue;
-          }
-          const buf = new Uint8Array(await resp.arrayBuffer());
-          const entry = new ZipPassThrough(fileName);
-          zip.add(entry);
-          entry.push(buf, true);
-          photosDownloaded++;
-          // buf, entry — out of scope na konci iterace, GC je uvolní
-        } catch (err) {
-          await logExport(supabase, {
-            vehicle_id: q.vehicleId, portal: "tipcars", operation: "photo", level: "warn",
-            message: `Photo download error: ${(err as Error).message}`, context: { url },
-          });
-        }
-      }
-    }
-    zip.end();
-    if (zipErr) throw new Error(`ZIP stream error: ${(zipErr as Error).message}`);
-
-    // Spojit chunky do jednoho buf (ekvivalent jednoho .write() do FTP)
-    const zippedSize = zipChunks.reduce((a, c) => a + c.length, 0);
-    const zipped = new Uint8Array(zippedSize);
-    {
-      let off = 0;
-      for (const c of zipChunks) { zipped.set(c, off); off += c.length; }
-      zipChunks.length = 0; // free chunk array
-    }
-
     const now = new Date();
     const dateStr = [
       now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"),
@@ -861,53 +801,101 @@ Deno.serve(async (req) => {
     ].join("_");
     const zipFileName = `${tipcars_kod_firmy}_${dateStr}.zip`;
 
+    // ZIP se generuje přímo do výstupu (FTP nebo storage writer). Tím už v RAM
+    // nikdy neleží celý archiv najednou — klíčové pro první export všech aut.
+    const buildZipToWriter = async (writeChunk: (chunk: Uint8Array) => Promise<void>) => {
+      photosDownloaded = 0;
+      let zipErr: Error | null = null;
+      let writeQueue = Promise.resolve();
+      const zip = new Zip((err, data) => {
+        if (err) { zipErr = err; return; }
+        if (data && data.length) {
+          const chunk = data.slice();
+          writeQueue = writeQueue.then(() => writeChunk(chunk));
+        }
+      });
+      const flushZip = async () => {
+        await writeQueue;
+        if (zipErr) throw new Error(`ZIP stream error: ${(zipErr as Error).message}`);
+      };
+
+      const xmlEntry = new ZipPassThrough("inzerce.xml");
+      zip.add(xmlEntry);
+      xmlEntry.push(new TextEncoder().encode(xmlContent), true);
+      await flushZip();
+
+      for (const q of newPhotoQueue) {
+        const cisloStr = pad4(q.cislo);
+        for (let i = 0; i < q.urls.length; i++) {
+          const photoNum = i + 1;
+          const url = q.urls[i];
+          const fileName = `${tipcars_kod_firmy}_${cisloStr}_${photoNum}.jpg`;
+          try {
+            const resp = await fetch(url);
+            if (!resp.ok) {
+              await logExport(supabase, {
+                vehicle_id: q.vehicleId, portal: "tipcars", operation: "photo", level: "warn",
+                message: `Photo HTTP ${resp.status}: ${fileName}`, context: { url },
+              });
+              continue;
+            }
+            const buf = new Uint8Array(await resp.arrayBuffer());
+            const entry = new ZipPassThrough(fileName);
+            zip.add(entry);
+            entry.push(buf, true);
+            await flushZip();
+            photosDownloaded++;
+          } catch (err) {
+            await logExport(supabase, {
+              vehicle_id: q.vehicleId, portal: "tipcars", operation: "photo", level: "warn",
+              message: `Photo download error: ${(err as Error).message}`, context: { url },
+            });
+          }
+        }
+      }
+      zip.end();
+      await flushZip();
+    };
+
     // ─── FTP upload with retry ───
     let ftpUploaded = false;
     let ftpMessage = "";
     let ftpAttempts = 0;
     let ftpResponse = "";
+    let zippedSize = 0;
+    let publicZipUrl: string | null = null;
 
-    if (use_sftp && sftp_host && sftp_user && sftp_password) {
-      const result = await sftpUploadWithRetry({
-        host: sftp_host, port: sftp_port || 22, user: sftp_user, pass: sftp_password,
-        filename: zipFileName, data: zipped, maxAttempts: 3,
+    if (ftp_user && ftp_password) {
+      const result = await ftpUploadGeneratedWithRetry({
+        host: ftp_host, user: ftp_user, pass: ftp_password, filename: zipFileName,
+        buildData: buildZipToWriter, maxAttempts: 2,
       });
       ftpUploaded = result.ok;
       ftpMessage = result.message;
       ftpAttempts = result.attempts;
       ftpResponse = result.lastResponse || "";
-
-      await logExport(supabase, {
-        portal: "tipcars", operation: "sftp", level: result.ok ? "info" : "error",
-        message: `SFTP ${result.ok ? "OK" : "FAILED"} (${ftpAttempts} attempts): ${ftpMessage}`,
-        context: { filename: zipFileName, host: sftp_host, port: sftp_port },
-      });
-    } else if (ftp_user && ftp_password) {
-      const result = await ftpUploadWithRetry({
-        host: ftp_host, user: ftp_user, pass: ftp_password,
-        filename: zipFileName, data: zipped, maxAttempts: 3,
-      });
-      ftpUploaded = result.ok;
-      ftpMessage = result.message;
-      ftpAttempts = result.attempts;
-      ftpResponse = result.lastResponse || "";
+      zippedSize = result.bytes;
 
       await logExport(supabase, {
         portal: "tipcars", operation: "ftp", level: result.ok ? "info" : "error",
         message: `FTP ${result.ok ? "OK" : "FAILED"} (${ftpAttempts} attempts): ${ftpMessage}`,
-        context: { filename: zipFileName, host: ftp_host, response: ftpResponse },
+        context: { filename: zipFileName, host: ftp_host, response: ftpResponse, streamed_bytes: zippedSize, use_sftp_requested: !!use_sftp },
       });
+    } else {
+      const zipChunks: Uint8Array[] = [];
+      await buildZipToWriter(async (chunk) => { zipChunks.push(chunk); });
+      zippedSize = zipChunks.reduce((a, c) => a + c.length, 0);
+      const zipped = new Uint8Array(zippedSize);
+      let off = 0;
+      for (const c of zipChunks) { zipped.set(c, off); off += c.length; }
+      zipChunks.length = 0;
+      const { error: uploadErr } = await supabase.storage
+        .from("vehicles")
+        .upload(`tipcars-export/${zipFileName}`, zipped, { contentType: "application/zip", upsert: true });
+      if (uploadErr) console.warn(`[TipCars] Storage upload warning: ${uploadErr.message}`);
+      const { data: urlData } = supabase.storage.from("vehicles").getPublicUrl(`tipcars-export/${zipFileName}`);
+      publicZipUrl = urlData.publicUrl;
     }
-
-    // Storage backup
-    const { error: uploadErr } = await supabase.storage
-      .from("vehicles")
-      .upload(`tipcars-export/${zipFileName}`, zipped, {
-        contentType: "application/zip", upsert: true,
-      });
-    if (uploadErr) console.warn(`[TipCars] Storage upload warning: ${uploadErr.message}`);
-    const { data: urlData } = supabase.storage
-      .from("vehicles").getPublicUrl(`tipcars-export/${zipFileName}`);
 
     // ─── Update per-vehicle export status ───
     const finalStatus = ftpUploaded ? "online" : (ftp_user ? "error" : "pending");

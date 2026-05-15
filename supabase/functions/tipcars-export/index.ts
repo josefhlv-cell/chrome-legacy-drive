@@ -810,8 +810,7 @@ Deno.serve(async (req) => {
       const zip = new Zip((err, data) => {
         if (err) { zipErr = err; return; }
         if (data && data.length) {
-          const chunk = data.slice();
-          writeQueue = writeQueue.then(() => writeChunk(chunk));
+          writeQueue = writeQueue.then(() => writeChunk(data));
         }
       });
       const flushZip = async () => {

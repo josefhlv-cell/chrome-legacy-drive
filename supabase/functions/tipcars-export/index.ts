@@ -820,18 +820,24 @@ Deno.serve(async (req) => {
     // ─── Update per-vehicle export status ───
     const finalStatus = ftpUploaded ? "online" : (ftp_user ? "error" : "pending");
     const finalError = ftpUploaded ? "" : ftpMessage;
+    const nowIso = new Date().toISOString();
     for (const v of perVehicle) {
       await supabase.from("vehicle_exports").upsert({
         vehicle_id: v.id,
         portal: "tipcars",
-        external_id: `${tipcars_kod_firmy}_${pad4(perVehicle.indexOf(v) + 1)}`,
+        external_id: `${tipcars_kod_firmy}_${pad4(v.cislo)}`,
         status: finalStatus,
-        last_export_at: new Date().toISOString(),
-        last_success_at: ftpUploaded ? new Date().toISOString() : null,
+        last_export_at: nowIso,
+        last_success_at: ftpUploaded ? nowIso : null,
         last_error: finalError,
         payload_hash: payloadHash,
         attempts: ftpAttempts || 1,
-        metadata: { zip_filename: zipFileName, photos: v.photos },
+        metadata: {
+          zip_filename: zipFileName,
+          photos: v.photos,
+          cislo_inzeratu: v.cislo,
+          carried: v.carried,
+        },
       }, { onConflict: "vehicle_id,portal" });
     }
 

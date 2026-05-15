@@ -753,11 +753,66 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── Build ZIP ─── (zipData už obsahuje fotky, jen přidáme XML)
-    zipData["inzerce.xml"] = new TextEncoder().encode(xmlContent);
-    const zipped = zipSync(zipData);
-    // Uvolnit původní byty hned po komprimaci — sníží peak RAM před uploadem
-    for (const k of Object.keys(zipData)) delete zipData[k];
+    // ─── Streaming ZIP build ───
+    // Místo zipSync (drží VŠE v RAM dvakrát) používáme fflate.Zip stream:
+    //   - každá fotka: fetch → push do ZipPassThrough → entry.end() → buf out of scope
+    //   - peak RAM = jeden photo buf (~500 kB) + rostoucí output ZIP
+    // ZipPassThrough = "stored" (bez deflate) — JPG stejně nekomprimuje a šetří CPU+RAM.
+    const zipChunks: Uint8Array[] = [];
+    let zipErr: Error | null = null;
+    const zip = new Zip((err, data, _final) => {
+      if (err) { zipErr = err; return; }
+      if (data && data.length) zipChunks.push(data);
+    });
+
+    // 1) inzerce.xml jako první entry
+    {
+      const xmlEntry = new ZipPassThrough("inzerce.xml");
+      zip.add(xmlEntry);
+      xmlEntry.push(new TextEncoder().encode(xmlContent), true);
+    }
+
+    // 2) Streamované fotky pro NEW vehicles
+    for (const q of newPhotoQueue) {
+      const cisloStr = pad4(q.cislo);
+      for (let i = 0; i < q.urls.length; i++) {
+        const photoNum = i + 1;
+        const url = q.urls[i];
+        const fileName = `${tipcars_kod_firmy}_${cisloStr}_${photoNum}.jpg`;
+        try {
+          const resp = await fetch(url);
+          if (!resp.ok) {
+            await logExport(supabase, {
+              vehicle_id: q.vehicleId, portal: "tipcars", operation: "photo", level: "warn",
+              message: `Photo HTTP ${resp.status}: ${fileName}`, context: { url },
+            });
+            continue;
+          }
+          const buf = new Uint8Array(await resp.arrayBuffer());
+          const entry = new ZipPassThrough(fileName);
+          zip.add(entry);
+          entry.push(buf, true);
+          photosDownloaded++;
+          // buf, entry — out of scope na konci iterace, GC je uvolní
+        } catch (err) {
+          await logExport(supabase, {
+            vehicle_id: q.vehicleId, portal: "tipcars", operation: "photo", level: "warn",
+            message: `Photo download error: ${(err as Error).message}`, context: { url },
+          });
+        }
+      }
+    }
+    zip.end();
+    if (zipErr) throw new Error(`ZIP stream error: ${(zipErr as Error).message}`);
+
+    // Spojit chunky do jednoho buf (ekvivalent jednoho .write() do FTP)
+    const zippedSize = zipChunks.reduce((a, c) => a + c.length, 0);
+    const zipped = new Uint8Array(zippedSize);
+    {
+      let off = 0;
+      for (const c of zipChunks) { zipped.set(c, off); off += c.length; }
+      zipChunks.length = 0; // free chunk array
+    }
 
     const now = new Date();
     const dateStr = [

@@ -700,10 +700,9 @@ Deno.serve(async (req) => {
     const perVehicle: Array<{ id: string; photos: number; cislo: number; carried: boolean }> = [];
     let photosDownloaded = 0;
 
-    // Limit fotek na vůz — TipCars typicky zobrazí ~max 30, my dáme 15 jako
-    // kompromis mezi kvalitou nabídky a RAM (i se streamingem ZIP každá fotka
-    // přibližně 500 kB jde do růstajícího outputního bufferu ZIPu).
-    const MAX_PHOTOS_PER_VEHICLE = 15;
+    // Limit fotek na vůz: první hromadný export musí projít v limitu edge runtime.
+    // TipCars import potřebuje hlavně hlavní fotky; další exporty už přenášejí jen nová auta.
+    const MAX_PHOTOS_PER_VEHICLE = 8;
 
     // PASS 1 — postavíme XML a uložíme si seznam URL fotek per vůz (jen metadata).
     // Skutečné byty fotek nestahujeme, aby v RAM nebylo nic navíc.

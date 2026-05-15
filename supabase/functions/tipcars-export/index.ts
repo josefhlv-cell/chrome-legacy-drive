@@ -599,22 +599,72 @@ Deno.serve(async (req) => {
       context: { vehicle_ids, test_mode, dry_run, target_host: ftp_host },
     });
 
-    const { data: vehicles, error: vErr } = await supabase
+    // ─── NEW vehicles (full export with photos) ───
+    const { data: newVehicles, error: vErr } = await supabase
       .from("vehicles")
       .select("*")
       .in("id", vehicle_ids);
     if (vErr) throw new Error(`Chyba načítání vozidel: ${vErr.message}`);
-    if (!vehicles || vehicles.length === 0) throw new Error("Žádná vozidla nenalezena");
+    if (!newVehicles || newVehicles.length === 0) throw new Error("Žádná vozidla nenalezena");
+
+    // ─── Inkrementální logika: doplň VŠECHNA již nahraná vozidla bez fotek ───
+    // TipCars vyžaduje, aby každý import obsahoval kompletní inventář (jinak
+    // zmizí z portálu vše, co v souboru není). Existující vozy posíláme bez
+    // photo bytes – TipCars u nich ponechá fotky uložené z minulých dávek.
+    const { data: existingExports } = await supabase
+      .from("vehicle_exports")
+      .select("vehicle_id, external_id, metadata, status")
+      .eq("portal", "tipcars")
+      .neq("status", "removed");
+
+    const newIdSet = new Set<string>(vehicle_ids);
+    const carriedIds = (existingExports || [])
+      .map((e: any) => e.vehicle_id)
+      .filter((id: string) => !newIdSet.has(id));
+
+    let carriedVehicles: any[] = [];
+    if (carriedIds.length > 0) {
+      const { data: cv } = await supabase
+        .from("vehicles")
+        .select("*")
+        .in("id", carriedIds);
+      carriedVehicles = cv || [];
+    }
+
+    // Stable cislo_inzeratu allocator. Reuse persisted number from
+    // vehicle_exports.metadata.cislo_inzeratu when present so TipCars
+    // photos (named kod_firmy_cislo_*) keep matching after re-uploads.
+    const cisloByVehicle = new Map<string, number>();
+    const photoCountByVehicle = new Map<string, number>();
+    const used = new Set<number>();
+    for (const e of (existingExports || []) as any[]) {
+      const c = Number(e.metadata?.cislo_inzeratu);
+      if (Number.isFinite(c) && c > 0) {
+        cisloByVehicle.set(e.vehicle_id, c);
+        used.add(c);
+      }
+      const p = Number(e.metadata?.photos);
+      if (Number.isFinite(p) && p >= 0) photoCountByVehicle.set(e.vehicle_id, p);
+    }
+    let nextCislo = 1;
+    const allocCislo = (vid: string): number => {
+      const existing = cisloByVehicle.get(vid);
+      if (existing) return existing;
+      while (used.has(nextCislo)) nextCislo++;
+      const c = nextCislo;
+      used.add(c);
+      cisloByVehicle.set(vid, c);
+      return c;
+    };
 
     const allInzeratyXml: string[] = [];
     const allPhotoFiles: { name: string; data: Uint8Array }[] = [];
-    const perVehicle: Array<{ id: string; photos: number; xml: string }> = [];
+    const perVehicle: Array<{ id: string; photos: number; cislo: number; carried: boolean }> = [];
     let photosDownloaded = 0;
 
-    for (let i = 0; i < vehicles.length; i++) {
-      const vehicle = vehicles[i];
-      const adNumber = i + 1;
-
+    // 1) NEW vehicles → full export with photos
+    for (const vehicle of newVehicles) {
+      const adNumber = allocCislo(vehicle.id);
       const { data: images } = await supabase
         .from("vehicle_images")
         .select("*")
@@ -648,9 +698,28 @@ Deno.serve(async (req) => {
           });
         }
       }
-
-      perVehicle.push({ id: vehicle.id, photos: vehiclePhotoCount, xml });
+      perVehicle.push({ id: vehicle.id, photos: vehiclePhotoCount, cislo: adNumber, carried: false });
     }
+
+    // 2) CARRIED vehicles → XML only, NO photo bytes (server keeps existing)
+    for (const vehicle of carriedVehicles) {
+      const adNumber = allocCislo(vehicle.id);
+      const existingPhotoCount = photoCountByVehicle.get(vehicle.id) || 0;
+      const { xml } = buildInzeratXml(
+        vehicle, [], adNumber, tipcars_kod_firmy,
+        { skipPhotos: true, existingPhotoCount },
+      );
+      allInzeratyXml.push(xml);
+      perVehicle.push({ id: vehicle.id, photos: existingPhotoCount, cislo: adNumber, carried: true });
+    }
+
+    await logExport(supabase, {
+      portal: "tipcars", operation: "export", level: "info",
+      message: `Batch: ${newVehicles.length} new (with photos) + ${carriedVehicles.length} carried (no photos)`,
+      context: { new_count: newVehicles.length, carried_count: carriedVehicles.length },
+    });
+
+    const vehicles = [...newVehicles, ...carriedVehicles];
 
     const xmlContent = buildFullXml(
       tipcars_kod_firmy, tipcars_heslo, firma_nazev, firma_info, allInzeratyXml, !!test_mode,

@@ -770,11 +770,11 @@ Deno.serve(async (req) => {
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });
     }
 
-    // ─── Build ZIP ───
-    const zipData: Record<string, Uint8Array> = {};
+    // ─── Build ZIP ─── (zipData už obsahuje fotky, jen přidáme XML)
     zipData["inzerce.xml"] = new TextEncoder().encode(xmlContent);
-    for (const pf of allPhotoFiles) zipData[pf.name] = pf.data;
     const zipped = zipSync(zipData);
+    // Uvolnit původní byty hned po komprimaci — sníží peak RAM před uploadem
+    for (const k of Object.keys(zipData)) delete zipData[k];
 
     const now = new Date();
     const dateStr = [

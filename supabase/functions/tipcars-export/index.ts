@@ -657,22 +657,33 @@ Deno.serve(async (req) => {
       return c;
     };
 
-    const allInzeratyXml: string[] = [];
-    const allPhotoFiles: { name: string; data: Uint8Array }[] = [];
-    const perVehicle: Array<{ id: string; photos: number; cislo: number; carried: boolean }> = [];
-    let photosDownloaded = 0;
+    // Limit fotek na vůz — edge runtime má ~256 MB RAM, 25 vozů × 30 fotek
+    // by způsobilo "Memory limit exceeded". 12 = bezpečné maximum pro velké dávky.
+    const MAX_PHOTOS_PER_VEHICLE = 12;
+
+    // Fotky ukládáme PŘÍMO do zipData (žádné mezilehlé pole) — šetří 1 kopii v RAM.
+    const zipData: Record<string, Uint8Array> = {};
 
     // 1) NEW vehicles → full export with photos
     for (const vehicle of newVehicles) {
       const adNumber = allocCislo(vehicle.id);
-      const { data: images } = await supabase
+      const { data: imagesAll } = await supabase
         .from("vehicle_images")
         .select("*")
         .eq("vehicle_id", vehicle.id)
         .order("sort_order");
 
+      const images = (imagesAll || []).slice(0, MAX_PHOTOS_PER_VEHICLE);
+      if ((imagesAll?.length || 0) > MAX_PHOTOS_PER_VEHICLE) {
+        await logExport(supabase, {
+          vehicle_id: vehicle.id, portal: "tipcars", operation: "photo", level: "warn",
+          message: `Photo cap: ${imagesAll!.length} → ${MAX_PHOTOS_PER_VEHICLE} (RAM safety)`,
+          context: { vehicle_name: vehicle.name },
+        });
+      }
+
       const { xml, photoFiles } = buildInzeratXml(
-        vehicle, images || [], adNumber, tipcars_kod_firmy,
+        vehicle, images, adNumber, tipcars_kod_firmy,
       );
       allInzeratyXml.push(xml);
       let vehiclePhotoCount = 0;
@@ -688,7 +699,7 @@ Deno.serve(async (req) => {
             continue;
           }
           const buf = await resp.arrayBuffer();
-          allPhotoFiles.push({ name: pf.name, data: new Uint8Array(buf) });
+          zipData[pf.name] = new Uint8Array(buf);
           photosDownloaded++;
           vehiclePhotoCount++;
         } catch (err) {

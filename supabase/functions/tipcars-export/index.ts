@@ -500,29 +500,31 @@ async function ftpUploadWithRetry(opts: { host: string; user: string; pass: stri
   return { ok: false, message: lastErr || "FTP upload failed", attempts: max, lastResponse: lastResp };
 }
 
-// ─── SFTP upload via npm:ssh2-sftp-client ───
-async function sftpUploadWithRetry(opts: { host: string; port: number; user: string; pass: string; filename: string; data: Uint8Array; maxAttempts?: number; }): Promise<{ ok: boolean; message: string; attempts: number; lastResponse?: string; }> {
+async function ftpUploadGeneratedWithRetry(opts: { host: string; user: string; pass: string; filename: string; buildData: (writeChunk: (chunk: Uint8Array) => Promise<void>) => Promise<void>; maxAttempts?: number; }): Promise<{ ok: boolean; message: string; attempts: number; lastResponse?: string; bytes: number }> {
   const max = opts.maxAttempts ?? 3;
   let lastErr = "";
+  let lastResp = "";
+  let bytes = 0;
   for (let attempt = 1; attempt <= max; attempt++) {
-    const sftp = new SftpClient();
+    const ftp = new FtpClient();
     try {
-      console.log(`[TipCars] SFTP attempt ${attempt}/${max} → ${opts.host}:${opts.port}`);
-      await sftp.connect({ host: opts.host, port: opts.port, username: opts.user, password: opts.pass, readyTimeout: 20000 });
-      // Convert Uint8Array → Buffer for ssh2
-      // @ts-ignore - Buffer is available via Node compat in Deno
-      const buf = (globalThis as any).Buffer ? (globalThis as any).Buffer.from(opts.data) : opts.data;
-      await sftp.put(buf, `/${opts.filename}`);
-      await sftp.end();
-      return { ok: true, message: `SFTP upload OK (attempt ${attempt})`, attempts: attempt, lastResponse: "OK" };
+      console.log(`[TipCars] streaming FTP attempt ${attempt}/${max} → ${opts.host}`);
+      const welcome = await ftp.connect(opts.host, 21);
+      console.log(`[TipCars] welcome: ${welcome.trim()}`);
+      await ftp.login(opts.user, opts.pass);
+      const tr = await ftp.uploadGeneratedFile(opts.filename, opts.buildData);
+      lastResp = tr.response;
+      bytes = tr.bytes;
+      await ftp.quit();
+      return { ok: true, message: `226 Transfer complete (attempt ${attempt})`, attempts: attempt, lastResponse: tr.response.trim(), bytes };
     } catch (err) {
       lastErr = (err as Error).message;
-      console.warn(`[TipCars] SFTP attempt ${attempt} failed: ${lastErr}`);
-      try { await sftp.end(); } catch { /* ignore */ }
+      console.warn(`[TipCars] streaming FTP attempt ${attempt} failed: ${lastErr}`);
+      try { await ftp.quit(); } catch { /* ignore */ }
       if (attempt < max) await new Promise(r => setTimeout(r, 1000 * attempt));
     }
   }
-  return { ok: false, message: lastErr || "SFTP upload failed", attempts: max };
+  return { ok: false, message: lastErr || "FTP upload failed", attempts: max, lastResponse: lastResp, bytes };
 }
 
 // ─── Main handler ───

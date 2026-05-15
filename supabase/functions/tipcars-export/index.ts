@@ -782,12 +782,12 @@ Deno.serve(async (req) => {
     if (dry_run) {
       await logExport(supabase, {
         portal: "tipcars", operation: "export", level: "info",
-        message: `DRY RUN OK — XML valid, ${vehicles.length} vehicles, ${photosDownloaded} photos (${test_mode ? "TEST" : "LIVE"})`,
+        message: `DRY RUN OK — XML valid, ${vehicles.length} vehicles, ${photosQueued} photos referenced (${test_mode ? "TEST" : "LIVE"})`,
         context: { xml_size: xmlContent.length, payload_hash: payloadHash, test_mode },
       });
       return new Response(JSON.stringify({
         success: true, dry_run: true, test_mode,
-        vehicles_count: vehicles.length, photos_count: photosDownloaded,
+        vehicles_count: vehicles.length, photos_count: photosQueued,
         xml_size: xmlContent.length, payload_hash: payloadHash,
         xml_preview: xmlContent.slice(0, 1000),
       }), { headers: { ...corsHeaders, "Content-Type": "application/json" } });

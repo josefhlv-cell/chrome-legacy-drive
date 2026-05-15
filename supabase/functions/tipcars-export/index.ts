@@ -657,6 +657,10 @@ Deno.serve(async (req) => {
       return c;
     };
 
+    const allInzeratyXml: string[] = [];
+    const perVehicle: Array<{ id: string; photos: number; cislo: number; carried: boolean }> = [];
+    let photosDownloaded = 0;
+
     // Limit fotek na vůz — edge runtime má ~256 MB RAM, 25 vozů × 30 fotek
     // by způsobilo "Memory limit exceeded". 12 = bezpečné maximum pro velké dávky.
     const MAX_PHOTOS_PER_VEHICLE = 12;

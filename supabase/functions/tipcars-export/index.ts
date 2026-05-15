@@ -176,13 +176,21 @@ function buildInzeratXml(
 
   const photoFiles: { name: string; url: string }[] = [];
   const photoCodes: string[] = [];
-  images.forEach((img, i) => {
-    const photoNum = i + 1;
-    // Per TipCars spec: kod_firmy_cislo_inzeratu_poradi.jpg (s podtržítky mezi všemi částmi)
-    const fileName = `${kodFirmy}_${cislo}_${photoNum}.jpg`;
-    photoFiles.push({ name: fileName, url: img.image_url });
-    photoCodes.push(String(photoNum));
-  });
+  if (skipPhotos) {
+    // Already-uploaded vehicle: keep references to existing photos on TipCars
+    // server (kept under same kod_firmy_cislo_*) — do NOT include the actual
+    // image bytes in this ZIP. seznam_kodu mirrors the previously sent count.
+    const n = Math.max(0, opts.existingPhotoCount || 0);
+    for (let p = 1; p <= n; p++) photoCodes.push(String(p));
+  } else {
+    images.forEach((img, i) => {
+      const photoNum = i + 1;
+      // Per TipCars spec: kod_firmy_cislo_inzeratu_poradi.jpg
+      const fileName = `${kodFirmy}_${cislo}_${photoNum}.jpg`;
+      photoFiles.push({ name: fileName, url: img.image_url });
+      photoCodes.push(String(photoNum));
+    });
+  }
 
   // Equipment (vybava) — codes must come from CiselnikyXmlImport.xml seznam_vybav.
   // Until we mirror & validate the codebook, we DO NOT emit any <vybava> entries.

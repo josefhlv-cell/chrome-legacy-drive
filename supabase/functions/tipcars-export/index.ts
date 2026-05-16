@@ -550,6 +550,7 @@ Deno.serve(async (req) => {
       test_mode,
       dry_run = false,
       use_settings = false,
+      skip_photos = false,
     } = body;
 
     const supabase = createClient(

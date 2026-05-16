@@ -711,6 +711,19 @@ Deno.serve(async (req) => {
 
     for (const vehicle of newVehicles) {
       const adNumber = allocCislo(vehicle.id);
+
+      if (skip_photos) {
+        // Mode: send WITHOUT photo bytes (XML only)
+        const existingPhotoCount = photoCountByVehicle.get(vehicle.id) || 0;
+        const { xml } = buildInzeratXml(
+          vehicle, [], adNumber, tipcars_kod_firmy,
+          { skipPhotos: true, existingPhotoCount },
+        );
+        allInzeratyXml.push(xml);
+        perVehicle.push({ id: vehicle.id, photos: existingPhotoCount, cislo: adNumber, carried: true });
+        continue;
+      }
+
       const { data: imagesAll } = await supabase
         .from("vehicle_images")
         .select("image_url, sort_order")

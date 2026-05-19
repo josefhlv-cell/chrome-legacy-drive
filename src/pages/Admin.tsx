@@ -43,6 +43,7 @@ import TipCarsFields from "@/components/admin/TipCarsFields";
 import TipCarsTab from "@/components/admin/TipCarsTab";
 import RevertButton from "@/components/admin/RevertButton";
 import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab";
+import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
 import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
@@ -243,6 +244,7 @@ const VehiclesTab = () => {
   const [editData, setEditData] = useState<TablesUpdate<"vehicles">>({});
   const [showNew, setShowNew] = useState(false);
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
+  const [newPhotos, setNewPhotos] = useState<BufferedPhoto[]>([]);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
   const [printVehicleId, setPrintVehicleId] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);

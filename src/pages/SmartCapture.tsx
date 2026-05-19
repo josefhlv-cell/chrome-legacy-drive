@@ -344,10 +344,45 @@ export default function SmartCapture() {
         <>
           {/* Camera preview */}
           <div className="relative flex-1 bg-black overflow-hidden">
-            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+
+            {/* Waiting-for-camera placeholder (only when no error, no stream) */}
+            {!stream && !cameraError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
+                <Loader2 className="animate-spin" size={28} />
+                <div className="text-xs">Aktivuji kameru…</div>
+                <div className="text-[11px] text-white/40">Pokud se objeví dotaz, povolte přístup ke kameře.</div>
+              </div>
+            )}
+
+            {/* Camera error fallback */}
+            {cameraError && (
+              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center px-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
+                  <AlertCircle className="text-red-400" size={26} />
+                </div>
+                <h3 className="text-lg font-medium mb-1">Nepodařilo se aktivovat kameru</h3>
+                <p className="text-sm text-white/60 max-w-xs mb-5">{cameraError}</p>
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <Button onClick={startCamera} className="bg-white text-black hover:bg-white/90">
+                    <RotateCcw size={16} className="mr-2" /> Zkusit znovu
+                  </Button>
+                  <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}
+                    className="border-white/20 bg-transparent">
+                    <ImageIcon size={16} className="mr-2" /> Nahrát fotografie ručně
+                  </Button>
+                  <input ref={fallbackUploadRef} type="file" accept="image/*" multiple className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      e.target.value = "";
+                      for (const f of files) await handleFilePicked(f);
+                    }} />
+                </div>
+              </div>
+            )}
 
             {/* Guidance overlay */}
-            {currentStep && (
+            {currentStep && stream && !cameraError && (
               <div className="absolute top-4 left-4 right-4 flex items-start gap-3 bg-black/60 backdrop-blur rounded-2xl p-3">
                 <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 text-sm font-semibold shrink-0">
                   {currentStepIdx + 1}
@@ -360,14 +395,14 @@ export default function SmartCapture() {
             )}
 
             {/* Last analysis tip */}
-            {lastAnalysis?.tip && (
+            {lastAnalysis?.tip && stream && (
               <div className="absolute bottom-32 left-4 right-4 bg-emerald-500/90 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2">
                 <Sparkles size={14} /> {lastAnalysis.tip}
               </div>
             )}
 
-            {/* Busy overlay */}
-            {busy && (
+            {/* Busy overlay (only while uploading/processing a real shot) */}
+            {busy && stream && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <Loader2 className="animate-spin" size={36} />
               </div>

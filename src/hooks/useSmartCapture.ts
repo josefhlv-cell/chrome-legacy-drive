@@ -24,7 +24,7 @@ export const useUpdateSmartCaptureSettings = () => {
     mutationFn: async (updates: Record<string, unknown>) => {
       const { data, error } = await supabase
         .from("smart_capture_settings")
-        .update(updates)
+        .update(updates as never)
         .eq("singleton", true)
         .select()
         .single();
@@ -74,7 +74,7 @@ export const useSessionPhotos = (sessionId: string | undefined) => {
     queryFn: async () => {
       if (!sessionId) return [];
       const { data, error } = await supabase
-        .from("smart_capture_photos")
+        .from("smart_capture_photos" as never)
         .select("*")
         .eq("session_id", sessionId)
         .order("shot_index", { ascending: true });
@@ -120,7 +120,7 @@ export const useUploadPhoto = () => {
         `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}/${path}`;
 
       const { data, error } = await supabase
-        .from("smart_capture_photos")
+        .from("smart_capture_photos" as never)
         .insert({
           session_id: input.sessionId,
           shot_type: input.shotType,
@@ -165,7 +165,7 @@ export const useUpdateSession = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: Record<string, unknown> }) => {
       const { data, error } = await supabase
         .from("smart_capture_sessions")
-        .update(updates)
+        .update(updates as never)
         .eq("id", id)
         .select()
         .single();

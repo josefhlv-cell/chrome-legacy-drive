@@ -227,6 +227,7 @@ const AdminPage = () => {
           {activeTab === "facility" && <FacilityTab />}
           {activeTab === "tipcars" && <TipCarsTab />}
           {activeTab === "smart-capture" && <SmartCaptureSettingsTab />}
+          {activeTab === "showroom" && <ShowroomTab />}
         </div>
       </div>
       <Footer />

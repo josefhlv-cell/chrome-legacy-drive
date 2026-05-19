@@ -448,7 +448,7 @@ export default function SmartCapture() {
               <div className="flex items-center gap-2 text-emerald-300 mb-1">
                 <Check size={14} /> Vozidlo identifikováno
               </div>
-              <div className="text-white/80">{(session as { decoded_data: { name: string } }).decoded_data.name}</div>
+              <div className="text-white/80">{String((session as unknown as { decoded_data?: { name?: string } })?.decoded_data?.name ?? "")}</div>
             </div>
           )}
 

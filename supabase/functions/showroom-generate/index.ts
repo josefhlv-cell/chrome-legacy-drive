@@ -193,13 +193,17 @@ Deno.serve(async (req) => {
       return json({ error: "No source image" }, 400);
     }
 
-    let backgroundDataUrl: string;
-    let carDataUrl: string;
+    let backgroundBytes: Uint8Array;
+    let carBytes: Uint8Array;
+    let carContentType: string;
     try {
-      [backgroundDataUrl, carDataUrl] = await Promise.all([
-        fetchBackground(),
-        fetchAsDataUrl(sourceUrl),
+      const [bg, car] = await Promise.all([
+        fetchBackgroundBytes(),
+        fetchAsBytes(sourceUrl),
       ]);
+      backgroundBytes = bg;
+      carBytes = car.bytes;
+      carContentType = car.contentType;
     } catch (e: any) {
       await admin.from("vehicle_images").update({
         showroom_status: "failed", showroom_error: `Fetch source failed: ${e?.message ?? e}`,
@@ -207,7 +211,8 @@ Deno.serve(async (req) => {
       return json({ error: "Fetch failed" }, 502);
     }
 
-    // Call Lovable AI gateway (Gemini image edit)
+    // AI only creates a segmentation mask. Final photo is composed deterministically
+    // from original car pixels + fixed showroom background, so the car is never redrawn.
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -220,10 +225,8 @@ Deno.serve(async (req) => {
         messages: [{
           role: "user",
           content: [
-            { type: "text", text: "Edit the SECOND image (the car photo). Keep the car pixels, angle, framing, and aspect ratio identical. Replace ONLY the surroundings behind/around the car with the scene from the FIRST image (Chrysler & Dodge Pardubice building). This is a background-swap, not a re-render." },
-            { type: "image_url", image_url: { url: backgroundDataUrl } },
-            { type: "image_url", image_url: { url: carDataUrl } },
-            { type: "text", text: PROMPT },
+            { type: "text", text: MASK_PROMPT },
+            { type: "image_url", image_url: { url: bytesToDataUrl(carBytes, carContentType) } },
           ],
         }],
       }),
@@ -254,15 +257,26 @@ Deno.serve(async (req) => {
       return json({ error: "AI returned no image", debug: aiData }, 502);
     }
 
-    const { bytes, contentType } = dataUrlToBytes(outDataUrl);
-    if (!ALLOWED_TYPES.includes(contentType)) {
+    const { bytes: maskBytes, contentType: maskContentType } = dataUrlToBytes(outDataUrl);
+    if (!ALLOWED_TYPES.includes(maskContentType)) {
       await admin.from("vehicle_images").update({
-        showroom_status: "failed", showroom_error: `Unsupported output: ${contentType}`,
+        showroom_status: "failed", showroom_error: `Unsupported output: ${maskContentType}`,
       }).eq("id", imageId);
       return json({ error: "Unsupported output type" }, 502);
     }
 
-    const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+    let bytes: Uint8Array;
+    try {
+      bytes = await composeShowroomPhoto(backgroundBytes, carBytes, maskBytes);
+    } catch (e: any) {
+      await admin.from("vehicle_images").update({
+        showroom_status: "failed", showroom_error: `Compose failed: ${e?.message ?? e}`,
+      }).eq("id", imageId);
+      return json({ error: "Compose failed" }, 502);
+    }
+
+    const contentType = "image/jpeg";
+    const ext = "jpg";
     const filename = `showroom/${img.vehicle_id}_${img.id}_${Date.now()}.${ext}`;
     const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, {
       contentType, upsert: true, cacheControl: "3600",

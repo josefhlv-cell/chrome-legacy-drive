@@ -999,6 +999,19 @@ const VehiclesTab = () => {
                     <InputField label="Carfax URL" value={editData.carfax_url || ""} onChange={(v) => setEditData({ ...editData, carfax_url: v })} />
                     <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
                     <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />
+                    <div className="sm:col-span-2 lg:col-span-3 rounded-md border border-border bg-secondary/30 p-3 flex flex-wrap items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-primary" />
+                        <div>
+                          <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Pozadí Chrysler.cz</p>
+                          <p className="text-[11px] text-muted-foreground">Použít showroom background pro úvodní fotografii vozu</p>
+                        </div>
+                      </div>
+                      <Switch
+                        checked={((editData as any).showroom_mode ?? (vehicle as any).showroom_mode ?? "off") !== "off"}
+                        onCheckedChange={(v) => setEditData({ ...editData, showroom_mode: v ? "main" : "off" } as any)}
+                      />
+                    </div>
                     <div className="sm:col-span-2 lg:col-span-3">
                       <div className="flex items-center justify-between mb-1.5">
                         <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>

@@ -42,10 +42,11 @@ import DashboardTab from "@/components/admin/DashboardTab";
 import TipCarsFields from "@/components/admin/TipCarsFields";
 import TipCarsTab from "@/components/admin/TipCarsTab";
 import RevertButton from "@/components/admin/RevertButton";
+import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab";
 import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars";
+type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -98,6 +99,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "ticker", label: "Novinky", icon: <Type className="w-4 h-4" /> },
   { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },
   { key: "tipcars", label: "TipCars", icon: <Send className="w-4 h-4" /> },
+  { key: "smart-capture", label: "Smart Capture", icon: <Sparkles className="w-4 h-4" /> },
 ];
 
 const AdminPage = () => {
@@ -182,6 +184,9 @@ const AdminPage = () => {
             </div>
             <div className="flex items-center gap-2">
               <RevertButton />
+              <a href="/admin/smart-capture" className="chrome-button inline-flex items-center gap-2 text-sm">
+                <Camera className="w-4 h-4" /> Smart Capture
+              </a>
               <a href="/admin/tipcars" className="outline-button inline-flex items-center gap-2 text-sm">
                 <Send className="w-4 h-4" /> TipCars import
               </a>
@@ -217,6 +222,7 @@ const AdminPage = () => {
           {activeTab === "ticker" && <TickerTab />}
           {activeTab === "facility" && <FacilityTab />}
           {activeTab === "tipcars" && <TipCarsTab />}
+          {activeTab === "smart-capture" && <SmartCaptureSettingsTab />}
         </div>
       </div>
       <Footer />

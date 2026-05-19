@@ -22,6 +22,7 @@ const SpareParts = lazy(() => import("./pages/SpareParts.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const AdminExports = lazy(() => import("./pages/AdminExports.tsx"));
 const AdminTipCars = lazy(() => import("./pages/AdminTipCars.tsx"));
+const SmartCapture = lazy(() => import("./pages/SmartCapture.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 // AppBanner moved into Index page only — used to mount globally on every route.
 
@@ -63,6 +64,7 @@ const App = () => (
               <Route path="/admin" element={<Admin />} />
               <Route path="/admin/exports" element={<AdminExports />} />
               <Route path="/admin/tipcars" element={<AdminTipCars />} />
+              <Route path="/admin/smart-capture" element={<SmartCapture />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Suspense>

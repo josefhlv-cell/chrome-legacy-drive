@@ -312,10 +312,13 @@ export default function SmartCapture() {
           Smart Capture
           {photos.length > 0 && <span className="text-white/60">· {photos.length} fotek</span>}
         </div>
-        <button onClick={finishToReview}
-          disabled={photos.length === 0}
+        <button onClick={() => {
+            if (phase === "review") { stopCamera(); navigate("/admin"); }
+            else { finishToReview(); }
+          }}
+          disabled={phase !== "review" && photos.length === 0}
           className="text-sm px-3 py-1.5 rounded-full bg-white text-black font-medium disabled:opacity-30">
-          Hotovo
+          {phase === "review" ? "Zavřít" : "Hotovo"}
         </button>
       </header>
 

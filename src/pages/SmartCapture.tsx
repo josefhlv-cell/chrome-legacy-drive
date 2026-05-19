@@ -51,11 +51,13 @@ export default function SmartCapture() {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [busy, setBusy] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
   const [vinScanning, setVinScanning] = useState(false);
   const [vinValue, setVinValue] = useState("");
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const fallbackUploadRef = useRef<HTMLInputElement>(null);
 
   // Admin gate
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -66,51 +68,70 @@ export default function SmartCapture() {
       .then(({ data }) => setIsAdmin(!!data));
   }, [user, authLoading, navigate]);
 
-  // Start camera when capturing
-  const startCamera = useCallback(async () => {
+  // Attach stream to video as soon as element + stream are ready. NEVER await play()
+  // — on iOS Safari it can hang indefinitely, causing the "stuck loader" bug.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !stream) return;
     try {
-      const s = await navigator.mediaDevices.getUserMedia({
+      v.srcObject = stream;
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => { /* ignore autoplay reject */ });
+    } catch { /* ignore */ }
+  }, [stream, phase]);
+
+  const stopCamera = useCallback(() => {
+    setStream((prev) => { prev?.getTracks().forEach((t) => t.stop()); return null; });
+  }, []);
+
+  useEffect(() => () => { stopCamera(); }, [stopCamera]);
+
+  // Gesture-safe camera request — must be the FIRST await after the user click
+  // on iOS Safari, otherwise the permission prompt is silently dropped.
+  const requestCamera = useCallback(async (): Promise<MediaStream> => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      throw new Error("Tento prohlížeč nepodporuje přístup ke kameře.");
+    }
+    try {
+      return await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
-      setStream(s);
-      if (videoRef.current) {
-        videoRef.current.srcObject = s;
-        await videoRef.current.play().catch(() => {});
-      }
-    } catch (e) {
-      toast({
-        title: "Kamera nedostupná",
-        description: "Použijte tlačítko pro nahrání ze souboru / galerie.",
-        variant: "destructive",
-      });
+    } catch (err) {
+      const name = (err as { name?: string })?.name ?? "";
+      if (name === "NotAllowedError" || name === "SecurityError")
+        throw new Error("Přístup ke kameře byl zamítnut. Povolte kameru v nastavení prohlížeče.");
+      if (name === "NotFoundError" || name === "OverconstrainedError")
+        throw new Error("Nebyla nalezena žádná kamera.");
+      if (name === "NotReadableError")
+        throw new Error("Kamera je obsazena jinou aplikací.");
+      throw new Error("Nepodařilo se aktivovat kameru.");
     }
-  }, [toast]);
+  }, []);
 
-  const stopCamera = useCallback(() => {
-    stream?.getTracks().forEach((t) => t.stop());
-    setStream(null);
-  }, [stream]);
-
-  useEffect(() => () => stopCamera(), [stopCamera]);
-
-  // Start new session
+  // Start: switch UI immediately, create session in background, request camera
+  // as the FIRST await (gesture-preserving on iOS).
   const handleStart = async () => {
-    setBusy(true);
+    setCameraError(null);
+    setPhase("capturing");
+    if (!sessionId) {
+      createSession.mutateAsync()
+        .then((sess) => { setSessionId(sess.id); setSearchParams({ session: sess.id }); })
+        .catch((e) => toast({ title: "Relace se nevytvořila", description: String(e), variant: "destructive" }));
+    }
     try {
-      let id = sessionId;
-      if (!id) {
-        const sess = await createSession.mutateAsync();
-        id = sess.id;
-        setSessionId(id);
-        setSearchParams({ session: id });
-      }
-      setPhase("capturing");
-      await startCamera();
+      const s = await requestCamera();
+      setStream(s);
     } catch (e) {
-      toast({ title: "Nelze spustit relaci", description: String(e), variant: "destructive" });
-    } finally { setBusy(false); }
+      setCameraError(e instanceof Error ? e.message : "Kamera nedostupná");
+    }
   };
+
+  const startCamera = useCallback(async () => {
+    setCameraError(null);
+    try { setStream(await requestCamera()); }
+    catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
+  }, [requestCamera]);
 
   const currentStep = SHOT_SEQUENCE[currentStepIdx];
   const totalSteps = SHOT_SEQUENCE.length;
@@ -323,10 +344,45 @@ export default function SmartCapture() {
         <>
           {/* Camera preview */}
           <div className="relative flex-1 bg-black overflow-hidden">
-            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+
+            {/* Waiting-for-camera placeholder (only when no error, no stream) */}
+            {!stream && !cameraError && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
+                <Loader2 className="animate-spin" size={28} />
+                <div className="text-xs">Aktivuji kameru…</div>
+                <div className="text-[11px] text-white/40">Pokud se objeví dotaz, povolte přístup ke kameře.</div>
+              </div>
+            )}
+
+            {/* Camera error fallback */}
+            {cameraError && (
+              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center px-6 text-center">
+                <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
+                  <AlertCircle className="text-red-400" size={26} />
+                </div>
+                <h3 className="text-lg font-medium mb-1">Nepodařilo se aktivovat kameru</h3>
+                <p className="text-sm text-white/60 max-w-xs mb-5">{cameraError}</p>
+                <div className="flex flex-col gap-2 w-full max-w-xs">
+                  <Button onClick={startCamera} className="bg-white text-black hover:bg-white/90">
+                    <RotateCcw size={16} className="mr-2" /> Zkusit znovu
+                  </Button>
+                  <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}
+                    className="border-white/20 bg-transparent">
+                    <ImageIcon size={16} className="mr-2" /> Nahrát fotografie ručně
+                  </Button>
+                  <input ref={fallbackUploadRef} type="file" accept="image/*" multiple className="hidden"
+                    onChange={async (e) => {
+                      const files = Array.from(e.target.files ?? []);
+                      e.target.value = "";
+                      for (const f of files) await handleFilePicked(f);
+                    }} />
+                </div>
+              </div>
+            )}
 
             {/* Guidance overlay */}
-            {currentStep && (
+            {currentStep && stream && !cameraError && (
               <div className="absolute top-4 left-4 right-4 flex items-start gap-3 bg-black/60 backdrop-blur rounded-2xl p-3">
                 <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 text-sm font-semibold shrink-0">
                   {currentStepIdx + 1}
@@ -339,14 +395,14 @@ export default function SmartCapture() {
             )}
 
             {/* Last analysis tip */}
-            {lastAnalysis?.tip && (
+            {lastAnalysis?.tip && stream && (
               <div className="absolute bottom-32 left-4 right-4 bg-emerald-500/90 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2">
                 <Sparkles size={14} /> {lastAnalysis.tip}
               </div>
             )}
 
-            {/* Busy overlay */}
-            {busy && (
+            {/* Busy overlay (only while uploading/processing a real shot) */}
+            {busy && stream && (
               <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
                 <Loader2 className="animate-spin" size={36} />
               </div>

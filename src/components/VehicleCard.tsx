@@ -4,6 +4,7 @@ import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
+import { getPublicVehicleImageUrl } from "@/lib/showroomImage";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
@@ -25,7 +26,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
     });
 
     const candidates = dedupeImageUrls([
-      ...sortedGallery.map((img) => img.image_url),
+      ...sortedGallery.map((img) => getPublicVehicleImageUrl(img)),
       vehicle?.image_url,
     ]).filter(isUsableImageUrl);
 

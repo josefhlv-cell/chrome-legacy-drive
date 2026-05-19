@@ -10,6 +10,7 @@ import { formatPrice, priceWithVatFromNet, vatAmount, statusLabels, statusStyles
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
+import { getPublicVehicleImageUrl } from "@/lib/showroomImage";
 
 const VehicleDetail = () => {
   const { id } = useParams();
@@ -46,7 +47,7 @@ const VehicleDetail = () => {
 
     // Prefer Supabase gallery (already sorted main-first by useVehicleImages).
     if (vehicleImages && vehicleImages.length > 0) {
-      const fromGallery = dedupeImageUrls(vehicleImages.map((img) => img.image_url)).filter(isUsable);
+      const fromGallery = dedupeImageUrls(vehicleImages.map((img) => getPublicVehicleImageUrl(img))).filter(isUsable);
       if (fromGallery.length > 0) return fromGallery;
     }
     // Only fall back to vehicles.image_url if it's NOT a legacy URL.

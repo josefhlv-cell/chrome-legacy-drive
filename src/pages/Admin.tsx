@@ -677,6 +677,25 @@ const VehiclesTab = () => {
         </motion.div>
       )}
 
+      <SmartDashboardDialog
+        open={showSmartDashboard}
+        onOpenChange={(v) => {
+          setShowSmartDashboard(v);
+          if (v && !showNew) setShowNew(true);
+        }}
+        onImport={(buffered, meta) => {
+          // pokud není otevřený formulář, otevři ho
+          if (!showNew) setShowNew(true);
+          setNewPhotos((prev) => [...prev, ...buffered]);
+          setNewData((prev) => ({
+            ...prev,
+            vin: prev.vin || meta.vin || "",
+            name: prev.name || [meta.brand, meta.model].filter(Boolean).join(" ") || prev.name,
+            year: prev.year || meta.year || prev.year,
+          }));
+        }}
+      />
+
       {isLoading && <p className="text-muted-foreground text-center py-10">Načítání...</p>}
 
       <div className="space-y-4">

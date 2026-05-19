@@ -29,9 +29,29 @@ Deno.serve(async (req) => {
     if (!role) return j({ error: "Forbidden" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const action: "apply" | "restore" = body?.action;
+    const action: "apply" | "restore" | "restore_vehicle" = body?.action;
     const imageId: string = body?.imageId;
-    if (!imageId || !["apply", "restore"].includes(action)) return j({ error: "Bad request" }, 400);
+    const vehicleId: string = body?.vehicleId;
+    if (!["apply", "restore", "restore_vehicle"].includes(action)) return j({ error: "Bad request" }, 400);
+
+    if (action === "restore_vehicle") {
+      if (!vehicleId) return j({ error: "vehicleId required" }, 400);
+      const { data: rows } = await admin.from("vehicle_images")
+        .select("id, image_url, original_backup_url, is_main")
+        .eq("vehicle_id", vehicleId);
+      for (const row of rows ?? []) {
+        const restoredUrl = row.original_backup_url || row.image_url;
+        await admin.from("vehicle_images").update({
+          image_url: restoredUrl,
+          original_backup_url: "",
+          showroom_applied_at: null,
+        }).eq("id", row.id);
+        if (row.is_main) await admin.from("vehicles").update({ image_url: restoredUrl, showroom_mode: "off" }).eq("id", vehicleId);
+      }
+      return j({ ok: true, restored: rows?.length ?? 0 });
+    }
+
+    if (!imageId) return j({ error: "imageId required" }, 400);
 
     const { data: img } = await admin.from("vehicle_images")
       .select("id, vehicle_id, image_url, showroom_url, original_backup_url, is_main")
@@ -43,11 +63,9 @@ Deno.serve(async (req) => {
       const backup = img.original_backup_url || img.image_url;
       await admin.from("vehicle_images").update({
         original_backup_url: backup,
-        image_url: img.showroom_url,
+        showroom_applied_at: new Date().toISOString(),
       }).eq("id", imageId);
-      if (img.is_main) {
-        await admin.from("vehicles").update({ image_url: img.showroom_url }).eq("id", img.vehicle_id);
-      }
+      if (img.is_main) await admin.from("vehicles").update({ showroom_mode: "main" }).eq("id", img.vehicle_id);
       return j({ ok: true, image_url: img.showroom_url });
     }
 
@@ -56,9 +74,10 @@ Deno.serve(async (req) => {
     await admin.from("vehicle_images").update({
       image_url: img.original_backup_url,
       original_backup_url: "",
+      showroom_applied_at: null,
     }).eq("id", imageId);
     if (img.is_main) {
-      await admin.from("vehicles").update({ image_url: img.original_backup_url }).eq("id", img.vehicle_id);
+      await admin.from("vehicles").update({ image_url: img.original_backup_url, showroom_mode: "off" }).eq("id", img.vehicle_id);
     }
     return j({ ok: true, image_url: img.original_backup_url });
   } catch (e: any) {

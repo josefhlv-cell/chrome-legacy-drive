@@ -105,14 +105,21 @@ async function composeShowroomPhoto(backgroundBytes: Uint8Array, carBytes: Uint8
   const bg = (await Image.decode(backgroundBytes)).cover(car.width, car.height);
 
   let minX = car.width, minY = car.height, maxX = 0, maxY = 0;
+  let maskPixels = 0;
   for (let y = 0; y < car.height; y++) for (let x = 0; x < car.width; x++) {
     const i = (y * car.width + x) * 4;
     if (maskAlpha(mask.bitmap, i) > 0.45) {
+      maskPixels++;
       if (x < minX) minX = x;
       if (y < minY) minY = y;
       if (x > maxX) maxX = x;
       if (y > maxY) maxY = y;
     }
+  }
+
+  const maskRatio = maskPixels / (car.width * car.height);
+  if (maskRatio < 0.04 || maskRatio > 0.88 || maxX <= minX || maxY <= minY) {
+    throw new Error(`Invalid vehicle mask (${Math.round(maskRatio * 100)}%)`);
   }
 
   if (maxX > minX && maxY > minY) {

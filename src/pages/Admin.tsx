@@ -375,7 +375,28 @@ const VehiclesTab = () => {
       return;
     }
     createVehicle.mutate(newData, {
-      onSuccess: () => { setShowNew(false); setNewData(emptyVehicle); toast({ title: "Vůz přidán" }); },
+      onSuccess: async (created: any) => {
+        const vehicleId = created?.id;
+        if (vehicleId && newPhotos.length) {
+          setUploadingFor(vehicleId);
+          try {
+            for (const p of newPhotos) {
+              await addImage.mutateAsync({ vehicleId, file: p.file, isMain: p.isMain });
+            }
+            toast({ title: `Vůz přidán · ${newPhotos.length} fotek nahráno` });
+          } catch (e: any) {
+            toast({ title: "Vůz přidán, ale nahrávání fotek selhalo", description: e?.message, variant: "destructive" });
+          } finally {
+            setUploadingFor(null);
+          }
+        } else {
+          toast({ title: "Vůz přidán" });
+        }
+        newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+        setNewPhotos([]);
+        setShowNew(false);
+        setNewData(emptyVehicle);
+      },
     });
   };
 

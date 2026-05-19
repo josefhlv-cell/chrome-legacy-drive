@@ -632,15 +632,29 @@ const VehiclesTab = () => {
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
                   <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSmartDashboard(true)}
-                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                  title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Smart Dashboard
-                </button>
+                <div className="flex items-center gap-2">
+                  <label
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border text-xs cursor-pointer hover:bg-secondary"
+                    title="Po uložení vozu AI nahradí pozadí titulní fotky jednotným showroom backgroundem"
+                  >
+                    <Switch
+                      checked={(newData as any).showroom_mode && (newData as any).showroom_mode !== "off"}
+                      onCheckedChange={(v) => setNewData({ ...newData, showroom_mode: v ? "main" : "off" } as any)}
+                    />
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <span>Pozadí Chrysler.cz</span>
+                    <span className="text-[10px] text-muted-foreground hidden sm:inline">(showroom background pro úvodní fotku)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSmartDashboard(true)}
+                    className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                    title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Smart Dashboard
+                  </button>
+                </div>
               </div>
               <NewVehiclePhotoUploader
                 photos={newPhotos}

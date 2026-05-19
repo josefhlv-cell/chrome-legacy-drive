@@ -79,6 +79,7 @@ const emptyVehicle: TablesInsert<"vehicles"> = {
   tipcars_servisni_knizka: true,
   tipcars_nebourane: false,
   tipcars_garantovany_najezd: true,
+  showroom_mode: "off",
 } as TablesInsert<"vehicles">;
 
 type AdminSort = "price-desc" | "price-asc" | "year" | "newest";

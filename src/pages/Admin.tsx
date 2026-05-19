@@ -365,7 +365,7 @@ const VehiclesTab = () => {
 
   const startEdit = (v: DbVehicle) => {
     setEditingId(v.id);
-    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "" });
+    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off" } as any);
   };
 
   const saveEdit = () => {
@@ -662,7 +662,7 @@ const VehiclesTab = () => {
                 <div className="flex items-center gap-2">
                   <label
                     className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border text-xs cursor-pointer hover:bg-secondary"
-                    title="Po uložení vozu AI nahradí pozadí titulní fotky jednotným showroom backgroundem"
+                    title="Po uložení vozu se vytvoří separátní AI showroom varianta pouze pro úvodní fotografii"
                   >
                     <Switch
                       checked={(newData as any).showroom_mode && (newData as any).showroom_mode !== "off"}
@@ -670,7 +670,6 @@ const VehiclesTab = () => {
                     />
                     <Sparkles className="w-3.5 h-3.5 text-primary" />
                     <span>Pozadí Chrysler.cz</span>
-                    <span className="text-[10px] text-muted-foreground hidden sm:inline">(showroom background pro úvodní fotku)</span>
                   </label>
                   <button
                     type="button"
@@ -688,6 +687,9 @@ const VehiclesTab = () => {
                 onChange={setNewPhotos}
                 onLaunchSmartCapture={() => window.open("/admin/smart-capture", "_blank")}
               />
+              <p className="text-[11px] text-muted-foreground mt-2">
+                Použít showroom background pro úvodní fotografii vozu
+              </p>
             </div>
             <TipCarsFields
               data={newData as any}

@@ -331,6 +331,194 @@ export type Database = {
         }
         Relationships: []
       }
+      smart_capture_photos: {
+        Row: {
+          ai_classification: Json
+          created_at: string
+          height: number | null
+          id: string
+          is_main: boolean
+          original_url: string
+          processed_url: string
+          quality: Json
+          quality_score: number
+          session_id: string
+          shot_index: number
+          shot_type: string
+          width: number | null
+        }
+        Insert: {
+          ai_classification?: Json
+          created_at?: string
+          height?: number | null
+          id?: string
+          is_main?: boolean
+          original_url?: string
+          processed_url?: string
+          quality?: Json
+          quality_score?: number
+          session_id: string
+          shot_index?: number
+          shot_type?: string
+          width?: number | null
+        }
+        Update: {
+          ai_classification?: Json
+          created_at?: string
+          height?: number | null
+          id?: string
+          is_main?: boolean
+          original_url?: string
+          processed_url?: string
+          quality?: Json
+          quality_score?: number
+          session_id?: string
+          shot_index?: number
+          shot_type?: string
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "smart_capture_photos_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "smart_capture_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      smart_capture_sessions: {
+        Row: {
+          created_at: string
+          decoded_data: Json
+          has_360: boolean
+          id: string
+          metadata: Json
+          published_vehicle_id: string | null
+          quality_score: number
+          status: string
+          updated_at: string
+          user_id: string
+          vin: string
+        }
+        Insert: {
+          created_at?: string
+          decoded_data?: Json
+          has_360?: boolean
+          id?: string
+          metadata?: Json
+          published_vehicle_id?: string | null
+          quality_score?: number
+          status?: string
+          updated_at?: string
+          user_id: string
+          vin?: string
+        }
+        Update: {
+          created_at?: string
+          decoded_data?: Json
+          has_360?: boolean
+          id?: string
+          metadata?: Json
+          published_vehicle_id?: string | null
+          quality_score?: number
+          status?: string
+          updated_at?: string
+          user_id?: string
+          vin?: string
+        }
+        Relationships: []
+      }
+      smart_capture_settings: {
+        Row: {
+          ai_classify_shots: string
+          ai_quality_check: string
+          ai_realtime_hints: string
+          assistance_level: string
+          auto_360_generation: string
+          auto_brightness_normalize: string
+          auto_crop: string
+          auto_exposure_correction: string
+          auto_image_processing: string
+          auto_naming: string
+          auto_pick_main: string
+          auto_sort_gallery: string
+          background_video_capture: string
+          blur_detection: string
+          blur_license_plate: string
+          export_folders: string
+          generate_listing_versions: string
+          generate_web_versions: string
+          id: string
+          quality_score_enabled: string
+          safe_mode: boolean
+          singleton: boolean
+          updated_at: string
+          vin_autofill: string
+          vin_ocr: string
+          vin_scan_enabled: string
+          watermark: string
+        }
+        Insert: {
+          ai_classify_shots?: string
+          ai_quality_check?: string
+          ai_realtime_hints?: string
+          assistance_level?: string
+          auto_360_generation?: string
+          auto_brightness_normalize?: string
+          auto_crop?: string
+          auto_exposure_correction?: string
+          auto_image_processing?: string
+          auto_naming?: string
+          auto_pick_main?: string
+          auto_sort_gallery?: string
+          background_video_capture?: string
+          blur_detection?: string
+          blur_license_plate?: string
+          export_folders?: string
+          generate_listing_versions?: string
+          generate_web_versions?: string
+          id?: string
+          quality_score_enabled?: string
+          safe_mode?: boolean
+          singleton?: boolean
+          updated_at?: string
+          vin_autofill?: string
+          vin_ocr?: string
+          vin_scan_enabled?: string
+          watermark?: string
+        }
+        Update: {
+          ai_classify_shots?: string
+          ai_quality_check?: string
+          ai_realtime_hints?: string
+          assistance_level?: string
+          auto_360_generation?: string
+          auto_brightness_normalize?: string
+          auto_crop?: string
+          auto_exposure_correction?: string
+          auto_image_processing?: string
+          auto_naming?: string
+          auto_pick_main?: string
+          auto_sort_gallery?: string
+          background_video_capture?: string
+          blur_detection?: string
+          blur_license_plate?: string
+          export_folders?: string
+          generate_listing_versions?: string
+          generate_web_versions?: string
+          id?: string
+          quality_score_enabled?: string
+          safe_mode?: boolean
+          singleton?: boolean
+          updated_at?: string
+          vin_autofill?: string
+          vin_ocr?: string
+          vin_scan_enabled?: string
+          watermark?: string
+        }
+        Relationships: []
+      }
       ticker_items: {
         Row: {
           created_at: string

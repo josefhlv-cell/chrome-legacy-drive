@@ -245,6 +245,7 @@ const VehiclesTab = () => {
   const [showNew, setShowNew] = useState(false);
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
   const [newPhotos, setNewPhotos] = useState<BufferedPhoto[]>([]);
+  const [showSmartDashboard, setShowSmartDashboard] = useState(false);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
   const [printVehicleId, setPrintVehicleId] = useState<string | null>(null);
   const [uploadingFor, setUploadingFor] = useState<string | null>(null);

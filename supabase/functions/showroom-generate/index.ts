@@ -148,14 +148,15 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash-image-preview",
+        model: "google/gemini-3-pro-image-preview",
         modalities: ["image", "text"],
         messages: [{
           role: "user",
           content: [
-            { type: "text", text: PROMPT },
+            { type: "text", text: "IMAGE 1 = BACKGROUND PLATE (fixed backdrop, do not alter). IMAGE 2 = SOURCE CAR — keep this exact car (same model, generation, year, color, wheels, bumpers, headlights, grille). Composite the car from IMAGE 2 into the scene of IMAGE 1." },
             { type: "image_url", image_url: { url: backgroundDataUrl } },
             { type: "image_url", image_url: { url: carDataUrl } },
+            { type: "text", text: PROMPT },
           ],
         }],
       }),

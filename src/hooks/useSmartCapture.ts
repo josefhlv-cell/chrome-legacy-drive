@@ -119,21 +119,22 @@ export const useUploadPhoto = () => {
       const base = (path: string) =>
         `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}/${path}`;
 
+      const payload = {
+        session_id: input.sessionId,
+        shot_type: input.shotType,
+        shot_index: input.shotIndex,
+        original_url: base(origPath),
+        processed_url: base(procPath),
+        width: input.width,
+        height: input.height,
+        quality: input.quality as never,
+        quality_score: input.qualityScore,
+        ai_classification: input.aiClassification as never,
+        is_main: input.isMain ?? false,
+      };
       const { data, error } = await supabase
-        .from("smart_capture_photos" as never)
-        .insert({
-          session_id: input.sessionId,
-          shot_type: input.shotType,
-          shot_index: input.shotIndex,
-          original_url: base(origPath),
-          processed_url: base(procPath),
-          width: input.width,
-          height: input.height,
-          quality: input.quality,
-          quality_score: input.qualityScore,
-          ai_classification: input.aiClassification,
-          is_main: input.isMain ?? false,
-        })
+        .from("smart_capture_photos")
+        .insert(payload)
         .select()
         .single();
       if (error) throw error;

@@ -1,5 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { Image } from "https://deno.land/x/imagescript@1.3.0/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -18,36 +19,28 @@ const BG_FALLBACK_URLS = [
   "https://chtysler-cz.lovable.app/showroom-background.jpg",
 ];
 
-const PROMPT = `BACKGROUND-ONLY REPLACEMENT TASK.
+const MASK_PROMPT = `Create a precise vehicle alpha mask for the provided car photo.
 
-You receive TWO images:
-- IMAGE 1 = REFERENCE BACKGROUND (Chrysler & Dodge Pardubice white building with shield logo, flat roof, trees, asphalt forecourt).
-- IMAGE 2 = SOURCE PHOTO of a car taken outdoors somewhere else.
+OUTPUT FORMAT:
+- Return ONLY one black-and-white mask image.
+- SAME width, SAME height, SAME crop, SAME perspective as the input photo.
+- Vehicle pixels = pure white (#FFFFFF).
+- Non-vehicle background = pure black (#000000).
 
-YOUR ONLY JOB: Return IMAGE 2 with the surroundings behind/around the car replaced by the scene from IMAGE 1. Think of it as a green-screen / sky-replacement edit, not a re-render.
+WHITE AREA MUST INCLUDE:
+- the exact whole vehicle body from the input photo,
+- bumpers, wheels, tires, mirrors, grille, headlights, badges, license plate,
+- roof/convertible top, windshield, windows and visible interior that belongs to the car.
 
-═══ CAR — DO NOT TOUCH ═══
-- Keep the car pixels from IMAGE 2 untouched: same exact car, same model, same generation, same color, same paint, same wheels, same tires, same grille, same headlights, same bumpers (front AND rear), same mirrors, same badges, same license plate, same glass tint, same dirt/reflections.
-- Keep the car at the EXACT SAME angle, EXACT SAME perspective, EXACT SAME size, EXACT SAME position in the frame as in IMAGE 2. Do not rotate it. Do not flip it. Do not re-pose it. Do not zoom in or out on it. Do not move it left/right/up/down.
-- Keep the same crop and aspect ratio as IMAGE 2. If part of the car is cut off in IMAGE 2, keep it cut off the same way.
+BLACK AREA MUST INCLUDE:
+- sky, buildings, fields, trees, road, pavement, walls, signs, poles and all unrelated background.
 
-═══ BACKGROUND — REPLACE WITH IMAGE 1 ═══
-- Everything that is NOT the car (sky, houses, road markings, fences, grass, trees, other cars, signs, poles, pavement texture) must be replaced with elements from the scene of IMAGE 1.
-- The white Chrysler & Dodge Pardubice building with the shield logo should be visible behind the car, positioned naturally as if the car were parked in front of it. Use the same wall texture, roof line, and shield logo as IMAGE 1.
-- The ground under the car should become the asphalt forecourt from IMAGE 1.
-- Do NOT invent new buildings, gutters, doors, windows, fences, or extra logos that are not in IMAGE 1.
-
-═══ BLENDING ═══
-- Match the daylight of IMAGE 1: soft daylight from upper left, neutral white balance.
-- Add a realistic contact shadow under the tires onto the new asphalt.
-- Subtle, natural reflections of the new wall/sky on the car body — do not over-do it, do not repaint the body.
-- Edges around the car must be photographically clean: no halo, no double outline, no smudged silhouette, no ghosting, no painted-on look.
-
-═══ OUTPUT ═══
-- One single photorealistic image with the SAME aspect ratio and SAME framing as IMAGE 2.
-- No text, no watermark, no extra logo, no border, no collage, no before/after.
-
-If you cannot replace the background without changing the car, return IMAGE 2 unchanged rather than producing a different car or a different angle.`;
+CRITICAL:
+- Do not redraw the car.
+- Do not change the car angle.
+- Do not create a showroom image.
+- Do not add shadows, labels, borders, text, logos, or gradients.
+- This is segmentation only: white silhouette of the original car on black background.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 

@@ -46,7 +46,7 @@ import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab"
 import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
 import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
 import ShowroomTab from "@/components/admin/ShowroomTab";
-import { Megaphone, LayoutDashboard, Send, Wand2 } from "lucide-react";
+import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
 type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom";

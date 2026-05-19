@@ -34,8 +34,14 @@ export const SHOT_SEQUENCE: ShotStep[] = [
 ];
 
 export const SHOT_LABEL_MAP: Record<ShotType, string> = SHOT_SEQUENCE.reduce((acc, s) => {
-  acc[s.type] = s.label; return acc;
-}, { interier-jine: "Interiér", exterier-jine: "Exteriér", detail: "Detail", unknown: "Neznámé" } as unknown as Record<ShotType, string>);
+  acc[s.type] = s.label;
+  return acc;
+}, {
+  "interier-jine": "Interiér",
+  "exterier-jine": "Exteriér",
+  "detail": "Detail",
+  "unknown": "Neznámé",
+} as Record<ShotType, string>);
 
 // Bezpečný název souboru
 export const slugifyShot = (type: ShotType, index: number): string => {

@@ -623,10 +623,21 @@ const VehiclesTab = () => {
               <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
             </div>
             <div className="sm:col-span-2 lg:col-span-3 mt-2">
-              <div className="flex items-center gap-2 mb-3">
-                <Camera className="w-4 h-4 text-primary" />
-                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
-                <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
+              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Camera className="w-4 h-4 text-primary" />
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
+                  <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSmartDashboard(true)}
+                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                  title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Smart Dashboard
+                </button>
               </div>
               <NewVehiclePhotoUploader
                 photos={newPhotos}

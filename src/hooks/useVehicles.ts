@@ -2,7 +2,10 @@ import { useQuery, useMutation, useQueryClient, useInfiniteQuery } from "@tansta
 import { supabase } from "@/integrations/supabase/client";
 import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
 
-export type VehicleImageRecord = Pick<Tables<"vehicle_images">, "image_url" | "is_main" | "sort_order">;
+export type VehicleImageRecord = Pick<Tables<"vehicle_images">, "image_url" | "is_main" | "sort_order"> & {
+  showroom_url?: string;
+  showroom_applied_at?: string | null;
+};
 export type DbVehicle = Tables<"vehicles"> & { vehicle_images?: VehicleImageRecord[] };
 
 const UUID_REGEX =
@@ -11,18 +14,18 @@ const UUID_REGEX =
 // Lean column set for list views — drops heavy fields like description/lpg_description/carfax_url
 // that are only needed on the detail page. Cuts JSON payload by ~70%.
 const LIST_COLUMNS =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,image_url,inventory_number,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order,showroom_url,showroom_applied_at)";
 
 // Fallback when a vehicle has no rows in vehicle_images yet — left join variant.
 const LIST_COLUMNS_LEFT =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,image_url,inventory_number,updated_at,created_at,vehicle_images(image_url,is_main,sort_order)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at)";
 
 // Admin needs FULL row data (description, engine, transmission, power, color,
 // lpg_description, carfax_url, video_id, etc.) so the edit form is pre-filled.
 // The lean LIST_COLUMNS_LEFT drops those for performance — fine for the public
 // catalog, but breaks admin editing.
 const ADMIN_COLUMNS_FULL =
-  "*,vehicle_images(image_url,is_main,sort_order)";
+  "*,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at)";
 
 // Dedupe by VIN (fallback to id). When duplicates exist, prefer the row that
 // actually has gallery images. Avoids picking a stale duplicate whose only

@@ -44,6 +44,7 @@ import TipCarsTab from "@/components/admin/TipCarsTab";
 import RevertButton from "@/components/admin/RevertButton";
 import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab";
 import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
+import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
 import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";

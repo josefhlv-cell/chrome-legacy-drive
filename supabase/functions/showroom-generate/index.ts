@@ -27,35 +27,35 @@ INPUTS:
 2) SOURCE CAR PHOTO: the real vehicle that must appear in the output.
 
 CORE GOAL:
-Replace only the original background of the source car photo with the exact Chrysler Pardubice reference location, so the result looks like the same real car was genuinely photographed there.
-This is NOT an AI fantasy scene. It must look 100% realistic, natural, premium, and suitable for a professional American dealership listing.
+Place the EXACT same car from the source photo in front of the Chrysler Pardubice reference location, so the result looks like the same real car was genuinely photographed there.
+This is NOT an AI fantasy scene. It must look 100% realistic, natural, premium, and suitable for a professional dealership listing.
 
-REFERENCE BACKGROUND — ABSOLUTE RULES:
-- Use the reference building 1:1 as the real location: same white facade, same proportions, same roof slope, same visible height, same gutter details, same natural trees at the top, same exterior atmosphere, same asphalt in front.
-- Keep the Chrysler Pardubice wall/logo character from the reference. Do not invent a new showroom, studio, hall, sign, facade, door, window, fence, people, extra cars, or futuristic elements.
-- Preserve realistic outdoor daylight, facade texture, roof geometry, minimal side visibility, and natural imperfections.
+PRIORITY ORDER (most important first):
+1) CAR IDENTITY — LOCKED. Never change.
+2) PHOTOREALISM — natural light, clean blending, believable contact with the ground.
+3) BACKGROUND — match the reference building composition and proportions as closely as possible (NOT pixel-perfect 1:1). Small natural adjustments to perspective, crop and lighting are allowed and expected to make the blend look real.
 
-CAR — ABSOLUTE IDENTITY LOCK:
-- The car must remain the exact same car from the source photo.
-- Preserve make, model, generation, year, body color, paint reflections, wheels, tires, bumpers, grille, headlights, mirrors, trim, badges, glass tint, license plate, proportions, stance, and all visible damage/details.
-- Preserve the source car camera angle, perspective, scale relationship, and framing as closely as possible.
-- Do NOT rotate, flip, re-pose, redesign, recolor, replace, upscale into another model, remove bumpers, add spoilers, change wheels, change grille, or change lights.
+CAR — ABSOLUTE IDENTITY LOCK (DO NOT CHANGE):
+- Same make, model, generation, year, body color, paint, wheels, tires, bumpers (front AND rear), grille, headlights, taillights, mirrors, trim, badges, glass tint, license plate, proportions, stance, visible damage and details.
+- Preserve original framing and keep all visible vehicle parts intact (do not crop off bumpers, mirrors, wheels).
+- Do NOT rotate, flip, re-pose, recolor, redesign, replace with another model, remove or alter bumpers, add spoilers, change wheels, change grille, or change lights.
+- Keep the source car camera angle and perspective. Minor harmonization with the background is allowed only if the car silhouette stays identical.
 
-REALISTIC IMAGE PROCESSING REQUIREMENTS:
-- Segment the car cleanly from the original photo.
-- Remove the old background only.
-- Keep natural car reflections and body highlights believable.
-- Match light, contrast, white balance, color temperature, and HDR gently to the reference background.
-- Preserve wheel contact with the ground.
-- Create realistic contact shadows under tires and under the vehicle.
-- Blend the tires into the asphalt naturally.
-- Keep existing realistic shadows if they fit; harmonize them softly.
-- No over-sharpening, fake glow, gaming effect, surreal HDR, heavy AI style, plastic paint, or artificial studio look.
+BACKGROUND — FLEXIBLE BUT FAITHFUL:
+- Match the reference building composition and proportions as closely as possible while preserving photorealism and clean blending.
+- Same white facade character, same Chrysler Pardubice identity, same roof slope feel, natural trees at the top, gray asphalt in front, soft outdoor daylight.
+- Do not invent a new showroom, studio, hall, extra signage, doors, windows, fences, people, extra cars, or futuristic elements.
+- Slight reframing, perspective adjustment, or lighting harmonization of the background is allowed if needed to make the car sit naturally in the scene.
+
+REALISTIC BLENDING:
+- Segment the car cleanly. Replace only the original background.
+- Natural contact shadows under tires and under the vehicle. Tires touch the asphalt believably.
+- Match light direction, contrast, white balance, color temperature gently between car and background.
+- No halos, no mask artifacts, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look.
 
 COMPOSITION:
 - Horizontal 16:9 listing photo.
-- The car should sit naturally on the asphalt in front of the reference building.
-- The building must not be cropped or warped in a strange way; preserve its recognizable original geometry.
+- Car sits naturally on the asphalt in front of the reference building.
 - Final result must look like a real dealership photo taken on that exact spot.
 
 OUTPUT:

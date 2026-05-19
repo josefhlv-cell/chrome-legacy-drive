@@ -99,6 +99,55 @@ function maskAlpha(mask: Uint8ClampedArray, i: number): number {
   return Math.max(mask[i], mask[i + 1], mask[i + 2]) / 255;
 }
 
+async function composeShowroomPhoto(backgroundBytes: Uint8Array, carBytes: Uint8Array, maskBytes: Uint8Array): Promise<Uint8Array> {
+  const car = await Image.decode(carBytes);
+  const mask = (await Image.decode(maskBytes)).cover(car.width, car.height);
+  const bg = (await Image.decode(backgroundBytes)).cover(car.width, car.height);
+
+  let minX = car.width, minY = car.height, maxX = 0, maxY = 0;
+  for (let y = 0; y < car.height; y++) for (let x = 0; x < car.width; x++) {
+    const i = (y * car.width + x) * 4;
+    if (maskAlpha(mask.bitmap, i) > 0.45) {
+      if (x < minX) minX = x;
+      if (y < minY) minY = y;
+      if (x > maxX) maxX = x;
+      if (y > maxY) maxY = y;
+    }
+  }
+
+  if (maxX > minX && maxY > minY) {
+    const cx = (minX + maxX) / 2;
+    const cy = maxY - (maxY - minY) * 0.03;
+    const rx = (maxX - minX) * 0.56;
+    const ry = Math.max(10, (maxY - minY) * 0.08);
+    for (let y = Math.max(0, Math.floor(cy - ry)); y < Math.min(car.height, Math.ceil(cy + ry)); y++) for (let x = Math.max(0, Math.floor(cx - rx)); x < Math.min(car.width, Math.ceil(cx + rx)); x++) {
+      const dx = (x - cx) / rx;
+      const dy = (y - cy) / ry;
+      const d = dx * dx + dy * dy;
+      if (d < 1) {
+        const i = (y * car.width + x) * 4;
+        const strength = (1 - d) * 0.26;
+        bg.bitmap[i] = Math.round(bg.bitmap[i] * (1 - strength));
+        bg.bitmap[i + 1] = Math.round(bg.bitmap[i + 1] * (1 - strength));
+        bg.bitmap[i + 2] = Math.round(bg.bitmap[i + 2] * (1 - strength));
+      }
+    }
+  }
+
+  const out = bg.clone();
+  for (let i = 0; i < out.bitmap.length; i += 4) {
+    const raw = maskAlpha(mask.bitmap, i);
+    const a = raw >= 0.58 ? 1 : raw <= 0.34 ? 0 : (raw - 0.34) / 0.24;
+    if (a <= 0) continue;
+    out.bitmap[i] = Math.round(car.bitmap[i] * a + out.bitmap[i] * (1 - a));
+    out.bitmap[i + 1] = Math.round(car.bitmap[i + 1] * a + out.bitmap[i + 1] * (1 - a));
+    out.bitmap[i + 2] = Math.round(car.bitmap[i + 2] * a + out.bitmap[i + 2] * (1 - a));
+    out.bitmap[i + 3] = 255;
+  }
+
+  return await out.encodeJPEG(92);
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
 

@@ -1,9 +1,17 @@
 // Smart Capture — typy a konstanty
+// Pořadí záběrů dle požadavku majitele (20 kroků)
 export type ShotType =
+  | "prava-predni" | "leva-predni" | "leva-zadni" | "prava-zadni"
+  | "zadek" | "predek" | "kufr"
+  | "sedacky-zezadu" | "prava-stredni-sedacka" | "prava-predni-sedacka"
+  | "dvd" | "pristrojovka-zprostred" | "leva-stredni-sedacka"
+  | "zprostred-predek-ridic" | "dvere-ridic" | "km"
+  | "stredovy-panel" | "vrch-stropnice" | "detail-klima" | "vin-za-oknem"
+  // legacy/fallback typy zachované pro starší data
   | "predni-pravy-roh" | "pravy-bok" | "pravy-zadni-roh" | "zadni-cast"
   | "levy-zadni-roh" | "levy-bok" | "levy-predni-roh" | "predni-cast"
   | "kola-disky" | "motor" | "ridicuv-prostor" | "predni-sedacky"
-  | "druha-rada" | "treti-rada" | "kufr" | "panorama-strop" | "vin-stitek"
+  | "druha-rada" | "treti-rada" | "panorama-strop" | "vin-stitek"
   | "interier-jine" | "exterier-jine" | "detail" | "unknown";
 
 export interface ShotStep {
@@ -14,29 +22,49 @@ export interface ShotStep {
 }
 
 export const SHOT_SEQUENCE: ShotStep[] = [
-  { type: "predni-pravy-roh", label: "Pravý přední roh", hint: "Titulní fotka — postavte se 3–4 m od auta v úhlu 45°.", category: "exterior" },
-  { type: "pravy-bok", label: "Pravý bok", hint: "Kolmo k vozidlu, celá silueta v záběru.", category: "exterior" },
-  { type: "pravy-zadni-roh", label: "Pravý zadní roh", hint: "Stejný úhel 45° z druhé strany.", category: "exterior" },
-  { type: "zadni-cast", label: "Zadní část", hint: "Kolmo zezadu, světla v ostřících.", category: "exterior" },
-  { type: "levy-zadni-roh", label: "Levý zadní roh", hint: "Symetricky k pravému zadnímu rohu.", category: "exterior" },
-  { type: "levy-bok", label: "Levý bok", hint: "Kolmo k vozidlu.", category: "exterior" },
-  { type: "levy-predni-roh", label: "Levý přední roh", hint: "Symetricky k titulní fotce.", category: "exterior" },
-  { type: "predni-cast", label: "Přední část", hint: "Kolmo zepředu, maska celá v záběru.", category: "exterior" },
-  { type: "kola-disky", label: "Kola / disky", hint: "Detail disku z přibližně 1 m.", category: "detail" },
-  { type: "motor", label: "Motor", hint: "Otevřená kapota, dostatek světla.", category: "detail" },
-  { type: "ridicuv-prostor", label: "Řidičův prostor", hint: "Volant, palubní deska, multimédia.", category: "interior" },
-  { type: "predni-sedacky", label: "Přední sedačky", hint: "Foto ze zadních dveří dopředu.", category: "interior" },
-  { type: "druha-rada", label: "Druhá řada", hint: "Pohled na zadní sedačky.", category: "interior" },
-  { type: "treti-rada", label: "Třetí řada", hint: "Pokud vůz třetí řadu má.", category: "interior" },
-  { type: "kufr", label: "Kufr", hint: "Otevřený, prázdný, dobré osvětlení.", category: "interior" },
-  { type: "panorama-strop", label: "Panorama / strop", hint: "Pokud má panoramatickou střechu.", category: "interior" },
-  { type: "vin-stitek", label: "VIN štítek", hint: "Detailní záběr štítku, ostré písmo.", category: "vin" },
+  { type: "prava-predni", label: "Pravá přední", hint: "Titulní fotka — 3–4 m od auta v úhlu 45° z pravé strany zepředu.", category: "exterior" },
+  { type: "leva-predni", label: "Levá přední", hint: "Symetricky k titulní fotce z levé strany zepředu.", category: "exterior" },
+  { type: "leva-zadni", label: "Levá zadní", hint: "Úhel 45° z levé strany zezadu.", category: "exterior" },
+  { type: "prava-zadni", label: "Pravá zadní", hint: "Úhel 45° z pravé strany zezadu.", category: "exterior" },
+  { type: "zadek", label: "Zadek", hint: "Kolmo zezadu, celá záď v záběru.", category: "exterior" },
+  { type: "predek", label: "Předek", hint: "Kolmo zepředu, maska celá v záběru.", category: "exterior" },
+  { type: "kufr", label: "Kufr", hint: "Otevřený a prázdný kufr, dobré osvětlení.", category: "interior" },
+  { type: "sedacky-zezadu", label: "Sedačky zezadu", hint: "Pohled na zadní sedačky zezadu (otevřené kufr/dveře).", category: "interior" },
+  { type: "prava-stredni-sedacka", label: "Pravá střední sedačka", hint: "Detail pravé sedačky druhé řady.", category: "interior" },
+  { type: "prava-predni-sedacka", label: "Pravá přední sedačka", hint: "Detail spolujezdcovy sedačky.", category: "interior" },
+  { type: "dvd", label: "DVD / multimédia", hint: "Zadní DVD obrazovka nebo multimediální systém.", category: "interior" },
+  { type: "pristrojovka-zprostred", label: "Přístrojovka zprostřed", hint: "Pohled z prostředku auta na přístrojovou desku.", category: "interior" },
+  { type: "leva-stredni-sedacka", label: "Levá střední sedačka", hint: "Detail levé sedačky druhé řady.", category: "interior" },
+  { type: "zprostred-predek-ridic", label: "Zprostřed na řidiče", hint: "Z prostředku auta pohled dopředu na místo řidiče.", category: "interior" },
+  { type: "dvere-ridic", label: "Dveře řidiče", hint: "Otevřené dveře řidiče s detailem výplně.", category: "interior" },
+  { type: "km", label: "Tachometr / km", hint: "Detail tachometru s aktuálním nájezdem.", category: "detail" },
+  { type: "stredovy-panel", label: "Středový panel", hint: "Středová konzole s ovládacími prvky.", category: "interior" },
+  { type: "vrch-stropnice", label: "Vrch stropnice", hint: "Pohled nahoru — stropnice / panorama.", category: "interior" },
+  { type: "detail-klima", label: "Detail klimatizace", hint: "Detail ovládání klimatizace.", category: "detail" },
+  { type: "vin-za-oknem", label: "VIN za oknem", hint: "Detailní záběr VIN štítku za čelním sklem, ostré písmo.", category: "vin" },
 ];
 
 export const SHOT_LABEL_MAP: Record<ShotType, string> = SHOT_SEQUENCE.reduce((acc, s) => {
   acc[s.type] = s.label;
   return acc;
 }, {
+  // legacy popisky
+  "predni-pravy-roh": "Pravý přední roh",
+  "pravy-bok": "Pravý bok",
+  "pravy-zadni-roh": "Pravý zadní roh",
+  "zadni-cast": "Zadní část",
+  "levy-zadni-roh": "Levý zadní roh",
+  "levy-bok": "Levý bok",
+  "levy-predni-roh": "Levý přední roh",
+  "predni-cast": "Přední část",
+  "kola-disky": "Kola / disky",
+  "motor": "Motor",
+  "ridicuv-prostor": "Řidičův prostor",
+  "predni-sedacky": "Přední sedačky",
+  "druha-rada": "Druhá řada",
+  "treti-rada": "Třetí řada",
+  "panorama-strop": "Panorama / strop",
+  "vin-stitek": "VIN štítek",
   "interier-jine": "Interiér",
   "exterier-jine": "Exteriér",
   "detail": "Detail",

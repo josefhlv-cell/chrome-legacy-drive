@@ -45,10 +45,11 @@ import RevertButton from "@/components/admin/RevertButton";
 import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab";
 import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
 import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
+import ShowroomTab from "@/components/admin/ShowroomTab";
 import { Megaphone, LayoutDashboard, Send } from "lucide-react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture";
+type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -78,6 +79,7 @@ const emptyVehicle: TablesInsert<"vehicles"> = {
   tipcars_servisni_knizka: true,
   tipcars_nebourane: false,
   tipcars_garantovany_najezd: true,
+  showroom_mode: "off",
 } as TablesInsert<"vehicles">;
 
 type AdminSort = "price-desc" | "price-asc" | "year" | "newest";
@@ -102,6 +104,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },
   { key: "tipcars", label: "TipCars", icon: <Send className="w-4 h-4" /> },
   { key: "smart-capture", label: "Smart Capture", icon: <Sparkles className="w-4 h-4" /> },
+  { key: "showroom", label: "Showroom Mode", icon: <Wand2 className="w-4 h-4" /> },
 ];
 
 const AdminPage = () => {
@@ -225,6 +228,7 @@ const AdminPage = () => {
           {activeTab === "facility" && <FacilityTab />}
           {activeTab === "tipcars" && <TipCarsTab />}
           {activeTab === "smart-capture" && <SmartCaptureSettingsTab />}
+          {activeTab === "showroom" && <ShowroomTab />}
         </div>
       </div>
       <Footer />
@@ -379,11 +383,14 @@ const VehiclesTab = () => {
     createVehicle.mutate(newData, {
       onSuccess: async (created: any) => {
         const vehicleId = created?.id;
+        const showroomMode = (newData as any).showroom_mode as "off" | "main" | "exterior" | undefined;
+        const createdImgIds: string[] = [];
         if (vehicleId && newPhotos.length) {
           setUploadingFor(vehicleId);
           try {
             for (const p of newPhotos) {
-              await addImage.mutateAsync({ vehicleId, file: p.file, isMain: p.isMain });
+              const row: any = await addImage.mutateAsync({ vehicleId, file: p.file, isMain: p.isMain });
+              if (row?.id) createdImgIds.push(row.id);
             }
             toast({ title: `Vůz přidán · ${newPhotos.length} fotek nahráno` });
           } catch (e: any) {
@@ -394,6 +401,29 @@ const VehiclesTab = () => {
         } else {
           toast({ title: "Vůz přidán" });
         }
+
+        // Auto-trigger Showroom Background pokud je zapnuto
+        if (vehicleId && showroomMode && showroomMode !== "off" && createdImgIds.length > 0) {
+          toast({ title: "Generuji showroom pozadí…", description: "AI úprava titulní fotky" });
+          (async () => {
+            try {
+              // pick main image (first that was isMain), fallback first
+              const mainIdx = newPhotos.findIndex((p) => p.isMain);
+              const targetIds = showroomMode === "exterior"
+                ? createdImgIds.slice(0, 6)
+                : [createdImgIds[mainIdx >= 0 ? mainIdx : 0]];
+              for (const imgId of targetIds) {
+                const { data, error } = await supabase.functions.invoke("showroom-generate", { body: { imageId: imgId } });
+                if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+                await supabase.functions.invoke("showroom-apply", { body: { imageId: imgId, action: "apply" } });
+              }
+              toast({ title: "Showroom pozadí aplikováno" });
+            } catch (e: any) {
+              toast({ title: "Showroom selhal", description: e?.message, variant: "destructive" });
+            }
+          })();
+        }
+
         newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
         setNewPhotos([]);
         setShowNew(false);
@@ -629,15 +659,29 @@ const VehiclesTab = () => {
                   <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
                   <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowSmartDashboard(true)}
-                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                  title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  Smart Dashboard
-                </button>
+                <div className="flex items-center gap-2">
+                  <label
+                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border text-xs cursor-pointer hover:bg-secondary"
+                    title="Po uložení vozu AI nahradí pozadí titulní fotky jednotným showroom backgroundem"
+                  >
+                    <Switch
+                      checked={(newData as any).showroom_mode && (newData as any).showroom_mode !== "off"}
+                      onCheckedChange={(v) => setNewData({ ...newData, showroom_mode: v ? "main" : "off" } as any)}
+                    />
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    <span>Pozadí Chrysler.cz</span>
+                    <span className="text-[10px] text-muted-foreground hidden sm:inline">(showroom background pro úvodní fotku)</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowSmartDashboard(true)}
+                    className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                    title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    Smart Dashboard
+                  </button>
+                </div>
               </div>
               <NewVehiclePhotoUploader
                 photos={newPhotos}

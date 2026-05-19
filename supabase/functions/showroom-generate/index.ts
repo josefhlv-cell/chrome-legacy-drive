@@ -18,21 +18,33 @@ const BG_FALLBACK_URLS = [
   "https://chtysler-cz.lovable.app/showroom-background.jpg",
 ];
 
-const PROMPT = `You are a professional automotive photo compositor.
+const PROMPT = `You are a professional automotive photo compositor. Your only job is BACKGROUND REPLACEMENT.
 
-TASK: Place the car from the SECOND image onto the showroom background shown in the FIRST image. Output a single photorealistic image, same composition as the FIRST image.
+INPUTS:
+- FIRST image = REFERENCE BACKGROUND (Chrysler & Dodge Pardubice building, white wall with shield logo, flat roof, trees, asphalt forecourt).
+- SECOND image = SOURCE CAR PHOTO. This contains the exact car that MUST appear in the output, unchanged.
 
-ABSOLUTE RULES — MUST FOLLOW EXACTLY:
-1. The background (building, roof shape, gutters, fascia texture, trees, asphalt, sky) MUST stay 1:1 identical to the FIRST image. Do not redraw, restyle, recolor, or reinterpret the building. Preserve the Chrysler & Dodge Pardubice shield logo on the wall exactly as shown.
-2. Replace ONLY the car in front of the building with the car from the SECOND image. Keep the car's exact model, color, trim, wheels, grille, headlights, and proportions — do not invent details.
-3. Position the car centered, facing 3/4 to the right (same angle as reference). Wheels firmly on the asphalt, realistic contact shadow under the tires, soft ambient occlusion under body.
-4. Match daylight: soft overcast/sunny daylight from upper left, neutral white balance, no harsh studio lighting, no HDR glow, no neon, no fantasy effects.
-5. Reflections on the car body should subtly mirror the building/sky above — natural, not exaggerated.
-6. Keep the car proportionally similar to the reference (large MPV/sedan fills lower 2/3 of frame). Do not shrink or distort.
-7. NO text overlays, NO watermarks, NO logos added, NO borders, NO frames.
-8. Output: single high-resolution photorealistic JPEG-style image, no collage, no split view.
+TASK: Output one photorealistic image where the EXACT car from the SECOND image stands in front of the building from the FIRST image.
 
-Result must look as if the car was actually photographed in front of this exact building, at the same spot, same lens, same day.`;
+═══ RULES ABOUT THE CAR (SECOND IMAGE) — ABSOLUTE ═══
+1. Use the car from the SECOND image EXACTLY as it is. Do NOT replace it, do NOT swap model, do NOT swap generation, do NOT swap to a Pacifica, do NOT modernize, do NOT change body shape.
+2. Preserve 1:1: exact color, exact paint finish, exact body lines, exact grille pattern, exact headlight shape, exact bumper (front AND rear — do NOT crop or omit the bumper), exact wheels, exact mirrors, exact badges, exact license plate, exact trim, exact ride height, exact glass tint.
+3. Keep the same shooting angle and perspective as the SECOND image. If the source shows the car 3/4 front-left, keep that. Do not rotate, do not flip, do not re-pose.
+4. The WHOLE car must be visible inside the frame, including the full front bumper, full rear bumper, and all four wheels touching the ground. Nothing cropped, nothing cut off.
+
+═══ RULES ABOUT THE BACKGROUND (FIRST IMAGE) — ABSOLUTE ═══
+5. The background must be 1:1 IDENTICAL to the FIRST image: same building wall, same Chrysler & Dodge Pardubice shield logo in the same position, same flat roof line, same trees, same sky, same asphalt forecourt, same proportions, same perspective, same crop. Do NOT zoom in, do NOT zoom out, do NOT pan, do NOT re-crop, do NOT extend, do NOT add new walls, gutters, downpipes, doors, windows, or fences that are not in the FIRST image.
+6. Do NOT redraw, restyle, recolor, blur, or "improve" the building. Treat the FIRST image as a fixed photographic backplate.
+7. The seam between car and background must be invisible: clean edges, no halo, no double outline, no smudged silhouette, no ghosting, no painted-on look. Sharp, photographic edges only.
+
+═══ LIGHT, SHADOW, REFLECTION ═══
+8. Match the daylight of the FIRST image (soft daylight from upper left, neutral white balance). Add a realistic contact shadow directly under the tires and soft ambient occlusion under the body. No harsh studio light, no HDR glow, no neon.
+9. Subtle, natural reflections of the wall/sky on the car body — never exaggerated, never cartoonish.
+
+═══ OUTPUT ═══
+10. One single photorealistic high-resolution image. Same aspect ratio and framing as the FIRST image. No collage, no split view, no before/after, no text, no watermark, no logo overlay, no border.
+
+If you cannot preserve the car identity from the SECOND image exactly, return the SECOND image unchanged rather than inventing a different car.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 

@@ -76,6 +76,15 @@ async function fetchBackground(): Promise<string> {
   throw new Error("Background image unreachable");
 }
 
+async function fetchBackgroundBytes(): Promise<Uint8Array> {
+  for (const u of BG_FALLBACK_URLS) {
+    try {
+      return (await fetchAsBytes(u)).bytes;
+    } catch (_) { /* try next */ }
+  }
+  throw new Error("Background image unreachable");
+}
+
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) throw new Error("Invalid data URL from AI");
@@ -84,6 +93,10 @@ function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: stri
   const bytes = new Uint8Array(b.length);
   for (let i = 0; i < b.length; i++) bytes[i] = b.charCodeAt(i);
   return { bytes, contentType };
+}
+
+function maskAlpha(mask: Uint8ClampedArray, i: number): number {
+  return Math.max(mask[i], mask[i + 1], mask[i + 2]) / 255;
 }
 
 Deno.serve(async (req) => {

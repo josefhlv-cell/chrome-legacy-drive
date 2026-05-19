@@ -717,9 +717,13 @@ export type Database = {
           image_url: string
           is_main: boolean
           original_backup_url: string
+          showroom_applied_at: string | null
           showroom_error: string
           showroom_generated_at: string | null
+          showroom_history: Json
+          showroom_progress: number
           showroom_status: string
+          showroom_thumb_url: string
           showroom_url: string
           sort_order: number
           vehicle_id: string
@@ -730,9 +734,13 @@ export type Database = {
           image_url: string
           is_main?: boolean
           original_backup_url?: string
+          showroom_applied_at?: string | null
           showroom_error?: string
           showroom_generated_at?: string | null
+          showroom_history?: Json
+          showroom_progress?: number
           showroom_status?: string
+          showroom_thumb_url?: string
           showroom_url?: string
           sort_order?: number
           vehicle_id: string
@@ -743,9 +751,13 @@ export type Database = {
           image_url?: string
           is_main?: boolean
           original_backup_url?: string
+          showroom_applied_at?: string | null
           showroom_error?: string
           showroom_generated_at?: string | null
+          showroom_history?: Json
+          showroom_progress?: number
           showroom_status?: string
+          showroom_thumb_url?: string
           showroom_url?: string
           sort_order?: number
           vehicle_id?: string

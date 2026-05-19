@@ -382,11 +382,14 @@ const VehiclesTab = () => {
     createVehicle.mutate(newData, {
       onSuccess: async (created: any) => {
         const vehicleId = created?.id;
+        const showroomMode = (newData as any).showroom_mode as "off" | "main" | "exterior" | undefined;
+        const createdImgIds: string[] = [];
         if (vehicleId && newPhotos.length) {
           setUploadingFor(vehicleId);
           try {
             for (const p of newPhotos) {
-              await addImage.mutateAsync({ vehicleId, file: p.file, isMain: p.isMain });
+              const row: any = await addImage.mutateAsync({ vehicleId, file: p.file, isMain: p.isMain });
+              if (row?.id) createdImgIds.push(row.id);
             }
             toast({ title: `Vůz přidán · ${newPhotos.length} fotek nahráno` });
           } catch (e: any) {
@@ -397,6 +400,29 @@ const VehiclesTab = () => {
         } else {
           toast({ title: "Vůz přidán" });
         }
+
+        // Auto-trigger Showroom Background pokud je zapnuto
+        if (vehicleId && showroomMode && showroomMode !== "off" && createdImgIds.length > 0) {
+          toast({ title: "Generuji showroom pozadí…", description: "AI úprava titulní fotky" });
+          (async () => {
+            try {
+              // pick main image (first that was isMain), fallback first
+              const mainIdx = newPhotos.findIndex((p) => p.isMain);
+              const targetIds = showroomMode === "exterior"
+                ? createdImgIds.slice(0, 6)
+                : [createdImgIds[mainIdx >= 0 ? mainIdx : 0]];
+              for (const imgId of targetIds) {
+                const { data, error } = await supabase.functions.invoke("showroom-generate", { body: { imageId: imgId } });
+                if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
+                await supabase.functions.invoke("showroom-apply", { body: { imageId: imgId, action: "apply" } });
+              }
+              toast({ title: "Showroom pozadí aplikováno" });
+            } catch (e: any) {
+              toast({ title: "Showroom selhal", description: e?.message, variant: "destructive" });
+            }
+          })();
+        }
+
         newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
         setNewPhotos([]);
         setShowNew(false);

@@ -620,6 +620,18 @@ const VehiclesTab = () => {
               </div>
               <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
             </div>
+            <div className="sm:col-span-2 lg:col-span-3 mt-2">
+              <div className="flex items-center gap-2 mb-3">
+                <Camera className="w-4 h-4 text-primary" />
+                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
+                <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
+              </div>
+              <NewVehiclePhotoUploader
+                photos={newPhotos}
+                onChange={setNewPhotos}
+                onLaunchSmartCapture={() => window.open("/admin/smart-capture", "_blank")}
+              />
+            </div>
             <TipCarsFields
               data={newData as any}
               mirrored={{
@@ -639,8 +651,15 @@ const VehiclesTab = () => {
             />
           </div>
           <div className="flex gap-3 mt-4">
-            <button onClick={handleCreate} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>
-            <button onClick={() => { setShowNew(false); setNewData(emptyVehicle); }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
+            <button onClick={handleCreate} disabled={createVehicle.isPending || uploadingFor !== null} className="chrome-button inline-flex items-center gap-2 text-sm">
+              {(createVehicle.isPending || uploadingFor !== null) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+              {uploadingFor ? "Nahrávám fotky..." : "Uložit"}
+            </button>
+            <button onClick={() => {
+              newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+              setNewPhotos([]);
+              setShowNew(false); setNewData(emptyVehicle);
+            }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
           </div>
         </motion.div>
       )}

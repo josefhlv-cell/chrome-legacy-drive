@@ -156,7 +156,7 @@ Deno.serve(async (req) => {
         messages: [{
           role: "user",
           content: [
-            { type: "text", text: "IMAGE 1 = BACKGROUND PLATE (fixed backdrop, do not alter). IMAGE 2 = SOURCE CAR — keep this exact car (same model, generation, year, color, wheels, bumpers, headlights, grille). Composite the car from IMAGE 2 into the scene of IMAGE 1." },
+            { type: "text", text: "Edit the SECOND image (the car photo). Keep the car pixels, angle, framing, and aspect ratio identical. Replace ONLY the surroundings behind/around the car with the scene from the FIRST image (Chrysler & Dodge Pardubice building). This is a background-swap, not a re-render." },
             { type: "image_url", image_url: { url: backgroundDataUrl } },
             { type: "image_url", image_url: { url: carDataUrl } },
             { type: "text", text: PROMPT },

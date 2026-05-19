@@ -716,6 +716,11 @@ export type Database = {
           id: string
           image_url: string
           is_main: boolean
+          original_backup_url: string
+          showroom_error: string
+          showroom_generated_at: string | null
+          showroom_status: string
+          showroom_url: string
           sort_order: number
           vehicle_id: string
         }
@@ -724,6 +729,11 @@ export type Database = {
           id?: string
           image_url: string
           is_main?: boolean
+          original_backup_url?: string
+          showroom_error?: string
+          showroom_generated_at?: string | null
+          showroom_status?: string
+          showroom_url?: string
           sort_order?: number
           vehicle_id: string
         }
@@ -732,6 +742,11 @@ export type Database = {
           id?: string
           image_url?: string
           is_main?: boolean
+          original_backup_url?: string
+          showroom_error?: string
+          showroom_generated_at?: string | null
+          showroom_status?: string
+          showroom_url?: string
           sort_order?: number
           vehicle_id?: string
         }
@@ -764,6 +779,7 @@ export type Database = {
           power: string
           price_with_vat: number
           show_vat: boolean
+          showroom_mode: string
           status: Database["public"]["Enums"]["vehicle_status"]
           tipcars_airbagy: number | null
           tipcars_emisni_norma: string | null
@@ -808,6 +824,7 @@ export type Database = {
           power?: string
           price_with_vat: number
           show_vat?: boolean
+          showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
           tipcars_airbagy?: number | null
           tipcars_emisni_norma?: string | null
@@ -852,6 +869,7 @@ export type Database = {
           power?: string
           price_with_vat?: number
           show_vat?: boolean
+          showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
           tipcars_airbagy?: number | null
           tipcars_emisni_norma?: string | null

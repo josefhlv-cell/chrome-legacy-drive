@@ -45,17 +45,26 @@ CRITICAL:
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
 async function fetchAsDataUrl(url: string): Promise<string> {
+  const { bytes, contentType } = await fetchAsBytes(url);
+  return bytesToDataUrl(bytes, contentType);
+}
+
+async function fetchAsBytes(url: string): Promise<{ bytes: Uint8Array; contentType: string }> {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Fetch ${url} → ${r.status}`);
-  const ct = r.headers.get("content-type") || "image/jpeg";
-  const buf = new Uint8Array(await r.arrayBuffer());
+  const contentType = r.headers.get("content-type") || "image/jpeg";
+  const bytes = new Uint8Array(await r.arrayBuffer());
+  return { bytes, contentType };
+}
+
+function bytesToDataUrl(buf: Uint8Array, contentType: string): string {
   // base64 encode in chunks (Deno-safe)
   let bin = "";
   const chunk = 0x8000;
   for (let i = 0; i < buf.length; i += chunk) {
     bin += String.fromCharCode.apply(null, buf.subarray(i, i + chunk) as unknown as number[]);
   }
-  return `data:${ct};base64,${btoa(bin)}`;
+  return `data:${contentType};base64,${btoa(bin)}`;
 }
 
 async function fetchBackground(): Promise<string> {

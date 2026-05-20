@@ -72,30 +72,36 @@ LOGO PLACEMENT
 - Only ONE logo. No extra signs, no extra text.
 
 ================================================
-INTERIOR — REALISTIC CLEAN INTERIOR MODE v3
+INTERIOR — REALISTIC CLEAN INTERIOR MODE v4 (STYLE LOCK)
 ================================================
 If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, seats, rear cabin) and outside scenery is visible through any window:
 
-The goal is NOT to build a fancy showroom, NOT to place the car inside a luxury dealership hall, NOT to add other cars in the background. The goal is ONLY to gently CLEAN UP what is visible through the windows so the interior of the car becomes the obvious hero of the photo.
+STYLE LOCK — match the visual style of a real photographer's work, NOT an AI render. The baseline reference style is a quiet, civilian, realistic outdoor environment seen through softly blurred glass — natural daylight, calm depth, no architecture, no logos, no other prominent cars, no showroom feel. Aim for "photographed by a professional", not "edited by AI".
+
+The goal is NOT to build a showroom, NOT to place the car inside a dealership hall, NOT to add other cars in the background. The goal is ONLY to gently CLEAN UP what is visible through the windows so the interior becomes the obvious hero.
 
 Behind the glass (windshield / rear window / side glass), do ONLY this:
 - remove distracting elements (street clutter, people, signs, cars, mess, harsh backgrounds)
-- unify and soften the outside light
-- gently blur the outdoor environment (shallow depth of field)
-- produce a clean, neutral, natural outdoor background — a softly blurred white facade with soft daylight, gentle shadows, natural outdoor light, decent depth
+- unify and soften outside light
+- gently blur the outdoor environment (shallow, natural depth of field)
+- produce a clean, neutral, natural outdoor background with soft daylight and decent depth — quiet and unobtrusive
 
 STRICTLY FORBIDDEN behind the glass:
+- corner of a building, roof edge, gutters, eaves, visible architecture
+- any logo, sign, text, badge on the background
 - new-car showroom / dealership hall / luxury salon / sci-fi showroom
-- other prominent cars, silhouettes of cars, bokeh of cars
+- other prominent cars, sharp silhouettes of cars, car-shaped bokeh
 - CGI interior, studio environment, photo backdrop, green screen
-- artificial reflections, fake reflections, dramatic light, HDR look, neon, stylized colors
+- artificial reflections, dramatic light, HDR look, neon, stylized colors
 - blown-out white plane or fake daylight burn
 
-The outside view must look REAL, civilian, clean, professional and trustworthy — like a real used premium car photographed in a calm, tidy outdoor spot. It must be unobtrusive, soft, secondary. The car interior is the hero, the background is whisper-quiet.
+The outside view must look REAL, civilian, clean, professional and trustworthy — calm and tidy. It must be unobtrusive, soft, secondary. The car interior is the hero; the background is whisper-quiet.
 
-NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep displayed content exactly as in the source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, headliner, mirrors, trim, textures, materials, colors, scratches, wear.
+NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep displayed content exactly as in source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, headliner, mirrors, trim, textures, materials, colors, scratches, wear.
 
-The best edit is the one a viewer does not notice — they should only feel "these photos look somehow professional", without knowing why. If you cannot deliver a realistic, civilian, clean result, DO NOT fabricate a fake showroom — return the original source image unchanged.
+QUALITY FILTER — if the result would look more artificial, more CGI, more showroom-like, or less realistic than the source, DO NOT ship it. Return the original source image unchanged. Realism > AI effect. Trustworthiness > polish. A photographer's natural look > a render.
+
+Priority order: 1) Realism  2) Trustworthiness  3) Natural light  4) Car interior intact  5) Subtle background cleanup. The best edit is the one a viewer does not notice.
 
 ================================================
 GALLERY ORDER — DO NOT TOUCH

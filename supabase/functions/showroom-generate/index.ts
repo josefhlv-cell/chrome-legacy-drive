@@ -72,35 +72,30 @@ LOGO PLACEMENT
 - Only ONE logo. No extra signs, no extra text.
 
 ================================================
-INTERIOR — REALISTIC SHOWROOM INTERIOR MODE v2
+INTERIOR — REALISTIC CLEAN INTERIOR MODE v3
 ================================================
 If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, seats, rear cabin) and outside scenery is visible through any window:
 
-The car must look as if it is parked INSIDE a real, premium Chrysler & Dodge Pardubice showroom — NOT in front of a white wall, NOT in a studio, NOT in a CGI void.
+The goal is NOT to build a fancy showroom, NOT to place the car inside a luxury dealership hall, NOT to add other cars in the background. The goal is ONLY to gently CLEAN UP what is visible through the windows so the interior of the car becomes the obvious hero of the photo.
 
-Replace ONLY what is visible through the windows (and through the windshield / rear window / side glass) with a realistic, photographed-looking dealership showroom interior:
-- softly blurred (shallow depth of field, bokeh) silhouettes of 1–3 other premium cars in the background, clearly secondary and out of focus
-- realistic showroom space: polished light floor, neutral walls, light columns or partitions, natural ambient depth and perspective
-- gentle, warm showroom lighting with soft ceiling light sources and subtle, believable reflections on glass and bodywork
-- natural daylight feel mixed with indoor showroom light — soft, never harsh, never blown out
-- decent, low-key reflections on the car's windows from the surrounding showroom
+Behind the glass (windshield / rear window / side glass), do ONLY this:
+- remove distracting elements (street clutter, people, signs, cars, mess, harsh backgrounds)
+- unify and soften the outside light
+- gently blur the outdoor environment (shallow depth of field)
+- produce a clean, neutral, natural outdoor background — a softly blurred white facade with soft daylight, gentle shadows, natural outdoor light, decent depth
 
-The interior background MUST NOT:
-- draw attention away from the car interior
-- be sharp, dominant, or detailed
-- look like CGI, an AI render, a studio, a green screen, or HDR fantasy
-- introduce a blown-out white plane, fake daylight burn, neon, or stylized colors
+STRICTLY FORBIDDEN behind the glass:
+- new-car showroom / dealership hall / luxury salon / sci-fi showroom
+- other prominent cars, silhouettes of cars, bokeh of cars
+- CGI interior, studio environment, photo backdrop, green screen
+- artificial reflections, fake reflections, dramatic light, HDR look, neon, stylized colors
+- blown-out white plane or fake daylight burn
 
-Other cars and showroom elements MUST be:
-- gently blurred, secondary, realistic, unobtrusive
-- consistent in perspective, scale and light direction with the source photo
+The outside view must look REAL, civilian, clean, professional and trustworthy — like a real used premium car photographed in a calm, tidy outdoor spot. It must be unobtrusive, soft, secondary. The car interior is the hero, the background is whisper-quiet.
 
-NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep the displayed content exactly as in the source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, mirrors, trim, textures, materials, colors, scratches, wear. The car interior is the absolute priority.
+NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep displayed content exactly as in the source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, headliner, mirrors, trim, textures, materials, colors, scratches, wear.
 
-Behind the glass the light MUST be:
-- realistic indoor daylight + showroom ambient
-- soft, natural brightness with believable falloff
-- never a burnt white plane, never fake studio, never CGI
+The best edit is the one a viewer does not notice — they should only feel "these photos look somehow professional", without knowing why. If you cannot deliver a realistic, civilian, clean result, DO NOT fabricate a fake showroom — return the original source image unchanged.
 
 ================================================
 GALLERY ORDER — DO NOT TOUCH

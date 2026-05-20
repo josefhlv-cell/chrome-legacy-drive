@@ -17,7 +17,7 @@ import { formatPrice, statusLabels } from "@/data/vehicles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
-import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage } from "@/hooks/useVehicleImages";
+import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage, useReorderVehicleImage } from "@/hooks/useVehicleImages";
 import {
   useSiteContacts, useUpdateContact,
   useTickerItems, useCreateTickerItem, useUpdateTickerItem, useDeleteTickerItem,
@@ -1467,24 +1467,56 @@ const ToggleItem = ({ icon, label, checked, onChange }: { icon: React.ReactNode;
 
 const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicleId: string; onDeleteImage: (id: string) => void; onSetMain: (id: string, url: string) => void }) => {
   const { data: images, isLoading } = useVehicleImages(vehicleId);
+  const reorder = useReorderVehicleImage();
 
   if (isLoading) return <p className="text-xs text-muted-foreground mt-2">Načítání...</p>;
   if (!images || images.length === 0) return <p className="text-xs text-muted-foreground mt-2">Žádné fotky.</p>;
 
+  // Non-main photos are the only ones that can be reordered (main stays first).
+  const nonMain = images.filter((i: any) => !i.is_main);
+  const firstNonMainId = nonMain[0]?.id;
+  const lastNonMainId = nonMain[nonMain.length - 1]?.id;
+  const busy = reorder.isPending;
+
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2">
-      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">Galerie ({images.length})</p>
+      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">
+        Galerie ({images.length}) <span className="text-muted-foreground font-normal normal-case">— šipkami změníte pořadí</span>
+      </p>
       <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-        {images.map((img) => (
-          <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${img.is_main ? "border-primary" : "border-border"}`}>
-            <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-14 object-cover" loading="lazy" decoding="async" />
-            {img.is_main && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">HLAVNÍ</div>}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-              {!img.is_main && <button onClick={() => onSetMain(img.id, img.image_url)} className="text-[9px] text-white bg-primary/80 px-1 py-0.5 rounded">★</button>}
-              <button onClick={() => onDeleteImage(img.id)} className="text-[9px] text-white bg-destructive/80 px-1 py-0.5 rounded">✕</button>
+        {images.map((img: any) => {
+          const isMain = img.is_main;
+          const disableUp = isMain || img.id === firstNonMainId;
+          const disableDown = isMain || img.id === lastNonMainId;
+          return (
+            <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${isMain ? "border-primary" : "border-border"}`}>
+              <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-14 object-cover" loading="lazy" decoding="async" />
+              {isMain && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">HLAVNÍ</div>}
+              {!isMain && (
+                <div className="absolute top-0 right-0 flex">
+                  <button
+                    type="button"
+                    onClick={() => !disableUp && reorder.mutate({ id: img.id, vehicleId, direction: "up" })}
+                    disabled={disableUp || busy}
+                    title="Posunout dopředu"
+                    className="bg-black/60 text-white text-[10px] leading-none w-4 h-4 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                  >▲</button>
+                  <button
+                    type="button"
+                    onClick={() => !disableDown && reorder.mutate({ id: img.id, vehicleId, direction: "down" })}
+                    disabled={disableDown || busy}
+                    title="Posunout dozadu"
+                    className="bg-black/60 text-white text-[10px] leading-none w-4 h-4 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                  >▼</button>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
+                {!isMain && <button onClick={() => onSetMain(img.id, img.image_url)} className="text-[9px] text-white bg-primary/80 px-1 py-0.5 rounded">★</button>}
+                <button onClick={() => onDeleteImage(img.id)} className="text-[9px] text-white bg-destructive/80 px-1 py-0.5 rounded">✕</button>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </motion.div>
   );

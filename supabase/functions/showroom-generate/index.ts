@@ -31,31 +31,31 @@ Place the EXACT same car from the source photo in front of the Chrysler Pardubic
 This is NOT an AI fantasy scene. It must look 100% realistic, natural, premium, and suitable for a professional dealership listing.
 
 PRIORITY ORDER (most important first):
-1) CAR IDENTITY — LOCKED. Never change.
-2) PHOTOREALISM — natural light, clean blending, believable contact with the ground.
-3) BACKGROUND — match the reference building composition and proportions as closely as possible (NOT pixel-perfect 1:1). Small natural adjustments to perspective, crop and lighting are allowed and expected to make the blend look real.
+1) CAR IDENTITY — LOCKED. Never change. Never mirror or flip. The same side of the car that faces the camera in the source must face the camera in the output.
+2) BACKGROUND SCALE LOCK — the Chrysler Pardubice building, the white facade and especially the round "CHRYSLER & DODGE PARDUBICE" pentastar sign MUST appear at the SAME SCALE and SAME PROPORTIONS as in the reference image (1:1 building identity). Do NOT shrink the building. Do NOT push it far back. The pentastar logo must ALWAYS be FULLY VISIBLE in the final frame — never cropped at the top, sides or covered by the car. If the car would cover the logo, reframe slightly so the entire round logo stays inside the image.
+3) PHOTOREALISM — natural light, clean blending, believable contact with the ground.
 
 CAR — ABSOLUTE IDENTITY LOCK (DO NOT CHANGE):
 - Same make, model, generation, year, body color, paint, wheels, tires, bumpers (front AND rear), grille, headlights, taillights, mirrors, trim, badges, glass tint, license plate, proportions, stance, visible damage and details.
+- CRITICAL — KEEP THE SAME SIDE/ANGLE: If the source shows the LEFT side of the car, the output MUST show the LEFT side. If the source shows the RIGHT side, the output MUST show the RIGHT side. If the source shows the rear, the output shows the rear. NEVER mirror, flip, rotate or change which side of the car faces the camera.
 - Preserve original framing and keep all visible vehicle parts intact (do not crop off bumpers, mirrors, wheels).
-- Do NOT rotate, flip, re-pose, recolor, redesign, replace with another model, remove or alter bumpers, add spoilers, change wheels, change grille, or change lights.
-- Keep the source car camera angle and perspective. Minor harmonization with the background is allowed only if the car silhouette stays identical.
+- Do NOT re-pose, recolor, redesign, replace with another model, alter bumpers, add spoilers, change wheels, grille or lights.
 
-BACKGROUND — FLEXIBLE BUT FAITHFUL:
-- Match the reference building composition and proportions as closely as possible while preserving photorealism and clean blending.
-- Same white facade character, same Chrysler Pardubice identity, same roof slope feel, natural trees at the top, gray asphalt in front, soft outdoor daylight.
+BACKGROUND — 1:1 IDENTITY, MINIMAL FRAMING ADJUSTMENT:
+- The building must read as the SAME building at the SAME distance and SAME size as the reference. Same white facade, same roof line, same trees behind, same gray asphalt strip in front.
+- The round black/silver pentastar "CHRYSLER & DODGE PARDUBICE" badge on the wall MUST appear FULLY and at the SAME relative size as in the reference. Never crop it, never shrink it, never move it off-frame, never replace it with different text or a different logo.
 - Do not invent a new showroom, studio, hall, extra signage, doors, windows, fences, people, extra cars, or futuristic elements.
-- Slight reframing, perspective adjustment, or lighting harmonization of the background is allowed if needed to make the car sit naturally in the scene.
+- Minor camera reframing is allowed ONLY to keep BOTH the car intact AND the pentastar logo fully visible at reference scale.
 
 REALISTIC BLENDING:
 - Segment the car cleanly. Replace only the original background.
-- Natural contact shadows under tires and under the vehicle. Tires touch the asphalt believably.
-- Match light direction, contrast, white balance, color temperature gently between car and background.
+- Natural contact shadows under tires. Tires touch the asphalt believably.
+- Match light direction, contrast, white balance gently between car and background.
 - No halos, no mask artifacts, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look.
 
 COMPOSITION:
 - Horizontal 16:9 listing photo.
-- Car sits naturally on the asphalt in front of the reference building.
+- Car sits naturally on the asphalt in front of the reference building, with the entire pentastar logo fully visible above or beside the car at reference scale.
 - Final result must look like a real dealership photo taken on that exact spot.
 
 OUTPUT:

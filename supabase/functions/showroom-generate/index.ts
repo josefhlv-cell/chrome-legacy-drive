@@ -18,49 +18,94 @@ const BG_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
 ];
 
-const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE
+const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v2
 
-Create ONE production-quality, photorealistic final vehicle listing photo.
+Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.
 
 INPUTS:
-1) REFERENCE BACKGROUND: official Chrysler Pardubice building / showroom exterior.
-2) SOURCE CAR PHOTO: the real vehicle that must appear in the output.
+1) LOGO REFERENCE: the official round "CHRYSLER & DODGE PARDUBICE" pentastar sign. Use ONLY for logo/typography reference. Do NOT copy the building, roof, sky, trees or surroundings from this reference.
+2) SOURCE CAR PHOTO: the real vehicle (exterior OR interior). This is the truth source for the car.
 
-CORE GOAL:
-Place the EXACT same car from the source photo in front of the Chrysler Pardubice reference location, so the result looks like the same real car was genuinely photographed there.
-This is NOT an AI fantasy scene. It must look 100% realistic, natural, premium, and suitable for a professional dealership listing.
+================================================
+PRIORITY ORDER (apply in this order, never break a higher rule for a lower one)
+================================================
+1) CAR / INTERIOR IDENTITY — LOCKED.
+2) PHOTOREALISM — natural light, real shadows, real material.
+3) NATURAL LIGHT — preserve the original light direction and daylight feel.
+4) COMPOSITION NORMALIZATION — gently unify framing.
+5) SHOWROOM BACKGROUND — applied last, never at the cost of realism.
 
-PRIORITY ORDER (most important first):
-1) CAR IDENTITY — LOCKED. Never change. Never mirror or flip. The same side of the car that faces the camera in the source must face the camera in the output.
-2) BACKGROUND SCALE LOCK — the Chrysler Pardubice building, the white facade and especially the round "CHRYSLER & DODGE PARDUBICE" pentastar sign MUST appear at the SAME SCALE and SAME PROPORTIONS as in the reference image (1:1 building identity). Do NOT shrink the building. Do NOT push it far back. The pentastar logo must ALWAYS be FULLY VISIBLE in the final frame — never cropped at the top, sides or covered by the car. If the car would cover the logo, reframe slightly so the entire round logo stays inside the image.
-3) PHOTOREALISM — natural light, clean blending, believable contact with the ground.
+If you cannot satisfy rules 1 and 2 at the same time, return the source as-is. NEVER ship a deformed, fake, plastic, CGI, studio-burn, AI-fantasy or halo result.
 
-CAR — ABSOLUTE IDENTITY LOCK (DO NOT CHANGE):
-- Same make, model, generation, year, body color, paint, wheels, tires, bumpers (front AND rear), grille, headlights, taillights, mirrors, trim, badges, glass tint, license plate, proportions, stance, visible damage and details.
-- CRITICAL — KEEP THE SAME SIDE/ANGLE: If the source shows the LEFT side of the car, the output MUST show the LEFT side. If the source shows the RIGHT side, the output MUST show the RIGHT side. If the source shows the rear, the output shows the rear. NEVER mirror, flip, rotate or change which side of the car faces the camera.
-- Preserve original framing and keep all visible vehicle parts intact (do not crop off bumpers, mirrors, wheels).
-- Do NOT re-pose, recolor, redesign, replace with another model, alter bumpers, add spoilers, change wheels, grille or lights.
+================================================
+CAR / INTERIOR IDENTITY LOCK
+================================================
+- Same make, model, generation, year, body color, paint, wheels, tires, bumpers (front AND rear), grille, headlights, taillights, mirrors, trim, badges, glass, license plate, proportions, stance, visible damage and details.
+- Same side / angle as the source. NEVER mirror, flip or rotate the vehicle. If the source shows the LEFT side, the output MUST show the LEFT side, and so on for right / front / rear / interior.
+- Preserve original framing. Keep ALL visible vehicle parts intact (no cropping off bumpers, mirrors, wheels, steering wheel, screens, seats).
+- Do NOT re-pose, recolor, redesign, replace with another model, alter bumpers, add spoilers, change wheels, grille or lights, change interior trim or upholstery.
 
-BACKGROUND — 1:1 IDENTITY, MINIMAL FRAMING ADJUSTMENT:
-- The building must read as the SAME building at the SAME distance and SAME size as the reference. Same white facade, same roof line, same trees behind, same gray asphalt strip in front.
-- The round black/silver pentastar "CHRYSLER & DODGE PARDUBICE" badge on the wall MUST appear FULLY and at the SAME relative size as in the reference. Never crop it, never shrink it, never move it off-frame, never replace it with different text or a different logo.
-- Do not invent a new showroom, studio, hall, extra signage, doors, windows, fences, people, extra cars, or futuristic elements.
-- Minor camera reframing is allowed ONLY to keep BOTH the car intact AND the pentastar logo fully visible at reference scale.
+================================================
+BACKGROUND — WHITE SHOWROOM FACADE WALL ONLY
+================================================
+The background is ONLY a clean, premium, realistic white exterior facade wall of the dealership. Treat it as if the car is standing directly in front of an endless white plaster facade.
 
-REALISTIC BLENDING:
-- Segment the car cleanly. Replace only the original background.
-- Natural contact shadows under tires. Tires touch the asphalt believably.
-- Match light direction, contrast, white balance gently between car and background.
-- No halos, no mask artifacts, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look.
+YOU MUST NOT show:
+- roof, roof edge, gutter, eaves, rooftop, top of the building, building corners, end of the building.
+- sky, clouds, sun, trees, plants, lamps, doors, windows on the facade, fences, people, other cars, road signs, futuristic elements.
+- studio cyclorama, photo backdrop, green screen, gradient sweep, CGI plane, vignette.
 
-COMPOSITION:
-- Horizontal 16:9 listing photo.
-- Car sits naturally on the asphalt in front of the reference building, with the entire pentastar logo fully visible above or beside the car at reference scale.
-- Final result must look like a real dealership photo taken on that exact spot.
+YOU MUST show:
+- subtle real plaster/render texture (fine grain, hairline imperfections).
+- realistic outdoor daylight on the wall.
+- realistic soft shadows where the car body or mirrors approach the wall.
+- believable contact shadows under the tires on a thin strip of gray asphalt (only the asphalt strip — no horizon, no environment behind it).
 
-OUTPUT:
-- Return only one final image.
-- No explanatory text, no watermark, no border, no UI overlay.`;
+The wall must look like a REAL outdoor dealership facade — endlessly wide, premium, neutral. NEVER like a studio backdrop, green screen, or AI background.
+
+================================================
+LOGO PLACEMENT
+================================================
+- Place the round "CHRYSLER & DODGE PARDUBICE" pentastar logo on the wall, TOP RIGHT, smaller and discreet, as if physically mounted on the facade.
+- Logo design must match the reference exactly (same pentastar, same typography, same circular layout). No re-draw, no re-lettering, no color change.
+- Logo must always be FULLY visible (never cropped, never covered by the car). It must look mounted on the wall (faint subsurface shadow), not floating.
+- Only ONE logo. No extra signs, no extra text.
+
+================================================
+INTERIOR — SHOWROOM WINDOW MODE
+================================================
+If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, seats, rear cabin) and outside scenery is visible through any window:
+- Replace ONLY what is visible through the windows with the SAME white showroom facade wall.
+- Keep realistic depth, perspective, daylight intensity and natural brightness behind the glass — it must feel like soft outdoor daylight on a white wall, not a blown-out white plane, not a fake studio, not a CGI fill.
+- NEVER touch the interior itself: dashboard, screens (keep current display content untouched), buttons, stitching, leather, plastics, steering wheel, pedals, seatbelts, headrests, mirrors, trim, materials, colors, scratches.
+
+================================================
+SMART ANGLE / FRAMING NORMALIZATION (GENTLE)
+================================================
+Apply MILD, non-destructive normalization so the whole catalog feels shot by the same professional:
+- Exterior: similar camera distance, similar horizon height, car centered with comfortable margin, similar relative car size in frame.
+- Interior: similar framing for steering wheel / display / seats / rear cabin shots.
+Hard limits:
+- Do NOT warp, stretch, squeeze, fish-eye, tilt-shift or perspective-distort the car or interior.
+- Do NOT change car proportions.
+- Do NOT aggressively crop. Never cut bumpers, mirrors, wheels, steering wheel, screens.
+- Use only intelligent perspective correction, smart re-centering and adaptive scaling within safe limits.
+
+================================================
+REALISTIC BLENDING
+================================================
+- Segment the car / interior cleanly. Replace ONLY the original background / window view.
+- Natural soft contact shadows. Tires touch the asphalt believably.
+- Match light direction, contrast and white balance gently between subject and new background.
+- No halos, no mask edges, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look, no AI backdrop feel.
+
+================================================
+OUTPUT
+================================================
+- Return ONLY one final image.
+- Horizontal listing photo when the source is horizontal; otherwise keep the source aspect ratio.
+- No text, no watermark, no border, no UI overlay.
+- If you cannot deliver a fully realistic result that honors rules 1–3, return the original source image unchanged.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 

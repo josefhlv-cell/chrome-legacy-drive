@@ -72,12 +72,40 @@ LOGO PLACEMENT
 - Only ONE logo. No extra signs, no extra text.
 
 ================================================
-INTERIOR — SHOWROOM WINDOW MODE
+INTERIOR — REALISTIC SHOWROOM INTERIOR MODE v2
 ================================================
 If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, seats, rear cabin) and outside scenery is visible through any window:
-- Replace ONLY what is visible through the windows with the SAME white showroom facade wall.
-- Keep realistic depth, perspective, daylight intensity and natural brightness behind the glass — it must feel like soft outdoor daylight on a white wall, not a blown-out white plane, not a fake studio, not a CGI fill.
-- NEVER touch the interior itself: dashboard, screens (keep current display content untouched), buttons, stitching, leather, plastics, steering wheel, pedals, seatbelts, headrests, mirrors, trim, materials, colors, scratches.
+
+The car must look as if it is parked INSIDE a real, premium Chrysler & Dodge Pardubice showroom — NOT in front of a white wall, NOT in a studio, NOT in a CGI void.
+
+Replace ONLY what is visible through the windows (and through the windshield / rear window / side glass) with a realistic, photographed-looking dealership showroom interior:
+- softly blurred (shallow depth of field, bokeh) silhouettes of 1–3 other premium cars in the background, clearly secondary and out of focus
+- realistic showroom space: polished light floor, neutral walls, light columns or partitions, natural ambient depth and perspective
+- gentle, warm showroom lighting with soft ceiling light sources and subtle, believable reflections on glass and bodywork
+- natural daylight feel mixed with indoor showroom light — soft, never harsh, never blown out
+- decent, low-key reflections on the car's windows from the surrounding showroom
+
+The interior background MUST NOT:
+- draw attention away from the car interior
+- be sharp, dominant, or detailed
+- look like CGI, an AI render, a studio, a green screen, or HDR fantasy
+- introduce a blown-out white plane, fake daylight burn, neon, or stylized colors
+
+Other cars and showroom elements MUST be:
+- gently blurred, secondary, realistic, unobtrusive
+- consistent in perspective, scale and light direction with the source photo
+
+NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep the displayed content exactly as in the source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, mirrors, trim, textures, materials, colors, scratches, wear. The car interior is the absolute priority.
+
+Behind the glass the light MUST be:
+- realistic indoor daylight + showroom ambient
+- soft, natural brightness with believable falloff
+- never a burnt white plane, never fake studio, never CGI
+
+================================================
+GALLERY ORDER — DO NOT TOUCH
+================================================
+This function processes ONLY the single image referenced by imageId. NEVER imply or produce changes to other photos, never reorder, never re-rank, never regenerate siblings. Admin gallery order has absolute priority over any AI behavior.
 
 ================================================
 SMART ANGLE / FRAMING NORMALIZATION (GENTLE)

@@ -1512,21 +1512,21 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
                 >✕</button>
               </div>
               {!isMain && (
-                <div className="absolute top-0 right-0 flex flex-col z-20">
+                <div className="absolute top-0 right-0 flex flex-row z-20">
                   <button
                     type="button"
                     onClick={() => !disableUp && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "up" })}
                     disabled={disableUp || busy}
-                    title="Posunout dopředu"
+                    title="Posunout blíže k první fotce"
                     className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  >▲</button>
+                  >◀</button>
                   <button
                     type="button"
                     onClick={() => !disableDown && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "down" })}
                     disabled={disableDown || busy}
-                    title="Posunout dozadu"
+                    title="Posunout blíže ke konci"
                     className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  >▼</button>
+                  >▶</button>
                 </div>
               )}
             </div>

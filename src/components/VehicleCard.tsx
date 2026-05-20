@@ -49,12 +49,12 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
   return (
     <div className="h-full">
       <Link to={`/vozidla/${vehicle.id}`} className="glass-card group overflow-hidden flex flex-col h-full">
-        <div className="relative overflow-hidden rounded-t-lg bg-background">
+        <div className="relative overflow-hidden rounded-t-lg bg-background aspect-[4/3]">
           {hasImage ? (
             <img
               src={cardImageUrl}
               alt={vehicle.name}
-              className="block w-full h-auto"
+              className="absolute inset-0 w-full h-full object-cover"
               loading={isPriority ? "eager" : "lazy"}
               fetchPriority={isPriority ? "high" : "auto"}
               decoding="async"
@@ -70,7 +70,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <img
               src={PLACEHOLDER}
               alt={vehicle.name}
-              className="block w-full h-auto"
+              className="absolute inset-0 w-full h-full object-cover"
               loading="lazy"
               decoding="async"
             />

@@ -1490,30 +1490,45 @@ const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicl
           const disableDown = isMain || img.id === lastNonMainId;
           return (
             <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${isMain ? "border-primary" : "border-border"}`}>
-              <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-14 object-cover" loading="lazy" decoding="async" />
-              {isMain && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold">HLAVNÍ</div>}
-              {!isMain && (
-                <div className="absolute top-0 right-0 flex">
+              <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-16 object-cover" loading="lazy" decoding="async" />
+              {isMain && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-30 pointer-events-none">HLAVNÍ</div>}
+              {/* Hover/tap overlay — pointer-events-none so it never blocks the arrow/main/delete buttons */}
+              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" />
+              {/* Action buttons: always visible on touch devices, layered above the overlay */}
+              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 p-1 z-20">
+                {!isMain && (
                   <button
                     type="button"
-                    onClick={() => !disableUp && reorder.mutate({ id: img.id, vehicleId, direction: "up" })}
+                    onClick={() => onSetMain(img.id, img.image_url)}
+                    className="text-[10px] text-white bg-primary/90 hover:bg-primary px-1.5 py-0.5 rounded leading-none"
+                    title="Nastavit jako hlavní"
+                  >★</button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => onDeleteImage(img.id)}
+                  className="text-[10px] text-white bg-destructive/90 hover:bg-destructive px-1.5 py-0.5 rounded leading-none"
+                  title="Smazat"
+                >✕</button>
+              </div>
+              {!isMain && (
+                <div className="absolute top-0 right-0 flex flex-col z-20">
+                  <button
+                    type="button"
+                    onClick={() => !disableUp && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "up" })}
                     disabled={disableUp || busy}
                     title="Posunout dopředu"
-                    className="bg-black/60 text-white text-[10px] leading-none w-4 h-4 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
                   >▲</button>
                   <button
                     type="button"
-                    onClick={() => !disableDown && reorder.mutate({ id: img.id, vehicleId, direction: "down" })}
+                    onClick={() => !disableDown && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "down" })}
                     disabled={disableDown || busy}
                     title="Posunout dozadu"
-                    className="bg-black/60 text-white text-[10px] leading-none w-4 h-4 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                    className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
                   >▼</button>
                 </div>
               )}
-              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1">
-                {!isMain && <button onClick={() => onSetMain(img.id, img.image_url)} className="text-[9px] text-white bg-primary/80 px-1 py-0.5 rounded">★</button>}
-                <button onClick={() => onDeleteImage(img.id)} className="text-[9px] text-white bg-destructive/80 px-1 py-0.5 rounded">✕</button>
-              </div>
             </div>
           );
         })}

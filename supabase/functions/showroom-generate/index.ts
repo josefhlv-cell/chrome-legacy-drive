@@ -82,14 +82,25 @@ If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, 
 ================================================
 SMART ANGLE / FRAMING NORMALIZATION (GENTLE)
 ================================================
-Apply MILD, non-destructive normalization so the whole catalog feels shot by the same professional:
-- Exterior: similar camera distance, similar horizon height, car centered with comfortable margin, similar relative car size in frame.
-- Interior: similar framing for steering wheel / display / seats / rear cabin shots.
-Hard limits:
-- Do NOT warp, stretch, squeeze, fish-eye, tilt-shift or perspective-distort the car or interior.
-- Do NOT change car proportions.
-- Do NOT aggressively crop. Never cut bumpers, mirrors, wheels, steering wheel, screens.
-- Use only intelligent perspective correction, smart re-centering and adaptive scaling within safe limits.
+Normalization MUST stay SUBTLE, GENTLE and SAFE. The goal is to unify the catalog, NOT to redraw the car.
+
+Allowed (only these, only in tiny amounts):
+- gentle horizon leveling
+- light re-centering of the car within the frame
+- small framing correction (a few percent)
+- light unification of perceived distance
+- adaptive scaling within safe limits
+
+STRICTLY FORBIDDEN:
+- aggressive perspective change, fish-eye, tilt-shift, lens warp
+- warping body lines, wheel arches, roofline, beltline
+- deforming wheels (must stay perfectly round) or bodywork
+- changing car proportions, ride height, stance, track width
+- changing interior proportions (wheel, dashboard, seats, screens)
+- extreme zoom-in or aggressive cropping
+- cropping bumpers, mirrors, wheels, steering wheel, seats, screens
+
+Rule: PREFER small framing corrections OVER any visible geometric manipulation. If a normalization step would cause deformation, an unnatural look, or any loss of realism — DO NOT apply that step. Ship the source framing instead. Realism > uniformity, ALWAYS.
 
 ================================================
 REALISTIC BLENDING

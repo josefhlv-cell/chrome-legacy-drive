@@ -24,145 +24,54 @@ const LOGO_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
 ];
 
-const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v3 (REFERENCE-LOCKED)
+const SHOWROOM_PROMPT = `SHOWROOM NORMALIZATION MODE v4 — CHRYSLER & DODGE PARDUBICE
 
-GOLD REFERENCE BEHAVIOR — MANDATORY STYLE TARGET:
-Every output MUST visually match this exact reference style: a white Chrysler Town & Country photographed from a natural 3/4 front angle, standing on a thin strip of light gray asphalt directly in front of a clean, slightly warm off-white plaster facade wall, with realistic outdoor daylight, soft natural contact shadows under the tires, and the SHIELD-shaped "CHRYSLER & DODGE PARDUBICE" logo mounted on the wall in the top-right corner. The car keeps its EXACT original angle, side, orientation, framing, proportions and details from the SOURCE CAR PHOTO. The wall is endless, the logo is identical in every photo (same shield silhouette, same chrome frame, same dark glossy black face, same pentastar, same typography, same size, same position). No mirroring. No re-angling. No reposing. No studio look. No CGI. No halos. No fake daylight. Photographer-grade realism only.
+ABSOLUTNĚ KRITICKÉ — NEPŘEKRESLOVAT VOZIDLO:
+- NIKDY nepřegenerovávej, nepřekresluj, neredesignuj ani jinak vizuálně nepřetváříš vozidlo ze SOURCE CAR PHOTO.
+- Vozidlo musí zůstat 1:1 identické jako v originálu — stejný tvar karoserie, stejná kola (počet paprsků, design, ráfky, pneumatiky), stejné světlomety (přední i zadní), stejná barva laku, stejné odlesky, stejné nárazníky, mřížka, zrcátka, sklo, lemy, kliky, znaky, SPZ, viditelná poškození a detaily.
+- ŽÁDNÉ zrcadlení, otáčení, překlápění, změna úhlu, změna strany, změna pózy, změna proporcí, změna výšky podvozku, změna rozchodu kol.
 
-If you cannot match this gold reference behavior, return the SOURCE CAR PHOTO unchanged. A clean unedited source is always better than a deformed, rotated, mirrored, mis-angled, mis-placed, or logo-mismatched result.
+JEDINÉ POVOLENÉ OPERACE (nic jiného):
+1) Geometrické zarovnání (vyrovnání horizontu, jemné srovnání perspektivy karoserie do svislé/vodorovné osy).
+2) Korekce perspektivy (decentní, jen pro sjednocení katalogu — nikdy fish-eye, nikdy lens warp).
+3) Změna měřítka vozidla (scale) tak, aby všechna auta v showroomu byla stejně velká a ve stejné zdánlivé vzdálenosti od kamery.
+4) Vystředění kompozice (recentering) — auto vždy uprostřed kádru.
+5) Konzistentní zarovnání kol — obě nápravy stojí na stejné vodorovné lince (asfaltový pruh).
+6) Výměna pozadí za showroom (jediná povolená vizuální úprava mimo geometrii).
 
+CÍLOVÁ NORMALIZACE — VŠECHNA AUTA V SHOWROOMU MUSÍ PŮSOBIT VIZUÁLNĚ KONZISTENTNĚ:
+- Stejný úhel kamery (drž originální úhel ze zdroje, jen jemně srovnej horizont — neměň stranu/pohled).
+- Stejná velikost vozidla v rámci kádru.
+- Stejná vzdálenost od kamery (zdánlivá).
+- Vystředěná kompozice.
+- Konzistentní zarovnání kol na společné spodní lince.
 
-Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.
+POZADÍ — CLEAN WHITE SHOWROOM FACADE:
+- Čistá, realistická bílá vnější fasáda dealerství (jemná omítka, decentní textura, realistické denní světlo).
+- Tenký pruh světle šedého asfaltu pod koly s měkkými kontaktními stíny.
+- ŽÁDNÁ obloha, střecha, okap, rohy budovy, okna, dveře, stromy, lampy, lidé, jiná auta, značky, studiové cyklorámy, CGI plochy, halo, fake daylight.
+- Logo nepřidávej žádné AI generované; pokud nelze logo vykreslit 100% věrně dle reference, NEPŘIDÁVEJ ho vůbec.
 
-LOGO SHAPE — CRITICAL: The official dealership logo is a SHIELD (crest / heraldic shield shape with pointed bottom and rounded top corners), NOT a circle/round disc. The shield has a dark glossy black/dark-chrome face with a polished silver/chrome beveled outer frame. Inside the shield, from top to bottom: (1) the silver Chrysler pentastar emblem, (2) the word "CHRYSLER" in bold chrome letters, (3) a horizontal divider with a small "&" centered, (4) the word "DODGE" in bold chrome letters, (5) the word "PARDUBICE" in smaller chrome letters at the bottom. NEVER render this logo as a round/circular disc — it MUST be a shield silhouette.
+ZAKÁZÁNO:
+- jakákoli změna tvaru/barvy/detailů auta
+- deformace kol (musí zůstat dokonale kruhová), karoserie, prahů, blatníků, střechy
+- agresivní perspektiva, tilt-shift, fish-eye, warp
+- ořezávání nárazníků, zrcátek, kol
+- studiový vzhled, CGI, plast, HDR, neon, halo, AI fantazie
+- přidávání spoilerů, jiných ráfků, jiné mřížky, jiných světel
+- jakákoli změna interiéru (pokud je zdroj interiér, vrať zdroj beze změny)
 
-INPUTS:
-1) LOGO REFERENCE: the official round "CHRYSLER & DODGE PARDUBICE" pentastar sign. Use ONLY for logo/typography reference. Do NOT copy the building, roof, sky, trees or surroundings from this reference.
-2) SOURCE CAR PHOTO: the real vehicle (exterior OR interior). This is the truth source for the car.
+PRIORITA:
+1) Identita vozidla (LOCKED, nepřekreslovat).
+2) Fotorealismus.
+3) Geometrická normalizace (jemně).
+4) Výměna pozadí za showroom fasádu.
 
-================================================
-PRIORITY ORDER (apply in this order, never break a higher rule for a lower one)
-================================================
-1) CAR / INTERIOR IDENTITY — LOCKED.
-2) PHOTOREALISM — natural light, real shadows, real material.
-3) NATURAL LIGHT — preserve the original light direction and daylight feel.
-4) COMPOSITION NORMALIZATION — gently unify framing.
-5) SHOWROOM BACKGROUND — applied last, never at the cost of realism.
+POKUD nelze splnit body 1 a 2 současně → VRAŤ ZDROJOVOU FOTOGRAFII BEZE ZMĚNY. Čistý originál je vždy lepší než deformovaný, překreslený, otočený nebo zrcadlený výstup.
 
-If you cannot satisfy rules 1 and 2 at the same time, return the source as-is. NEVER ship a deformed, fake, plastic, CGI, studio-burn, AI-fantasy or halo result.
-
-================================================
-CAR / INTERIOR IDENTITY LOCK
-================================================
-- Same make, model, generation, year, body color, paint, wheels, tires, bumpers (front AND rear), grille, headlights, taillights, mirrors, trim, badges, glass, license plate, proportions, stance, visible damage and details.
-- Same side / angle as the source. NEVER mirror, flip or rotate the vehicle. If the source shows the LEFT side, the output MUST show the LEFT side, and so on for right / front / rear / interior.
-- Preserve original framing. Keep ALL visible vehicle parts intact (no cropping off bumpers, mirrors, wheels, steering wheel, screens, seats).
-- Do NOT re-pose, recolor, redesign, replace with another model, alter bumpers, add spoilers, change wheels, grille or lights, change interior trim or upholstery.
-
-================================================
-BACKGROUND — WHITE SHOWROOM FACADE WALL ONLY
-================================================
-The background is ONLY a clean, premium, realistic white exterior facade wall of the dealership. Treat it as if the car is standing directly in front of an endless white plaster facade.
-
-YOU MUST NOT show:
-- roof, roof edge, gutter, eaves, rooftop, top of the building, building corners, end of the building.
-- sky, clouds, sun, trees, plants, lamps, doors, windows on the facade, fences, people, other cars, road signs, futuristic elements.
-- studio cyclorama, photo backdrop, green screen, gradient sweep, CGI plane, vignette.
-
-YOU MUST show:
-- subtle real plaster/render texture (fine grain, hairline imperfections).
-- realistic outdoor daylight on the wall.
-- realistic soft shadows where the car body or mirrors approach the wall.
-- believable contact shadows under the tires on a thin strip of gray asphalt (only the asphalt strip — no horizon, no environment behind it).
-
-The wall must look like a REAL outdoor dealership facade — endlessly wide, premium, neutral. NEVER like a studio backdrop, green screen, or AI background.
-
-================================================
-LOGO PLACEMENT — STRICT PROPORTIONS
-================================================
-- Place the SHIELD-SHAPED "CHRYSLER & DODGE PARDUBICE" logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade. The logo silhouette is a HERALDIC SHIELD (rounded top, pointed/curved bottom) — absolutely NOT a circle, NOT a round disc, NOT a ring.
-- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the shield's visible height MUST equal exactly 9% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. This rule overrides any aesthetic preference.
-- LOGO POSITION — STRICT: the shield's center sits at 92% of the image width (from left) and 11% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
-- LOGO STYLE — STRICT: shield silhouette with a polished chrome/silver beveled frame and a dark glossy black face. Inside (top→bottom): silver Chrysler pentastar, then "CHRYSLER" in bold chrome letters, then a thin horizontal divider with a small "&", then "DODGE" in bold chrome letters, then "PARDUBICE" in smaller chrome letters at the bottom. Identical typography, identical layout, identical proportions, identical line weight as in the SHIELD reference. Do NOT re-draw, re-letter, re-kern or re-balance.
-- LOGO COLOR — STRICT: dark glossy black face, polished chrome/silver frame and lettering, silver pentastar. Never navy blue, never gold, never neon, never flat painted, never a colored ring. Slight realistic gloss/reflection on the shield surface, with a faint soft drop shadow on the white wall behind it.
-- The logo must always be FULLY visible (never cropped, never tilted, never perspective-warped, never covered by the car, never duplicated). Exactly ONE logo per image. No extra signs, no extra text, no taglines.
-- Consistency rule: if you cannot render the logo at the exact size, position, style and color described above, OMIT the logo entirely rather than ship a mismatched one.
-
-================================================
-INTERIOR — REALISTIC CLEAN INTERIOR MODE v4 (STYLE LOCK)
-================================================
-If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, seats, rear cabin) and outside scenery is visible through any window:
-
-STYLE LOCK — match the visual style of a real photographer's work, NOT an AI render. The baseline reference style is a quiet, civilian, realistic outdoor environment seen through softly blurred glass — natural daylight, calm depth, no architecture, no logos, no other prominent cars, no showroom feel. Aim for "photographed by a professional", not "edited by AI".
-
-The goal is NOT to build a showroom, NOT to place the car inside a dealership hall, NOT to add other cars in the background. The goal is ONLY to gently CLEAN UP what is visible through the windows so the interior becomes the obvious hero.
-
-Behind the glass (windshield / rear window / side glass), do ONLY this:
-- remove distracting elements (street clutter, people, signs, cars, mess, harsh backgrounds)
-- unify and soften outside light
-- gently blur the outdoor environment (shallow, natural depth of field)
-- produce a clean, neutral, natural outdoor background with soft daylight and decent depth — quiet and unobtrusive
-
-STRICTLY FORBIDDEN behind the glass:
-- corner of a building, roof edge, gutters, eaves, visible architecture
-- any logo, sign, text, badge on the background
-- new-car showroom / dealership hall / luxury salon / sci-fi showroom
-- other prominent cars, sharp silhouettes of cars, car-shaped bokeh
-- CGI interior, studio environment, photo backdrop, green screen
-- artificial reflections, dramatic light, HDR look, neon, stylized colors
-- blown-out white plane or fake daylight burn
-
-The outside view must look REAL, civilian, clean, professional and trustworthy — calm and tidy. It must be unobtrusive, soft, secondary. The car interior is the hero; the background is whisper-quiet.
-
-NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep displayed content exactly as in source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, headliner, mirrors, trim, textures, materials, colors, scratches, wear.
-
-QUALITY FILTER — if the result would look more artificial, more CGI, more showroom-like, or less realistic than the source, DO NOT ship it. Return the original source image unchanged. Realism > AI effect. Trustworthiness > polish. A photographer's natural look > a render.
-
-Priority order: 1) Realism  2) Trustworthiness  3) Natural light  4) Car interior intact  5) Subtle background cleanup. The best edit is the one a viewer does not notice.
-
-================================================
-GALLERY ORDER — DO NOT TOUCH
-================================================
-This function processes ONLY the single image referenced by imageId. NEVER imply or produce changes to other photos, never reorder, never re-rank, never regenerate siblings. Admin gallery order has absolute priority over any AI behavior.
-
-================================================
-SMART ANGLE / FRAMING NORMALIZATION (GENTLE)
-================================================
-Normalization MUST stay SUBTLE, GENTLE and SAFE. The goal is to unify the catalog, NOT to redraw the car.
-
-Allowed (only these, only in tiny amounts):
-- gentle horizon leveling
-- light re-centering of the car within the frame
-- small framing correction (a few percent)
-- light unification of perceived distance
-- adaptive scaling within safe limits
-
-STRICTLY FORBIDDEN:
-- aggressive perspective change, fish-eye, tilt-shift, lens warp
-- warping body lines, wheel arches, roofline, beltline
-- deforming wheels (must stay perfectly round) or bodywork
-- changing car proportions, ride height, stance, track width
-- changing interior proportions (wheel, dashboard, seats, screens)
-- extreme zoom-in or aggressive cropping
-- cropping bumpers, mirrors, wheels, steering wheel, seats, screens
-
-Rule: PREFER small framing corrections OVER any visible geometric manipulation. If a normalization step would cause deformation, an unnatural look, or any loss of realism — DO NOT apply that step. Ship the source framing instead. Realism > uniformity, ALWAYS.
-
-================================================
-REALISTIC BLENDING
-================================================
-- Segment the car / interior cleanly. Replace ONLY the original background / window view.
-- Natural soft contact shadows. Tires touch the asphalt believably.
-- Match light direction, contrast and white balance gently between subject and new background.
-- No halos, no mask edges, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look, no AI backdrop feel.
-
-================================================
-OUTPUT
-================================================
-- Return ONLY one final image.
-- Horizontal listing photo when the source is horizontal; otherwise keep the source aspect ratio.
-- No text, no watermark, no border, no UI overlay.
-- If you cannot deliver a fully realistic result that honors rules 1–3, return the original source image unchanged.`;
+VÝSTUP:
+- Jeden finální obrázek, bez textu, bez vodoznaku, bez rámečku, bez UI.
+- Zachovat poměr stran zdrojové fotografie.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -351,7 +260,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
+        model: "google/gemini-2.5-flash-image",
         modalities: ["image", "text"],
         messages: [{
           role: "user",

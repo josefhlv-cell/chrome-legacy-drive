@@ -18,6 +18,12 @@ const BG_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
 ];
 
+const LOGO_FALLBACK_URLS = [
+  "https://chdp.chryslerpardubice.site/showroom-logo-shield.png",
+  "https://chtysler-cz.lovable.app/showroom-logo-shield.png",
+  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
+];
+
 const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v2
 
 Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.

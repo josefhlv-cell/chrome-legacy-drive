@@ -719,6 +719,7 @@ const VehiclesTab = () => {
                 }}
                 triggerKey={`${newData.vin}-${newData.year}-${newData.mileage}`}
               />
+            </div>
             <div className="sm:col-span-2 lg:col-span-3 mt-2">
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                 <div className="flex items-center gap-2">

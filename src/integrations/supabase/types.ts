@@ -14,6 +14,132 @@ export type Database = {
   }
   public: {
     Tables: {
+      admin_welcome_seen: {
+        Row: {
+          seen_at: string
+          user_id: string
+        }
+        Insert: {
+          seen_at?: string
+          user_id: string
+        }
+        Update: {
+          seen_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      ai_price_memory: {
+        Row: {
+          contacts_count: number
+          created_at: string
+          ctr: number | null
+          days_to_sell: number | null
+          gallery_score: number | null
+          id: string
+          listed_price: number | null
+          make: string
+          metadata: Json
+          mileage: number | null
+          model: string
+          showroom_mode: boolean
+          sold_at: string | null
+          sold_price: number | null
+          vehicle_id: string | null
+          vin: string
+          year: number | null
+        }
+        Insert: {
+          contacts_count?: number
+          created_at?: string
+          ctr?: number | null
+          days_to_sell?: number | null
+          gallery_score?: number | null
+          id?: string
+          listed_price?: number | null
+          make?: string
+          metadata?: Json
+          mileage?: number | null
+          model?: string
+          showroom_mode?: boolean
+          sold_at?: string | null
+          sold_price?: number | null
+          vehicle_id?: string | null
+          vin?: string
+          year?: number | null
+        }
+        Update: {
+          contacts_count?: number
+          created_at?: string
+          ctr?: number | null
+          days_to_sell?: number | null
+          gallery_score?: number | null
+          id?: string
+          listed_price?: number | null
+          make?: string
+          metadata?: Json
+          mileage?: number | null
+          model?: string
+          showroom_mode?: boolean
+          sold_at?: string | null
+          sold_price?: number | null
+          vehicle_id?: string | null
+          vin?: string
+          year?: number | null
+        }
+        Relationships: []
+      }
+      ai_price_suggestions: {
+        Row: {
+          confidence: number
+          created_at: string
+          id: string
+          input_snapshot: Json
+          market_avg: number | null
+          market_high: number | null
+          market_low: number | null
+          reasons_down: Json
+          reasons_up: Json
+          recommended: number | null
+          sell_speed: string
+          sources: Json
+          vehicle_id: string | null
+          vin: string
+        }
+        Insert: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          input_snapshot?: Json
+          market_avg?: number | null
+          market_high?: number | null
+          market_low?: number | null
+          reasons_down?: Json
+          reasons_up?: Json
+          recommended?: number | null
+          sell_speed?: string
+          sources?: Json
+          vehicle_id?: string | null
+          vin?: string
+        }
+        Update: {
+          confidence?: number
+          created_at?: string
+          id?: string
+          input_snapshot?: Json
+          market_avg?: number | null
+          market_high?: number | null
+          market_low?: number | null
+          reasons_down?: Json
+          reasons_up?: Json
+          recommended?: number | null
+          sell_speed?: string
+          sources?: Json
+          vehicle_id?: string | null
+          vin?: string
+        }
+        Relationships: []
+      }
       api_cache: {
         Row: {
           cache_key: string
@@ -907,6 +1033,36 @@ export type Database = {
           vin?: string
           warranty_enabled?: boolean
           year?: number
+        }
+        Relationships: []
+      }
+      weekly_hit_songs: {
+        Row: {
+          created_at: string
+          id: string
+          is_special: boolean
+          lyrics: string
+          title: string
+          vibe: string
+          week_start: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_special?: boolean
+          lyrics?: string
+          title?: string
+          vibe?: string
+          week_start?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_special?: boolean
+          lyrics?: string
+          title?: string
+          vibe?: string
+          week_start?: string
         }
         Relationships: []
       }

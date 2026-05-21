@@ -46,10 +46,14 @@ import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab"
 import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
 import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
 import ShowroomTab from "@/components/admin/ShowroomTab";
-import { Megaphone, LayoutDashboard, Send } from "lucide-react";
+import HitSongsTab from "@/components/admin/HitSongsTab";
+import { MaraProvider, useMara } from "@/components/admin/MaraAssistant";
+import SmartPriceCheck from "@/components/admin/SmartPriceCheck";
+import { Megaphone, LayoutDashboard, Send, Music } from "lucide-react";
+import { useEffect as useEffectAdmin } from "react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom";
+type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom" | "hits";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",
@@ -105,6 +109,7 @@ const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
   { key: "tipcars", label: "TipCars", icon: <Send className="w-4 h-4" /> },
   { key: "smart-capture", label: "Smart Capture", icon: <Sparkles className="w-4 h-4" /> },
   { key: "showroom", label: "Showroom Mode", icon: <Wand2 className="w-4 h-4" /> },
+  { key: "hits", label: "To bude hit", icon: <Music className="w-4 h-4" /> },
 ];
 
 const AdminPage = () => {
@@ -172,6 +177,48 @@ const AdminPage = () => {
   }
 
   return (
+    <MaraProvider>
+      <AdminInner user={user} signOut={signOut} activeTab={activeTab} setActiveTab={setActiveTab} />
+    </MaraProvider>
+  );
+};
+
+// Wraps the actual admin UI so it can use useMara() hook.
+const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
+  user: { email?: string | null };
+  signOut: () => Promise<void>;
+  activeTab: AdminTab;
+  setActiveTab: (t: AdminTab) => void;
+}) => {
+  const { say } = useMara();
+
+  // First-time welcome: greet Mára-style, then create a one-off "special" song.
+  useEffectAdmin(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return;
+      const { data: existing } = await supabase
+        .from("admin_welcome_seen")
+        .select("user_id")
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (cancelled || existing) return;
+      // Show welcome (no AI suggestions yet)
+      say(
+        `Ahoj Máro! Jsem tvůj AI parťák. Pomáhám s naceněním vozů (Smart Price Check), hlídám fotky, exporty a leady. Každé pondělí ti do sekce "To bude hit" napíšu text písničky s ambicí stát se hitem. Dnes se vidíme poprvé (pokud ses nekoukal do zrcadla 😎), tak jsem ti něco napsal mimořádně. Koukni do sekce "To bude hit".`,
+        { title: "Vítej" },
+      );
+      // Generate first special song in background
+      supabase.functions.invoke("generate-weekly-hit", { body: { special: true } }).catch(() => {});
+      await supabase.from("admin_welcome_seen").insert({ user_id: uid });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
     <div className="min-h-screen bg-background">
       <AdminSurprise />
       <AdminDailyReport />
@@ -229,6 +276,7 @@ const AdminPage = () => {
           {activeTab === "tipcars" && <TipCarsTab />}
           {activeTab === "smart-capture" && <SmartCaptureSettingsTab />}
           {activeTab === "showroom" && <ShowroomTab />}
+          {activeTab === "hits" && <HitSongsTab />}
         </div>
       </div>
       <Footer />

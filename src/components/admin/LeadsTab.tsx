@@ -99,6 +99,62 @@ export default function LeadsTab() {
     });
   };
 
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const allFilteredSelected = filtered.length > 0 && filtered.every((l) => selected.has(l.id));
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filtered.forEach((l) => next.delete(l.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filtered.forEach((l) => next.add(l.id));
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Opravdu smazat ${selected.size} označených poptávek? Tato akce je nevratná.`)) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selected);
+      const { error } = await supabase.from("leads").delete().in("id", ids);
+      if (error) throw error;
+      clearSelection();
+      toast({ title: "Smazáno", description: `${ids.length} poptávek smazáno.` });
+      refetch();
+    } catch (e) {
+      toast({ title: "Smazání selhalo", description: String(e), variant: "destructive" });
+    } finally { setDeleting(false); }
+  };
+
+  const exportSelectedCsv = () => {
+    const rowsSrc = filtered.filter((l) => selected.has(l.id));
+    if (rowsSrc.length === 0) return;
+    const headers = ["Datum", "Typ", "Jméno", "Email", "Telefon", "Vozidlo / VIN", "Zpráva", "Metadata"];
+    const rows = rowsSrc.map((l) => [
+      formatDate(l.created_at), typeMeta(l.type).label, l.name, l.email, l.phone,
+      l.vehicle_model, l.message, l.metadata ? JSON.stringify(l.metadata) : "",
+    ]);
+    const csv = "\uFEFF" + [headers, ...rows].map((r) => r.map(csvEscape).join(";")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `poptavky-oznacene-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const exportCsv = () => {
     const headers = ["Datum", "Typ", "Jméno", "Email", "Telefon", "Vozidlo / VIN", "Zpráva", "Metadata"];
     const rows = filtered.map((l) => [

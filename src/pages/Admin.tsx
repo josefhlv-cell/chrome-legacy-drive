@@ -212,7 +212,9 @@ const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
       );
       // Generate first special song in background
       supabase.functions.invoke("generate-weekly-hit", { body: { special: true } }).catch(() => {});
-      await supabase.from("admin_welcome_seen").insert({ user_id: uid });
+      // TEST MODE: nezapisujeme admin_welcome_seen, aby se uvítání zobrazilo při každém přihlášení.
+      // Pro produkci odkomentuj následující řádek:
+      // await supabase.from("admin_welcome_seen").insert({ user_id: uid });
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

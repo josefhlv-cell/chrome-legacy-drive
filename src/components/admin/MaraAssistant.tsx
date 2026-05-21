@@ -46,10 +46,10 @@ const FIGURE_LINGER_MS = 120_000; // +2 min Mára zůstane bez textu
 
 const JOKES = [
   "Víš proč mechanik nikdy nehraje poker? Pokaždé si nechá rozdat — a ještě s zárukou.",
-  "Říká Chrysler Dodgi: „Hele, co děláš večer?" — „Nic, jsem v neutrálu."",
-  "Přišel chlap do servisu: „Auto mi divně píská." Říkám: „To není auto, to je rádio — a hraje Chinaski."",
-  "Ptá se zákazník: „Kolik koní má 300C?" Odpovídám: „Tolik, že ti uteče i účtenka."",
-  "Lancia Flavia vchází do baru. Barman: „Tady nenaléváme." Flavia: „V pohodě, já piju jen prémiový benzín."",
+  'Říká Chrysler Dodgi: „Hele, co děláš večer?" — „Nic, jsem v neutrálu."',
+  'Přišel chlap do servisu: „Auto mi divně píská." Říkám: „To není auto, to je rádio — a hraje Chinaski."',
+  'Ptá se zákazník: „Kolik koní má 300C?" Odpovídám: „Tolik, že ti uteče i účtenka."',
+  'Lancia Flavia vchází do baru. Barman: „Tady nenaléváme." Flavia: „V pohodě, já piju jen prémiový benzín."',
   "Proč Ram 1500 nikdy nelže? Protože má pravdu na všech čtyřech.",
 ];
 

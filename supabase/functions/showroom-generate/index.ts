@@ -18,9 +18,17 @@ const BG_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
 ];
 
+const LOGO_FALLBACK_URLS = [
+  "https://chdp.chryslerpardubice.site/showroom-logo-shield.png",
+  "https://chtysler-cz.lovable.app/showroom-logo-shield.png",
+  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
+];
+
 const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v2
 
 Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.
+
+LOGO SHAPE — CRITICAL: The official dealership logo is a SHIELD (crest / heraldic shield shape with pointed bottom and rounded top corners), NOT a circle/round disc. The shield has a dark glossy black/dark-chrome face with a polished silver/chrome beveled outer frame. Inside the shield, from top to bottom: (1) the silver Chrysler pentastar emblem, (2) the word "CHRYSLER" in bold chrome letters, (3) a horizontal divider with a small "&" centered, (4) the word "DODGE" in bold chrome letters, (5) the word "PARDUBICE" in smaller chrome letters at the bottom. NEVER render this logo as a round/circular disc — it MUST be a shield silhouette.
 
 INPUTS:
 1) LOGO REFERENCE: the official round "CHRYSLER & DODGE PARDUBICE" pentastar sign. Use ONLY for logo/typography reference. Do NOT copy the building, roof, sky, trees or surroundings from this reference.
@@ -66,11 +74,11 @@ The wall must look like a REAL outdoor dealership facade — endlessly wide, pre
 ================================================
 LOGO PLACEMENT — STRICT PROPORTIONS
 ================================================
-- Place the round "CHRYSLER & DODGE PARDUBICE" pentastar logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade.
-- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the logo's visible diameter MUST equal exactly 7% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. Never larger, never smaller. This rule overrides any aesthetic preference.
-- LOGO POSITION — STRICT: the logo's center sits at 92% of the image width (from left) and 10% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
-- LOGO STYLE — STRICT: identical typography, identical pentastar shape, identical circular layout, identical proportions of letters to ring, identical line weight as in the reference. Do NOT re-draw, re-letter, re-kern or re-balance the logo.
-- LOGO COLOR — STRICT: deep navy blue ring and lettering on white facade (matching reference). Never silver, chrome, gold, gradient, embossed metal, neon, or any colored variation. Flat, painted-on appearance with a faint subsurface shadow only.
+- Place the SHIELD-SHAPED "CHRYSLER & DODGE PARDUBICE" logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade. The logo silhouette is a HERALDIC SHIELD (rounded top, pointed/curved bottom) — absolutely NOT a circle, NOT a round disc, NOT a ring.
+- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the shield's visible height MUST equal exactly 9% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. This rule overrides any aesthetic preference.
+- LOGO POSITION — STRICT: the shield's center sits at 92% of the image width (from left) and 11% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
+- LOGO STYLE — STRICT: shield silhouette with a polished chrome/silver beveled frame and a dark glossy black face. Inside (top→bottom): silver Chrysler pentastar, then "CHRYSLER" in bold chrome letters, then a thin horizontal divider with a small "&", then "DODGE" in bold chrome letters, then "PARDUBICE" in smaller chrome letters at the bottom. Identical typography, identical layout, identical proportions, identical line weight as in the SHIELD reference. Do NOT re-draw, re-letter, re-kern or re-balance.
+- LOGO COLOR — STRICT: dark glossy black face, polished chrome/silver frame and lettering, silver pentastar. Never navy blue, never gold, never neon, never flat painted, never a colored ring. Slight realistic gloss/reflection on the shield surface, with a faint soft drop shadow on the white wall behind it.
 - The logo must always be FULLY visible (never cropped, never tilted, never perspective-warped, never covered by the car, never duplicated). Exactly ONE logo per image. No extra signs, no extra text, no taglines.
 - Consistency rule: if you cannot render the logo at the exact size, position, style and color described above, OMIT the logo entirely rather than ship a mismatched one.
 
@@ -222,6 +230,17 @@ async function fetchBackground(): Promise<string> {
   throw new Error("Reference showroom background is unreachable");
 }
 
+async function fetchLogo(): Promise<string | null> {
+  for (const u of LOGO_FALLBACK_URLS) {
+    try {
+      return (await fetchAsDataUrl(u)).dataUrl;
+    } catch (_) {
+      // try next logo source
+    }
+  }
+  return null;
+}
+
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) throw new Error("Invalid data URL from AI");
@@ -288,10 +307,12 @@ Deno.serve(async (req) => {
 
     let bgDataUrl: string;
     let carDataUrl: string;
+    let logoDataUrl: string | null = null;
     try {
-      const [bg, car] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl)]);
+      const [bg, car, logo] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl), fetchLogo()]);
       bgDataUrl = bg;
       carDataUrl = car.dataUrl;
+      logoDataUrl = logo;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -305,6 +326,17 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
+    const content: any[] = [
+      { type: "text", text: SHOWROOM_PROMPT },
+      { type: "image_url", image_url: { url: bgDataUrl } },
+    ];
+    if (logoDataUrl) {
+      content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
+      content.push({ type: "image_url", image_url: { url: logoDataUrl } });
+    }
+    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
+    content.push({ type: "image_url", image_url: { url: carDataUrl } });
+
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -317,11 +349,7 @@ Deno.serve(async (req) => {
         modalities: ["image", "text"],
         messages: [{
           role: "user",
-          content: [
-            { type: "text", text: SHOWROOM_PROMPT },
-            { type: "image_url", image_url: { url: bgDataUrl } },
-            { type: "image_url", image_url: { url: carDataUrl } },
-          ],
+          content,
         }],
       }),
     });

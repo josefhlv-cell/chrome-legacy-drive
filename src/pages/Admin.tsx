@@ -199,22 +199,32 @@ const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
       const { data: auth } = await supabase.auth.getUser();
       const uid = auth.user?.id;
       if (!uid) return;
+      // Time window (Europe/Prague):
+      //  < 05:00 → TEST mode: uvítání při každém přihlášení, do DB nezapisujeme.
+      //  ≥ 05:30 → PROD mode: zobrazit jen poprvé, pak zapsat do admin_welcome_seen.
+      //  05:00–05:30 → tichý mezičas (nic nezobrazujeme, nic nezapisujeme).
+      const pragueNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Prague" }));
+      const minutes = pragueNow.getHours() * 60 + pragueNow.getMinutes();
+      const isTestMode = minutes < 5 * 60;
+      const isProdMode = minutes >= 5 * 60 + 30;
+      if (!isTestMode && !isProdMode) return;
+
       const { data: existing } = await supabase
         .from("admin_welcome_seen")
         .select("user_id")
         .eq("user_id", uid)
         .maybeSingle();
-      if (cancelled || existing) return;
-      // Show welcome (no AI suggestions yet)
+      if (cancelled) return;
+      if (isProdMode && existing) return; // v prod módu už uvítání viděl
+      // Show welcome
       say(
         `Ahoj Máro! Jsem tvůj AI parťák. Pomáhám s naceněním vozů (Smart Price Check), hlídám fotky, exporty a leady. Každé pondělí ti do sekce "To bude hit" napíšu text písničky s ambicí stát se hitem. Dnes se vidíme poprvé (pokud ses nekoukal do zrcadla 😎), tak jsem ti něco napsal mimořádně. Koukni do sekce "To bude hit".`,
         { title: "Vítej" },
       );
-      // Generate first special song in background
       supabase.functions.invoke("generate-weekly-hit", { body: { special: true } }).catch(() => {});
-      // TEST MODE: nezapisujeme admin_welcome_seen, aby se uvítání zobrazilo při každém přihlášení.
-      // Pro produkci odkomentuj následující řádek:
-      // await supabase.from("admin_welcome_seen").insert({ user_id: uid });
+      if (isProdMode && !existing) {
+        await supabase.from("admin_welcome_seen").insert({ user_id: uid });
+      }
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps

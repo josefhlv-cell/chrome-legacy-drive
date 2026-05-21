@@ -12,7 +12,7 @@ import {
 } from "@/hooks/useSmartCapture";
 import { SHOT_SEQUENCE, SHOT_LABEL_MAP, type ShotType } from "@/lib/smartCapture/types";
 import { processImage, computeBlurScore, fileToBase64 } from "@/lib/smartCapture/imageProcessing";
-import { buildSessionZip, downloadBlob, type ExportPhoto } from "@/lib/smartCapture/export";
+import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
 
 interface AnalysisResult {
   shot_type?: string;
@@ -55,6 +55,11 @@ export default function SmartCapture() {
   const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
   const [vinScanning, setVinScanning] = useState(false);
   const [vinValue, setVinValue] = useState("");
+  const [vehicleInfo, setVehicleInfo] = useState<VehicleInfo>({
+    brand: "", model: "", year: "", vin: "", mileage: "",
+    price: "", fuel: "", transmission: "", color: "", power: "",
+    description: "",
+  });
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
@@ -266,10 +271,53 @@ export default function SmartCapture() {
     setPhase("review");
   };
 
+  // Prefill vehicle info from VIN-decoded data + saved session metadata
+  useEffect(() => {
+    if (!session) return;
+    const decoded = ((session as { decoded_data?: Record<string, unknown> }).decoded_data ?? {}) as Record<string, unknown>;
+    const meta = ((session as { metadata?: Record<string, unknown> }).metadata ?? {}) as Record<string, unknown>;
+    const savedInfo = (meta.vehicle_info ?? {}) as Partial<VehicleInfo>;
+    setVehicleInfo((cur) => {
+      const next: VehicleInfo = { ...cur, ...savedInfo };
+      if (!next.brand && decoded.make) next.brand = String(decoded.make);
+      if (!next.model && decoded.model) next.model = String(decoded.model);
+      if (!next.year && decoded.year) next.year = String(decoded.year);
+      if (!next.vin && (session as { vin?: string }).vin) next.vin = (session as { vin?: string }).vin ?? "";
+      if (!next.fuel && decoded.fuel) next.fuel = String(decoded.fuel);
+      if (!next.transmission && decoded.transmission) next.transmission = String(decoded.transmission);
+      if (!next.color && decoded.color) next.color = String(decoded.color);
+      if (!next.power && decoded.power) next.power = String(decoded.power);
+      return next;
+    });
+  }, [session]);
+
+  const requiredInfoFilled = useMemo(() => {
+    const req: (keyof VehicleInfo)[] = ["brand", "model", "year", "mileage", "price", "description"];
+    return req.every((k) => String(vehicleInfo[k] ?? "").trim().length > 0);
+  }, [vehicleInfo]);
+
+  const updateInfoField = (k: keyof VehicleInfo, v: string) => {
+    setVehicleInfo((s) => ({ ...s, [k]: v }));
+  };
+
   const handleExportZip = async () => {
     if (!sessionId) return;
+    if (!requiredInfoFilled) {
+      toast({
+        title: "Vyplňte informace o voze",
+        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
+      // Persist info into session metadata so příště je předvyplněno
+      await updateSession.mutateAsync({
+        id: sessionId,
+        updates: { metadata: { ...(session as { metadata?: Record<string, unknown> })?.metadata, vehicle_info: vehicleInfo } },
+      });
+
       const items: ExportPhoto[] = photos.map((p, i) => {
         const row = p as { shot_type: ShotType; original_url: string; processed_url: string };
         return {
@@ -277,10 +325,10 @@ export default function SmartCapture() {
           originalUrl: row.original_url, processedUrl: row.processed_url,
         };
       });
-      const brand = ((session as { decoded_data?: { make?: string } })?.decoded_data?.make) || "Vozidlo";
-      const model = ((session as { decoded_data?: { model?: string } })?.decoded_data?.model) || "Model";
-      const zip = await buildSessionZip(items, { brand, model });
-      downloadBlob(zip, `${brand}-${model}-${new Date().toISOString().slice(0, 10)}.zip`);
+      const zip = await buildSessionZip(items, vehicleInfo);
+      const safe = (s: string) => s.replace(/[^a-zA-Z0-9-]/g, "");
+      downloadBlob(zip, `${safe(vehicleInfo.brand)}-${safe(vehicleInfo.model)}-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast({ title: "Export hotov", description: "ZIP obsahuje original, inzertní (1MB), web + info.txt." });
     } catch (e) {
       toast({ title: "Export selhal", description: String(e), variant: "destructive" });
     } finally { setBusy(false); }
@@ -562,11 +610,47 @@ export default function SmartCapture() {
             })}
           </div>
 
+          {/* Informace o voze — povinné pro export */}
+          <div className="max-w-md mx-auto mb-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium">Informace o voze</h3>
+              <span className={`text-[11px] px-2 py-0.5 rounded-full ${requiredInfoFilled ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+                {requiredInfoFilled ? "Vyplněno" : "Povinné pro export"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["brand", "Značka *"], ["model", "Model *"],
+                ["year", "Rok *"], ["mileage", "Najezd (km) *"],
+                ["price", "Cena (Kč) *"], ["vin", "VIN"],
+                ["fuel", "Palivo"], ["transmission", "Převodovka"],
+                ["color", "Barva"], ["power", "Výkon"],
+              ] as [keyof VehicleInfo, string][]).map(([k, label]) => (
+                <input
+                  key={k}
+                  placeholder={label}
+                  value={String(vehicleInfo[k] ?? "")}
+                  onChange={(e) => updateInfoField(k, e.target.value)}
+                  className="bg-white/10 rounded-md px-2.5 py-2 text-sm placeholder:text-white/40 outline-none focus:ring-1 focus:ring-white/30"
+                />
+              ))}
+            </div>
+            <textarea
+              placeholder="Popis vozu * (bude vložen do info.txt v ZIP)"
+              value={vehicleInfo.description ?? ""}
+              onChange={(e) => updateInfoField("description", e.target.value)}
+              rows={4}
+              className="w-full mt-2 bg-white/10 rounded-md px-2.5 py-2 text-sm placeholder:text-white/40 outline-none focus:ring-1 focus:ring-white/30 resize-none"
+            />
+          </div>
+
           <div className="space-y-2 max-w-md mx-auto">
-            <Button onClick={handleExportZip} disabled={busy || photos.length === 0}
-              className="w-full bg-white text-black hover:bg-white/90">
+            <Button onClick={handleExportZip} disabled={busy || photos.length === 0 || !requiredInfoFilled}
+              className="w-full bg-white text-black hover:bg-white/90 disabled:bg-white/30 disabled:text-white/60">
               {busy ? <Loader2 className="animate-spin mr-2" size={16} /> : <Download className="mr-2" size={16} />}
-              Exportovat ZIP (original + web + inzerce)
+              {requiredInfoFilled
+                ? "Exportovat ZIP (original + inzertní 1MB + web + info.txt)"
+                : "Vyplňte povinné údaje o voze"}
             </Button>
             <Button variant="outline" onClick={async () => {
               await startCamera(); setPhase("capturing");

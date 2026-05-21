@@ -318,16 +318,68 @@ export default function ShowroomTab() {
 
       <div className="grid grid-cols-1 xl:grid-cols-[340px_1fr] gap-4">
         <div className="bg-card border border-border rounded-lg p-3 max-h-[720px] overflow-y-auto">
-          <div className="flex items-center justify-between mb-2 px-1">
+          <div className="flex items-center justify-between mb-2 px-1 gap-2 flex-wrap">
             <div className="text-xs font-semibold text-muted-foreground uppercase">Vozidla</div>
-            <button
-              type="button"
-              onClick={() => setCheckedVehicleIds(new Set())}
-              className="text-[10px] text-muted-foreground hover:text-primary"
-            >
-              vyčistit výběr
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const all = vehicles ?? [];
+                  const allSelected = all.length > 0 && all.every((v: any) => checkedVehicleIds.has(v.id));
+                  if (allSelected) setCheckedVehicleIds(new Set());
+                  else setCheckedVehicleIds(new Set(all.map((v: any) => v.id)));
+                }}
+                className="text-[10px] inline-flex items-center gap-1 text-muted-foreground hover:text-primary"
+              >
+                {(vehicles ?? []).length > 0 && (vehicles ?? []).every((v: any) => checkedVehicleIds.has(v.id))
+                  ? <><CheckSquare className="w-3 h-3" /> odznačit vše</>
+                  : <><Square className="w-3 h-3" /> označit vše</>}
+              </button>
+              <button
+                type="button"
+                onClick={() => setCheckedVehicleIds(new Set())}
+                className="text-[10px] text-muted-foreground hover:text-primary"
+              >
+                vyčistit
+              </button>
+            </div>
           </div>
+          {checkedVehicleIds.size > 0 && (
+            <div className="mb-2 px-1 flex flex-wrap gap-1.5">
+              <button
+                type="button"
+                onClick={bulkApply}
+                disabled={bulkBusy}
+                className="text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground inline-flex items-center gap-1 disabled:opacity-50"
+              >
+                <Sparkles className="w-3 h-3" /> Generovat ({checkedVehicleIds.size})
+              </button>
+              <button
+                type="button"
+                disabled={bulkBusy}
+                onClick={async () => {
+                  if (!confirm(`Obnovit originály u ${checkedVehicleIds.size} označených vozů? Showroom se vypne.`)) return;
+                  setBulkBusy(true);
+                  setQueueProgress({ done: 0, total: checkedVehicleIds.size });
+                  try {
+                    const ids = Array.from(checkedVehicleIds);
+                    for (let i = 0; i < ids.length; i += 1) {
+                      try {
+                        await supabase.functions.invoke("showroom-apply", { body: { vehicleId: ids[i], action: "restore_vehicle" } });
+                      } catch { /* continue */ }
+                      setQueueProgress({ done: i + 1, total: ids.length });
+                    }
+                    toast({ title: `Originály obnoveny u ${ids.length} vozů` });
+                    qc.invalidateQueries({ queryKey: ["vehicles"] });
+                    refetch();
+                  } finally { setBulkBusy(false); }
+                }}
+                className="text-[10px] px-2 py-1 rounded-md border border-border hover:bg-secondary inline-flex items-center gap-1 disabled:opacity-50"
+              >
+                <RotateCcw className="w-3 h-3" /> Obnovit originály
+              </button>
+            </div>
+          )}
           <div className="space-y-1">
             {(vehicles ?? []).map((v: any) => {
               const checked = checkedVehicleIds.has(v.id);

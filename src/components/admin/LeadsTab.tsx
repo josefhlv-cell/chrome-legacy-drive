@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Phone, Car, MessageSquare, Calendar, Filter, Search, Download, Inbox, Wrench, Repeat, ShoppingBag, HelpCircle, Image as ImageIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Mail, Phone, Car, MessageSquare, Calendar, Filter, Search, Download, Inbox, Wrench, Repeat, ShoppingBag, HelpCircle, Image as ImageIcon, Trash2, CheckSquare, Square } from "lucide-react";
 
 type LeadType = "all" | "contact" | "service" | "trade-in" | "spare-parts" | "import" | "vehicle-inquiry" | "other";
 
@@ -40,9 +41,12 @@ const csvEscape = (v: any) => {
 };
 
 export default function LeadsTab() {
+  const { toast } = useToast();
   const [typeFilter, setTypeFilter] = useState<LeadType>("all");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const { data: leads = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-leads"],
@@ -93,6 +97,62 @@ export default function LeadsTab() {
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+  const allFilteredSelected = filtered.length > 0 && filtered.every((l) => selected.has(l.id));
+  const toggleSelectAll = () => {
+    setSelected((prev) => {
+      if (allFilteredSelected) {
+        const next = new Set(prev);
+        filtered.forEach((l) => next.delete(l.id));
+        return next;
+      }
+      const next = new Set(prev);
+      filtered.forEach((l) => next.add(l.id));
+      return next;
+    });
+  };
+  const clearSelection = () => setSelected(new Set());
+
+  const bulkDelete = async () => {
+    if (selected.size === 0) return;
+    if (!confirm(`Opravdu smazat ${selected.size} označených poptávek? Tato akce je nevratná.`)) return;
+    setDeleting(true);
+    try {
+      const ids = Array.from(selected);
+      const { error } = await supabase.from("leads").delete().in("id", ids);
+      if (error) throw error;
+      clearSelection();
+      toast({ title: "Smazáno", description: `${ids.length} poptávek smazáno.` });
+      refetch();
+    } catch (e) {
+      toast({ title: "Smazání selhalo", description: String(e), variant: "destructive" });
+    } finally { setDeleting(false); }
+  };
+
+  const exportSelectedCsv = () => {
+    const rowsSrc = filtered.filter((l) => selected.has(l.id));
+    if (rowsSrc.length === 0) return;
+    const headers = ["Datum", "Typ", "Jméno", "Email", "Telefon", "Vozidlo / VIN", "Zpráva", "Metadata"];
+    const rows = rowsSrc.map((l) => [
+      formatDate(l.created_at), typeMeta(l.type).label, l.name, l.email, l.phone,
+      l.vehicle_model, l.message, l.metadata ? JSON.stringify(l.metadata) : "",
+    ]);
+    const csv = "\uFEFF" + [headers, ...rows].map((r) => r.map(csvEscape).join(";")).join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `poptavky-oznacene-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const exportCsv = () => {
@@ -172,6 +232,30 @@ export default function LeadsTab() {
         </div>
       </div>
 
+      {/* Bulk actions bar */}
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/40 text-sm">
+          <button onClick={toggleSelectAll}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-background border border-border/40">
+            {allFilteredSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+            {allFilteredSelected ? "Odznačit vše" : "Označit vše"}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Označeno: <strong>{selected.size}</strong> z {filtered.length}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button onClick={exportSelectedCsv} disabled={selected.size === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-border/40 text-xs hover:bg-background disabled:opacity-40">
+              <Download className="w-3.5 h-3.5" /> Export CSV (označené)
+            </button>
+            <button onClick={bulkDelete} disabled={selected.size === 0 || deleting}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40">
+              <Trash2 className="w-3.5 h-3.5" /> Smazat označené
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? (
         <p className="text-muted-foreground text-sm">Načítání poptávek...</p>
@@ -186,12 +270,16 @@ export default function LeadsTab() {
             const meta = typeMeta(l.type);
             const isOpen = expanded.has(l.id);
             const photoCount = (l.metadata as any)?.photos;
+            const isSel = selected.has(l.id);
             return (
-              <div key={l.id} className="border border-border/40 rounded-lg bg-card overflow-hidden">
-                <button
-                  onClick={() => toggle(l.id)}
-                  className="w-full px-4 py-3 flex flex-wrap items-center gap-3 text-left hover:bg-muted/30 transition"
-                >
+              <div key={l.id} className={`border rounded-lg bg-card overflow-hidden transition ${isSel ? "border-primary/60 ring-1 ring-primary/30" : "border-border/40"}`}>
+                <div className="w-full px-4 py-3 flex flex-wrap items-center gap-3 hover:bg-muted/30 transition">
+                  <button onClick={(e) => { e.stopPropagation(); toggleSelect(l.id); }}
+                    className="shrink-0 p-1 -m-1 text-muted-foreground hover:text-foreground"
+                    aria-label="Označit poptávku">
+                    {isSel ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => toggle(l.id)} className="flex-1 flex flex-wrap items-center gap-3 text-left min-w-0">
                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold ${meta.color}`}>
                     {meta.icon}
                     {meta.label}
@@ -214,7 +302,8 @@ export default function LeadsTab() {
                     </span>
                   ) : null}
                   <span className="ml-auto text-xs text-primary">{isOpen ? "Skrýt" : "Detail"}</span>
-                </button>
+                  </button>
+                </div>
 
                 {isOpen && (
                   <div className="px-4 pb-4 pt-1 border-t border-border/30 grid gap-3 sm:grid-cols-2 text-sm">

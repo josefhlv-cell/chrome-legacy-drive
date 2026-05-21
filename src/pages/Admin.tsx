@@ -257,6 +257,8 @@ const VehiclesTab = () => {
   const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
   const [adminSort, setAdminSort] = useState<AdminSort>("price-desc");
   const [priceFilter, setPriceFilter] = useState<string>("");
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<Set<string>>(new Set());
+  const [bulkVehicleBusy, setBulkVehicleBusy] = useState(false);
   const addImage = useAddVehicleImage();
   const deleteImage = useDeleteVehicleImage();
   const setMainImage = useSetMainImage();
@@ -744,6 +746,73 @@ const VehiclesTab = () => {
 
       {isLoading && <p className="text-muted-foreground text-center py-10">Načítání...</p>}
 
+      {sortedVehicles.length > 0 && (
+        <div className="mb-3 flex flex-wrap items-center gap-2 px-3 py-2 rounded-md bg-secondary/40 border border-border text-sm">
+          <button
+            onClick={() => {
+              const all = sortedVehicles;
+              const allSel = all.length > 0 && all.every((v) => selectedVehicleIds.has(v.id));
+              setSelectedVehicleIds(allSel ? new Set() : new Set(all.map((v) => v.id)));
+            }}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border hover:bg-background text-xs"
+          >
+            {sortedVehicles.every((v) => selectedVehicleIds.has(v.id)) && sortedVehicles.length > 0
+              ? "Odznačit vše" : "Označit vše"}
+          </button>
+          <span className="text-xs text-muted-foreground">Označeno: <strong>{selectedVehicleIds.size}</strong> z {sortedVehicles.length}</span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <select
+              disabled={selectedVehicleIds.size === 0 || bulkVehicleBusy}
+              onChange={async (e) => {
+                const newStatus = e.target.value;
+                e.target.value = "";
+                if (!newStatus) return;
+                if (!confirm(`Změnit status u ${selectedVehicleIds.size} vozů na "${statusLabels[newStatus as VehicleStatus]}"?`)) return;
+                setBulkVehicleBusy(true);
+                try {
+                  const ids = Array.from(selectedVehicleIds);
+                  for (const id of ids) {
+                    await updateVehicle.mutateAsync({ id, updates: { status: newStatus as VehicleStatus } });
+                  }
+                  toast({ title: "Status změněn", description: `${ids.length} vozů aktualizováno.` });
+                  setSelectedVehicleIds(new Set());
+                } catch (err) {
+                  toast({ title: "Chyba", description: String(err), variant: "destructive" });
+                } finally { setBulkVehicleBusy(false); }
+              }}
+              className="text-xs bg-background border border-border rounded-md px-2 py-1 disabled:opacity-40"
+            >
+              <option value="">Změnit status…</option>
+              {(Object.keys(statusLabels) as VehicleStatus[]).map((s) => (
+                <option key={s} value={s}>{statusLabels[s]}</option>
+              ))}
+            </select>
+            <button
+              disabled={selectedVehicleIds.size === 0 || bulkVehicleBusy}
+              onClick={async () => {
+                if (!confirm(`Opravdu smazat ${selectedVehicleIds.size} vozů? Tato akce je nevratná.`)) return;
+                setBulkVehicleBusy(true);
+                try {
+                  const ids = Array.from(selectedVehicleIds);
+                  for (const id of ids) {
+                    await new Promise<void>((res, rej) =>
+                      deleteVehicle.mutate(id, { onSuccess: () => res(), onError: (e) => rej(e) }),
+                    );
+                  }
+                  toast({ title: "Smazáno", description: `${ids.length} vozů smazáno.` });
+                  setSelectedVehicleIds(new Set());
+                } catch (err) {
+                  toast({ title: "Chyba", description: String(err), variant: "destructive" });
+                } finally { setBulkVehicleBusy(false); }
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40"
+            >
+              <Trash2 className="w-3.5 h-3.5" /> Smazat označené
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4">
         {sortedVehicles.map((vehicle) => {
           // Prefer Supabase gallery (main image first), filter dead legacy server URLs.
@@ -755,7 +824,16 @@ const VehiclesTab = () => {
           const candidate = sortedGallery.map((g: any) => g.image_url).find(isUsable) ?? (isUsable(vehicle.image_url) ? vehicle.image_url : "");
           const thumbSrc = candidate ? optimizeImage(candidate, "card") : "/vehicle-placeholder.svg";
           return (
-          <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
+          <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`glass-card p-5 ${selectedVehicleIds.has(vehicle.id) ? "ring-2 ring-primary" : ""}`}>
+            <div className="flex items-start gap-2 mb-2">
+              <input
+                type="checkbox"
+                checked={selectedVehicleIds.has(vehicle.id)}
+                onChange={() => setSelectedVehicleIds((p) => { const n = new Set(p); n.has(vehicle.id) ? n.delete(vehicle.id) : n.add(vehicle.id); return n; })}
+                className="mt-1 w-4 h-4 accent-primary cursor-pointer"
+                title="Označit pro hromadnou akci"
+              />
+            </div>
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="w-full lg:w-44 h-28 shrink-0 rounded-md bg-muted/30 overflow-hidden">
                 <img

@@ -824,7 +824,16 @@ const VehiclesTab = () => {
           const candidate = sortedGallery.map((g: any) => g.image_url).find(isUsable) ?? (isUsable(vehicle.image_url) ? vehicle.image_url : "");
           const thumbSrc = candidate ? optimizeImage(candidate, "card") : "/vehicle-placeholder.svg";
           return (
-          <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="glass-card p-5">
+          <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`glass-card p-5 ${selectedVehicleIds.has(vehicle.id) ? "ring-2 ring-primary" : ""}`}>
+            <div className="flex items-start gap-2 mb-2">
+              <input
+                type="checkbox"
+                checked={selectedVehicleIds.has(vehicle.id)}
+                onChange={() => setSelectedVehicleIds((p) => { const n = new Set(p); n.has(vehicle.id) ? n.delete(vehicle.id) : n.add(vehicle.id); return n; })}
+                className="mt-1 w-4 h-4 accent-primary cursor-pointer"
+                title="Označit pro hromadnou akci"
+              />
+            </div>
             <div className="flex flex-col lg:flex-row gap-4">
               <div className="w-full lg:w-44 h-28 shrink-0 rounded-md bg-muted/30 overflow-hidden">
                 <img

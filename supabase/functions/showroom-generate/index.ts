@@ -307,10 +307,12 @@ Deno.serve(async (req) => {
 
     let bgDataUrl: string;
     let carDataUrl: string;
+    let logoDataUrl: string | null = null;
     try {
-      const [bg, car] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl)]);
+      const [bg, car, logo] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl), fetchLogo()]);
       bgDataUrl = bg;
       carDataUrl = car.dataUrl;
+      logoDataUrl = logo;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -324,6 +326,17 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
+    const content: any[] = [
+      { type: "text", text: SHOWROOM_PROMPT },
+      { type: "image_url", image_url: { url: bgDataUrl } },
+    ];
+    if (logoDataUrl) {
+      content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
+      content.push({ type: "image_url", image_url: { url: logoDataUrl } });
+    }
+    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
+    content.push({ type: "image_url", image_url: { url: carDataUrl } });
+
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -336,11 +349,7 @@ Deno.serve(async (req) => {
         modalities: ["image", "text"],
         messages: [{
           role: "user",
-          content: [
-            { type: "text", text: SHOWROOM_PROMPT },
-            { type: "image_url", image_url: { url: bgDataUrl } },
-            { type: "image_url", image_url: { url: carDataUrl } },
-          ],
+          content,
         }],
       }),
     });

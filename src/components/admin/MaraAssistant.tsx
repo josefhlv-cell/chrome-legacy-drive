@@ -114,6 +114,7 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
 
   // Typewriter effect + 30s držení bubliny + 2min linger postavičky.
   useEffect(() => {
+    if (!current) return;
     let includeSlogan = !current.skipSlogan;
     if (includeSlogan) {
       try {

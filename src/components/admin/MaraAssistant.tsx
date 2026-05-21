@@ -114,8 +114,20 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
 
   // Typewriter effect + 30s držení bubliny + 2min linger postavičky.
   useEffect(() => {
-    if (!current) return;
-    const fullText = current.text + (current.skipSlogan ? "" : `\n\n${SLOGAN}`);
+    let includeSlogan = !current.skipSlogan;
+    if (includeSlogan) {
+      try {
+        const today = new Date().toISOString().slice(0, 10);
+        const isMonday = new Date().getDay() === 1;
+        const lastSlogan = localStorage.getItem(SLOGAN_LAST_KEY);
+        if (!isMonday || lastSlogan === today) {
+          includeSlogan = false;
+        } else {
+          localStorage.setItem(SLOGAN_LAST_KEY, today);
+        }
+      } catch { includeSlogan = false; }
+    }
+    const fullText = current.text + (includeSlogan ? `\n\n${SLOGAN}` : "");
     let i = 0;
     const tick = () => {
       i += 2;

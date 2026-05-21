@@ -230,6 +230,17 @@ async function fetchBackground(): Promise<string> {
   throw new Error("Reference showroom background is unreachable");
 }
 
+async function fetchLogo(): Promise<string | null> {
+  for (const u of LOGO_FALLBACK_URLS) {
+    try {
+      return (await fetchAsDataUrl(u)).dataUrl;
+    } catch (_) {
+      // try next logo source
+    }
+  }
+  return null;
+}
+
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) throw new Error("Invalid data URL from AI");

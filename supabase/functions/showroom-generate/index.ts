@@ -64,12 +64,15 @@ YOU MUST show:
 The wall must look like a REAL outdoor dealership facade — endlessly wide, premium, neutral. NEVER like a studio backdrop, green screen, or AI background.
 
 ================================================
-LOGO PLACEMENT
+LOGO PLACEMENT — STRICT PROPORTIONS
 ================================================
-- Place the round "CHRYSLER & DODGE PARDUBICE" pentastar logo on the wall, TOP RIGHT, smaller and discreet, as if physically mounted on the facade.
-- Logo design must match the reference exactly (same pentastar, same typography, same circular layout). No re-draw, no re-lettering, no color change.
-- Logo must always be FULLY visible (never cropped, never covered by the car). It must look mounted on the wall (faint subsurface shadow), not floating.
-- Only ONE logo. No extra signs, no extra text.
+- Place the round "CHRYSLER & DODGE PARDUBICE" pentastar logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade.
+- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the logo's visible diameter MUST equal exactly 7% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. Never larger, never smaller. This rule overrides any aesthetic preference.
+- LOGO POSITION — STRICT: the logo's center sits at 92% of the image width (from left) and 10% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
+- LOGO STYLE — STRICT: identical typography, identical pentastar shape, identical circular layout, identical proportions of letters to ring, identical line weight as in the reference. Do NOT re-draw, re-letter, re-kern or re-balance the logo.
+- LOGO COLOR — STRICT: deep navy blue ring and lettering on white facade (matching reference). Never silver, chrome, gold, gradient, embossed metal, neon, or any colored variation. Flat, painted-on appearance with a faint subsurface shadow only.
+- The logo must always be FULLY visible (never cropped, never tilted, never perspective-warped, never covered by the car, never duplicated). Exactly ONE logo per image. No extra signs, no extra text, no taglines.
+- Consistency rule: if you cannot render the logo at the exact size, position, style and color described above, OMIT the logo entirely rather than ship a mismatched one.
 
 ================================================
 INTERIOR — REALISTIC CLEAN INTERIOR MODE v4 (STYLE LOCK)

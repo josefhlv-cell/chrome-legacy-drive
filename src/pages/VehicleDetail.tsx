@@ -139,7 +139,7 @@ const VehicleDetail = () => {
                   </div>
                   {vehicle.warranty_enabled && (
                     <div className="absolute top-4 right-4 z-10 pointer-events-none bg-gold text-gold-foreground text-xs font-bold px-3 py-1.5 rounded flex items-center gap-1.5">
-                      <Shield className="w-4 h-4" /> Prodloužená záruka v ceně
+                      <Shield className="w-4 h-4" /> Záruka
                     </div>
                   )}
                 </div>

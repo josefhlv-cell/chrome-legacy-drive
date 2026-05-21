@@ -12,7 +12,7 @@ import {
 } from "@/hooks/useSmartCapture";
 import { SHOT_SEQUENCE, SHOT_LABEL_MAP, type ShotType } from "@/lib/smartCapture/types";
 import { processImage, computeBlurScore, fileToBase64 } from "@/lib/smartCapture/imageProcessing";
-import { buildSessionZip, downloadBlob, type ExportPhoto } from "@/lib/smartCapture/export";
+import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
 
 interface AnalysisResult {
   shot_type?: string;

@@ -207,7 +207,7 @@ const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
       if (cancelled || existing) return;
       // Show welcome (no AI suggestions yet)
       say(
-        "Ahoj Máro! Jsem tvůj AI parťák. Pomáhám s naceněním vozů (Smart Price Check), hlídám fotky, exporty a leady. Každé pondělí ti do sekce „To bude hit" napíšu text písničky s ambicí stát se hitem. Dnes se vidíme poprvé (pokud ses nekoukal do zrcadla 😎), tak jsem ti něco napsal mimořádně. Koukni do sekce „To bude hit".",
+        `Ahoj Máro! Jsem tvůj AI parťák. Pomáhám s naceněním vozů (Smart Price Check), hlídám fotky, exporty a leady. Každé pondělí ti do sekce "To bude hit" napíšu text písničky s ambicí stát se hitem. Dnes se vidíme poprvé (pokud ses nekoukal do zrcadla 😎), tak jsem ti něco napsal mimořádně. Koukni do sekce "To bude hit".`,
         { title: "Vítej" },
       );
       // Generate first special song in background

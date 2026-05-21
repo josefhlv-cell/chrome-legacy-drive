@@ -46,10 +46,14 @@ import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab"
 import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
 import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
 import ShowroomTab from "@/components/admin/ShowroomTab";
-import { Megaphone, LayoutDashboard, Send } from "lucide-react";
+import HitSongsTab from "@/components/admin/HitSongsTab";
+import { MaraProvider, useMara } from "@/components/admin/MaraAssistant";
+import SmartPriceCheck from "@/components/admin/SmartPriceCheck";
+import { Megaphone, LayoutDashboard, Send, Music } from "lucide-react";
+import { useEffect as useEffectAdmin } from "react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom";
+type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom" | "hits";
 
 const statusStylesMap: Record<VehicleStatus, string> = {
   skladem: "status-skladem",

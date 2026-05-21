@@ -41,9 +41,12 @@ const csvEscape = (v: any) => {
 };
 
 export default function LeadsTab() {
+  const { toast } = useToast();
   const [typeFilter, setTypeFilter] = useState<LeadType>("all");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [deleting, setDeleting] = useState(false);
 
   const { data: leads = [], isLoading, refetch } = useQuery({
     queryKey: ["admin-leads"],

@@ -10,9 +10,18 @@ export interface ExportPhoto {
   index: number;
 }
 
-export interface ExportMeta {
+export interface VehicleInfo {
   brand: string;
   model: string;
+  year?: string | number;
+  vin?: string;
+  mileage?: string | number;
+  price?: string | number;
+  fuel?: string;
+  transmission?: string;
+  color?: string;
+  power?: string;
+  description?: string;
 }
 
 async function urlToBlob(url: string): Promise<Blob | null> {
@@ -23,27 +32,126 @@ async function urlToBlob(url: string): Promise<Blob | null> {
   } catch { return null; }
 }
 
-export async function buildSessionZip(photos: ExportPhoto[], meta: ExportMeta): Promise<Blob> {
+/**
+ * Re-encode an image blob to a JPEG with target max long side / quality
+ * and (when targetMaxBytes is provided) iteratively lower quality so the
+ * resulting file size stays under the limit (used for "inzertní" 1MB cap).
+ */
+async function reencodeJpeg(
+  src: Blob,
+  opts: { maxLongSide: number; quality: number; targetMaxBytes?: number },
+): Promise<Blob> {
+  const bmp = await createImageBitmap(src);
+  const scale = Math.min(1, opts.maxLongSide / Math.max(bmp.width, bmp.height));
+  const w = Math.max(1, Math.round(bmp.width * scale));
+  const h = Math.max(1, Math.round(bmp.height * scale));
+  const canvas = typeof OffscreenCanvas !== "undefined"
+    ? new OffscreenCanvas(w, h)
+    : Object.assign(document.createElement("canvas"), { width: w, height: h });
+  const ctx = (canvas as HTMLCanvasElement).getContext("2d")!;
+  ctx.drawImage(bmp, 0, 0, w, h);
+
+  const toBlob = async (q: number): Promise<Blob> => {
+    if (canvas instanceof OffscreenCanvas) {
+      return await canvas.convertToBlob({ type: "image/jpeg", quality: q });
+    }
+    return await new Promise<Blob>((res) =>
+      (canvas as HTMLCanvasElement).toBlob((b) => res(b!), "image/jpeg", q),
+    );
+  };
+
+  let q = opts.quality;
+  let blob = await toBlob(q);
+  if (opts.targetMaxBytes) {
+    // Step down quality until under budget (min 0.45)
+    while (blob.size > opts.targetMaxBytes && q > 0.45) {
+      q -= 0.07;
+      blob = await toBlob(q);
+    }
+  }
+  return blob;
+}
+
+function buildInfoTxt(info: VehicleInfo, photoCount: number): string {
+  const line = (k: string, v?: string | number) =>
+    v !== undefined && v !== null && String(v).trim() !== "" ? `${k}: ${v}\n` : "";
+  const date = new Date().toLocaleString("cs-CZ");
+  let out = "";
+  out += "================================================\n";
+  out += "  CHRYSLER & DODGE PARDUBICE — VOZIDLO\n";
+  out += "================================================\n\n";
+  out += line("Značka", info.brand);
+  out += line("Model", info.model);
+  out += line("Rok", info.year);
+  out += line("VIN", info.vin);
+  out += line("Najezd (km)", info.mileage);
+  out += line("Cena", info.price);
+  out += line("Palivo", info.fuel);
+  out += line("Převodovka", info.transmission);
+  out += line("Barva", info.color);
+  out += line("Výkon", info.power);
+  out += "\n------------------------------------------------\n";
+  out += "POPIS VOZIDLA\n";
+  out += "------------------------------------------------\n";
+  out += (info.description?.trim() || "(bez popisu)") + "\n\n";
+  out += "------------------------------------------------\n";
+  out += `Export vytvořen: ${date}\n`;
+  out += `Počet fotografií: ${photoCount}\n`;
+  out += "Složky v ZIP:\n";
+  out += "  /original  — originální fotografie (bez komprese)\n";
+  out += "  /inzertni  — JPEG, max 1 MB (pro inzertní portály)\n";
+  out += "  /web       — JPEG, malé pro web (~300 KB)\n";
+  return out;
+}
+
+export async function buildSessionZip(
+  photos: ExportPhoto[],
+  info: VehicleInfo,
+): Promise<Blob> {
   const zip = new JSZip();
   const date = new Date().toISOString().slice(0, 10);
-  const safeBrand = (meta.brand || "Vozidlo").replace(/[^a-zA-Z0-9-]/g, "");
-  const safeModel = (meta.model || "Model").replace(/[^a-zA-Z0-9-]/g, "");
+  const safeBrand = (info.brand || "Vozidlo").replace(/[^a-zA-Z0-9-]/g, "");
+  const safeModel = (info.model || "Model").replace(/[^a-zA-Z0-9-]/g, "");
   const root = zip.folder(`${safeBrand}-${safeModel}-${date}`)!;
   const original = root.folder("original")!;
+  const inzertni = root.folder("inzertni")!;
   const web = root.folder("web")!;
-  const inzerce = root.folder("inzerce")!;
 
   for (const p of photos) {
     const name = slugifyShot(p.shotType, p.index);
     const orig = p.originalBlob ?? (p.originalUrl ? await urlToBlob(p.originalUrl) : null);
-    const proc = p.processedBlob ?? (p.processedUrl ? await urlToBlob(p.processedUrl) : null);
-    if (orig) original.file(name, orig);
-    if (proc) {
-      web.file(name, proc);
-      // pro inzerci stejná web verze (procesní pipeline by mohla generovat menší rozlišení)
-      inzerce.file(name, proc);
+    if (!orig) continue;
+
+    // 1) Original — beze změny
+    original.file(name, orig);
+
+    // 2) Inzertní — max 1 MB
+    try {
+      const inz = await reencodeJpeg(orig, {
+        maxLongSide: 2000,
+        quality: 0.85,
+        targetMaxBytes: 1024 * 1024,
+      });
+      inzertni.file(name, inz);
+    } catch {
+      inzertni.file(name, orig);
+    }
+
+    // 3) Web — menší, ~300 KB
+    try {
+      const w = await reencodeJpeg(orig, {
+        maxLongSide: 1280,
+        quality: 0.78,
+        targetMaxBytes: 350 * 1024,
+      });
+      web.file(name, w);
+    } catch {
+      web.file(name, orig);
     }
   }
+
+  // info.txt
+  root.file("info.txt", buildInfoTxt(info, photos.length));
 
   return await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
 }

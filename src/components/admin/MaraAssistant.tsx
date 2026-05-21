@@ -37,9 +37,10 @@ export const useMara = () => {
   return ctx;
 };
 
-const SLOGAN = "Jako každý den jeden hit od tebe pro tebe.";
+const SLOGAN = "Každé pondělí jeden hit od tebe pro tebe.";
 const HIDDEN_UNTIL_KEY = "mara_hidden_until";
 const JOKE_LAST_KEY = "mara_last_joke_date";
+const SLOGAN_LAST_KEY = "mara_last_slogan_date";
 
 const BUBBLE_VISIBLE_MS = 30_000; // 30 s otevřená bublina
 const FIGURE_LINGER_MS = 120_000; // +2 min Mára zůstane bez textu
@@ -172,7 +173,7 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
       if (until > Date.now()) return;
       const joke = JOKES[Math.floor(Math.random() * JOKES.length)];
       const t = window.setTimeout(() => {
-        say(joke, { title: "Vtip dne" });
+        say(joke, { title: "Vtip dne", skipSlogan: true });
         try { localStorage.setItem(JOKE_LAST_KEY, today); } catch { /* noop */ }
       }, 8000);
       return () => window.clearTimeout(t);

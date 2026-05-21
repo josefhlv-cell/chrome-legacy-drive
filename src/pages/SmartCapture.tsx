@@ -610,11 +610,47 @@ export default function SmartCapture() {
             })}
           </div>
 
+          {/* Informace o voze — povinné pro export */}
+          <div className="max-w-md mx-auto mb-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium">Informace o voze</h3>
+              <span className={`text-[11px] px-2 py-0.5 rounded-full ${requiredInfoFilled ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+                {requiredInfoFilled ? "Vyplněno" : "Povinné pro export"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["brand", "Značka *"], ["model", "Model *"],
+                ["year", "Rok *"], ["mileage", "Najezd (km) *"],
+                ["price", "Cena (Kč) *"], ["vin", "VIN"],
+                ["fuel", "Palivo"], ["transmission", "Převodovka"],
+                ["color", "Barva"], ["power", "Výkon"],
+              ] as [keyof VehicleInfo, string][]).map(([k, label]) => (
+                <input
+                  key={k}
+                  placeholder={label}
+                  value={String(vehicleInfo[k] ?? "")}
+                  onChange={(e) => updateInfoField(k, e.target.value)}
+                  className="bg-white/10 rounded-md px-2.5 py-2 text-sm placeholder:text-white/40 outline-none focus:ring-1 focus:ring-white/30"
+                />
+              ))}
+            </div>
+            <textarea
+              placeholder="Popis vozu * (bude vložen do info.txt v ZIP)"
+              value={vehicleInfo.description ?? ""}
+              onChange={(e) => updateInfoField("description", e.target.value)}
+              rows={4}
+              className="w-full mt-2 bg-white/10 rounded-md px-2.5 py-2 text-sm placeholder:text-white/40 outline-none focus:ring-1 focus:ring-white/30 resize-none"
+            />
+          </div>
+
           <div className="space-y-2 max-w-md mx-auto">
-            <Button onClick={handleExportZip} disabled={busy || photos.length === 0}
-              className="w-full bg-white text-black hover:bg-white/90">
+            <Button onClick={handleExportZip} disabled={busy || photos.length === 0 || !requiredInfoFilled}
+              className="w-full bg-white text-black hover:bg-white/90 disabled:bg-white/30 disabled:text-white/60">
               {busy ? <Loader2 className="animate-spin mr-2" size={16} /> : <Download className="mr-2" size={16} />}
-              Exportovat ZIP (original + web + inzerce)
+              {requiredInfoFilled
+                ? "Exportovat ZIP (original + inzertní 1MB + web + info.txt)"
+                : "Vyplňte povinné údaje o voze"}
             </Button>
             <Button variant="outline" onClick={async () => {
               await startCamera(); setPhase("capturing");

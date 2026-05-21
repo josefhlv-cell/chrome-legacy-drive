@@ -362,11 +362,9 @@ Deno.serve(async (req) => {
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();
-      const msg = aiResp.status === 429
-        ? "AI rate limit — zkuste znovu za chvíli"
-        : aiResp.status === 402
-        ? "AI kredity vyčerpány — doplňte kredity ve Workspace Usage"
-        : `AI error ${aiResp.status}: ${errText.slice(0, 300)}`;
+      const msg = (aiResp.status === 429 || aiResp.status === 402)
+        ? "Služba je momentálně mimo provoz."
+        : `Služba je momentálně mimo provoz. (${aiResp.status})`;
       await setImageState(admin, imageId, {
         showroom_status: "failed",
         showroom_progress: 0,

@@ -55,6 +55,11 @@ export default function SmartCapture() {
   const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
   const [vinScanning, setVinScanning] = useState(false);
   const [vinValue, setVinValue] = useState("");
+  const [vehicleInfo, setVehicleInfo] = useState<VehicleInfo>({
+    brand: "", model: "", year: "", vin: "", mileage: "",
+    price: "", fuel: "", transmission: "", color: "", power: "",
+    description: "",
+  });
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);

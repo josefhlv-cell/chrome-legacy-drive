@@ -123,7 +123,7 @@ ${priceLine}`;
       });
     }
     if (aiResp.status === 402) {
-      return new Response(JSON.stringify({ error: "Vyčerpán kredit Lovable AI." }), {
+      return new Response(JSON.stringify({ error: "Služba je momentálně mimo provoz." }), {
         status: 402,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });

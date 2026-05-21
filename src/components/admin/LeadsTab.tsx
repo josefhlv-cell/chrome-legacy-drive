@@ -232,6 +232,30 @@ export default function LeadsTab() {
         </div>
       </div>
 
+      {/* Bulk actions bar */}
+      {filtered.length > 0 && (
+        <div className="flex flex-wrap items-center gap-2 px-3 py-2 rounded-lg bg-muted/40 border border-border/40 text-sm">
+          <button onClick={toggleSelectAll}
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md hover:bg-background border border-border/40">
+            {allFilteredSelected ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
+            {allFilteredSelected ? "Odznačit vše" : "Označit vše"}
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Označeno: <strong>{selected.size}</strong> z {filtered.length}
+          </span>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
+            <button onClick={exportSelectedCsv} disabled={selected.size === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md border border-border/40 text-xs hover:bg-background disabled:opacity-40">
+              <Download className="w-3.5 h-3.5" /> Export CSV (označené)
+            </button>
+            <button onClick={bulkDelete} disabled={selected.size === 0 || deleting}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40">
+              <Trash2 className="w-3.5 h-3.5" /> Smazat označené
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* List */}
       {isLoading ? (
         <p className="text-muted-foreground text-sm">Načítání poptávek...</p>
@@ -246,12 +270,16 @@ export default function LeadsTab() {
             const meta = typeMeta(l.type);
             const isOpen = expanded.has(l.id);
             const photoCount = (l.metadata as any)?.photos;
+            const isSel = selected.has(l.id);
             return (
-              <div key={l.id} className="border border-border/40 rounded-lg bg-card overflow-hidden">
-                <button
-                  onClick={() => toggle(l.id)}
-                  className="w-full px-4 py-3 flex flex-wrap items-center gap-3 text-left hover:bg-muted/30 transition"
-                >
+              <div key={l.id} className={`border rounded-lg bg-card overflow-hidden transition ${isSel ? "border-primary/60 ring-1 ring-primary/30" : "border-border/40"}`}>
+                <div className="w-full px-4 py-3 flex flex-wrap items-center gap-3 hover:bg-muted/30 transition">
+                  <button onClick={(e) => { e.stopPropagation(); toggleSelect(l.id); }}
+                    className="shrink-0 p-1 -m-1 text-muted-foreground hover:text-foreground"
+                    aria-label="Označit poptávku">
+                    {isSel ? <CheckSquare className="w-4 h-4 text-primary" /> : <Square className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => toggle(l.id)} className="flex-1 flex flex-wrap items-center gap-3 text-left min-w-0">
                   <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md border text-[11px] font-semibold ${meta.color}`}>
                     {meta.icon}
                     {meta.label}

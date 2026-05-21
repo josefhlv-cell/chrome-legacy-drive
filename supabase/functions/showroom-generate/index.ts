@@ -22,6 +22,8 @@ const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE 
 
 Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.
 
+LOGO SHAPE — CRITICAL: The official dealership logo is a SHIELD (crest / heraldic shield shape with pointed bottom and rounded top corners), NOT a circle/round disc. The shield has a dark glossy black/dark-chrome face with a polished silver/chrome beveled outer frame. Inside the shield, from top to bottom: (1) the silver Chrysler pentastar emblem, (2) the word "CHRYSLER" in bold chrome letters, (3) a horizontal divider with a small "&" centered, (4) the word "DODGE" in bold chrome letters, (5) the word "PARDUBICE" in smaller chrome letters at the bottom. NEVER render this logo as a round/circular disc — it MUST be a shield silhouette.
+
 INPUTS:
 1) LOGO REFERENCE: the official round "CHRYSLER & DODGE PARDUBICE" pentastar sign. Use ONLY for logo/typography reference. Do NOT copy the building, roof, sky, trees or surroundings from this reference.
 2) SOURCE CAR PHOTO: the real vehicle (exterior OR interior). This is the truth source for the car.

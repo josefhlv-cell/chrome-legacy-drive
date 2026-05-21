@@ -302,7 +302,8 @@ export default function LeadsTab() {
                     </span>
                   ) : null}
                   <span className="ml-auto text-xs text-primary">{isOpen ? "Skrýt" : "Detail"}</span>
-                </button>
+                  </button>
+                </div>
 
                 {isOpen && (
                   <div className="px-4 pb-4 pt-1 border-t border-border/30 grid gap-3 sm:grid-cols-2 text-sm">

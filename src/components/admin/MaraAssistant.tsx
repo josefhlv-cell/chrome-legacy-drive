@@ -127,7 +127,7 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
             exit={{ opacity: 0, y: 40 }}
             transition={{ type: "spring", stiffness: 220, damping: 26 }}
             className="fixed bottom-3 left-3 z-[60] pointer-events-none select-none"
-            style={{ width: 140 }}
+            style={{ width: 182 }}
           >
             {/* Close button (above figure) */}
             <div className="flex justify-end mb-1 pointer-events-auto">
@@ -135,10 +135,10 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
                 type="button"
                 onClick={hideForAWhile}
                 aria-label="Skrýt Máru"
-                className="w-6 h-6 rounded-full bg-background/90 border border-border shadow-md flex items-center justify-center hover:bg-secondary transition"
+                className="w-7 h-7 rounded-full bg-background/90 border border-border shadow-md flex items-center justify-center hover:bg-secondary transition"
                 title="Skrýt na hodinu"
               >
-                <X className="w-3.5 h-3.5 text-foreground" />
+                <X className="w-4 h-4 text-foreground" />
               </button>
             </div>
 
@@ -150,22 +150,22 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 8, scale: 0.95 }}
                   transition={{ duration: 0.25 }}
-                  className="pointer-events-auto absolute left-[120px] bottom-[140px] w-[280px] max-w-[70vw]"
+                  className="pointer-events-auto absolute left-[156px] bottom-[182px] w-[364px] max-w-[80vw]"
                 >
-                  <div className="relative rounded-2xl border border-primary/30 bg-card/95 backdrop-blur-sm shadow-2xl p-3 pr-7">
+                  <div className="relative rounded-2xl border border-primary/30 bg-card/95 backdrop-blur-sm shadow-2xl p-4 pr-8">
                     <button
                       type="button"
                       onClick={dismissCurrent}
-                      className="absolute top-1.5 right-1.5 text-muted-foreground hover:text-foreground"
+                      className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                       aria-label="Zavřít zprávu"
                     >
-                      <X className="w-3.5 h-3.5" />
+                      <X className="w-4 h-4" />
                     </button>
-                    <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-primary font-semibold mb-1">
-                      <Music className="w-3 h-3" />
+                    <div className="flex items-center gap-1.5 text-[13px] uppercase tracking-wider text-primary font-semibold mb-1.5">
+                      <Music className="w-4 h-4" />
                       {current.title || "AI"}
                     </div>
-                    <p className="text-xs leading-relaxed text-foreground whitespace-pre-wrap">{typed}</p>
+                    <p className="text-sm leading-relaxed text-foreground whitespace-pre-wrap">{typed}</p>
                     {/* speech bubble tail */}
                     <div className="absolute -bottom-2 left-6 w-4 h-4 bg-card border-r border-b border-primary/30 rotate-45" />
                   </div>
@@ -177,7 +177,7 @@ export const MaraProvider = ({ children }: { children: ReactNode }) => {
             <img
               src={maraGuitar}
               alt="Mára"
-              className="w-[140px] h-auto pointer-events-none drop-shadow-2xl"
+              className="w-[182px] h-auto pointer-events-none drop-shadow-2xl"
               draggable={false}
             />
           </motion.div>

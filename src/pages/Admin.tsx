@@ -212,7 +212,9 @@ const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
       );
       // Generate first special song in background
       supabase.functions.invoke("generate-weekly-hit", { body: { special: true } }).catch(() => {});
-      await supabase.from("admin_welcome_seen").insert({ user_id: uid });
+      // TEST MODE: nezapisujeme admin_welcome_seen, aby se uvítání zobrazilo při každém přihlášení.
+      // Pro produkci odkomentuj následující řádek:
+      // await supabase.from("admin_welcome_seen").insert({ user_id: uid });
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -701,6 +703,22 @@ const VehiclesTab = () => {
                 </button>
               </div>
               <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
+            </div>
+            <div className="sm:col-span-2 lg:col-span-3">
+              <SmartPriceCheck
+                input={{
+                  vin: newData.vin || undefined,
+                  make: (newData.name || "").split(" ")[0] || "",
+                  model: (newData.name || "").split(" ").slice(1).join(" "),
+                  year: newData.year,
+                  mileage: newData.mileage || undefined,
+                  fuel: newData.fuel || undefined,
+                  engine: newData.engine || undefined,
+                  power: newData.power || undefined,
+                  equipment: typicalEquipment["new"],
+                }}
+                triggerKey={`${newData.vin}-${newData.year}-${newData.mileage}`}
+              />
             </div>
             <div className="sm:col-span-2 lg:col-span-3 mt-2">
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">

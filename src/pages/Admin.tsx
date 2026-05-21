@@ -257,6 +257,8 @@ const VehiclesTab = () => {
   const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
   const [adminSort, setAdminSort] = useState<AdminSort>("price-desc");
   const [priceFilter, setPriceFilter] = useState<string>("");
+  const [selectedVehicleIds, setSelectedVehicleIds] = useState<Set<string>>(new Set());
+  const [bulkVehicleBusy, setBulkVehicleBusy] = useState(false);
   const addImage = useAddVehicleImage();
   const deleteImage = useDeleteVehicleImage();
   const setMainImage = useSetMainImage();

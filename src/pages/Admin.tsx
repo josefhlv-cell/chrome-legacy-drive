@@ -177,6 +177,48 @@ const AdminPage = () => {
   }
 
   return (
+    <MaraProvider>
+      <AdminInner user={user} signOut={signOut} activeTab={activeTab} setActiveTab={setActiveTab} />
+    </MaraProvider>
+  );
+};
+
+// Wraps the actual admin UI so it can use useMara() hook.
+const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
+  user: { email?: string | null };
+  signOut: () => Promise<void>;
+  activeTab: AdminTab;
+  setActiveTab: (t: AdminTab) => void;
+}) => {
+  const { say } = useMara();
+
+  // First-time welcome: greet Mára-style, then create a one-off "special" song.
+  useEffectAdmin(() => {
+    let cancelled = false;
+    (async () => {
+      const { data: auth } = await supabase.auth.getUser();
+      const uid = auth.user?.id;
+      if (!uid) return;
+      const { data: existing } = await supabase
+        .from("admin_welcome_seen")
+        .select("user_id")
+        .eq("user_id", uid)
+        .maybeSingle();
+      if (cancelled || existing) return;
+      // Show welcome (no AI suggestions yet)
+      say(
+        "Ahoj Máro! Jsem tvůj AI parťák. Pomáhám s naceněním vozů (Smart Price Check), hlídám fotky, exporty a leady. Každé pondělí ti do sekce „To bude hit" napíšu text písničky s ambicí stát se hitem. Dnes se vidíme poprvé (pokud ses nekoukal do zrcadla 😎), tak jsem ti něco napsal mimořádně. Koukni do sekce „To bude hit".",
+        { title: "Vítej" },
+      );
+      // Generate first special song in background
+      supabase.functions.invoke("generate-weekly-hit", { body: { special: true } }).catch(() => {});
+      await supabase.from("admin_welcome_seen").insert({ user_id: uid });
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  return (
     <div className="min-h-screen bg-background">
       <AdminSurprise />
       <AdminDailyReport />
@@ -234,6 +276,7 @@ const AdminPage = () => {
           {activeTab === "tipcars" && <TipCarsTab />}
           {activeTab === "smart-capture" && <SmartCaptureSettingsTab />}
           {activeTab === "showroom" && <ShowroomTab />}
+          {activeTab === "hits" && <HitSongsTab />}
         </div>
       </div>
       <Footer />

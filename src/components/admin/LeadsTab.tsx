@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Mail, Phone, Car, MessageSquare, Calendar, Filter, Search, Download, Inbox, Wrench, Repeat, ShoppingBag, HelpCircle, Image as ImageIcon } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { Mail, Phone, Car, MessageSquare, Calendar, Filter, Search, Download, Inbox, Wrench, Repeat, ShoppingBag, HelpCircle, Image as ImageIcon, Trash2, CheckSquare, Square } from "lucide-react";
 
 type LeadType = "all" | "contact" | "service" | "trade-in" | "spare-parts" | "import" | "vehicle-inquiry" | "other";
 

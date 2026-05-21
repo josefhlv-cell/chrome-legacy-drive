@@ -24,7 +24,13 @@ const LOGO_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
 ];
 
-const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v2
+const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v3 (REFERENCE-LOCKED)
+
+GOLD REFERENCE BEHAVIOR — MANDATORY STYLE TARGET:
+Every output MUST visually match this exact reference style: a white Chrysler Town & Country photographed from a natural 3/4 front angle, standing on a thin strip of light gray asphalt directly in front of a clean, slightly warm off-white plaster facade wall, with realistic outdoor daylight, soft natural contact shadows under the tires, and the SHIELD-shaped "CHRYSLER & DODGE PARDUBICE" logo mounted on the wall in the top-right corner. The car keeps its EXACT original angle, side, orientation, framing, proportions and details from the SOURCE CAR PHOTO. The wall is endless, the logo is identical in every photo (same shield silhouette, same chrome frame, same dark glossy black face, same pentastar, same typography, same size, same position). No mirroring. No re-angling. No reposing. No studio look. No CGI. No halos. No fake daylight. Photographer-grade realism only.
+
+If you cannot match this gold reference behavior, return the SOURCE CAR PHOTO unchanged. A clean unedited source is always better than a deformed, rotated, mirrored, mis-angled, mis-placed, or logo-mismatched result.
+
 
 Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.
 

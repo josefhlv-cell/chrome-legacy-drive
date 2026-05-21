@@ -271,10 +271,53 @@ export default function SmartCapture() {
     setPhase("review");
   };
 
+  // Prefill vehicle info from VIN-decoded data + saved session metadata
+  useEffect(() => {
+    if (!session) return;
+    const decoded = ((session as { decoded_data?: Record<string, unknown> }).decoded_data ?? {}) as Record<string, unknown>;
+    const meta = ((session as { metadata?: Record<string, unknown> }).metadata ?? {}) as Record<string, unknown>;
+    const savedInfo = (meta.vehicle_info ?? {}) as Partial<VehicleInfo>;
+    setVehicleInfo((cur) => {
+      const next: VehicleInfo = { ...cur, ...savedInfo };
+      if (!next.brand && decoded.make) next.brand = String(decoded.make);
+      if (!next.model && decoded.model) next.model = String(decoded.model);
+      if (!next.year && decoded.year) next.year = String(decoded.year);
+      if (!next.vin && (session as { vin?: string }).vin) next.vin = (session as { vin?: string }).vin ?? "";
+      if (!next.fuel && decoded.fuel) next.fuel = String(decoded.fuel);
+      if (!next.transmission && decoded.transmission) next.transmission = String(decoded.transmission);
+      if (!next.color && decoded.color) next.color = String(decoded.color);
+      if (!next.power && decoded.power) next.power = String(decoded.power);
+      return next;
+    });
+  }, [session]);
+
+  const requiredInfoFilled = useMemo(() => {
+    const req: (keyof VehicleInfo)[] = ["brand", "model", "year", "mileage", "price", "description"];
+    return req.every((k) => String(vehicleInfo[k] ?? "").trim().length > 0);
+  }, [vehicleInfo]);
+
+  const updateInfoField = (k: keyof VehicleInfo, v: string) => {
+    setVehicleInfo((s) => ({ ...s, [k]: v }));
+  };
+
   const handleExportZip = async () => {
     if (!sessionId) return;
+    if (!requiredInfoFilled) {
+      toast({
+        title: "Vyplňte informace o voze",
+        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis.",
+        variant: "destructive",
+      });
+      return;
+    }
     setBusy(true);
     try {
+      // Persist info into session metadata so příště je předvyplněno
+      await updateSession.mutateAsync({
+        id: sessionId,
+        updates: { metadata: { ...(session as { metadata?: Record<string, unknown> })?.metadata, vehicle_info: vehicleInfo } },
+      });
+
       const items: ExportPhoto[] = photos.map((p, i) => {
         const row = p as { shot_type: ShotType; original_url: string; processed_url: string };
         return {
@@ -282,10 +325,10 @@ export default function SmartCapture() {
           originalUrl: row.original_url, processedUrl: row.processed_url,
         };
       });
-      const brand = ((session as { decoded_data?: { make?: string } })?.decoded_data?.make) || "Vozidlo";
-      const model = ((session as { decoded_data?: { model?: string } })?.decoded_data?.model) || "Model";
-      const zip = await buildSessionZip(items, { brand, model });
-      downloadBlob(zip, `${brand}-${model}-${new Date().toISOString().slice(0, 10)}.zip`);
+      const zip = await buildSessionZip(items, vehicleInfo);
+      const safe = (s: string) => s.replace(/[^a-zA-Z0-9-]/g, "");
+      downloadBlob(zip, `${safe(vehicleInfo.brand)}-${safe(vehicleInfo.model)}-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast({ title: "Export hotov", description: "ZIP obsahuje original, inzertní (1MB), web + info.txt." });
     } catch (e) {
       toast({ title: "Export selhal", description: String(e), variant: "destructive" });
     } finally { setBusy(false); }

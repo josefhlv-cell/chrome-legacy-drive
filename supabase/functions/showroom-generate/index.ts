@@ -68,11 +68,11 @@ The wall must look like a REAL outdoor dealership facade — endlessly wide, pre
 ================================================
 LOGO PLACEMENT — STRICT PROPORTIONS
 ================================================
-- Place the round "CHRYSLER & DODGE PARDUBICE" pentastar logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade.
-- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the logo's visible diameter MUST equal exactly 7% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. Never larger, never smaller. This rule overrides any aesthetic preference.
-- LOGO POSITION — STRICT: the logo's center sits at 92% of the image width (from left) and 10% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
-- LOGO STYLE — STRICT: identical typography, identical pentastar shape, identical circular layout, identical proportions of letters to ring, identical line weight as in the reference. Do NOT re-draw, re-letter, re-kern or re-balance the logo.
-- LOGO COLOR — STRICT: deep navy blue ring and lettering on white facade (matching reference). Never silver, chrome, gold, gradient, embossed metal, neon, or any colored variation. Flat, painted-on appearance with a faint subsurface shadow only.
+- Place the SHIELD-SHAPED "CHRYSLER & DODGE PARDUBICE" logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade. The logo silhouette is a HERALDIC SHIELD (rounded top, pointed/curved bottom) — absolutely NOT a circle, NOT a round disc, NOT a ring.
+- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the shield's visible height MUST equal exactly 9% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. This rule overrides any aesthetic preference.
+- LOGO POSITION — STRICT: the shield's center sits at 92% of the image width (from left) and 11% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
+- LOGO STYLE — STRICT: shield silhouette with a polished chrome/silver beveled frame and a dark glossy black face. Inside (top→bottom): silver Chrysler pentastar, then "CHRYSLER" in bold chrome letters, then a thin horizontal divider with a small "&", then "DODGE" in bold chrome letters, then "PARDUBICE" in smaller chrome letters at the bottom. Identical typography, identical layout, identical proportions, identical line weight as in the SHIELD reference. Do NOT re-draw, re-letter, re-kern or re-balance.
+- LOGO COLOR — STRICT: dark glossy black face, polished chrome/silver frame and lettering, silver pentastar. Never navy blue, never gold, never neon, never flat painted, never a colored ring. Slight realistic gloss/reflection on the shield surface, with a faint soft drop shadow on the white wall behind it.
 - The logo must always be FULLY visible (never cropped, never tilted, never perspective-warped, never covered by the car, never duplicated). Exactly ONE logo per image. No extra signs, no extra text, no taglines.
 - Consistency rule: if you cannot render the logo at the exact size, position, style and color described above, OMIT the logo entirely rather than ship a mismatched one.
 

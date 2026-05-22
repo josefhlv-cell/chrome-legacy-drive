@@ -267,28 +267,34 @@ Deno.serve(async (req) => {
     let outDataUrl: string | undefined;
     try {
       if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY není nakonfigurován");
-      const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-      const stream = await ai.models.generateContentStream({
-        model: "gemini-2.5-flash-image",
-        config: { responseModalities: ["IMAGE", "TEXT"] },
-        contents: [{ role: "user", parts }],
-      });
-
-      for await (const chunk of stream) {
-        const p = chunk?.candidates?.[0]?.content?.parts;
-        if (!p) continue;
-        for (const part of p) {
-          if ((part as any).inlineData?.data) {
-            const inline = (part as any).inlineData;
-            outDataUrl = `data:${inline.mimeType || "image/png"};base64,${inline.data}`;
-            break;
-          }
+      const geminiResp = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts }],
+            generationConfig: { responseModalities: ["IMAGE", "TEXT"], temperature: 1.0 },
+          }),
+        },
+      );
+      if (!geminiResp.ok) {
+        const t = await geminiResp.text();
+        console.error("Gemini HTTP", geminiResp.status, t.slice(0, 500));
+        throw new Error(`HTTP ${geminiResp.status}: ${t.slice(0, 200)}`);
+      }
+      const gData = await geminiResp.json();
+      const respParts = gData?.candidates?.[0]?.content?.parts ?? [];
+      for (const part of respParts) {
+        if (part?.inlineData?.data) {
+          outDataUrl = `data:${part.inlineData.mimeType || "image/png"};base64,${part.inlineData.data}`;
+          break;
         }
-        if (outDataUrl) break;
       }
     } catch (e: any) {
       const errMsg = String(e?.message ?? e);
-      const isQuota = /quota|rate|429|402|exhaust/i.test(errMsg);
+      console.error("showroom-generate gemini fail:", errMsg);
+      const isQuota = /quota|rate|429|402|exhaust|RESOURCE_EXHAUSTED/i.test(errMsg);
       const msg = isQuota ? "Služba je momentálně mimo provoz." : `Gemini chyba: ${errMsg}`;
       await setImageState(admin, imageId, {
         showroom_status: "failed",
@@ -298,6 +304,7 @@ Deno.serve(async (req) => {
       await appendHistory(admin, imageId, "failed", msg);
       return json({ error: msg }, 502);
     }
+
 
     await setImageState(admin, imageId, { showroom_progress: 75 });
 

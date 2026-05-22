@@ -1,6 +1,6 @@
 // Smart Capture — analýza kvality + klasifikace záběru pomocí Gemini 2.5 Flash Image
 // (přímé volání přes @google/genai; logika a prompty zachovány 1:1, viz .bak)
-import { GoogleGenAI } from "npm:@google/genai@0.21.0";
+import { GoogleGenAI } from "npm:@google/genai@2.6.0";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

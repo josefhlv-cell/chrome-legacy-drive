@@ -1,7 +1,5 @@
-// Smart Capture — OCR VIN z fotografie štítku přes Gemini 2.5 Flash Image
-// (přímé volání @google/genai; logika a prompty zachovány 1:1, viz .bak)
-import { GoogleGenAI } from "npm:@google/genai@2.6.0";
-
+// Smart Capture — OCR VIN přes Gemini 2.5 Flash Image (REST API)
+// (logika/prompty 1:1 viz .bak)
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -31,31 +29,36 @@ Deno.serve(async (req) => {
     }
     if (!b64) throw new Error("Chybí obrázek");
 
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash-image",
-      config: { responseModalities: ["TEXT"] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            {
-              text: `Z fotografie najdi VIN (Vehicle Identification Number — 17 znaků, bez I/O/Q). Vrať POUZE JSON: {"vin":"...","confidence":0-100}. Pokud VIN nelze přečíst, vrať {"vin":"","confidence":0}. Bez markdown bloků.`,
-            },
-            { text: "Najdi a přepiš VIN." },
-            { inlineData: { mimeType, data: b64 } },
-          ],
-        },
-      ],
-    });
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: `Z fotografie najdi VIN (Vehicle Identification Number — 17 znaků, bez I/O/Q). Vrať POUZE JSON: {"vin":"...","confidence":0-100}. Pokud VIN nelze přečíst, vrať {"vin":"","confidence":0}. Bez markdown bloků.` },
+              { text: "Najdi a přepiš VIN." },
+              { inlineData: { mimeType, data: b64 } },
+            ],
+          }],
+          generationConfig: { responseModalities: ["TEXT"], temperature: 0.1 },
+        }),
+      },
+    );
 
-    let text = "";
-    for await (const chunk of stream) {
-      const parts = chunk?.candidates?.[0]?.content?.parts;
-      if (!parts) continue;
-      for (const p of parts) if ((p as any).text) text += (p as any).text;
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error("Gemini VIN HTTP", resp.status, t.slice(0, 400));
+      if (resp.status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini HTTP ${resp.status}`);
     }
 
+    const data = await resp.json();
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    let text = "";
+    for (const p of parts) if (p?.text) text += p.text;
     const cleaned = text.replace(/```json\s*|\s*```/g, "").trim();
     let parsed: { vin?: string; confidence?: number } = {};
     try { parsed = JSON.parse(cleaned); } catch { /* ignore */ }
@@ -65,10 +68,9 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "error";
-    const isQuota = /quota|rate|429|402|exhaust/i.test(msg);
     return new Response(
-      JSON.stringify({ error: isQuota ? "Služba je momentálně mimo provoz." : msg }),
-      { status: isQuota ? 402 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: msg }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

@@ -1,7 +1,5 @@
-// Smart Capture — analýza kvality + klasifikace záběru pomocí Gemini 2.5 Flash Image
-// (přímé volání přes @google/genai; logika a prompty zachovány 1:1, viz .bak)
-import { GoogleGenAI } from "npm:@google/genai@2.6.0";
-
+// Smart Capture — analýza kvality + klasifikace záběru přes Gemini 2.5 Flash Image
+// (přímé REST volání Google Generative Language API; logika/prompty 1:1, viz .bak)
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -25,7 +23,6 @@ Deno.serve(async (req) => {
     const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
     if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY není nakonfigurován");
 
-    // Připrav inlineData (pokud máme URL, stáhni a převeď na base64)
     let mimeType = "image/jpeg";
     let b64 = imageBase64 as string | undefined;
     if (!b64 && imageUrl) {
@@ -57,30 +54,36 @@ Deno.serve(async (req) => {
   "obstructions": boolean
 }`;
 
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-    const stream = await ai.models.generateContentStream({
-      model: "gemini-2.5-flash-image",
-      config: { responseModalities: ["TEXT"] },
-      contents: [
-        {
-          role: "user",
-          parts: [
-            { text: systemPrompt },
-            { text: "Analyzuj tuto fotografii vozidla. Vrať POUZE čistý JSON, bez markdown bloků." },
-            { inlineData: { mimeType, data: b64! } },
-          ],
-        },
-      ],
-    });
+    const resp = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          contents: [{
+            role: "user",
+            parts: [
+              { text: systemPrompt },
+              { text: "Analyzuj tuto fotografii vozidla. Vrať POUZE čistý JSON, bez markdown bloků." },
+              { inlineData: { mimeType, data: b64 } },
+            ],
+          }],
+          generationConfig: { responseModalities: ["TEXT"], temperature: 0.4 },
+        }),
+      },
+    );
 
-    let text = "";
-    for await (const chunk of stream) {
-      const parts = chunk?.candidates?.[0]?.content?.parts;
-      if (!parts) continue;
-      for (const p of parts) if ((p as any).text) text += (p as any).text;
+    if (!resp.ok) {
+      const t = await resp.text();
+      console.error("Gemini analyze HTTP", resp.status, t.slice(0, 400));
+      if (resp.status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
+      throw new Error(`Gemini HTTP ${resp.status}`);
     }
 
-    // očisti případné ```json fences
+    const data = await resp.json();
+    const parts = data?.candidates?.[0]?.content?.parts ?? [];
+    let text = "";
+    for (const p of parts) if (p?.text) text += p.text;
     const cleaned = text.replace(/```json\s*|\s*```/g, "").trim();
     let parsed: Record<string, unknown> = {};
     try { parsed = JSON.parse(cleaned); } catch { parsed = { raw: text }; }
@@ -90,11 +93,10 @@ Deno.serve(async (req) => {
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : "Neznámá chyba";
-    const isQuota = /quota|rate|429|402|exhaust/i.test(msg);
     console.error("smart-capture-analyze:", msg);
     return new Response(
-      JSON.stringify({ error: isQuota ? "Služba je momentálně mimo provoz." : msg }),
-      { status: isQuota ? 402 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+      JSON.stringify({ error: msg }),
+      { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   }
 });

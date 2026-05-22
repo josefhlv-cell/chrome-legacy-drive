@@ -1,6 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { GoogleGenAI } from "npm:@google/genai@2.6.0";
+
 
 
 const corsHeaders = {

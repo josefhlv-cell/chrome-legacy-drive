@@ -1,4 +1,7 @@
-// Smart Capture — analýza kvality + klasifikace záběru pomocí Lovable AI (vision)
+// Smart Capture — analýza kvality + klasifikace záběru pomocí Gemini 2.5 Flash Image
+// (přímé volání přes @google/genai; logika a prompty zachovány 1:1, viz .bak)
+import { GoogleGenAI } from "npm:@google/genai@2.6.0";
+
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -17,15 +20,26 @@ Deno.serve(async (req) => {
 
   try {
     const { imageBase64, imageUrl } = await req.json();
-    const image = imageBase64 || imageUrl;
-    if (!image) throw new Error("Chybí obrázek");
+    if (!imageBase64 && !imageUrl) throw new Error("Chybí obrázek");
 
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
-    if (!LOVABLE_API_KEY) throw new Error("LOVABLE_API_KEY není nakonfigurován");
+    const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY");
+    if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY není nakonfigurován");
 
-    const imageContent = imageBase64
-      ? { type: "image_url", image_url: { url: `data:image/jpeg;base64,${imageBase64}` } }
-      : { type: "image_url", image_url: { url: imageUrl } };
+    // Připrav inlineData (pokud máme URL, stáhni a převeď na base64)
+    let mimeType = "image/jpeg";
+    let b64 = imageBase64 as string | undefined;
+    if (!b64 && imageUrl) {
+      const r = await fetch(imageUrl);
+      if (!r.ok) throw new Error(`Nelze stáhnout obrázek: ${r.status}`);
+      mimeType = r.headers.get("content-type") || "image/jpeg";
+      const buf = new Uint8Array(await r.arrayBuffer());
+      let bin = "";
+      const chunk = 0x8000;
+      for (let i = 0; i < buf.length; i += chunk) {
+        bin += String.fromCharCode.apply(null, buf.subarray(i, i + chunk) as unknown as number[]);
+      }
+      b64 = btoa(bin);
+    }
 
     const systemPrompt = `Jsi expert na automotive fotografování. Analyzuj fotografii vozidla a vrať POUZE JSON ve formátu:
 {
@@ -43,41 +57,44 @@ Deno.serve(async (req) => {
   "obstructions": boolean
 }`;
 
-    const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: [imageContent, { type: "text", text: "Analyzuj tuto fotografii vozidla." }] },
-        ],
-        response_format: { type: "json_object" },
-      }),
+    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const stream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash-image",
+      config: { responseModalities: ["TEXT"] },
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: systemPrompt },
+            { text: "Analyzuj tuto fotografii vozidla. Vrať POUZE čistý JSON, bez markdown bloků." },
+            { inlineData: { mimeType, data: b64! } },
+          ],
+        },
+      ],
     });
 
-    if (!resp.ok) {
-      const txt = await resp.text();
-      if (resp.status === 429) return new Response(JSON.stringify({ error: "rate_limit" }), { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      if (resp.status === 402) return new Response(JSON.stringify({ error: "Služba je momentálně mimo provoz." }), { status: 402, headers: { ...corsHeaders, "Content-Type": "application/json" } });
-      throw new Error(`AI selhalo: ${txt}`);
+    let text = "";
+    for await (const chunk of stream) {
+      const parts = chunk?.candidates?.[0]?.content?.parts;
+      if (!parts) continue;
+      for (const p of parts) if ((p as any).text) text += (p as any).text;
     }
 
-    const data = await resp.json();
-    const content = data?.choices?.[0]?.message?.content ?? "{}";
+    // očisti případné ```json fences
+    const cleaned = text.replace(/```json\s*|\s*```/g, "").trim();
     let parsed: Record<string, unknown> = {};
-    try { parsed = JSON.parse(content); } catch { parsed = { raw: content }; }
+    try { parsed = JSON.parse(cleaned); } catch { parsed = { raw: text }; }
 
     return new Response(JSON.stringify(parsed), {
       headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   } catch (e) {
-    console.error("smart-capture-analyze:", e);
-    return new Response(JSON.stringify({ error: e instanceof Error ? e.message : "Neznámá chyba" }), {
-      status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-    });
+    const msg = e instanceof Error ? e.message : "Neznámá chyba";
+    const isQuota = /quota|rate|429|402|exhaust/i.test(msg);
+    console.error("smart-capture-analyze:", msg);
+    return new Response(
+      JSON.stringify({ error: isQuota ? "Služba je momentálně mimo provoz." : msg }),
+      { status: isQuota ? 402 : 500, headers: { ...corsHeaders, "Content-Type": "application/json" } },
+    );
   }
 });

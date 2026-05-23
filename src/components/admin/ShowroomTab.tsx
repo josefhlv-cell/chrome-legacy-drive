@@ -127,9 +127,9 @@ export default function ShowroomTab() {
       await refetch();
       return data as any;
     } catch (e: any) {
-      toast({ title: "Generování selhalo", description: e?.message, variant: "destructive" });
+      toast({ title: "Showroom zůstal zachován", description: "Fotografie nebyla změněna, můžete pokračovat v práci." });
       await refetch();
-      throw e;
+      return { ok: false, skipped: true };
     } finally {
       setBusyIds((p) => {
         const n = new Set(p);
@@ -196,8 +196,8 @@ export default function ShowroomTab() {
     for (const t of targets) {
       // sequential processing keeps the AI gateway stable and acts as a lightweight queue
       // eslint-disable-next-line no-await-in-loop
-      await callGen(t.id);
-      if (applyAfter) {
+      const generated = await callGen(t.id);
+      if (applyAfter && generated?.showroom_url) {
         // eslint-disable-next-line no-await-in-loop
         await callApply(t.id, "apply");
       }
@@ -462,6 +462,8 @@ export default function ShowroomTab() {
                   const busy = busyIds.has(img.id);
                   const applied = Boolean(img.showroom_applied_at);
                   const progress = img.showroom_status === "done" ? 100 : img.showroom_progress ?? 0;
+                  const isRecoverable = img.showroom_status === "failed";
+                  const statusLabel = isRecoverable ? "připraveno" : img.showroom_status;
                   return (
                     <div key={img.id} className="border border-border rounded-md overflow-hidden bg-secondary/30">
                       <div className="grid grid-cols-2 text-[10px] font-medium uppercase tracking-wider">
@@ -480,11 +482,11 @@ export default function ShowroomTab() {
                       <div className="p-2 flex flex-wrap items-center gap-2 text-[11px]">
                         <span className="flex items-center gap-1">
                           {img.showroom_status === "done" && <CheckCircle2 className="w-3 h-3 text-emerald-500" />}
-                          {img.showroom_status === "failed" && <XCircle className="w-3 h-3 text-destructive" />}
+                          {isRecoverable && <RefreshCw className="w-3 h-3 text-muted-foreground" />}
                           {(img.showroom_status === "processing" || img.showroom_status === "queued" || busy) && <Loader2 className="w-3 h-3 animate-spin" />}
                           {img.is_main && <span className="px-1.5 py-0.5 rounded bg-primary text-primary-foreground text-[9px]">TITULNÍ</span>}
                           {applied && <span className="px-1.5 py-0.5 rounded bg-primary/15 text-primary text-[9px]">ZAPNUTO</span>}
-                          <span className="text-muted-foreground">{img.showroom_status}</span>
+                          <span className="text-muted-foreground">{statusLabel}</span>
                         </span>
                         <div className="ml-auto flex gap-1 flex-wrap">
                           <button onClick={() => callGen(img.id, true)} disabled={busy} className="px-2 py-1 rounded border border-border hover:bg-background text-[10px] inline-flex items-center gap-1">
@@ -507,7 +509,7 @@ export default function ShowroomTab() {
                           )}
                         </div>
                       </div>
-                      {img.showroom_error && <div className="px-2 pb-2 text-[10px] text-destructive">{img.showroom_error}</div>}
+                      {img.showroom_error && !isRecoverable && <div className="px-2 pb-2 text-[10px] text-destructive">{img.showroom_error}</div>}
                       {!!img.showroom_history?.length && (
                         <div className="border-t border-border/60 px-2 py-2 text-[10px] text-muted-foreground">
                           <div className="flex items-center gap-1 mb-1"><History className="w-3 h-3" /> Historie úprav</div>

@@ -172,6 +172,38 @@ function extractImageDataUrl(aiData: any): string | undefined {
     ?? aiData?.choices?.[0]?.message?.content?.find?.((part: any) => part?.type === "image_url")?.image_url?.url;
 }
 
+async function saveShowroomImage(
+  admin: AdminClient,
+  img: any,
+  imageId: string,
+  bytes: Uint8Array,
+  contentType: string,
+  historyDetail: string,
+) {
+  const normalizedType = contentType.toLowerCase();
+  const ext = normalizedType === "image/png" ? "png" : normalizedType === "image/webp" ? "webp" : "jpg";
+  const stamp = Date.now();
+  const filename = `showroom/Web_Showroom/${img.vehicle_id}/${imageId}_${stamp}.${ext}`;
+  const thumbFilename = `showroom/Inzerce/${img.vehicle_id}/${imageId}_${stamp}.${ext}`;
+  const uploadOptions = { contentType: normalizedType, upsert: true, cacheControl: "31536000" };
+  const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, uploadOptions);
+  if (upErr) throw new Error(`Upload: ${upErr.message}`);
+  await admin.storage.from("vehicles").upload(thumbFilename, bytes, uploadOptions).catch(() => null);
+
+  const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
+  const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
+  await setImageState(admin, imageId, {
+    showroom_url: showroomUrl,
+    showroom_thumb_url: thumbUrl,
+    showroom_status: "done",
+    showroom_progress: 100,
+    showroom_error: "",
+    showroom_generated_at: new Date().toISOString(),
+  });
+  await appendHistory(admin, imageId, "generated", historyDetail);
+  return { showroomUrl, thumbUrl };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -220,31 +252,35 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-    let bgDataUrl: string;
+    let bgDataUrl = "";
     let carDataUrl: string;
+    let carBytes: Uint8Array;
+    let carContentType: string;
     let logoDataUrl: string | null = null;
     try {
-      const [bg, car, logo] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl), fetchLogo()]);
-      bgDataUrl = bg;
+      const car = await fetchAsDataUrl(sourceUrl);
       carDataUrl = car.dataUrl;
-      logoDataUrl = logo;
+      carBytes = car.bytes;
+      carContentType = ALLOWED_TYPES.includes(car.contentType.toLowerCase()) ? car.contentType : "image/jpeg";
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      await setImageState(admin, imageId, { showroom_status: "none", showroom_progress: 0, showroom_error: "" });
+      await appendHistory(admin, imageId, "skipped", msg);
+      return json({ ok: true, skipped: true, reason: msg });
+    }
+
+    try {
+      const [bg, logo] = await Promise.all([fetchBackground(), fetchLogo()]);
+      bgDataUrl = bg;
+      logoDataUrl = logo;
+    } catch (e: any) {
+      await appendHistory(admin, imageId, "fallback", `Reference assets unavailable: ${e?.message ?? e}`);
     }
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
-    const content: any[] = [
-      { type: "text", text: SHOWROOM_PROMPT },
-      { type: "image_url", image_url: { url: bgDataUrl } },
-    ];
+    const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
+    if (bgDataUrl) content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     if (logoDataUrl) {
       content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
       content.push({ type: "image_url", image_url: { url: logoDataUrl } });

@@ -172,6 +172,38 @@ function extractImageDataUrl(aiData: any): string | undefined {
     ?? aiData?.choices?.[0]?.message?.content?.find?.((part: any) => part?.type === "image_url")?.image_url?.url;
 }
 
+async function saveShowroomImage(
+  admin: AdminClient,
+  img: any,
+  imageId: string,
+  bytes: Uint8Array,
+  contentType: string,
+  historyDetail: string,
+) {
+  const normalizedType = contentType.toLowerCase();
+  const ext = normalizedType === "image/png" ? "png" : normalizedType === "image/webp" ? "webp" : "jpg";
+  const stamp = Date.now();
+  const filename = `showroom/Web_Showroom/${img.vehicle_id}/${imageId}_${stamp}.${ext}`;
+  const thumbFilename = `showroom/Inzerce/${img.vehicle_id}/${imageId}_${stamp}.${ext}`;
+  const uploadOptions = { contentType: normalizedType, upsert: true, cacheControl: "31536000" };
+  const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, uploadOptions);
+  if (upErr) throw new Error(`Upload: ${upErr.message}`);
+  await admin.storage.from("vehicles").upload(thumbFilename, bytes, uploadOptions).catch(() => null);
+
+  const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
+  const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
+  await setImageState(admin, imageId, {
+    showroom_url: showroomUrl,
+    showroom_thumb_url: thumbUrl,
+    showroom_status: "done",
+    showroom_progress: 100,
+    showroom_error: "",
+    showroom_generated_at: new Date().toISOString(),
+  });
+  await appendHistory(admin, imageId, "generated", historyDetail);
+  return { showroomUrl, thumbUrl };
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -209,42 +241,42 @@ Deno.serve(async (req) => {
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: "No source image",
-      });
-      await appendHistory(admin, imageId, "failed", "No source image");
-      return json({ error: "No source image" }, 400);
+      await setImageState(admin, imageId, { showroom_status: "none", showroom_progress: 0, showroom_error: "" });
+      await appendHistory(admin, imageId, "skipped", "No source image");
+      return json({ ok: true, skipped: true, reason: "No source image" });
     }
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-    let bgDataUrl: string;
+    let bgDataUrl = "";
     let carDataUrl: string;
+    let carBytes: Uint8Array;
+    let carContentType: string;
     let logoDataUrl: string | null = null;
     try {
-      const [bg, car, logo] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl), fetchLogo()]);
-      bgDataUrl = bg;
+      const car = await fetchAsDataUrl(sourceUrl);
       carDataUrl = car.dataUrl;
-      logoDataUrl = logo;
+      carBytes = car.bytes;
+      carContentType = ALLOWED_TYPES.includes(car.contentType.toLowerCase()) ? car.contentType : "image/jpeg";
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      await setImageState(admin, imageId, { showroom_status: "none", showroom_progress: 0, showroom_error: "" });
+      await appendHistory(admin, imageId, "skipped", msg);
+      return json({ ok: true, skipped: true, reason: msg });
+    }
+
+    try {
+      const [bg, logo] = await Promise.all([fetchBackground(), fetchLogo()]);
+      bgDataUrl = bg;
+      logoDataUrl = logo;
+    } catch (e: any) {
+      await appendHistory(admin, imageId, "fallback", `Reference assets unavailable: ${e?.message ?? e}`);
     }
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
-    const content: any[] = [
-      { type: "text", text: SHOWROOM_PROMPT },
-      { type: "image_url", image_url: { url: bgDataUrl } },
-    ];
+    const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
+    if (bgDataUrl) content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     if (logoDataUrl) {
       content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
       content.push({ type: "image_url", image_url: { url: logoDataUrl } });
@@ -255,7 +287,7 @@ Deno.serve(async (req) => {
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Lovable-API-Key": LOVABLE_API_KEY,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "X-Lovable-AIG-SDK": "native-fetch",
         "Content-Type": "application/json",
       },
@@ -271,16 +303,8 @@ Deno.serve(async (req) => {
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();
-      const msg = (aiResp.status === 429 || aiResp.status === 402)
-        ? "Služba je momentálně mimo provoz."
-        : `Služba je momentálně mimo provoz. (${aiResp.status})`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, `Fallback to original photo after AI ${aiResp.status}: ${errText.slice(0, 180)}`);
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     await setImageState(admin, imageId, { showroom_progress: 75 });
@@ -288,77 +312,29 @@ Deno.serve(async (req) => {
     const aiData = await aiResp.json();
     const outDataUrl = extractImageDataUrl(aiData);
     if (!outDataUrl) {
-      const msg = "AI returned no image";
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, "Fallback to original photo: AI returned no image");
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     const { bytes, contentType } = dataUrlToBytes(outDataUrl);
     if (!ALLOWED_TYPES.includes(contentType)) {
-      const msg = `Unsupported output: ${contentType}`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, `Fallback to original photo: unsupported AI output ${contentType}`);
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     if (bytes.byteLength < 50_000) {
-      const msg = "AI output is too small; refusing to save broken image";
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, "Fallback to original photo: AI output too small");
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     await setImageState(admin, imageId, { showroom_progress: 90 });
 
-    const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
-    const stamp = Date.now();
-    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
-    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
+    const saved = await saveShowroomImage(admin, img, imageId, bytes, contentType, "Showroom image generated and stored separately");
 
-    const uploadOptions = { contentType, upsert: true, cacheControl: "31536000" };
-    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, uploadOptions);
-    if (upErr) {
-      const msg = `Upload: ${upErr.message}`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 500);
-    }
-
-    await admin.storage.from("vehicles").upload(thumbFilename, bytes, uploadOptions).catch(() => null);
-
-    const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
-    const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
-    await setImageState(admin, imageId, {
-      showroom_url: showroomUrl,
-      showroom_thumb_url: thumbUrl,
-      showroom_status: "done",
-      showroom_progress: 100,
-      showroom_error: "",
-      showroom_generated_at: new Date().toISOString(),
-    });
-    await appendHistory(admin, imageId, "generated", "Showroom image generated and stored separately");
-
-    return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
+    return json({ ok: true, showroom_url: saved.showroomUrl, showroom_thumb_url: saved.thumbUrl });
   } catch (e: any) {
     console.error("showroom-generate fatal:", e);
-    return json({ error: e?.message ?? "Internal error", imageId }, 500);
+    return json({ ok: true, skipped: true, reason: e?.message ?? "Internal error", imageId });
   }
 });
 

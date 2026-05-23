@@ -24,54 +24,56 @@ const LOGO_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
 ];
 
-const SHOWROOM_PROMPT = `SHOWROOM NORMALIZATION MODE v4 — CHRYSLER & DODGE PARDUBICE
+const SHOWROOM_PROMPT = `ROLE: You are a professional automotive product photo editor. Your task is to place a car into a predefined studio showroom scene. Do NOT write any code. Return only the final edited image.
 
-ABSOLUTNĚ KRITICKÉ — NEPŘEKRESLOVAT VOZIDLO:
-- NIKDY nepřegenerovávej, nepřekresluj, neredesignuj ani jinak vizuálně nepřetváříš vozidlo ze SOURCE CAR PHOTO.
-- Vozidlo musí zůstat 1:1 identické jako v originálu — stejný tvar karoserie, stejná kola (počet paprsků, design, ráfky, pneumatiky), stejné světlomety (přední i zadní), stejná barva laku, stejné odlesky, stejné nárazníky, mřížka, zrcátka, sklo, lemy, kliky, znaky, SPZ, viditelná poškození a detaily.
-- ŽÁDNÉ zrcadlení, otáčení, překlápění, změna úhlu, změna strany, změna pózy, změna proporcí, změna výšky podvozku, změna rozchodu kol.
+REFERENCE SCENE (apply exactly to every car):
 
-JEDINÉ POVOLENÉ OPERACE (nic jiného):
-1) Geometrické zarovnání (vyrovnání horizontu, jemné srovnání perspektivy karoserie do svislé/vodorovné osy).
-2) Korekce perspektivy (decentní, jen pro sjednocení katalogu — nikdy fish-eye, nikdy lens warp).
-3) Změna měřítka vozidla (scale) tak, aby všechna auta v showroomu byla stejně velká a ve stejné zdánlivé vzdálenosti od kamery.
-4) Vystředění kompozice (recentering) — auto vždy uprostřed kádru.
-5) Konzistentní zarovnání kol — obě nápravy stojí na stejné vodorovné lince (asfaltový pruh).
-6) Výměna pozadí za showroom (jediná povolená vizuální úprava mimo geometrii).
+WALL:
+- Slightly warm off-white plastered wall (light cream tone: hex #F5F0E8 or similar).
+- Matte, painted plaster texture visible — not perfectly smooth digital white.
+- Wall extends upward with NO visible ceiling, NO top edge, NO molding. Just an infinite wall.
 
-CÍLOVÁ NORMALIZACE — VŠECHNA AUTA V SHOWROOMU MUSÍ PŮSOBIT VIZUÁLNĚ KONZISTENTNĚ:
-- Stejný úhel kamery (drž originální úhel ze zdroje, jen jemně srovnej horizont — neměň stranu/pohled).
-- Stejná velikost vozidla v rámci kádru.
-- Stejná vzdálenost od kamery (zdánlivá).
-- Vystředěná kompozice.
-- Konzistentní zarovnání kol na společné spodní lince.
+FLOOR:
+- Light grey polished concrete (hex #D5D0C8 or similar).
+- Subtle concrete texture visible.
+- Clean, modern look.
 
-POZADÍ — CLEAN WHITE SHOWROOM FACADE:
-- Čistá, realistická bílá vnější fasáda dealerství (jemná omítka, decentní textura, realistické denní světlo).
-- Tenký pruh světle šedého asfaltu pod koly s měkkými kontaktními stíny.
-- ŽÁDNÁ obloha, střecha, okap, rohy budovy, okna, dveře, stromy, lampy, lidé, jiná auta, značky, studiové cyklorámy, CGI plochy, halo, fake daylight.
-- Logo nepřidávej žádné AI generované; pokud nelze logo vykreslit 100% věrně dle reference, NEPŘIDÁVEJ ho vůbec.
+SKIRTING BOARD (SOKL):
+- A visible baseboard where the wall meets the floor.
+- Height: approx 10–15 cm.
+- Color: slightly darker cream tone than the wall, or light warm grey.
+- Clean, minimal profile — no decorative grooves.
 
-ZAKÁZÁNO:
-- jakákoli změna tvaru/barvy/detailů auta
-- deformace kol (musí zůstat dokonale kruhová), karoserie, prahů, blatníků, střechy
-- agresivní perspektiva, tilt-shift, fish-eye, warp
-- ořezávání nárazníků, zrcátek, kol
-- studiový vzhled, CGI, plast, HDR, neon, halo, AI fantazie
-- přidávání spoilerů, jiných ráfků, jiné mřížky, jiných světel
-- jakákoli změna interiéru (pokud je zdroj interiér, vrať zdroj beze změny)
+SHADOW:
+- Soft, realistic drop shadow cast by the car directly onto the concrete floor.
+- Light source from front-upper, studio style.
+- Shadow must be natural, not harsh or painted-looking.
 
-PRIORITA:
-1) Identita vozidla (LOCKED, nepřekreslovat).
-2) Fotorealismus.
-3) Geometrická normalizace (jemně).
-4) Výměna pozadí za showroom fasádu.
+LIGHTING:
+- Bright, even studio lighting from the front and slightly above.
+- No dramatic highlights or reflections on the wall.
+- Car retains its original paint reflections and gloss.
 
-POKUD nelze splnit body 1 a 2 současně → VRAŤ ZDROJOVOU FOTOGRAFII BEZE ZMĚNY. Čistý originál je vždy lepší než deformovaný, překreslený, otočený nebo zrcadlený výstup.
+LOGO:
+- Chrysler silver wings logo.
+- Position: TOP RIGHT corner.
+- Size: small and discreet.
+- Padding: approx 40–60 px from top edge and 40–60 px from right edge.
+- Opacity: 100%, clean and sharp.
 
-VÝSTUP:
-- Jeden finální obrázek, bez textu, bez vodoznaku, bez rámečku, bez UI.
-- Zachovat poměr stran zdrojové fotografie.`;
+CAR:
+- Extract the car from its original background with surgical precision.
+- Do NOT change the car's color, paint shade, reflections, or body shape.
+- Wheels and tires must remain perfectly sharp with correct proportions.
+- Window glass and chrome trim must retain realistic reflections.
+- If the car casts its own subtle reflection on the floor, it is welcome — but keep it very subtle.
+
+FINAL OUTPUT:
+- High-quality, photorealistic product image.
+- Do NOT add any text overlay except the Chrysler logo.
+- Do NOT crop the car. Keep comfortable padding around it.
+- Return the finished image. No code. No explanation.`;
+
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 

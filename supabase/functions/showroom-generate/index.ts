@@ -1,8 +1,6 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 
-
-
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
@@ -12,7 +10,6 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
-const GEMINI_API_KEY = Deno.env.get("GEMINI_API_KEY")!;
 
 const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
 const BG_FALLBACK_URLS = [
@@ -244,58 +241,39 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
-    // === Gemini 2.5 Flash Image (přímé volání přes @google/genai SDK) ===
-    // Prompty a logika zachovány 1:1, mění se pouze přenos pod kapotou.
-    const dataUrlToInline = (dataUrl: string) => {
-      const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
-      if (!m) throw new Error("Invalid data URL");
-      return { inlineData: { mimeType: m[1], data: m[2] } };
-    };
-
-    const parts: any[] = [
-      { text: SHOWROOM_PROMPT },
-      { text: "SHOWROOM BACKGROUND REFERENCE:" },
-      dataUrlToInline(bgDataUrl),
+    const content: any[] = [
+      { type: "text", text: SHOWROOM_PROMPT },
+      { type: "image_url", image_url: { url: bgDataUrl } },
     ];
     if (logoDataUrl) {
-      parts.push({ text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
-      parts.push(dataUrlToInline(logoDataUrl));
+      content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
+      content.push({ type: "image_url", image_url: { url: logoDataUrl } });
     }
-    parts.push({ text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
-    parts.push(dataUrlToInline(carDataUrl));
+    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
+    content.push({ type: "image_url", image_url: { url: carDataUrl } });
 
-    let outDataUrl: string | undefined;
-    try {
-      if (!GEMINI_API_KEY) throw new Error("GEMINI_API_KEY není nakonfigurován");
-      const geminiResp = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-image:generateContent?key=${GEMINI_API_KEY}`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            contents: [{ role: "user", parts }],
-            generationConfig: { responseModalities: ["IMAGE", "TEXT"], temperature: 1.0 },
-          }),
-        },
-      );
-      if (!geminiResp.ok) {
-        const t = await geminiResp.text();
-        console.error("Gemini HTTP", geminiResp.status, t.slice(0, 500));
-        throw new Error(`HTTP ${geminiResp.status}: ${t.slice(0, 200)}`);
-      }
-      const gData = await geminiResp.json();
-      const respParts = gData?.candidates?.[0]?.content?.parts ?? [];
-      for (const part of respParts) {
-        if (part?.inlineData?.data) {
-          outDataUrl = `data:${part.inlineData.mimeType || "image/png"};base64,${part.inlineData.data}`;
-          break;
-        }
-      }
-    } catch (e: any) {
-      const errMsg = String(e?.message ?? e);
-      console.error("showroom-generate gemini fail:", errMsg);
-      const isQuota = /quota|rate|429|402|exhaust|RESOURCE_EXHAUSTED/i.test(errMsg);
-      const msg = isQuota ? "Služba je momentálně mimo provoz." : `Gemini chyba: ${errMsg}`;
+    const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Lovable-API-Key": LOVABLE_API_KEY,
+        "X-Lovable-AIG-SDK": "native-fetch",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "google/gemini-2.5-flash-image",
+        modalities: ["image", "text"],
+        messages: [{
+          role: "user",
+          content,
+        }],
+      }),
+    });
+
+    if (!aiResp.ok) {
+      const errText = await aiResp.text();
+      const msg = (aiResp.status === 429 || aiResp.status === 402)
+        ? "Služba je momentálně mimo provoz."
+        : `Služba je momentálně mimo provoz. (${aiResp.status})`;
       await setImageState(admin, imageId, {
         showroom_status: "failed",
         showroom_progress: 0,
@@ -305,9 +283,10 @@ Deno.serve(async (req) => {
       return json({ error: msg }, 502);
     }
 
-
     await setImageState(admin, imageId, { showroom_progress: 75 });
 
+    const aiData = await aiResp.json();
+    const outDataUrl = extractImageDataUrl(aiData);
     if (!outDataUrl) {
       const msg = "AI returned no image";
       await setImageState(admin, imageId, {
@@ -318,7 +297,6 @@ Deno.serve(async (req) => {
       await appendHistory(admin, imageId, "failed", msg);
       return json({ error: msg }, 502);
     }
-
 
     const { bytes, contentType } = dataUrlToBytes(outDataUrl);
     if (!ALLOWED_TYPES.includes(contentType)) {

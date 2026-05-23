@@ -10,7 +10,6 @@ import {
   RotateCcw,
   Wand2,
   CheckCircle2,
-  XCircle,
   Image as ImageIcon,
   Download,
   History,

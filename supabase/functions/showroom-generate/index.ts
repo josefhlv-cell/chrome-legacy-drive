@@ -307,16 +307,8 @@ Deno.serve(async (req) => {
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();
-      const msg = (aiResp.status === 429 || aiResp.status === 402)
-        ? "Služba je momentálně mimo provoz."
-        : `Služba je momentálně mimo provoz. (${aiResp.status})`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, `Fallback to original photo after AI ${aiResp.status}: ${errText.slice(0, 180)}`);
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     await setImageState(admin, imageId, { showroom_progress: 75 });
@@ -324,77 +316,29 @@ Deno.serve(async (req) => {
     const aiData = await aiResp.json();
     const outDataUrl = extractImageDataUrl(aiData);
     if (!outDataUrl) {
-      const msg = "AI returned no image";
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, "Fallback to original photo: AI returned no image");
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     const { bytes, contentType } = dataUrlToBytes(outDataUrl);
     if (!ALLOWED_TYPES.includes(contentType)) {
-      const msg = `Unsupported output: ${contentType}`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, `Fallback to original photo: unsupported AI output ${contentType}`);
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     if (bytes.byteLength < 50_000) {
-      const msg = "AI output is too small; refusing to save broken image";
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
+      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, "Fallback to original photo: AI output too small");
+      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
     }
 
     await setImageState(admin, imageId, { showroom_progress: 90 });
 
-    const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
-    const stamp = Date.now();
-    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
-    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
+    const saved = await saveShowroomImage(admin, img, imageId, bytes, contentType, "Showroom image generated and stored separately");
 
-    const uploadOptions = { contentType, upsert: true, cacheControl: "31536000" };
-    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, uploadOptions);
-    if (upErr) {
-      const msg = `Upload: ${upErr.message}`;
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: msg,
-      });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 500);
-    }
-
-    await admin.storage.from("vehicles").upload(thumbFilename, bytes, uploadOptions).catch(() => null);
-
-    const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
-    const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
-    await setImageState(admin, imageId, {
-      showroom_url: showroomUrl,
-      showroom_thumb_url: thumbUrl,
-      showroom_status: "done",
-      showroom_progress: 100,
-      showroom_error: "",
-      showroom_generated_at: new Date().toISOString(),
-    });
-    await appendHistory(admin, imageId, "generated", "Showroom image generated and stored separately");
-
-    return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
+    return json({ ok: true, showroom_url: saved.showroomUrl, showroom_thumb_url: saved.thumbUrl });
   } catch (e: any) {
     console.error("showroom-generate fatal:", e);
-    return json({ error: e?.message ?? "Internal error", imageId }, 500);
+    return json({ ok: false, error: e?.message ?? "Internal error", imageId }, 200);
   }
 });
 

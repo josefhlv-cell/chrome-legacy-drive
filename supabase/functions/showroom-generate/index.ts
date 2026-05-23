@@ -241,13 +241,9 @@ Deno.serve(async (req) => {
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
-      await setImageState(admin, imageId, {
-        showroom_status: "failed",
-        showroom_progress: 0,
-        showroom_error: "No source image",
-      });
-      await appendHistory(admin, imageId, "failed", "No source image");
-      return json({ error: "No source image" }, 400);
+      await setImageState(admin, imageId, { showroom_status: "none", showroom_progress: 0, showroom_error: "" });
+      await appendHistory(admin, imageId, "skipped", "No source image");
+      return json({ ok: true, skipped: true, reason: "No source image" });
     }
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
@@ -291,7 +287,7 @@ Deno.serve(async (req) => {
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Lovable-API-Key": LOVABLE_API_KEY,
+        Authorization: `Bearer ${LOVABLE_API_KEY}`,
         "X-Lovable-AIG-SDK": "native-fetch",
         "Content-Type": "application/json",
       },
@@ -338,7 +334,7 @@ Deno.serve(async (req) => {
     return json({ ok: true, showroom_url: saved.showroomUrl, showroom_thumb_url: saved.thumbUrl });
   } catch (e: any) {
     console.error("showroom-generate fatal:", e);
-    return json({ ok: false, error: e?.message ?? "Internal error", imageId }, 200);
+    return json({ ok: true, skipped: true, reason: e?.message ?? "Internal error", imageId });
   }
 });
 

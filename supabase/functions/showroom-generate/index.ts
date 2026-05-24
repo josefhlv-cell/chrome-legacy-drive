@@ -25,12 +25,14 @@ const LOGO_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
 ];
 
-const SHOWROOM_PROMPT = `ROLE: You are a professional automotive photo retoucher. You receive THREE inputs in this exact order:
+const SHOWROOM_PROMPT = `SHOWROOM BACKGROUND SWAP v7 — STRICT ORIGINAL GEOMETRY LOCK
+
+ROLE: You are a professional automotive photo compositor. You receive THREE inputs in this exact order:
   1) SOURCE CAR PHOTO — the real vehicle to keep.
   2) SCENE REFERENCE — the showroom background to copy.
   3) LOGO REFERENCE — the shield logo to place on the wall.
 
-YOUR ONLY TASK: keep the SOURCE CAR PHOTO's vehicle 100% identical (same make, model, generation, body shape, color, wheels, trim, badges, headlights, grille, windows, ride height, tint, mirrors, license plate, dirt, damage — EVERYTHING) and replace ONLY the surroundings (background + ground) with the SCENE REFERENCE. Add the LOGO on the wall.
+YOUR ONLY TASK: keep the SOURCE CAR PHOTO's vehicle 100% identical and keep its apparent size, perspective, crop, camera angle, lens look, wheelbase proportions, and placement inside the frame. Replace ONLY the surroundings (background + ground) with the SCENE REFERENCE. Add the LOGO on the wall.
 
 ⛔ ABSOLUTELY FORBIDDEN — automatic rejection:
 - Replacing the car with a different model (e.g. swapping a Town & Country / Voyager minivan for a Pacifica, or any other substitution).
@@ -38,11 +40,14 @@ YOUR ONLY TASK: keep the SOURCE CAR PHOTO's vehicle 100% identical (same make, m
 - Changing wheels, rims, headlights, grille, badges, bumpers, body shape, or generation.
 - Removing the original license plate, dirt, scratches, or characteristic details.
 - Generating a "similar" or "newer" version of the car. This is photo retouching, NOT redesign.
+- Scaling, enlarging, shrinking, stretching, warping, re-framing, re-cropping, centering, rotating, or moving the car in a way that changes how large it appears versus the SOURCE CAR PHOTO.
+- Zooming into the final image or cropping away space that existed in the SOURCE CAR PHOTO.
 - Creating a seamless white cyclorama / curved studio / bright empty white room.
 
 ✅ REQUIRED:
-- Treat the SOURCE CAR as a locked cut-out. Pixel-level identity preservation of the vehicle.
-- Only the ground beneath the car and everything behind/around it changes.
+- Treat the SOURCE CAR as a locked cut-out at the original scale. Pixel-level identity preservation of the vehicle.
+- Preserve the original canvas/framing as much as possible: same image orientation, same visible vehicle size, same crop boundaries, same perspective. Do not make the car larger.
+- Only the ground beneath the car and everything behind/around it changes. The vehicle itself is not normalized.
 - Background must match the SCENE REFERENCE: warm cream plaster wall (#F5F0E8), light grey polished concrete floor (#D5D0C8), visible straight horizontal skirting board (~10–15 cm, slightly darker cream), no ceiling, no curved cyclorama.
 - Soft realistic drop shadow under the original car on the concrete.
 - LOGO: place the exact Chrysler Dodge Pardubice black/silver shield logo from the LOGO REFERENCE in the TOP-RIGHT of the wall, clearly visible, proportional, sharp, 100% opacity. NEVER use a Chrysler wings logo, round disc, generic emblem or tiny watermark.
@@ -255,10 +260,10 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
     const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
-    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical. Do NOT replace it with a Pacifica or any other model. Identity-lock: same make, model, generation, color, wheels, plate, trim, dirt):" });
+    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical AND geometry-identical. Do NOT replace it, repaint it, enlarge it, shrink it, reframe it, recrop it, center it, or normalize its apparent size. Preserve the original visible vehicle size, crop, perspective, camera angle, plate, wheels, trim, dirt):" });
     content.push({ type: "image_url", image_url: { url: carDataUrl } });
     if (bgDataUrl) {
-      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image — the car in INPUT 1 is the one to keep." });
+      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image. Do NOT copy this image's car size, camera distance, crop, or framing — the car geometry and scale from INPUT 1 is locked." });
       content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     }
     if (logoDataUrl) {

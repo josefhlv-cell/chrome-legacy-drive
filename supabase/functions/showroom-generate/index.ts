@@ -15,8 +15,8 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 const BG_FALLBACKS = [
-  "https://chdp.chryslerpardubice.site/showroom-background.jpg",
-  "https://chtysler-cz.lovable.app/showroom-background.jpg",
+  "https://chdp.chryslerpardubice.site/bg-new.jpg",
+  "https://chtysler-cz.lovable.app/bg-new.jpg",
 ];
 
 const PROMPT = [

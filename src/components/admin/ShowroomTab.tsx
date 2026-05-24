@@ -543,3 +543,33 @@ function EmptyImage({ compact = false }: { compact?: boolean }) {
     </div>
   );
 }
+
+// Skládá fixní pozadí Pardubice + vyříznuté auto (transparentní PNG) přes CSS vrstvy.
+// Tím zajistíme, že každé auto stojí na naprosto identickém pozadí 1:1.
+function ShowroomComposite({ src, className = "" }: { src?: string | null; className?: string }) {
+  if (!src) {
+    return (
+      <div className={`${className} bg-background flex items-center justify-center`}>
+        <EmptyImage />
+      </div>
+    );
+  }
+  return (
+    <div
+      className={`${className} relative overflow-hidden bg-background`}
+      style={{
+        backgroundImage: `url(${showroomBg})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
+      }}
+    >
+      <img
+        src={src}
+        alt="Showroom varianta"
+        loading="lazy"
+        className="absolute inset-0 w-full h-full object-contain"
+      />
+    </div>
+  );
+}

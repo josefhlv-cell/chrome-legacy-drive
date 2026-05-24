@@ -475,9 +475,9 @@ export default function ShowroomTab() {
                         <div className="w-full aspect-video bg-background flex items-center justify-center border-r border-border overflow-hidden">
                           <img src={img.original_backup_url || img.image_url} alt="Originál" className="w-full h-auto max-h-full" loading="lazy" />
                         </div>
-                        <div className="w-full aspect-video bg-background flex items-center justify-center overflow-hidden">
-                          {img.showroom_url ? <img src={img.showroom_url} alt="Showroom" className="w-full h-auto max-h-full" loading="lazy" /> : <EmptyImage compact />}
-                        </div>
+                        {img.showroom_url
+                          ? <ShowroomComposite src={img.showroom_url} className="w-full aspect-video" />
+                          : <div className="w-full aspect-video bg-background flex items-center justify-center overflow-hidden"><EmptyImage compact /></div>}
                       </div>
                       {(img.showroom_status === "queued" || img.showroom_status === "processing") && (
                         <div className="px-2 pt-2">

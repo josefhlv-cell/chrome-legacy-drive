@@ -11,21 +11,35 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-// NOVÁ STRATEGIE: AI dělá POUZE background removal (vyříznutí auta).
-// Fixní pozadí Pardubice se skládá až na frontendu přes CSS vrstvu.
-const SHOWROOM_PROMPT = `BACKGROUND REMOVAL ONLY — CAR CUTOUT FOR CHRYSLER & DODGE PARDUBICE
+// FIXNÍ POZADÍ Pardubice (reálné parkovací místo u zdi s logem).
+// AI ho dostane jako vstup a MUSÍ ho použít pixel-přesně beze změny.
+const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
+const BG_FALLBACK_URLS = [
+  BG_PUBLIC_URL,
+  "https://chtysler-cz.lovable.app/showroom-background.jpg",
+  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
+];
 
-ÚKOL:
-- Odstraň VEŠKERÉ pozadí z fotografie. Výsledkem musí být POUZE vozidlo (včetně jeho realistických kontaktních stínů pod koly) na zcela PRŮHLEDNÉM pozadí (alpha = 0).
+// AI skládá auto na fixní pozadí. Vrací plochý JPEG (žádná průhlednost, žádný checker).
+const SHOWROOM_PROMPT = `PHOTOREALISTIC CAR COMPOSITE — CHRYSLER & DODGE PARDUBICE
+
+VSTUPY:
+- IMAGE 1 = FIXNÍ POZADÍ (parkovací místo u bílé zdi s logem Chrysler Pardubice). MUSÍŠ ho použít PIXEL-PŘESNĚ beze změny.
+- IMAGE 2 = ZDROJOVÉ VOZIDLO. Vyřízni vozidlo (auto + přirozený kontaktní stín pod koly) a vlož na IMAGE 1.
+
+UMÍSTĚNÍ:
+- Auto stojí na asfaltu IMAGE 1, vystředěné horizontálně, spodní část pneumatik na úrovni asfaltu (cca dolní třetina obrázku).
+- Měřítko: auto vyplňuje cca 70–80 % šířky scény. Realistická perspektiva, auto pevně stojí na zemi.
+- Pod každou pneumatikou jemný realistický kontaktní stín ladící se světlem scény.
 
 ABSOLUTNÍ ZÁKAZY:
-- NEGENERUJ žádnou novou zeď, žádnou novou zem, žádné nebe, žádný showroom, žádný gradient, žádnou barvu na pozadí.
-- NEPŘEKRESLUJ vozidlo. Nesmí se změnit kola, disky, světla, lak, zrcátka, SPZ, ani tvar karoserie.
-- NEZRCADLI, neotáčej a neměň perspektivu. Zachovej původní orientaci a kompozici auta 1:1.
-- NEPŘIDÁVEJ žádná loga, vodoznaky ani text.
+- NEMĚŇ pozadí (IMAGE 1) ANI O JEDEN PIXEL. Bílá zeď, logo, asfalt, čáry – vše zůstává identicky.
+- NEPŘEKRESLUJ vozidlo. Kola, disky, světla, lak, zrcátka, SPZ, tvar karoserie zůstávají 1:1 jako v IMAGE 2.
+- NEZRCADLI a neotáčej auto.
+- ŽÁDNÝ checker / šachovnicový pattern, ŽÁDNÁ průhlednost, ŽÁDNÁ bílá plocha okolo, žádné nové logo, text, vodoznak, nebe, střechu.
 
 VÝSTUP:
-- Jeden PNG s transparentním pozadím obsahující POUZE vyříznuté auto se zachovanými kontaktními stíny pod pneumatikami.`;
+- Jeden finální fotorealistický plochý obrázek (JPEG/PNG bez alfa kanálu) = IMAGE 1 (beze změny) + auto z IMAGE 2 položené na asfalt.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -86,6 +100,17 @@ async function fetchAsDataUrl(url: string): Promise<{ dataUrl: string; contentTy
     bin += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk) as unknown as number[]);
   }
   return { dataUrl: `data:${contentType};base64,${btoa(bin)}`, contentType, bytes };
+}
+
+async function fetchBackground(): Promise<string> {
+  for (const u of BG_FALLBACK_URLS) {
+    try {
+      return (await fetchAsDataUrl(u)).dataUrl;
+    } catch (_) {
+      // try next
+    }
+  }
+  throw new Error("Fixed showroom background is unreachable");
 }
 
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
@@ -153,8 +178,11 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
     let carDataUrl: string;
+    let bgDataUrl: string;
     try {
-      carDataUrl = (await fetchAsDataUrl(sourceUrl)).dataUrl;
+      const [car, bg] = await Promise.all([fetchAsDataUrl(sourceUrl), fetchBackground()]);
+      carDataUrl = car.dataUrl;
+      bgDataUrl = bg;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -168,9 +196,12 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
-    // POUZE auto + prompt na background removal. Žádné referenční pozadí se nepřikládá.
+    // Pošleme nejprve FIXNÍ pozadí (IMAGE 1) a pak auto (IMAGE 2). AI je zkomponuje.
     const content: any[] = [
       { type: "text", text: SHOWROOM_PROMPT },
+      { type: "text", text: "IMAGE 1 — FIXNÍ POZADÍ (použij pixel-přesně beze změny):" },
+      { type: "image_url", image_url: { url: bgDataUrl } },
+      { type: "text", text: "IMAGE 2 — ZDROJOVÉ VOZIDLO (vyřízni a vlož na IMAGE 1):" },
       { type: "image_url", image_url: { url: carDataUrl } },
     ];
 

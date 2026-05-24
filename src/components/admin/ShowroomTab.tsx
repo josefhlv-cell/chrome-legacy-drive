@@ -436,7 +436,9 @@ export default function ShowroomTab() {
                 </div>
                 <div className="border border-border rounded-md overflow-hidden bg-secondary/20 flex flex-col">
                   <div className="px-3 py-2 text-xs uppercase tracking-wider text-primary">Live preview · Showroom</div>
-                  <ShowroomComposite src={selectedMain?.showroom_url} className="w-full aspect-video" />
+                  <div className="w-full aspect-video bg-background flex items-center justify-center">
+                    {selectedMain?.showroom_url ? <img src={selectedMain.showroom_url} alt="Showroom varianta" className="w-full h-auto max-h-full" /> : <EmptyImage />}
+                  </div>
                 </div>
               </div>
 
@@ -475,9 +477,9 @@ export default function ShowroomTab() {
                         <div className="w-full aspect-video bg-background flex items-center justify-center border-r border-border overflow-hidden">
                           <img src={img.original_backup_url || img.image_url} alt="Originál" className="w-full h-auto max-h-full" loading="lazy" />
                         </div>
-                        {img.showroom_url
-                          ? <ShowroomComposite src={img.showroom_url} className="w-full aspect-video" />
-                          : <div className="w-full aspect-video bg-background flex items-center justify-center overflow-hidden"><EmptyImage compact /></div>}
+                        <div className="w-full aspect-video bg-background flex items-center justify-center overflow-hidden">
+                          {img.showroom_url ? <img src={img.showroom_url} alt="Showroom" className="w-full h-auto max-h-full" loading="lazy" /> : <EmptyImage compact />}
+                        </div>
                       </div>
                       {(img.showroom_status === "queued" || img.showroom_status === "processing") && (
                         <div className="px-2 pt-2">
@@ -544,32 +546,3 @@ function EmptyImage({ compact = false }: { compact?: boolean }) {
   );
 }
 
-// Skládá fixní pozadí Pardubice + vyříznuté auto (transparentní PNG) přes CSS vrstvy.
-// Tím zajistíme, že každé auto stojí na naprosto identickém pozadí 1:1.
-function ShowroomComposite({ src, className = "" }: { src?: string | null; className?: string }) {
-  if (!src) {
-    return (
-      <div className={`${className} bg-background flex items-center justify-center`}>
-        <EmptyImage />
-      </div>
-    );
-  }
-  return (
-    <div
-      className={`${className} relative overflow-hidden bg-background`}
-      style={{
-        backgroundImage: `url(${showroomBg})`,
-        backgroundSize: "cover",
-        backgroundPosition: "center",
-        backgroundRepeat: "no-repeat",
-      }}
-    >
-      <img
-        src={src}
-        alt="Showroom varianta"
-        loading="lazy"
-        className="absolute inset-0 w-full h-full object-contain"
-      />
-    </div>
-  );
-}

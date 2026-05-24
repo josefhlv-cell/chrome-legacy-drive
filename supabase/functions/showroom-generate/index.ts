@@ -260,10 +260,10 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
     const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
-    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical. Do NOT replace it with a Pacifica or any other model. Identity-lock: same make, model, generation, color, wheels, plate, trim, dirt):" });
+    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical AND geometry-identical. Do NOT replace it, repaint it, enlarge it, shrink it, reframe it, recrop it, center it, or normalize its apparent size. Preserve the original visible vehicle size, crop, perspective, camera angle, plate, wheels, trim, dirt):" });
     content.push({ type: "image_url", image_url: { url: carDataUrl } });
     if (bgDataUrl) {
-      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image — the car in INPUT 1 is the one to keep." });
+      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image. Do NOT copy this image's car size, camera distance, crop, or framing — the car geometry and scale from INPUT 1 is locked." });
       content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     }
     if (logoDataUrl) {

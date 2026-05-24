@@ -178,8 +178,11 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
     let carDataUrl: string;
+    let bgDataUrl: string;
     try {
-      carDataUrl = (await fetchAsDataUrl(sourceUrl)).dataUrl;
+      const [car, bg] = await Promise.all([fetchAsDataUrl(sourceUrl), fetchBackground()]);
+      carDataUrl = car.dataUrl;
+      bgDataUrl = bg;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -193,9 +196,12 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
-    // POUZE auto + prompt na background removal. Žádné referenční pozadí se nepřikládá.
+    // Pošleme nejprve FIXNÍ pozadí (IMAGE 1) a pak auto (IMAGE 2). AI je zkomponuje.
     const content: any[] = [
       { type: "text", text: SHOWROOM_PROMPT },
+      { type: "text", text: "IMAGE 1 — FIXNÍ POZADÍ (použij pixel-přesně beze změny):" },
+      { type: "image_url", image_url: { url: bgDataUrl } },
+      { type: "text", text: "IMAGE 2 — ZDROJOVÉ VOZIDLO (vyřízni a vlož na IMAGE 1):" },
       { type: "image_url", image_url: { url: carDataUrl } },
     ];
 

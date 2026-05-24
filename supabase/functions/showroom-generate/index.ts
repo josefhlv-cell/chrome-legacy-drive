@@ -24,10 +24,10 @@ const BG_FALLBACKS = [
 // reference: car close to camera, slightly left of logo, tires on asphalt.
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
-const CAR_WIDTH_RATIO = 0.74;          // visible car bbox ≈ 74% of output width
-const MAX_CAR_HEIGHT_RATIO = 0.62;     // safety cap for tall/tight cutouts
+const CAR_WIDTH_RATIO = 0.70;          // visible car bbox ≈ 70% of output width
+const MAX_CAR_HEIGHT_RATIO = 0.55;     // reference roof-to-wheel visual height
 const CAR_CENTER_X_RATIO = 0.456;      // reference car visual center, not logo center
-const WHEEL_LINE_Y_RATIO = 0.922;      // tire contact line ≈ 92% from top
+const WHEEL_LINE_Y_RATIO = 0.920;      // tire contact line ≈ 92% from top
 
 // Gemini does ONE job: clean cutout with transparent background.
 const CUTOUT_PROMPT = [

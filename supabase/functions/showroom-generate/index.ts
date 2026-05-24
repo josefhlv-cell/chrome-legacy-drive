@@ -25,65 +25,31 @@ const LOGO_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
 ];
 
-const SHOWROOM_PROMPT = `ROLE: You are a professional automotive product photo editor. Your task is to replace only the car photo background with the exact provided Chrysler Pardubice showroom reference scene. Do NOT write any code. Return only the final edited image.
+const SHOWROOM_PROMPT = `ROLE: You are a professional automotive photo retoucher. You receive THREE inputs in this exact order:
+  1) SOURCE CAR PHOTO — the real vehicle to keep.
+  2) SCENE REFERENCE — the showroom background to copy.
+  3) LOGO REFERENCE — the shield logo to place on the wall.
 
-ABSOLUTE PRIORITY:
-- The background must match the attached reference scene, not a generic studio.
-- Do NOT create a seamless white cyclorama.
-- Do NOT create a curved wall/floor transition.
-- Do NOT create a bright empty white studio.
-- The wall-to-floor boundary must be a straight horizontal line with a visible skirting board/baseboard.
-- The final image must look like the car is parked in front of the same flat plaster wall and grey concrete floor shown in the reference.
+YOUR ONLY TASK: keep the SOURCE CAR PHOTO's vehicle 100% identical (same make, model, generation, body shape, color, wheels, trim, badges, headlights, grille, windows, ride height, tint, mirrors, license plate, dirt, damage — EVERYTHING) and replace ONLY the surroundings (background + ground) with the SCENE REFERENCE. Add the LOGO on the wall.
 
-REFERENCE SCENE (apply exactly to every car):
+⛔ ABSOLUTELY FORBIDDEN — automatic rejection:
+- Replacing the car with a different model (e.g. swapping a Town & Country / Voyager minivan for a Pacifica, or any other substitution).
+- Repainting the car (e.g. black → white, white → grey).
+- Changing wheels, rims, headlights, grille, badges, bumpers, body shape, or generation.
+- Removing the original license plate, dirt, scratches, or characteristic details.
+- Generating a "similar" or "newer" version of the car. This is photo retouching, NOT redesign.
+- Creating a seamless white cyclorama / curved studio / bright empty white room.
 
-WALL:
-- Slightly warm off-white plastered wall (light cream tone: hex #F5F0E8 or similar).
-- Matte, painted plaster texture visible — not perfectly smooth digital white.
-- Wall extends upward with NO visible ceiling, NO top edge, NO molding. Just an infinite wall.
+✅ REQUIRED:
+- Treat the SOURCE CAR as a locked cut-out. Pixel-level identity preservation of the vehicle.
+- Only the ground beneath the car and everything behind/around it changes.
+- Background must match the SCENE REFERENCE: warm cream plaster wall (#F5F0E8), light grey polished concrete floor (#D5D0C8), visible straight horizontal skirting board (~10–15 cm, slightly darker cream), no ceiling, no curved cyclorama.
+- Soft realistic drop shadow under the original car on the concrete.
+- LOGO: place the exact Chrysler Dodge Pardubice black/silver shield logo from the LOGO REFERENCE in the TOP-RIGHT of the wall, clearly visible, proportional, sharp, 100% opacity. NEVER use a Chrysler wings logo, round disc, generic emblem or tiny watermark.
+- Lighting: even studio light, keep the car's original paint, reflections and gloss intact.
+- Keep comfortable padding around the car; do not crop it.
 
-FLOOR:
-- Light grey polished concrete (hex #D5D0C8 or similar).
-- Subtle concrete texture visible.
-- Clean, modern look.
-
-SKIRTING BOARD (SOKL):
-- A visible baseboard where the wall meets the floor.
-- Height: approx 10–15 cm.
-- Color: slightly darker cream tone than the wall, or light warm grey.
-- Clean, minimal profile — no decorative grooves.
-
-SHADOW:
-- Soft, realistic drop shadow cast by the car directly onto the concrete floor.
-- Light source from front-upper, studio style.
-- Shadow must be natural, not harsh or painted-looking.
-
-LIGHTING:
-- Bright, even studio lighting from the front and slightly above.
-- No dramatic highlights or reflections on the wall.
-- Car retains its original paint reflections and gloss.
-
-LOGO:
-- Use the exact Chrysler Dodge Pardubice black/silver shield logo from the reference image.
-- Do NOT use a Chrysler wings logo.
-- Do NOT invent a new logo, icon, badge, watermark, round mark, or tiny symbol.
-- Position: TOP RIGHT area exactly like the reference scene.
-- Size: clearly visible and proportional like the reference, not miniature.
-- Opacity: 100%, clean and sharp.
-
-CAR:
-- Extract the car from its original background with surgical precision.
-- Do NOT change the car's color, paint shade, reflections, or body shape.
-- Wheels and tires must remain perfectly sharp with correct proportions.
-- Window glass and chrome trim must retain realistic reflections.
-- If the car casts its own subtle reflection on the floor, it is welcome — but keep it very subtle.
-
-FINAL OUTPUT:
-- High-quality, photorealistic product image.
-- Do NOT add any text overlay except the Chrysler logo.
-- Do NOT crop the car. Keep comfortable padding around it.
-- Reject any result that looks like a white curved studio/cyclorama; regenerate internally until the reference wall, floor, skirting board and shield logo are visible.
-- Return the finished image. No code. No explanation.`;
+OUTPUT: a single photorealistic image. No text overlays (except the shield logo). No code. No explanation.`;
 
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
@@ -289,16 +255,16 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
     const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
+    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical. Do NOT replace it with a Pacifica or any other model. Identity-lock: same make, model, generation, color, wheels, plate, trim, dirt):" });
+    content.push({ type: "image_url", image_url: { url: carDataUrl } });
     if (bgDataUrl) {
-      content.push({ type: "text", text: "MANDATORY SCENE REFERENCE — MATCH THIS IMAGE EXACTLY. Copy the flat warm cream plaster wall, the straight horizontal baseboard/skirting board, the light grey polished concrete floor, the outdoor/showroom-like floor perspective, the soft car shadow, and the large black/silver Chrysler Dodge Pardubice shield logo on the wall in the upper-right/background area. Do NOT use a seamless white studio, curved cyclorama, ceiling, or generic showroom." });
+      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image — the car in INPUT 1 is the one to keep." });
       content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     }
     if (logoDataUrl) {
-      content.push({ type: "text", text: "EXACT LOGO REFERENCE — use this Chrysler Dodge Pardubice shield style only. It must appear on the wall like the reference photo. NEVER use Chrysler wings, a round disc, a random emblem, or a tiny watermark." });
+      content.push({ type: "text", text: "INPUT 3 — LOGO REFERENCE (place this exact Chrysler Dodge Pardubice shield in the TOP-RIGHT of the wall). NEVER use Chrysler wings or any other emblem." });
       content.push({ type: "image_url", image_url: { url: logoDataUrl } });
     }
-    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle — keep car 100% identical, only replace background to match the SCENE REFERENCE above):" });
-    content.push({ type: "image_url", image_url: { url: carDataUrl } });
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

@@ -11,32 +11,21 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
-const BG_FALLBACK_URLS = [
-  BG_PUBLIC_URL,
-  "https://chtysler-cz.lovable.app/showroom-background.jpg",
-  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
-];
+// NOVÁ STRATEGIE: AI dělá POUZE background removal (vyříznutí auta).
+// Fixní pozadí Pardubice se skládá až na frontendu přes CSS vrstvu.
+const SHOWROOM_PROMPT = `BACKGROUND REMOVAL ONLY — CAR CUTOUT FOR CHRYSLER & DODGE PARDUBICE
 
-// Zde definujeme nový, vysoce realistický prompt s důrazem na betonovou zem a stíny.
-const SHOWROOM_PROMPT = `REALISTIC VEHICLE BACKGROUND REPLACEMENT v2 — CHRYSLER & DODGE PARDUBICE
+ÚKOL:
+- Odstraň VEŠKERÉ pozadí z fotografie. Výsledkem musí být POUZE vozidlo (včetně jeho realistických kontaktních stínů pod koly) na zcela PRŮHLEDNÉM pozadí (alpha = 0).
 
-NEPŘEKRESLOVAT VOZIDLO (ABSOLUTNÍ PRIORITA):
-- Vozidlo ze SOURCE CAR PHOTO musí zůstat 1:1 identické. Nesmí se změnit kola, disky, světla, lak, zrcátka ani detaily.
-- ŽÁDNÉ zrcadlení, otáčení, deformace kol (kola musí zůstat dokonale kruhová).
-
-NOVÉ POZADÍ — ČISTÝ ŠEDÝ BETON A BÍLÁ STĚNA:
-- Nové pozadí tvoří vysoce realistická, světle šedá hladká betonová podlaha (podobná té v image_2.png) a čistá, souvislá bílá fasáda (jemná omítka).
-- Betonová podlaha musí mít jemnou, přirozenou texturu a realisticky se táhnout pod autem.
-
-REALISTICKÉ KONTAKTNÍ STÍNY:
-- Pod každou pneumatikou a pod celým podvozkem vozu vytvoř měkké, fotorealistické kontaktní stíny, které ladí s denním světlem. Auto musí pevně a přesvědčivě stát na zemi, nikoli levitovat.
-
-ZAKÁZÁNO:
-- NEPŘIDÁVEJ do obrázku ŽÁDNÉ LOGO, nápisy, studiový vzhled, CGI/3D prvky, nebe, střechy ani okapy. Pozadí nechej zcela čisté a fotorealistické.
+ABSOLUTNÍ ZÁKAZY:
+- NEGENERUJ žádnou novou zeď, žádnou novou zem, žádné nebe, žádný showroom, žádný gradient, žádnou barvu na pozadí.
+- NEPŘEKRESLUJ vozidlo. Nesmí se změnit kola, disky, světla, lak, zrcátka, SPZ, ani tvar karoserie.
+- NEZRCADLI, neotáčej a neměň perspektivu. Zachovej původní orientaci a kompozici auta 1:1.
+- NEPŘIDÁVEJ žádná loga, vodoznaky ani text.
 
 VÝSTUP:
-- Jeden finální, vysoce realistický obrázek.`;
+- Jeden PNG s transparentním pozadím obsahující POUZE vyříznuté auto se zachovanými kontaktními stíny pod pneumatikami.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -99,17 +88,6 @@ async function fetchAsDataUrl(url: string): Promise<{ dataUrl: string; contentTy
   return { dataUrl: `data:${contentType};base64,${btoa(bin)}`, contentType, bytes };
 }
 
-async function fetchBackground(): Promise<string> {
-  for (const u of BG_FALLBACK_URLS) {
-    try {
-      return (await fetchAsDataUrl(u)).dataUrl;
-    } catch (_) {
-      // try next background source
-    }
-  }
-  throw new Error("Reference showroom background is unreachable");
-}
-
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) throw new Error("Invalid data URL from AI");
@@ -159,7 +137,7 @@ Deno.serve(async (req) => {
       showroom_progress: 5,
       showroom_error: "",
     });
-    await appendHistory(admin, imageId, "queued", "Showroom generation queued");
+    await appendHistory(admin, imageId, "queued", "Background removal queued");
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
@@ -174,12 +152,9 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-    let bgDataUrl: string;
     let carDataUrl: string;
     try {
-      const [bg, car] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl)]);
-      bgDataUrl = bg;
-      carDataUrl = car.dataUrl;
+      carDataUrl = (await fetchAsDataUrl(sourceUrl)).dataUrl;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -193,10 +168,9 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
+    // POUZE auto + prompt na background removal. Žádné referenční pozadí se nepřikládá.
     const content: any[] = [
       { type: "text", text: SHOWROOM_PROMPT },
-      { type: "image_url", image_url: { url: bgDataUrl } },
-      { type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" },
       { type: "image_url", image_url: { url: carDataUrl } },
     ];
 
@@ -210,10 +184,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "google/gemini-2.5-flash-image",
         modalities: ["image", "text"],
-        messages: [{
-          role: "user",
-          content,
-        }],
+        messages: [{ role: "user", content }],
       }),
     });
 
@@ -258,7 +229,7 @@ Deno.serve(async (req) => {
       return json({ error: msg }, 502);
     }
 
-    if (bytes.byteLength < 50_000) {
+    if (bytes.byteLength < 20_000) {
       const msg = "AI output is too small; refusing to save broken image";
       await setImageState(admin, imageId, {
         showroom_status: "failed",
@@ -271,6 +242,8 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_progress: 90 });
 
+    // Pro průhlednost preferujeme PNG/WebP. Pokud AI vrátí JPEG, ukládáme s .jpg příponou
+    // (nebude průhledné, frontend si poradí - zobrazí ho přes pozadí jako fallback).
     const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
     const stamp = Date.now();
     const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
@@ -301,7 +274,7 @@ Deno.serve(async (req) => {
       showroom_error: "",
       showroom_generated_at: new Date().toISOString(),
     });
-    await appendHistory(admin, imageId, "generated", "Showroom image generated and stored separately");
+    await appendHistory(admin, imageId, "generated", "Car cutout (transparent) generated; background composited on client");
 
     return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
   } catch (e: any) {

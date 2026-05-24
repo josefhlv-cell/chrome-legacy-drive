@@ -436,9 +436,7 @@ export default function ShowroomTab() {
                 </div>
                 <div className="border border-border rounded-md overflow-hidden bg-secondary/20 flex flex-col">
                   <div className="px-3 py-2 text-xs uppercase tracking-wider text-primary">Live preview · Showroom</div>
-                  <div className="w-full aspect-video bg-background flex items-center justify-center">
-                    {selectedMain?.showroom_url ? <img src={selectedMain.showroom_url} alt="Showroom varianta" className="w-full h-auto max-h-full" /> : <EmptyImage />}
-                  </div>
+                  <ShowroomComposite src={selectedMain?.showroom_url} className="w-full aspect-video" />
                 </div>
               </div>
 

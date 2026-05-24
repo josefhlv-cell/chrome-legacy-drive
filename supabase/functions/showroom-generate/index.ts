@@ -279,12 +279,15 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
     const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
-    if (bgDataUrl) content.push({ type: "image_url", image_url: { url: bgDataUrl } });
+    if (bgDataUrl) {
+      content.push({ type: "text", text: "SCENE REFERENCE — MATCH THIS EXACTLY (background wall color & texture, grey concrete floor, skirting board, soft shadow under car, AND the Chrysler shield logo in the TOP-RIGHT corner with the same size, position and styling as shown). Replicate this scene 1:1 for the new car." });
+      content.push({ type: "image_url", image_url: { url: bgDataUrl } });
+    }
     if (logoDataUrl) {
       content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
       content.push({ type: "image_url", image_url: { url: logoDataUrl } });
     }
-    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
+    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle — keep car 100% identical, only replace background to match the SCENE REFERENCE above):" });
     content.push({ type: "image_url", image_url: { url: carDataUrl } });
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

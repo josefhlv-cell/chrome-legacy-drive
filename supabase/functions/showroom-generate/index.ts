@@ -25,7 +25,15 @@ const LOGO_FALLBACK_URLS = [
   "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
 ];
 
-const SHOWROOM_PROMPT = `ROLE: You are a professional automotive product photo editor. Your task is to place a car into a predefined studio showroom scene. Do NOT write any code. Return only the final edited image.
+const SHOWROOM_PROMPT = `ROLE: You are a professional automotive product photo editor. Your task is to replace only the car photo background with the exact provided Chrysler Pardubice showroom reference scene. Do NOT write any code. Return only the final edited image.
+
+ABSOLUTE PRIORITY:
+- The background must match the attached reference scene, not a generic studio.
+- Do NOT create a seamless white cyclorama.
+- Do NOT create a curved wall/floor transition.
+- Do NOT create a bright empty white studio.
+- The wall-to-floor boundary must be a straight horizontal line with a visible skirting board/baseboard.
+- The final image must look like the car is parked in front of the same flat plaster wall and grey concrete floor shown in the reference.
 
 REFERENCE SCENE (apply exactly to every car):
 
@@ -56,10 +64,11 @@ LIGHTING:
 - Car retains its original paint reflections and gloss.
 
 LOGO:
-- Chrysler silver wings logo.
-- Position: TOP RIGHT corner.
-- Size: small and discreet.
-- Padding: approx 40–60 px from top edge and 40–60 px from right edge.
+- Use the exact Chrysler Dodge Pardubice black/silver shield logo from the reference image.
+- Do NOT use a Chrysler wings logo.
+- Do NOT invent a new logo, icon, badge, watermark, round mark, or tiny symbol.
+- Position: TOP RIGHT area exactly like the reference scene.
+- Size: clearly visible and proportional like the reference, not miniature.
 - Opacity: 100%, clean and sharp.
 
 CAR:
@@ -73,6 +82,7 @@ FINAL OUTPUT:
 - High-quality, photorealistic product image.
 - Do NOT add any text overlay except the Chrysler logo.
 - Do NOT crop the car. Keep comfortable padding around it.
+- Reject any result that looks like a white curved studio/cyclorama; regenerate internally until the reference wall, floor, skirting board and shield logo are visible.
 - Return the finished image. No code. No explanation.`;
 
 

@@ -1,8 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-// Showroom pipeline v5 — Lovable AI Gemini Nano Banana (google/gemini-2.5-flash-image)
-// Sends the car photo + the ONE fixed Pardubice background as references.
-// Model returns a flat JPEG/PNG with the car composited onto the unchanged background.
+// Showroom pipeline v6 — Gemini cuts out the car (transparent PNG),
+// then the Deno server mathematically composites it onto the fixed
+// Pardubice background. Gemini NEVER decides position or scale.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { Image, decode } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -19,26 +20,21 @@ const BG_FALLBACKS = [
   "https://chtysler-cz.lovable.app/bg-new.jpg",
 ];
 
-const PROMPT = [
-  "Take the car from the FIRST image (the car photo).",
-  "Remove its entire original background completely (sky, road, trees, other cars — everything).",
-  "Place the car onto the SECOND image (the fixed showroom background) as a 1920x1080 output.",
-  "ABSOLUTE IDENTITY AND ORIENTATION LOCK — these rules are mandatory:",
-  "1) BEFORE editing, inspect the FIRST image and identify which side of the image contains the vehicle FRONT: grille, headlights, front bumper and front license plate. In the output, those exact front details MUST stay on the SAME image side. If the grille/front bumper is on the RIGHT side in the FIRST image, it must remain on the RIGHT side in the output. If it is on the LEFT side, it must remain on the LEFT side. NEVER mirror, flip, rotate, turn around, re-angle, or change the photographed side of the car.",
-  "1b) Preserve the exact visible side from the FIRST image. A right-front photo must remain right-front. A left-front photo must remain left-front. Rear lights, sliding doors, mirrors, wheel positions, badges and plate orientation must not swap sides. If preserving orientation conflicts with composition, preserving orientation wins.",
-  "1c) This is NOT a new car render and NOT a studio re-shoot. Treat the vehicle as a locked 2D foreground cutout from the FIRST image. Only remove the old background, scale the same cutout proportionally, and translate it onto the showroom floor. Do not synthesize a new angle.",
-  "2) Keep the vehicle itself 1:1 identical to the source photo except background removal and scale/position. No repainting, redesign, new wheels, new lights, changed trim, changed perspective, or AI re-rendered body shape.",
-  "PLACEMENT RULES — match the reference placement style:",
-  "3) Output canvas should keep the fixed background aspect ratio. The car must appear MUCH CLOSER TO THE CAMERA: scale it about 35–45% larger than a small catalog preview, large and low like the supplied reference placement. Do NOT make it small or high on the back wall.",
-  "4) Relative target: the car bounding box must fill about 76–82% of the final image width. The bottom tire contact line must be at 87–90% of final image height, leaving only about 10–13% image height as visible asphalt below the tires. Do NOT leave a large empty asphalt foreground under the car.",
-  "5) For a 1280x800 output this means roughly: car x=90–1120, tire baseline y=700–720, roof y=245–310. For a 1920x1080 output this means roughly: car x=135–1680, tire baseline y=940–970, roof y=330–420.",
-  "6) The visual center of the car should be slightly right of canvas center. The rear bumper/rear wheel must be visibly forward on the asphalt floor, not visually attached to the wall seam. There must be asphalt visible under the whole rear half of the vehicle.",
-  "7) ALL visible tires/wheels must touch the asphalt floor on the same baseline. Wheels must NEVER touch or overlap the wall, the logo, the ceiling, the columns or any vertical surface.",
-  "8) The floor-wall seam must stay BEHIND the car, while the tires sit BELOW that seam on asphalt. If any rear corner appears to sit on the wall, scale the car larger and move it down until the rear wheels clearly stand on asphalt.",
-  "9) The roof, bumpers, mirrors and all wheels must remain fully visible. Never crop the car. Never make the car tiny. Never place the car in the middle of the wall.",
-  "Keep the SECOND image (background) 100% pixel-perfect unchanged — do NOT alter the wall, the floor, the logos, the lighting, the columns or any background detail. Do not add reflections on the wall.",
-  "Add only a soft, realistic contact shadow directly UNDER the wheels on the asphalt floor so the car looks grounded.",
-  "Output a single flat photographic JPEG (no transparency, no checkerboard, no duplicates, exactly ONE car).",
+// Canvas + placement constants — math, not AI
+const CANVAS_W = 1920;
+const CANVAS_H = 1080;
+const CAR_HEIGHT_RATIO = 0.75;   // car height = 75% of canvas height
+const BOTTOM_MARGIN = 30;        // wheels 30px above bottom edge
+
+// Gemini does ONE job: clean cutout with transparent background.
+const CUTOUT_PROMPT = [
+  "Take the car in this image.",
+  "Remove the entire background completely (sky, road, ground, trees, other cars, people, buildings — everything that is not the vehicle).",
+  "Output a PNG with a fully TRANSPARENT background and ONLY the car remaining.",
+  "DO NOT mirror, flip, rotate or change the orientation of the car. Keep the exact left/right side as in the source.",
+  "DO NOT repaint, redesign, change wheels, lights, trim, color or perspective.",
+  "DO NOT add any new background, floor, shadow, reflection or scenery.",
+  "Crop tightly to the car bounding box. Preserve the car at maximum resolution. Output PNG with alpha.",
 ].join(" ");
 
 type AdminClient = ReturnType<typeof createClient>;
@@ -72,22 +68,22 @@ async function appendHistory(admin: AdminClient, id: string, event: string, deta
   await admin.from("vehicle_images").update({ showroom_history: next }).eq("id", id);
 }
 
-async function fetchAsDataUrl(url: string): Promise<string> {
+async function fetchBytes(url: string): Promise<Uint8Array> {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Fetch ${url} failed: ${r.status}`);
-  const ct = r.headers.get("content-type") || "image/jpeg";
-  const buf = new Uint8Array(await r.arrayBuffer());
-  // base64 encode
-  let bin = "";
-  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
-  const b64 = btoa(bin);
-  return `data:${ct};base64,${b64}`;
+  return new Uint8Array(await r.arrayBuffer());
 }
 
-async function fetchBgDataUrl(): Promise<string> {
+function bytesToDataUrl(bytes: Uint8Array, ct = "image/jpeg"): string {
+  let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return `data:${ct};base64,${btoa(bin)}`;
+}
+
+async function fetchBgBytes(): Promise<Uint8Array> {
   let lastErr: unknown;
   for (const u of BG_FALLBACKS) {
-    try { return await fetchAsDataUrl(u); } catch (e) { lastErr = e; }
+    try { return await fetchBytes(u); } catch (e) { lastErr = e; }
   }
   throw new Error(`Background unreachable: ${(lastErr as any)?.message ?? lastErr}`);
 }
@@ -102,7 +98,9 @@ function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: stri
   return { bytes, contentType };
 }
 
-async function generateWithGemini(carDataUrl: string, bgDataUrl: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+// Ask Gemini for a transparent-background cutout PNG of the car.
+async function geminiCutout(carBytes: Uint8Array, carCt: string): Promise<Uint8Array> {
+  const carDataUrl = bytesToDataUrl(carBytes, carCt);
   const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -111,16 +109,13 @@ async function generateWithGemini(carDataUrl: string, bgDataUrl: string): Promis
     },
     body: JSON.stringify({
       model: "google/gemini-2.5-flash-image",
-      messages: [
-        {
-          role: "user",
-          content: [
-            { type: "text", text: PROMPT },
-            { type: "image_url", image_url: { url: carDataUrl } },
-            { type: "image_url", image_url: { url: bgDataUrl } },
-          ],
-        },
-      ],
+      messages: [{
+        role: "user",
+        content: [
+          { type: "text", text: CUTOUT_PROMPT },
+          { type: "image_url", image_url: { url: carDataUrl } },
+        ],
+      }],
       modalities: ["image", "text"],
     }),
   });
@@ -132,8 +127,76 @@ async function generateWithGemini(carDataUrl: string, bgDataUrl: string): Promis
   }
   const data = await resp.json();
   const url: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
-  if (!url || !url.startsWith("data:")) throw new Error("Gemini returned no image");
-  return dataUrlToBytes(url);
+  if (!url || !url.startsWith("data:")) throw new Error("Gemini returned no cutout image");
+  const { bytes } = dataUrlToBytes(url);
+  return bytes;
+}
+
+// Crop transparent margins so the car bbox fills the PNG.
+function trimAlpha(img: Image): Image {
+  let minX = img.width, minY = img.height, maxX = -1, maxY = -1;
+  for (let y = 0; y < img.height; y++) {
+    for (let x = 0; x < img.width; x++) {
+      const px = img.getPixelAt(x + 1, y + 1); // ImageScript is 1-indexed
+      const alpha = px & 0xff;
+      if (alpha > 12) {
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+      }
+    }
+  }
+  if (maxX < 0) return img;
+  const w = maxX - minX + 1;
+  const h = maxY - minY + 1;
+  return img.crop(minX, minY, w, h);
+}
+
+// Mathematically compose: car centered horizontally, wheels 30px above bottom,
+// car height = 75% of canvas. Adds a soft elliptical shadow under the wheels.
+async function compose(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Uint8Array> {
+  const bgDecoded = await decode(bgBytes);
+  const bg = bgDecoded instanceof Image ? bgDecoded : (bgDecoded as any).frames?.[0] ?? bgDecoded;
+  const canvas = (bg as Image).resize(CANVAS_W, CANVAS_H);
+
+  const carDecoded = await decode(carPngBytes);
+  let car = carDecoded instanceof Image ? carDecoded : (carDecoded as any).frames?.[0] ?? carDecoded;
+  car = trimAlpha(car as Image);
+
+  const targetH = Math.round(CANVAS_H * CAR_HEIGHT_RATIO);
+  const scale = targetH / (car as Image).height;
+  const targetW = Math.max(1, Math.round((car as Image).width * scale));
+  car = (car as Image).resize(targetW, targetH);
+
+  const carX = Math.round((CANVAS_W - targetW) / 2);
+  const carY = CANVAS_H - targetH - BOTTOM_MARGIN;
+
+  // Soft elliptical shadow directly under the wheels
+  const shadowW = Math.round(targetW * 0.92);
+  const shadowH = Math.max(18, Math.round(targetH * 0.06));
+  const shadow = new Image(shadowW, shadowH);
+  const cx = shadowW / 2;
+  const cy = shadowH / 2;
+  for (let y = 0; y < shadowH; y++) {
+    for (let x = 0; x < shadowW; x++) {
+      const dx = (x - cx) / cx;
+      const dy = (y - cy) / cy;
+      const d = dx * dx + dy * dy;
+      if (d <= 1) {
+        const a = Math.round(140 * (1 - d) * (1 - d)); // soft falloff
+        shadow.setPixelAt(x + 1, y + 1, (0 << 24) | (0 << 16) | (0 << 8) | a);
+      }
+    }
+  }
+  const shadowX = Math.round((CANVAS_W - shadowW) / 2);
+  const shadowY = CANVAS_H - BOTTOM_MARGIN - Math.round(shadowH * 0.55);
+  (canvas as Image).composite(shadow, shadowX, shadowY);
+
+  (canvas as Image).composite(car as Image, carX, carY);
+
+  const out = await (canvas as Image).encodeJPEG(92);
+  return out;
 }
 
 Deno.serve(async (req) => {
@@ -163,7 +226,7 @@ Deno.serve(async (req) => {
     }
 
     await setState(admin, imageId, { showroom_status: "processing", showroom_progress: 10, showroom_error: "" });
-    await appendHistory(admin, imageId, "queued", "Gemini Nano Banana + fixed background");
+    await appendHistory(admin, imageId, "queued", "Gemini cutout + math compositor v6");
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
@@ -171,19 +234,29 @@ Deno.serve(async (req) => {
       return json({ error: "No source image" }, 400);
     }
 
-    const carDataUrl = await fetchAsDataUrl(sourceUrl);
-    await setState(admin, imageId, { showroom_progress: 30 });
+    // 1) Fetch source car photo
+    const carResp = await fetch(sourceUrl);
+    if (!carResp.ok) throw new Error(`Car source fetch ${carResp.status}`);
+    const carCt = carResp.headers.get("content-type") || "image/jpeg";
+    const carBytes = new Uint8Array(await carResp.arrayBuffer());
+    await setState(admin, imageId, { showroom_progress: 25 });
 
-    const bgDataUrl = await fetchBgDataUrl();
-    await setState(admin, imageId, { showroom_progress: 45 });
+    // 2) Gemini → transparent PNG cutout of the car
+    const cutoutPng = await geminiCutout(carBytes, carCt);
+    await setState(admin, imageId, { showroom_progress: 55 });
 
-    const { bytes: outBytes, contentType } = await generateWithGemini(carDataUrl, bgDataUrl);
-    await setState(admin, imageId, { showroom_progress: 85 });
+    // 3) Background bytes
+    const bgBytes = await fetchBgBytes();
+    await setState(admin, imageId, { showroom_progress: 70 });
 
-    const ext = contentType.includes("png") ? "png" : "jpg";
+    // 4) Math composite on server
+    const outBytes = await compose(bgBytes, cutoutPng);
+    const contentType = "image/jpeg";
+    await setState(admin, imageId, { showroom_progress: 88 });
+
     const stamp = Date.now();
-    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
-    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
+    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
+    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
     const opts = { contentType, upsert: true, cacheControl: "31536000" };
 
     const { error: upErr } = await admin.storage.from("vehicles").upload(filename, outBytes, opts);
@@ -200,7 +273,7 @@ Deno.serve(async (req) => {
       showroom_error: "",
       showroom_generated_at: new Date().toISOString(),
     });
-    await appendHistory(admin, imageId, "generated", "Gemini composite on fixed background");
+    await appendHistory(admin, imageId, "generated", "Gemini cutout + deterministic compositor");
 
     return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
   } catch (e: any) {

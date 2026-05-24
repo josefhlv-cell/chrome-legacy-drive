@@ -290,11 +290,11 @@ Deno.serve(async (req) => {
 
     const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
     if (bgDataUrl) {
-      content.push({ type: "text", text: "SCENE REFERENCE — MATCH THIS EXACTLY (background wall color & texture, grey concrete floor, skirting board, soft shadow under car, AND the Chrysler shield logo in the TOP-RIGHT corner with the same size, position and styling as shown). Replicate this scene 1:1 for the new car." });
+      content.push({ type: "text", text: "MANDATORY SCENE REFERENCE — MATCH THIS IMAGE EXACTLY. Copy the flat warm cream plaster wall, the straight horizontal baseboard/skirting board, the light grey polished concrete floor, the outdoor/showroom-like floor perspective, the soft car shadow, and the large black/silver Chrysler Dodge Pardubice shield logo on the wall in the upper-right/background area. Do NOT use a seamless white studio, curved cyclorama, ceiling, or generic showroom." });
       content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     }
     if (logoDataUrl) {
-      content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
+      content.push({ type: "text", text: "EXACT LOGO REFERENCE — use this Chrysler Dodge Pardubice shield style only. It must appear on the wall like the reference photo. NEVER use Chrysler wings, a round disc, a random emblem, or a tiny watermark." });
       content.push({ type: "image_url", image_url: { url: logoDataUrl } });
     }
     content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle — keep car 100% identical, only replace background to match the SCENE REFERENCE above):" });

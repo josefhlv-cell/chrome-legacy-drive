@@ -1,7 +1,9 @@
 // deno-lint-ignore-file no-explicit-any
-// Showroom pipeline v3 — Remove.bg with fixed background composite.
-// One identical background for every car. No AI generation. No checkerboard.
+// Showroom pipeline v4 — Remove.bg cutout (PNG) + server-side composite onto
+// the ONE fixed Pardubice background. No AI generation. No bg_image_url.
+// No duplicate cars. Identical pixel-perfect background for every vehicle.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -14,11 +16,13 @@ const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const REMOVEBG_API_KEY = Deno.env.get("REMOVEBG_API_KEY")!;
 
 // THE ONE AND ONLY showroom background. Never changes.
-const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
 const BG_FALLBACKS = [
-  BG_PUBLIC_URL,
+  "https://chdp.chryslerpardubice.site/showroom-background.jpg",
   "https://chtysler-cz.lovable.app/showroom-background.jpg",
 ];
+
+const CANVAS_W = 1920;
+const CANVAS_H = 1080;
 
 type AdminClient = ReturnType<typeof createClient>;
 
@@ -33,7 +37,9 @@ async function assertAdmin(req: Request): Promise<AdminClient | Response> {
   const { data } = await userClient.auth.getUser();
   if (!data?.user?.id) return json({ error: "Unauthorized" }, 401);
   const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
-  const { data: roleRow } = await admin.from("user_roles").select("role").eq("user_id", data.user.id).eq("role", "admin").maybeSingle();
+  const { data: roleRow } = await admin
+    .from("user_roles").select("role")
+    .eq("user_id", data.user.id).eq("role", "admin").maybeSingle();
   if (!roleRow) return json({ error: "Forbidden" }, 403);
   return admin;
 }
@@ -49,14 +55,85 @@ async function appendHistory(admin: AdminClient, id: string, event: string, deta
   await admin.from("vehicle_images").update({ showroom_history: next }).eq("id", id);
 }
 
-async function reachableBackgroundUrl(): Promise<string> {
+async function fetchBytes(url: string): Promise<Uint8Array> {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`Fetch ${url} failed: ${r.status}`);
+  return new Uint8Array(await r.arrayBuffer());
+}
+
+async function fetchBackgroundBytes(): Promise<Uint8Array> {
+  let lastErr: unknown;
   for (const u of BG_FALLBACKS) {
-    try {
-      const r = await fetch(u, { method: "HEAD" });
-      if (r.ok) return u;
-    } catch (_) { /* try next */ }
+    try { return await fetchBytes(u); } catch (e) { lastErr = e; }
   }
-  throw new Error("Showroom background URL unreachable");
+  throw new Error(`Background unreachable: ${(lastErr as any)?.message ?? lastErr}`);
+}
+
+async function removeBgPng(carBytes: Uint8Array): Promise<Uint8Array> {
+  const form = new FormData();
+  form.append("image_file", new Blob([carBytes], { type: "image/jpeg" }), "car.jpg");
+  form.append("size", "auto");
+  form.append("type", "car");
+  form.append("format", "png"); // transparent PNG — NO bg_image_url
+  const rb = await fetch("https://api.remove.bg/v1.0/removebg", {
+    method: "POST",
+    headers: { "X-Api-Key": REMOVEBG_API_KEY },
+    body: form,
+  });
+  if (!rb.ok) {
+    const t = await rb.text();
+    throw new Error(`Remove.bg ${rb.status}: ${t.slice(0, 300)}`);
+  }
+  const png = new Uint8Array(await rb.arrayBuffer());
+  if (png.byteLength < 5000) throw new Error("Remove.bg PNG too small");
+  return png;
+}
+
+// Compose: 1920x1080 background, car centered horizontally, bottom-aligned
+// with 40px gap, soft contact shadow ellipse beneath wheels.
+async function composite(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Uint8Array> {
+  const bg = await Image.decode(bgBytes);
+  const car = await Image.decode(carPngBytes);
+
+  // Scale background to canvas size (cover).
+  const bgScaled = bg.resize(CANVAS_W, CANVAS_H);
+
+  // Fit car into safe area: max 80% width, max 70% height of canvas, keep aspect.
+  const maxW = Math.floor(CANVAS_W * 0.8);
+  const maxH = Math.floor(CANVAS_H * 0.7);
+  const scale = Math.min(maxW / car.width, maxH / car.height, 1);
+  const carW = Math.max(1, Math.floor(car.width * scale));
+  const carH = Math.max(1, Math.floor(car.height * scale));
+  const carScaled = scale === 1 ? car : car.resize(carW, carH);
+
+  const carX = Math.floor((CANVAS_W - carW) / 2);
+  const carY = CANVAS_H - carH - 40;
+
+  // Soft contact shadow ellipse (semi-transparent dark band).
+  const shadow = new Image(carW, 40);
+  const cx = (carW - 1) / 2;
+  const cy = 20;
+  const rx = (carW * 0.42);
+  const ry = 14;
+  for (let y = 0; y < shadow.height; y++) {
+    for (let x = 0; x < shadow.width; x++) {
+      const dx = (x - cx) / rx;
+      const dy = (y - cy) / ry;
+      const d = dx * dx + dy * dy;
+      if (d <= 1) {
+        const alpha = Math.round(110 * (1 - Math.sqrt(d))); // soft falloff
+        if (alpha > 0) shadow.setPixelAt(x + 1, y + 1, Image.rgbaToColor(0, 0, 0, alpha));
+      }
+    }
+  }
+  const shadowY = carY + carH - 20;
+  bgScaled.composite(shadow, carX, shadowY);
+
+  // Car on top.
+  bgScaled.composite(carScaled, carX, carY);
+
+  const jpeg = await bgScaled.encodeJPEG(92);
+  return jpeg;
 }
 
 Deno.serve(async (req) => {
@@ -85,8 +162,8 @@ Deno.serve(async (req) => {
       return json({ ok: true, cached: true, showroom_url: (img as any).showroom_url });
     }
 
-    await setState(admin, imageId, { showroom_status: "queued", showroom_progress: 5, showroom_error: "" });
-    await appendHistory(admin, imageId, "queued", "Remove.bg pipeline queued");
+    await setState(admin, imageId, { showroom_status: "processing", showroom_progress: 10, showroom_error: "" });
+    await appendHistory(admin, imageId, "queued", "Remove.bg cutout + canvas composite");
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
@@ -94,81 +171,30 @@ Deno.serve(async (req) => {
       return json({ error: "No source image" }, 400);
     }
 
-    await setState(admin, imageId, { showroom_status: "processing", showroom_progress: 20 });
-
     // 1. Fetch source car photo
-    let carBlob: Blob;
-    try {
-      const r = await fetch(sourceUrl);
-      if (!r.ok) throw new Error(`Source ${r.status}`);
-      carBlob = await r.blob();
-    } catch (e: any) {
-      const msg = `Source fetch: ${e?.message ?? e}`;
-      await setState(admin, imageId, { showroom_status: "failed", showroom_progress: 0, showroom_error: msg });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
-    }
+    const carBytes = await fetchBytes(sourceUrl).catch((e) => { throw new Error(`Source: ${e.message}`); });
+    await setState(admin, imageId, { showroom_progress: 30 });
 
-    await setState(admin, imageId, { showroom_progress: 40 });
-
-    // 2. Resolve background URL (Remove.bg fetches it directly)
-    let bgUrl: string;
-    try {
-      bgUrl = await reachableBackgroundUrl();
-    } catch (e: any) {
-      const msg = `Background unreachable: ${e?.message ?? e}`;
-      await setState(admin, imageId, { showroom_status: "failed", showroom_progress: 0, showroom_error: msg });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
-    }
-
-    // 3. Remove.bg: cut car + composite onto THE fixed background in one call → final JPEG
-    const form = new FormData();
-    form.append("image_file", carBlob, "car.jpg");
-    form.append("size", "auto");
-    form.append("type", "car");
-    form.append("format", "jpg");
-    form.append("bg_image_url", bgUrl);
-
+    // 2. Remove.bg → transparent PNG
+    const carPng = await removeBgPng(carBytes);
     await setState(admin, imageId, { showroom_progress: 60 });
 
-    const rb = await fetch("https://api.remove.bg/v1.0/removebg", {
-      method: "POST",
-      headers: { "X-Api-Key": REMOVEBG_API_KEY },
-      body: form,
-    });
+    // 3. Background
+    const bgBytes = await fetchBackgroundBytes();
+    await setState(admin, imageId, { showroom_progress: 75 });
 
-    if (!rb.ok) {
-      const errText = await rb.text();
-      const msg = `Remove.bg ${rb.status}: ${errText.slice(0, 300)}`;
-      await setState(admin, imageId, { showroom_status: "failed", showroom_progress: 0, showroom_error: msg });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
-    }
-
-    const bytes = new Uint8Array(await rb.arrayBuffer());
-    if (bytes.byteLength < 20_000) {
-      const msg = "Remove.bg output too small";
-      await setState(admin, imageId, { showroom_status: "failed", showroom_progress: 0, showroom_error: msg });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 502);
-    }
-
-    await setState(admin, imageId, { showroom_progress: 85 });
+    // 4. Composite
+    const finalJpeg = await composite(bgBytes, carPng);
+    await setState(admin, imageId, { showroom_progress: 88 });
 
     const stamp = Date.now();
     const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
     const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
     const opts = { contentType: "image/jpeg", upsert: true, cacheControl: "31536000" };
 
-    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, opts);
-    if (upErr) {
-      const msg = `Upload: ${upErr.message}`;
-      await setState(admin, imageId, { showroom_status: "failed", showroom_progress: 0, showroom_error: msg });
-      await appendHistory(admin, imageId, "failed", msg);
-      return json({ error: msg }, 500);
-    }
-    await admin.storage.from("vehicles").upload(thumbFilename, bytes, opts).catch(() => null);
+    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, finalJpeg, opts);
+    if (upErr) throw new Error(`Upload: ${upErr.message}`);
+    await admin.storage.from("vehicles").upload(thumbFilename, finalJpeg, opts).catch(() => null);
 
     const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
     const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
@@ -180,11 +206,19 @@ Deno.serve(async (req) => {
       showroom_error: "",
       showroom_generated_at: new Date().toISOString(),
     });
-    await appendHistory(admin, imageId, "generated", "Remove.bg cut + fixed background composite");
+    await appendHistory(admin, imageId, "generated", "Cutout + fixed-background composite");
 
     return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
   } catch (e: any) {
     console.error("showroom-generate fatal:", e);
+    if (imageId) {
+      try {
+        await createClient(SUPABASE_URL, SERVICE_ROLE)
+          .from("vehicle_images")
+          .update({ showroom_status: "failed", showroom_progress: 0, showroom_error: String(e?.message ?? e).slice(0, 500) })
+          .eq("id", imageId);
+      } catch { /* ignore */ }
+    }
     return json({ error: e?.message ?? "Internal error", imageId }, 500);
   }
 });

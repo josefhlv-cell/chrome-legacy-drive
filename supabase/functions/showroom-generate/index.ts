@@ -20,11 +20,14 @@ const BG_FALLBACKS = [
   "https://chtysler-cz.lovable.app/bg-new.jpg",
 ];
 
-// Canvas + placement constants — math, not AI
+// Canvas + placement constants — math, not AI. Tuned to match the approved
+// reference: car close to camera, slightly left of logo, tires on asphalt.
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
-const CAR_HEIGHT_RATIO = 0.75;   // car height = 75% of canvas height
-const BOTTOM_MARGIN = 30;        // wheels 30px above bottom edge
+const CAR_WIDTH_RATIO = 0.70;          // visible car bbox ≈ 70% of output width
+const MAX_CAR_HEIGHT_RATIO = 0.55;     // reference roof-to-wheel visual height
+const CAR_CENTER_X_RATIO = 0.456;      // reference car visual center, not logo center
+const WHEEL_LINE_Y_RATIO = 0.920;      // tire contact line ≈ 92% from top
 
 // Gemini does ONE job: clean cutout with transparent background.
 const CUTOUT_PROMPT = [
@@ -132,6 +135,150 @@ async function geminiCutout(carBytes: Uint8Array, carCt: string): Promise<Uint8A
   return bytes;
 }
 
+function pixelToRgba(px: number) {
+  return { r: (px >>> 24) & 0xff, g: (px >>> 16) & 0xff, b: (px >>> 8) & 0xff, a: px & 0xff };
+}
+
+function rgbaToPixel(r: number, g: number, b: number, a: number) {
+  return (((r & 0xff) << 24) | ((g & 0xff) << 16) | ((b & 0xff) << 8) | (a & 0xff)) >>> 0;
+}
+
+function isEdgeMattePixel(px: number): boolean {
+  const { r, g, b, a } = pixelToRgba(px);
+  if (a <= 18) return true;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const neutral = max - min <= 18;
+  // Gemini sometimes returns a visible white/grey checkerboard instead of real alpha.
+  // Only edge-connected neutral light pixels are removed, so white cars are preserved.
+  return neutral && r >= 185 && g >= 185 && b >= 185;
+}
+
+// Remove fake transparent checkerboard/white matte connected to the PNG edges.
+// This is the critical guard: the mathematical scaler must see the CAR bbox,
+// not Gemini's whole square preview canvas.
+function removeEdgeMatte(img: Image): Image {
+  const w = img.width;
+  const h = img.height;
+  const seen = new Uint8Array(w * h);
+  const queue = new Int32Array(w * h);
+  let head = 0;
+  let tail = 0;
+
+  const enqueue = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const idx = y * w + x;
+    if (seen[idx]) return;
+    if (!isEdgeMattePixel(img.getPixelAt(x + 1, y + 1))) return;
+    seen[idx] = 1;
+    queue[tail++] = idx;
+  };
+
+  for (let x = 0; x < w; x++) {
+    enqueue(x, 0);
+    enqueue(x, h - 1);
+  }
+  for (let y = 0; y < h; y++) {
+    enqueue(0, y);
+    enqueue(w - 1, y);
+  }
+
+  while (head < tail) {
+    const idx = queue[head++];
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    enqueue(x + 1, y);
+    enqueue(x - 1, y);
+    enqueue(x, y + 1);
+    enqueue(x, y - 1);
+  }
+
+  for (let idx = 0; idx < seen.length; idx++) {
+    if (!seen[idx]) continue;
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const { r, g, b } = pixelToRgba(img.getPixelAt(x + 1, y + 1));
+    img.setPixelAt(x + 1, y + 1, rgbaToPixel(r, g, b, 0));
+  }
+  return img;
+}
+
+// After matte removal, keep only the vehicle-shaped connected alpha components.
+// This removes leftover checkerboard strips, preview frames and artificial boxes
+// without changing the car orientation or repainting the source pixels.
+function keepVehicleComponents(img: Image): Image {
+  const w = img.width;
+  const h = img.height;
+  const labels = new Int32Array(w * h);
+  const queue = new Int32Array(w * h);
+  const areas: number[] = [0];
+  const bounds: Array<{ minX: number; minY: number; maxX: number; maxY: number }> = [{ minX: 0, minY: 0, maxX: 0, maxY: 0 }];
+  let label = 0;
+
+  for (let sy = 0; sy < h; sy++) {
+    for (let sx = 0; sx < w; sx++) {
+      const startIdx = sy * w + sx;
+      if (labels[startIdx] !== 0) continue;
+      const startAlpha = img.getPixelAt(sx + 1, sy + 1) & 0xff;
+      if (startAlpha <= 12) continue;
+
+      label++;
+      let head = 0;
+      let tail = 0;
+      let area = 0;
+      let minX = sx, minY = sy, maxX = sx, maxY = sy;
+      labels[startIdx] = label;
+      queue[tail++] = startIdx;
+
+      while (head < tail) {
+        const idx = queue[head++];
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        area++;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+
+        const tryAdd = (nx: number, ny: number) => {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+          const nIdx = ny * w + nx;
+          if (labels[nIdx] !== 0) return;
+          const alpha = img.getPixelAt(nx + 1, ny + 1) & 0xff;
+          if (alpha <= 12) return;
+          labels[nIdx] = label;
+          queue[tail++] = nIdx;
+        };
+        tryAdd(x + 1, y);
+        tryAdd(x - 1, y);
+        tryAdd(x, y + 1);
+        tryAdd(x, y - 1);
+      }
+
+      areas[label] = area;
+      bounds[label] = { minX, minY, maxX, maxY };
+    }
+  }
+
+  const largest = Math.max(0, ...areas);
+  if (!largest) return img;
+  const keep = new Uint8Array(label + 1);
+  for (let i = 1; i <= label; i++) {
+    const b = bounds[i];
+    const touchesBorder = b.minX <= 1 || b.minY <= 1 || b.maxX >= w - 2 || b.maxY >= h - 2;
+    keep[i] = areas[i] >= largest * 0.012 && !(touchesBorder && areas[i] < largest * 0.08) ? 1 : 0;
+  }
+
+  for (let idx = 0; idx < labels.length; idx++) {
+    if (labels[idx] === 0 || keep[labels[idx]]) continue;
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const { r, g, b } = pixelToRgba(img.getPixelAt(x + 1, y + 1));
+    img.setPixelAt(x + 1, y + 1, rgbaToPixel(r, g, b, 0));
+  }
+  return img;
+}
+
 // Crop transparent margins so the car bbox fills the PNG.
 function trimAlpha(img: Image): Image {
   let minX = img.width, minY = img.height, maxX = -1, maxY = -1;
@@ -153,8 +300,8 @@ function trimAlpha(img: Image): Image {
   return img.crop(minX, minY, w, h);
 }
 
-// Mathematically compose: car centered horizontally, wheels 30px above bottom,
-// car height = 75% of canvas. Adds a soft elliptical shadow under the wheels.
+// Mathematically compose: real car bbox is scaled and positioned to match the
+// approved reference. Gemini never controls placement, scale or orientation.
 async function compose(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Uint8Array> {
   const bgDecoded = await decode(bgBytes);
   const bg = bgDecoded instanceof Image ? bgDecoded : (bgDecoded as any).frames?.[0] ?? bgDecoded;
@@ -162,15 +309,20 @@ async function compose(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Ui
 
   const carDecoded = await decode(carPngBytes);
   let car = carDecoded instanceof Image ? carDecoded : (carDecoded as any).frames?.[0] ?? carDecoded;
-  car = trimAlpha(car as Image);
+  car = trimAlpha(keepVehicleComponents(trimAlpha(removeEdgeMatte(car as Image))));
 
-  const targetH = Math.round(CANVAS_H * CAR_HEIGHT_RATIO);
-  const scale = targetH / (car as Image).height;
+  const maxTargetH = Math.round(CANVAS_H * MAX_CAR_HEIGHT_RATIO);
+  const targetByWidth = (CANVAS_W * CAR_WIDTH_RATIO) / (car as Image).width;
+  const targetByHeight = maxTargetH / (car as Image).height;
+  const scale = Math.min(targetByWidth, targetByHeight);
   const targetW = Math.max(1, Math.round((car as Image).width * scale));
+  const targetH = Math.max(1, Math.round((car as Image).height * scale));
   car = (car as Image).resize(targetW, targetH);
 
-  const carX = Math.round((CANVAS_W - targetW) / 2);
-  const carY = CANVAS_H - targetH - BOTTOM_MARGIN;
+  const wheelLineY = Math.round(CANVAS_H * WHEEL_LINE_Y_RATIO);
+  const idealCenterX = Math.round(CANVAS_W * CAR_CENTER_X_RATIO);
+  const carX = Math.max(0, Math.min(CANVAS_W - targetW, Math.round(idealCenterX - targetW / 2)));
+  const carY = Math.max(0, Math.min(CANVAS_H - targetH, wheelLineY - targetH));
 
   // Soft elliptical shadow directly under the wheels
   const shadowW = Math.round(targetW * 0.92);
@@ -190,7 +342,7 @@ async function compose(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Ui
     }
   }
   const shadowX = Math.round((CANVAS_W - shadowW) / 2);
-  const shadowY = CANVAS_H - BOTTOM_MARGIN - Math.round(shadowH * 0.55);
+  const shadowY = wheelLineY - Math.round(shadowH * 0.55);
   (canvas as Image).composite(shadow, shadowX, shadowY);
 
   (canvas as Image).composite(car as Image, carX, carY);

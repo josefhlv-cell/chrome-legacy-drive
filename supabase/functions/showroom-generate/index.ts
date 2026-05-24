@@ -11,11 +11,12 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
 const BG_FALLBACK_URLS = [
-  BG_PUBLIC_URL,
+  "https://chdp.chryslerpardubice.site/showroom-reference.jpg",
+  "https://chtysler-cz.lovable.app/showroom-reference.jpg",
+  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-reference.jpg",
+  "https://chdp.chryslerpardubice.site/showroom-background.jpg",
   "https://chtysler-cz.lovable.app/showroom-background.jpg",
-  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
 ];
 
 const LOGO_FALLBACK_URLS = [

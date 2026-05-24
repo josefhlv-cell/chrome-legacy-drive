@@ -203,6 +203,82 @@ function removeEdgeMatte(img: Image): Image {
   return img;
 }
 
+// After matte removal, keep only the vehicle-shaped connected alpha components.
+// This removes leftover checkerboard strips, preview frames and artificial boxes
+// without changing the car orientation or repainting the source pixels.
+function keepVehicleComponents(img: Image): Image {
+  const w = img.width;
+  const h = img.height;
+  const labels = new Int32Array(w * h);
+  const queue = new Int32Array(w * h);
+  const areas: number[] = [0];
+  const bounds: Array<{ minX: number; minY: number; maxX: number; maxY: number }> = [{ minX: 0, minY: 0, maxX: 0, maxY: 0 }];
+  let label = 0;
+
+  for (let sy = 0; sy < h; sy++) {
+    for (let sx = 0; sx < w; sx++) {
+      const startIdx = sy * w + sx;
+      if (labels[startIdx] !== 0) continue;
+      const startAlpha = img.getPixelAt(sx + 1, sy + 1) & 0xff;
+      if (startAlpha <= 12) continue;
+
+      label++;
+      let head = 0;
+      let tail = 0;
+      let area = 0;
+      let minX = sx, minY = sy, maxX = sx, maxY = sy;
+      labels[startIdx] = label;
+      queue[tail++] = startIdx;
+
+      while (head < tail) {
+        const idx = queue[head++];
+        const x = idx % w;
+        const y = Math.floor(idx / w);
+        area++;
+        if (x < minX) minX = x;
+        if (y < minY) minY = y;
+        if (x > maxX) maxX = x;
+        if (y > maxY) maxY = y;
+
+        const tryAdd = (nx: number, ny: number) => {
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) return;
+          const nIdx = ny * w + nx;
+          if (labels[nIdx] !== 0) return;
+          const alpha = img.getPixelAt(nx + 1, ny + 1) & 0xff;
+          if (alpha <= 12) return;
+          labels[nIdx] = label;
+          queue[tail++] = nIdx;
+        };
+        tryAdd(x + 1, y);
+        tryAdd(x - 1, y);
+        tryAdd(x, y + 1);
+        tryAdd(x, y - 1);
+      }
+
+      areas[label] = area;
+      bounds[label] = { minX, minY, maxX, maxY };
+    }
+  }
+
+  const largest = Math.max(0, ...areas);
+  if (!largest) return img;
+  const keep = new Uint8Array(label + 1);
+  for (let i = 1; i <= label; i++) {
+    const b = bounds[i];
+    const touchesBorder = b.minX <= 1 || b.minY <= 1 || b.maxX >= w - 2 || b.maxY >= h - 2;
+    keep[i] = areas[i] >= largest * 0.012 && !(touchesBorder && areas[i] < largest * 0.08) ? 1 : 0;
+  }
+
+  for (let idx = 0; idx < labels.length; idx++) {
+    if (labels[idx] === 0 || keep[labels[idx]]) continue;
+    const x = idx % w;
+    const y = Math.floor(idx / w);
+    const { r, g, b } = pixelToRgba(img.getPixelAt(x + 1, y + 1));
+    img.setPixelAt(x + 1, y + 1, rgbaToPixel(r, g, b, 0));
+  }
+  return img;
+}
+
 // Crop transparent margins so the car bbox fills the PNG.
 function trimAlpha(img: Image): Image {
   let minX = img.width, minY = img.height, maxX = -1, maxY = -1;
@@ -233,7 +309,7 @@ async function compose(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Ui
 
   const carDecoded = await decode(carPngBytes);
   let car = carDecoded instanceof Image ? carDecoded : (carDecoded as any).frames?.[0] ?? carDecoded;
-  car = trimAlpha(removeEdgeMatte(car as Image));
+  car = trimAlpha(keepVehicleComponents(trimAlpha(removeEdgeMatte(car as Image))));
 
   const maxTargetH = Math.round(CANVAS_H * MAX_CAR_HEIGHT_RATIO);
   const targetByWidth = (CANVAS_W * CAR_WIDTH_RATIO) / (car as Image).width;

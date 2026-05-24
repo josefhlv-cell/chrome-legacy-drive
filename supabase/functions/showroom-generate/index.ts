@@ -11,51 +11,32 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
+const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
 const BG_FALLBACK_URLS = [
-  "https://chdp.chryslerpardubice.site/showroom-reference.jpg",
-  "https://chtysler-cz.lovable.app/showroom-reference.jpg",
-  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-reference.jpg",
-  "https://chdp.chryslerpardubice.site/showroom-background.jpg",
+  BG_PUBLIC_URL,
   "https://chtysler-cz.lovable.app/showroom-background.jpg",
+  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
 ];
 
-const LOGO_FALLBACK_URLS = [
-  "https://chdp.chryslerpardubice.site/showroom-logo-shield.png",
-  "https://chtysler-cz.lovable.app/showroom-logo-shield.png",
-  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
-];
+// Zde definujeme nový, vysoce realistický prompt s důrazem na betonovou zem a stíny.
+const SHOWROOM_PROMPT = `REALISTIC VEHICLE BACKGROUND REPLACEMENT v2 — CHRYSLER & DODGE PARDUBICE
 
-const SHOWROOM_PROMPT = `SHOWROOM BACKGROUND SWAP v7 — STRICT ORIGINAL GEOMETRY LOCK
+NEPŘEKRESLOVAT VOZIDLO (ABSOLUTNÍ PRIORITA):
+- Vozidlo ze SOURCE CAR PHOTO musí zůstat 1:1 identické. Nesmí se změnit kola, disky, světla, lak, zrcátka ani detaily.
+- ŽÁDNÉ zrcadlení, otáčení, deformace kol (kola musí zůstat dokonale kruhová).
 
-ROLE: You are a professional automotive photo compositor. You receive THREE inputs in this exact order:
-  1) SOURCE CAR PHOTO — the real vehicle to keep.
-  2) SCENE REFERENCE — the showroom background to copy.
-  3) LOGO REFERENCE — the shield logo to place on the wall.
+NOVÉ POZADÍ — ČISTÝ ŠEDÝ BETON A BÍLÁ STĚNA:
+- Nové pozadí tvoří vysoce realistická, světle šedá hladká betonová podlaha (podobná té v image_2.png) a čistá, souvislá bílá fasáda (jemná omítka).
+- Betonová podlaha musí mít jemnou, přirozenou texturu a realisticky se táhnout pod autem.
 
-YOUR ONLY TASK: keep the SOURCE CAR PHOTO's vehicle 100% identical and keep its apparent size, perspective, crop, camera angle, lens look, wheelbase proportions, and placement inside the frame. Replace ONLY the surroundings (background + ground) with the SCENE REFERENCE. Add the LOGO on the wall.
+REALISTICKÉ KONTAKTNÍ STÍNY:
+- Pod každou pneumatikou a pod celým podvozkem vozu vytvoř měkké, fotorealistické kontaktní stíny, které ladí s denním světlem. Auto musí pevně a přesvědčivě stát na zemi, nikoli levitovat.
 
-⛔ ABSOLUTELY FORBIDDEN — automatic rejection:
-- Replacing the car with a different model (e.g. swapping a Town & Country / Voyager minivan for a Pacifica, or any other substitution).
-- Repainting the car (e.g. black → white, white → grey).
-- Changing wheels, rims, headlights, grille, badges, bumpers, body shape, or generation.
-- Removing the original license plate, dirt, scratches, or characteristic details.
-- Generating a "similar" or "newer" version of the car. This is photo retouching, NOT redesign.
-- Scaling, enlarging, shrinking, stretching, warping, re-framing, re-cropping, centering, rotating, or moving the car in a way that changes how large it appears versus the SOURCE CAR PHOTO.
-- Zooming into the final image or cropping away space that existed in the SOURCE CAR PHOTO.
-- Creating a seamless white cyclorama / curved studio / bright empty white room.
+ZAKÁZÁNO:
+- NEPŘIDÁVEJ do obrázku ŽÁDNÉ LOGO, nápisy, studiový vzhled, CGI/3D prvky, nebe, střechy ani okapy. Pozadí nechej zcela čisté a fotorealistické.
 
-✅ REQUIRED:
-- Treat the SOURCE CAR as a locked cut-out at the original scale. Pixel-level identity preservation of the vehicle.
-- Preserve the original canvas/framing as much as possible: same image orientation, same visible vehicle size, same crop boundaries, same perspective. Do not make the car larger.
-- Only the ground beneath the car and everything behind/around it changes. The vehicle itself is not normalized.
-- Background must match the SCENE REFERENCE: warm cream plaster wall (#F5F0E8), light grey polished concrete floor (#D5D0C8), visible straight horizontal skirting board (~10–15 cm, slightly darker cream), no ceiling, no curved cyclorama.
-- Soft realistic drop shadow under the original car on the concrete.
-- LOGO: place the exact Chrysler Dodge Pardubice black/silver shield logo from the LOGO REFERENCE in the TOP-RIGHT of the wall, clearly visible, proportional, sharp, 100% opacity. NEVER use a Chrysler wings logo, round disc, generic emblem or tiny watermark.
-- Lighting: even studio light, keep the car's original paint, reflections and gloss intact.
-- Keep comfortable padding around the car; do not crop it.
-
-OUTPUT: a single photorealistic image. No text overlays (except the shield logo). No code. No explanation.`;
-
+VÝSTUP:
+- Jeden finální, vysoce realistický obrázek.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -129,17 +110,6 @@ async function fetchBackground(): Promise<string> {
   throw new Error("Reference showroom background is unreachable");
 }
 
-async function fetchLogo(): Promise<string | null> {
-  for (const u of LOGO_FALLBACK_URLS) {
-    try {
-      return (await fetchAsDataUrl(u)).dataUrl;
-    } catch (_) {
-      // try next logo source
-    }
-  }
-  return null;
-}
-
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) throw new Error("Invalid data URL from AI");
@@ -154,38 +124,6 @@ function extractImageDataUrl(aiData: any): string | undefined {
   return aiData?.choices?.[0]?.message?.images?.[0]?.image_url?.url
     ?? aiData?.choices?.[0]?.message?.images?.[0]?.url
     ?? aiData?.choices?.[0]?.message?.content?.find?.((part: any) => part?.type === "image_url")?.image_url?.url;
-}
-
-async function saveShowroomImage(
-  admin: AdminClient,
-  img: any,
-  imageId: string,
-  bytes: Uint8Array,
-  contentType: string,
-  historyDetail: string,
-) {
-  const normalizedType = contentType.toLowerCase();
-  const ext = normalizedType === "image/png" ? "png" : normalizedType === "image/webp" ? "webp" : "jpg";
-  const stamp = Date.now();
-  const filename = `showroom/Web_Showroom/${img.vehicle_id}/${imageId}_${stamp}.${ext}`;
-  const thumbFilename = `showroom/Inzerce/${img.vehicle_id}/${imageId}_${stamp}.${ext}`;
-  const uploadOptions = { contentType: normalizedType, upsert: true, cacheControl: "31536000" };
-  const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, uploadOptions);
-  if (upErr) throw new Error(`Upload: ${upErr.message}`);
-  await admin.storage.from("vehicles").upload(thumbFilename, bytes, uploadOptions).catch(() => null);
-
-  const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
-  const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
-  await setImageState(admin, imageId, {
-    showroom_url: showroomUrl,
-    showroom_thumb_url: thumbUrl,
-    showroom_status: "done",
-    showroom_progress: 100,
-    showroom_error: "",
-    showroom_generated_at: new Date().toISOString(),
-  });
-  await appendHistory(admin, imageId, "generated", historyDetail);
-  return { showroomUrl, thumbUrl };
 }
 
 Deno.serve(async (req) => {
@@ -225,56 +163,47 @@ Deno.serve(async (req) => {
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
-      await setImageState(admin, imageId, { showroom_status: "none", showroom_progress: 0, showroom_error: "" });
-      await appendHistory(admin, imageId, "skipped", "No source image");
-      return json({ ok: true, skipped: true, reason: "No source image" });
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: "No source image",
+      });
+      await appendHistory(admin, imageId, "failed", "No source image");
+      return json({ error: "No source image" }, 400);
     }
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-    let bgDataUrl = "";
+    let bgDataUrl: string;
     let carDataUrl: string;
-    let carBytes: Uint8Array;
-    let carContentType: string;
-    let logoDataUrl: string | null = null;
     try {
-      const car = await fetchAsDataUrl(sourceUrl);
+      const [bg, car] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl)]);
+      bgDataUrl = bg;
       carDataUrl = car.dataUrl;
-      carBytes = car.bytes;
-      carContentType = ALLOWED_TYPES.includes(car.contentType.toLowerCase()) ? car.contentType : "image/jpeg";
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
-      await setImageState(admin, imageId, { showroom_status: "none", showroom_progress: 0, showroom_error: "" });
-      await appendHistory(admin, imageId, "skipped", msg);
-      return json({ ok: true, skipped: true, reason: msg });
-    }
-
-    try {
-      const [bg, logo] = await Promise.all([fetchBackground(), fetchLogo()]);
-      bgDataUrl = bg;
-      logoDataUrl = logo;
-    } catch (e: any) {
-      await appendHistory(admin, imageId, "fallback", `Reference assets unavailable: ${e?.message ?? e}`);
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: msg,
+      });
+      await appendHistory(admin, imageId, "failed", msg);
+      return json({ error: msg }, 502);
     }
 
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
-    const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
-    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical AND geometry-identical. Do NOT replace it, repaint it, enlarge it, shrink it, reframe it, recrop it, center it, or normalize its apparent size. Preserve the original visible vehicle size, crop, perspective, camera angle, plate, wheels, trim, dirt):" });
-    content.push({ type: "image_url", image_url: { url: carDataUrl } });
-    if (bgDataUrl) {
-      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image. Do NOT copy this image's car size, camera distance, crop, or framing — the car geometry and scale from INPUT 1 is locked." });
-      content.push({ type: "image_url", image_url: { url: bgDataUrl } });
-    }
-    if (logoDataUrl) {
-      content.push({ type: "text", text: "INPUT 3 — LOGO REFERENCE (place this exact Chrysler Dodge Pardubice shield in the TOP-RIGHT of the wall). NEVER use Chrysler wings or any other emblem." });
-      content.push({ type: "image_url", image_url: { url: logoDataUrl } });
-    }
+    const content: any[] = [
+      { type: "text", text: SHOWROOM_PROMPT },
+      { type: "image_url", image_url: { url: bgDataUrl } },
+      { type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" },
+      { type: "image_url", image_url: { url: carDataUrl } },
+    ];
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        "Lovable-API-Key": LOVABLE_API_KEY,
         "X-Lovable-AIG-SDK": "native-fetch",
         "Content-Type": "application/json",
       },
@@ -290,8 +219,16 @@ Deno.serve(async (req) => {
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();
-      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, `Fallback to original photo after AI ${aiResp.status}: ${errText.slice(0, 180)}`);
-      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
+      const msg = (aiResp.status === 429 || aiResp.status === 402)
+        ? "Služba je momentálně mimo provoz."
+        : `Služba je momentálně mimo provoz. (${aiResp.status})`;
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: msg,
+      });
+      await appendHistory(admin, imageId, "failed", msg);
+      return json({ error: msg }, 502);
     }
 
     await setImageState(admin, imageId, { showroom_progress: 75 });
@@ -299,29 +236,77 @@ Deno.serve(async (req) => {
     const aiData = await aiResp.json();
     const outDataUrl = extractImageDataUrl(aiData);
     if (!outDataUrl) {
-      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, "Fallback to original photo: AI returned no image");
-      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
+      const msg = "AI returned no image";
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: msg,
+      });
+      await appendHistory(admin, imageId, "failed", msg);
+      return json({ error: msg }, 502);
     }
 
     const { bytes, contentType } = dataUrlToBytes(outDataUrl);
     if (!ALLOWED_TYPES.includes(contentType)) {
-      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, `Fallback to original photo: unsupported AI output ${contentType}`);
-      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
+      const msg = `Unsupported output: ${contentType}`;
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: msg,
+      });
+      await appendHistory(admin, imageId, "failed", msg);
+      return json({ error: msg }, 502);
     }
 
     if (bytes.byteLength < 50_000) {
-      const fallback = await saveShowroomImage(admin, img, imageId, carBytes, carContentType, "Fallback to original photo: AI output too small");
-      return json({ ok: true, fallback: true, showroom_url: fallback.showroomUrl, showroom_thumb_url: fallback.thumbUrl });
+      const msg = "AI output is too small; refusing to save broken image";
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: msg,
+      });
+      await appendHistory(admin, imageId, "failed", msg);
+      return json({ error: msg }, 502);
     }
 
     await setImageState(admin, imageId, { showroom_progress: 90 });
 
-    const saved = await saveShowroomImage(admin, img, imageId, bytes, contentType, "Showroom image generated and stored separately");
+    const ext = contentType === "image/png" ? "png" : contentType === "image/webp" ? "webp" : "jpg";
+    const stamp = Date.now();
+    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
+    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
 
-    return json({ ok: true, showroom_url: saved.showroomUrl, showroom_thumb_url: saved.thumbUrl });
+    const uploadOptions = { contentType, upsert: true, cacheControl: "31536000" };
+    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, bytes, uploadOptions);
+    if (upErr) {
+      const msg = `Upload: ${upErr.message}`;
+      await setImageState(admin, imageId, {
+        showroom_status: "failed",
+        showroom_progress: 0,
+        showroom_error: msg,
+      });
+      await appendHistory(admin, imageId, "failed", msg);
+      return json({ error: msg }, 500);
+    }
+
+    await admin.storage.from("vehicles").upload(thumbFilename, bytes, uploadOptions).catch(() => null);
+
+    const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
+    const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
+    await setImageState(admin, imageId, {
+      showroom_url: showroomUrl,
+      showroom_thumb_url: thumbUrl,
+      showroom_status: "done",
+      showroom_progress: 100,
+      showroom_error: "",
+      showroom_generated_at: new Date().toISOString(),
+    });
+    await appendHistory(admin, imageId, "generated", "Showroom image generated and stored separately");
+
+    return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
   } catch (e: any) {
     console.error("showroom-generate fatal:", e);
-    return json({ ok: true, skipped: true, reason: e?.message ?? "Internal error", imageId });
+    return json({ error: e?.message ?? "Internal error", imageId }, 500);
   }
 });
 

@@ -102,6 +102,17 @@ async function fetchAsDataUrl(url: string): Promise<{ dataUrl: string; contentTy
   return { dataUrl: `data:${contentType};base64,${btoa(bin)}`, contentType, bytes };
 }
 
+async function fetchBackground(): Promise<string> {
+  for (const u of BG_FALLBACK_URLS) {
+    try {
+      return (await fetchAsDataUrl(u)).dataUrl;
+    } catch (_) {
+      // try next
+    }
+  }
+  throw new Error("Fixed showroom background is unreachable");
+}
+
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
   if (!m) throw new Error("Invalid data URL from AI");

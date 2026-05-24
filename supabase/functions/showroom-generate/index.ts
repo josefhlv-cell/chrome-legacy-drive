@@ -1,9 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
-// Showroom pipeline v4 — Remove.bg cutout (PNG) + server-side composite onto
-// the ONE fixed Pardubice background. No AI generation. No bg_image_url.
-// No duplicate cars. Identical pixel-perfect background for every vehicle.
+// Showroom pipeline v5 — Lovable AI Gemini Nano Banana (google/gemini-2.5-flash-image)
+// Sends the car photo + the ONE fixed Pardubice background as references.
+// Model returns a flat JPEG/PNG with the car composited onto the unchanged background.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -13,16 +12,22 @@ const corsHeaders = {
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-const REMOVEBG_API_KEY = Deno.env.get("REMOVEBG_API_KEY")!;
+const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-// THE ONE AND ONLY showroom background. Never changes.
 const BG_FALLBACKS = [
   "https://chdp.chryslerpardubice.site/showroom-background.jpg",
   "https://chtysler-cz.lovable.app/showroom-background.jpg",
 ];
 
-const CANVAS_W = 1920;
-const CANVAS_H = 1080;
+const PROMPT = [
+  "Take the car from the FIRST image (the car photo).",
+  "Remove its entire original background completely.",
+  "Place the car onto the SECOND image (the fixed showroom background).",
+  "Position it precisely: centered horizontally, wheels touching the ground/floor line.",
+  "Keep the SECOND image (background) 100% pixel-perfect unchanged — do NOT alter the wall, the floor, the logos, the lighting, or any other detail of the background.",
+  "Add a soft, realistic contact shadow under the wheels so the car looks grounded.",
+  "Output a single flat photographic image (no transparency, no checkerboard, no duplicates, only one car).",
+].join(" ");
 
 type AdminClient = ReturnType<typeof createClient>;
 
@@ -55,85 +60,68 @@ async function appendHistory(admin: AdminClient, id: string, event: string, deta
   await admin.from("vehicle_images").update({ showroom_history: next }).eq("id", id);
 }
 
-async function fetchBytes(url: string): Promise<Uint8Array> {
+async function fetchAsDataUrl(url: string): Promise<string> {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`Fetch ${url} failed: ${r.status}`);
-  return new Uint8Array(await r.arrayBuffer());
+  const ct = r.headers.get("content-type") || "image/jpeg";
+  const buf = new Uint8Array(await r.arrayBuffer());
+  // base64 encode
+  let bin = "";
+  for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i]);
+  const b64 = btoa(bin);
+  return `data:${ct};base64,${b64}`;
 }
 
-async function fetchBackgroundBytes(): Promise<Uint8Array> {
+async function fetchBgDataUrl(): Promise<string> {
   let lastErr: unknown;
   for (const u of BG_FALLBACKS) {
-    try { return await fetchBytes(u); } catch (e) { lastErr = e; }
+    try { return await fetchAsDataUrl(u); } catch (e) { lastErr = e; }
   }
   throw new Error(`Background unreachable: ${(lastErr as any)?.message ?? lastErr}`);
 }
 
-async function removeBgPng(carBytes: Uint8Array): Promise<Uint8Array> {
-  const form = new FormData();
-  form.append("image_file", new Blob([carBytes], { type: "image/jpeg" }), "car.jpg");
-  form.append("size", "auto");
-  form.append("type", "car");
-  form.append("format", "png"); // transparent PNG — NO bg_image_url
-  const rb = await fetch("https://api.remove.bg/v1.0/removebg", {
-    method: "POST",
-    headers: { "X-Api-Key": REMOVEBG_API_KEY },
-    body: form,
-  });
-  if (!rb.ok) {
-    const t = await rb.text();
-    throw new Error(`Remove.bg ${rb.status}: ${t.slice(0, 300)}`);
-  }
-  const png = new Uint8Array(await rb.arrayBuffer());
-  if (png.byteLength < 5000) throw new Error("Remove.bg PNG too small");
-  return png;
+function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
+  const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!m) throw new Error("Invalid data URL from model");
+  const contentType = m[1];
+  const bin = atob(m[2]);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, contentType };
 }
 
-// Compose: 1920x1080 background, car centered horizontally, bottom-aligned
-// with 40px gap, soft contact shadow ellipse beneath wheels.
-async function composite(bgBytes: Uint8Array, carPngBytes: Uint8Array): Promise<Uint8Array> {
-  const bg = await Image.decode(bgBytes);
-  const car = await Image.decode(carPngBytes);
-
-  // Scale background to canvas size (cover).
-  const bgScaled = bg.resize(CANVAS_W, CANVAS_H);
-
-  // Fit car into safe area: max 80% width, max 70% height of canvas, keep aspect.
-  const maxW = Math.floor(CANVAS_W * 0.8);
-  const maxH = Math.floor(CANVAS_H * 0.7);
-  const scale = Math.min(maxW / car.width, maxH / car.height, 1);
-  const carW = Math.max(1, Math.floor(car.width * scale));
-  const carH = Math.max(1, Math.floor(car.height * scale));
-  const carScaled = scale === 1 ? car : car.resize(carW, carH);
-
-  const carX = Math.floor((CANVAS_W - carW) / 2);
-  const carY = CANVAS_H - carH - 40;
-
-  // Soft contact shadow ellipse (semi-transparent dark band).
-  const shadow = new Image(carW, 40);
-  const cx = (carW - 1) / 2;
-  const cy = 20;
-  const rx = (carW * 0.42);
-  const ry = 14;
-  for (let y = 0; y < shadow.height; y++) {
-    for (let x = 0; x < shadow.width; x++) {
-      const dx = (x - cx) / rx;
-      const dy = (y - cy) / ry;
-      const d = dx * dx + dy * dy;
-      if (d <= 1) {
-        const alpha = Math.round(110 * (1 - Math.sqrt(d))); // soft falloff
-        if (alpha > 0) shadow.setPixelAt(x + 1, y + 1, Image.rgbaToColor(0, 0, 0, alpha));
-      }
-    }
+async function generateWithGemini(carDataUrl: string, bgDataUrl: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+  const resp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${LOVABLE_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash-image",
+      messages: [
+        {
+          role: "user",
+          content: [
+            { type: "text", text: PROMPT },
+            { type: "image_url", image_url: { url: carDataUrl } },
+            { type: "image_url", image_url: { url: bgDataUrl } },
+          ],
+        },
+      ],
+      modalities: ["image", "text"],
+    }),
+  });
+  if (!resp.ok) {
+    const t = await resp.text();
+    if (resp.status === 429) throw new Error("Rate limit exceeded on Lovable AI. Try again shortly.");
+    if (resp.status === 402) throw new Error("Lovable AI credits depleted. Add credits in Settings → Workspace → Usage.");
+    throw new Error(`Gemini ${resp.status}: ${t.slice(0, 400)}`);
   }
-  const shadowY = carY + carH - 20;
-  bgScaled.composite(shadow, carX, shadowY);
-
-  // Car on top.
-  bgScaled.composite(carScaled, carX, carY);
-
-  const jpeg = await bgScaled.encodeJPEG(92);
-  return jpeg;
+  const data = await resp.json();
+  const url: string | undefined = data?.choices?.[0]?.message?.images?.[0]?.image_url?.url;
+  if (!url || !url.startsWith("data:")) throw new Error("Gemini returned no image");
+  return dataUrlToBytes(url);
 }
 
 Deno.serve(async (req) => {
@@ -142,7 +130,7 @@ Deno.serve(async (req) => {
 
   let imageId = "";
   try {
-    if (!REMOVEBG_API_KEY) return json({ error: "REMOVEBG_API_KEY is not configured" }, 500);
+    if (!LOVABLE_API_KEY) return json({ error: "LOVABLE_API_KEY is not configured" }, 500);
     const adminOrResp = await assertAdmin(req);
     if (adminOrResp instanceof Response) return adminOrResp;
     const admin = adminOrResp;
@@ -163,7 +151,7 @@ Deno.serve(async (req) => {
     }
 
     await setState(admin, imageId, { showroom_status: "processing", showroom_progress: 10, showroom_error: "" });
-    await appendHistory(admin, imageId, "queued", "Remove.bg cutout + canvas composite");
+    await appendHistory(admin, imageId, "queued", "Gemini Nano Banana + fixed background");
 
     const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
     if (!sourceUrl) {
@@ -171,30 +159,24 @@ Deno.serve(async (req) => {
       return json({ error: "No source image" }, 400);
     }
 
-    // 1. Fetch source car photo
-    const carBytes = await fetchBytes(sourceUrl).catch((e) => { throw new Error(`Source: ${e.message}`); });
+    const carDataUrl = await fetchAsDataUrl(sourceUrl);
     await setState(admin, imageId, { showroom_progress: 30 });
 
-    // 2. Remove.bg → transparent PNG
-    const carPng = await removeBgPng(carBytes);
-    await setState(admin, imageId, { showroom_progress: 60 });
+    const bgDataUrl = await fetchBgDataUrl();
+    await setState(admin, imageId, { showroom_progress: 45 });
 
-    // 3. Background
-    const bgBytes = await fetchBackgroundBytes();
-    await setState(admin, imageId, { showroom_progress: 75 });
+    const { bytes: outBytes, contentType } = await generateWithGemini(carDataUrl, bgDataUrl);
+    await setState(admin, imageId, { showroom_progress: 85 });
 
-    // 4. Composite
-    const finalJpeg = await composite(bgBytes, carPng);
-    await setState(admin, imageId, { showroom_progress: 88 });
-
+    const ext = contentType.includes("png") ? "png" : "jpg";
     const stamp = Date.now();
-    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
-    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
-    const opts = { contentType: "image/jpeg", upsert: true, cacheControl: "31536000" };
+    const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
+    const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.${ext}`;
+    const opts = { contentType, upsert: true, cacheControl: "31536000" };
 
-    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, finalJpeg, opts);
+    const { error: upErr } = await admin.storage.from("vehicles").upload(filename, outBytes, opts);
     if (upErr) throw new Error(`Upload: ${upErr.message}`);
-    await admin.storage.from("vehicles").upload(thumbFilename, finalJpeg, opts).catch(() => null);
+    await admin.storage.from("vehicles").upload(thumbFilename, outBytes, opts).catch(() => null);
 
     const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
     const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
@@ -206,7 +188,7 @@ Deno.serve(async (req) => {
       showroom_error: "",
       showroom_generated_at: new Date().toISOString(),
     });
-    await appendHistory(admin, imageId, "generated", "Cutout + fixed-background composite");
+    await appendHistory(admin, imageId, "generated", "Gemini composite on fixed background");
 
     return json({ ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl });
   } catch (e: any) {

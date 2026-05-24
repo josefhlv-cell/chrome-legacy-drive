@@ -21,12 +21,17 @@ const BG_FALLBACKS = [
 
 const PROMPT = [
   "Take the car from the FIRST image (the car photo).",
-  "Remove its entire original background completely.",
-  "Place the car onto the SECOND image (the fixed showroom background).",
-  "Position it precisely: centered horizontally, wheels touching the ground/floor line.",
-  "Keep the SECOND image (background) 100% pixel-perfect unchanged — do NOT alter the wall, the floor, the logos, the lighting, or any other detail of the background.",
-  "Add a soft, realistic contact shadow under the wheels so the car looks grounded.",
-  "Output a single flat photographic image (no transparency, no checkerboard, no duplicates, only one car).",
+  "Remove its entire original background completely (sky, road, trees, other cars — everything).",
+  "Place the car onto the SECOND image (the fixed showroom background) as a 1920x1080 output.",
+  "STRICT POSITIONING RULES — follow exactly:",
+  "1) The car must stand with ALL FOUR WHEELS firmly on the ASPHALT FLOOR of the showroom. Wheels must NEVER touch or overlap the wall, the logo, the ceiling, the columns or any vertical surface.",
+  "2) Center the car HORIZONTALLY: equal empty space on the left and on the right side of the car.",
+  "3) Vertical placement: the bottom of the tires must sit approximately 40–60 pixels above the bottom edge of the image, clearly on the floor — never floating, never sunk into the floor, never against the back wall.",
+  "4) Scale: the car must occupy at most 70% of the image HEIGHT (roof well below the ceiling/logo). If the car would be taller, shrink it proportionally. Never crop the car.",
+  "5) The car must look like a real photo taken inside this showroom from a slight front-3/4 angle, fully visible (roof, all 4 wheels, both bumpers).",
+  "Keep the SECOND image (background) 100% pixel-perfect unchanged — do NOT alter the wall, the floor, the logos, the lighting, the columns or any background detail. Do not add reflections on the wall.",
+  "Add only a soft, realistic contact shadow directly UNDER the wheels on the asphalt floor so the car looks grounded.",
+  "Output a single flat photographic JPEG (no transparency, no checkerboard, no duplicates, exactly ONE car).",
 ].join(" ");
 
 type AdminClient = ReturnType<typeof createClient>;

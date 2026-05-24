@@ -427,14 +427,14 @@ export default function ShowroomTab() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-                <div className="border border-border rounded-md overflow-hidden bg-secondary/20">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">
+                <div className="border border-border rounded-md overflow-hidden bg-secondary/20 flex flex-col">
                   <div className="px-3 py-2 text-xs uppercase tracking-wider text-muted-foreground">Live preview · Originál</div>
-                  {selectedMain ? <img src={selectedMain.original_backup_url || selectedMain.image_url} alt="Originální fotografie" className="w-full aspect-video object-contain bg-background" /> : <EmptyImage />}
+                  {selectedMain ? <img src={selectedMain.original_backup_url || selectedMain.image_url} alt="Originální fotografie" className="w-full h-auto block bg-background" /> : <EmptyImage />}
                 </div>
-                <div className="border border-border rounded-md overflow-hidden bg-secondary/20">
+                <div className="border border-border rounded-md overflow-hidden bg-secondary/20 flex flex-col">
                   <div className="px-3 py-2 text-xs uppercase tracking-wider text-primary">Live preview · Showroom</div>
-                  {selectedMain?.showroom_url ? <img src={selectedMain.showroom_url} alt="Showroom varianta" className="w-full aspect-video object-contain bg-background" /> : <EmptyImage />}
+                  {selectedMain?.showroom_url ? <img src={selectedMain.showroom_url} alt="Showroom varianta" className="w-full h-auto block bg-background" /> : <EmptyImage />}
                 </div>
               </div>
 

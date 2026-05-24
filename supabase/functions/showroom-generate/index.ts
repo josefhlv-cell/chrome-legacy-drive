@@ -255,16 +255,16 @@ Deno.serve(async (req) => {
     await setImageState(admin, imageId, { showroom_progress: 35 });
 
     const content: any[] = [{ type: "text", text: SHOWROOM_PROMPT }];
+    content.push({ type: "text", text: "INPUT 1 — SOURCE CAR PHOTO (THIS is the vehicle you must keep, pixel-identical. Do NOT replace it with a Pacifica or any other model. Identity-lock: same make, model, generation, color, wheels, plate, trim, dirt):" });
+    content.push({ type: "image_url", image_url: { url: carDataUrl } });
     if (bgDataUrl) {
-      content.push({ type: "text", text: "MANDATORY SCENE REFERENCE — MATCH THIS IMAGE EXACTLY. Copy the flat warm cream plaster wall, the straight horizontal baseboard/skirting board, the light grey polished concrete floor, the outdoor/showroom-like floor perspective, the soft car shadow, and the large black/silver Chrysler Dodge Pardubice shield logo on the wall in the upper-right/background area. Do NOT use a seamless white studio, curved cyclorama, ceiling, or generic showroom." });
+      content.push({ type: "text", text: "INPUT 2 — SCENE REFERENCE (copy ONLY the background: warm cream plaster wall, straight horizontal skirting board, light grey polished concrete floor, soft shadow). Do NOT copy the car from this image — the car in INPUT 1 is the one to keep." });
       content.push({ type: "image_url", image_url: { url: bgDataUrl } });
     }
     if (logoDataUrl) {
-      content.push({ type: "text", text: "EXACT LOGO REFERENCE — use this Chrysler Dodge Pardubice shield style only. It must appear on the wall like the reference photo. NEVER use Chrysler wings, a round disc, a random emblem, or a tiny watermark." });
+      content.push({ type: "text", text: "INPUT 3 — LOGO REFERENCE (place this exact Chrysler Dodge Pardubice shield in the TOP-RIGHT of the wall). NEVER use Chrysler wings or any other emblem." });
       content.push({ type: "image_url", image_url: { url: logoDataUrl } });
     }
-    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle — keep car 100% identical, only replace background to match the SCENE REFERENCE above):" });
-    content.push({ type: "image_url", image_url: { url: carDataUrl } });
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",

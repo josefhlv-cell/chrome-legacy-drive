@@ -469,9 +469,9 @@ export default function ShowroomTab() {
                         <div className="bg-muted/50 px-2 py-1 text-center">Originál</div>
                         <div className="bg-primary/10 px-2 py-1 text-center text-primary">Showroom</div>
                       </div>
-                      <div className="grid grid-cols-2 aspect-[16/9] bg-background">
-                        <img src={img.original_backup_url || img.image_url} alt="Originál" className="w-full h-full object-contain border-r border-border bg-background" loading="lazy" />
-                        {img.showroom_url ? <img src={img.showroom_url} alt="Showroom" className="w-full h-full object-contain bg-background" loading="lazy" /> : <EmptyImage compact />}
+                      <div className="grid grid-cols-2 aspect-[32/9] bg-background">
+                        <img src={img.original_backup_url || img.image_url} alt="Originál" className="w-full h-full object-cover border-r border-border bg-background" loading="lazy" />
+                        {img.showroom_url ? <img src={img.showroom_url} alt="Showroom" className="w-full h-full object-cover bg-background" loading="lazy" /> : <EmptyImage compact />}
                       </div>
                       {(img.showroom_status === "queued" || img.showroom_status === "processing") && (
                         <div className="px-2 pt-2">

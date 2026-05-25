@@ -42,31 +42,43 @@ async function reencodeJpeg(
   opts: { maxLongSide: number; quality: number; targetMaxBytes?: number },
 ): Promise<Blob> {
   const bmp = await createImageBitmap(src);
-  const scale = Math.min(1, opts.maxLongSide / Math.max(bmp.width, bmp.height));
-  const w = Math.max(1, Math.round(bmp.width * scale));
-  const h = Math.max(1, Math.round(bmp.height * scale));
-  const canvas = typeof OffscreenCanvas !== "undefined"
-    ? new OffscreenCanvas(w, h)
-    : Object.assign(document.createElement("canvas"), { width: w, height: h });
-  const ctx = (canvas as HTMLCanvasElement).getContext("2d")!;
-  ctx.drawImage(bmp, 0, 0, w, h);
 
-  const toBlob = async (q: number): Promise<Blob> => {
+  const renderAt = async (longSide: number, quality: number): Promise<Blob> => {
+    const scale = Math.min(1, longSide / Math.max(bmp.width, bmp.height));
+    const w = Math.max(1, Math.round(bmp.width * scale));
+    const h = Math.max(1, Math.round(bmp.height * scale));
+    const canvas = typeof OffscreenCanvas !== "undefined"
+      ? new OffscreenCanvas(w, h)
+      : Object.assign(document.createElement("canvas"), { width: w, height: h });
+    const ctx = (canvas as HTMLCanvasElement).getContext("2d")!;
+    ctx.drawImage(bmp, 0, 0, w, h);
     if (canvas instanceof OffscreenCanvas) {
-      return await canvas.convertToBlob({ type: "image/jpeg", quality: q });
+      return await canvas.convertToBlob({ type: "image/jpeg", quality });
     }
     return await new Promise<Blob>((res) =>
-      (canvas as HTMLCanvasElement).toBlob((b) => res(b!), "image/jpeg", q),
+      (canvas as HTMLCanvasElement).toBlob((b) => res(b!), "image/jpeg", quality),
     );
   };
 
+  let longSide = opts.maxLongSide;
   let q = opts.quality;
-  let blob = await toBlob(q);
+  let blob = await renderAt(longSide, q);
+
   if (opts.targetMaxBytes) {
-    // Step down quality until under budget (min 0.45)
+    // Step 1: lower quality
     while (blob.size > opts.targetMaxBytes && q > 0.45) {
       q -= 0.07;
-      blob = await toBlob(q);
+      blob = await renderAt(longSide, q);
+    }
+    // Step 2: if still over, shrink dimensions in 15% steps (guarantees ≤ target)
+    while (blob.size > opts.targetMaxBytes && longSide > 800) {
+      longSide = Math.round(longSide * 0.85);
+      q = Math.max(q, 0.7);
+      blob = await renderAt(longSide, q);
+      while (blob.size > opts.targetMaxBytes && q > 0.45) {
+        q -= 0.07;
+        blob = await renderAt(longSide, q);
+      }
     }
   }
   return blob;

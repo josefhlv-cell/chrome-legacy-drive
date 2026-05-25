@@ -24,10 +24,12 @@ const BG_FALLBACKS = [
 // reference: car close to camera, slightly left of logo, tires on asphalt.
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
-const CAR_WIDTH_RATIO = 0.72;          // visible car bbox ≈ 72% of output width — catalog norm
-const MAX_CAR_HEIGHT_RATIO = 0.58;     // safety cap on roof-to-wheel visual height
+// Match the approved reference photo exactly: car fills ~76% of canvas width,
+// vertically ~76% height, wheels touch ground at ~82% of canvas height, centered.
+const CAR_WIDTH_RATIO = 0.76;          // visible car bbox ≈ 76% of output width
+const MAX_CAR_HEIGHT_RATIO = 0.78;     // safety cap on roof-to-wheel visual height
 const CAR_CENTER_X_RATIO = 0.50;       // strictly centered horizontally
-const WHEEL_LINE_Y_RATIO = 0.905;      // tire contact line on showroom floor
+const WHEEL_LINE_Y_RATIO = 0.82;       // tire contact line on showroom floor
 
 // Gemini does ONE job: clean cutout with transparent background.
 // STRICT: never redesign, repaint, rotate, mirror or regenerate the vehicle.

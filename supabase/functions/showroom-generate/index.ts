@@ -30,14 +30,18 @@ const CAR_CENTER_X_RATIO = 0.456;      // reference car visual center, not logo 
 const WHEEL_LINE_Y_RATIO = 0.920;      // tire contact line ≈ 92% from top
 
 // Gemini does ONE job: clean cutout with transparent background.
+// STRICT: never redesign, repaint, rotate, mirror or regenerate the vehicle.
 const CUTOUT_PROMPT = [
-  "Take the car in this image.",
-  "Remove the entire background completely (sky, road, ground, trees, other cars, people, buildings — everything that is not the vehicle).",
-  "Output a PNG with a fully TRANSPARENT background and ONLY the car remaining.",
-  "DO NOT mirror, flip, rotate or change the orientation of the car. Keep the exact left/right side as in the source.",
-  "DO NOT repaint, redesign, change wheels, lights, trim, color or perspective.",
-  "DO NOT add any new background, floor, shadow, reflection or scenery.",
-  "Crop tightly to the car bounding box. Preserve the car at maximum resolution. Output PNG with alpha.",
+  "TASK: Background removal only. This is NOT a creative redesign.",
+  "Take the vehicle in this image and remove the entire original background completely",
+  "(sky, road, ground, trees, other cars, people, buildings, signs — everything that is not the vehicle itself).",
+  "Output a PNG with a fully TRANSPARENT background and ONLY the original vehicle pixels remaining.",
+  "ABSOLUTELY FORBIDDEN: do not mirror, flip, rotate, re-angle, re-render, repaint, restyle or redesign the vehicle.",
+  "Keep the exact original orientation, exact original angle, exact original side (front/rear/left/right) as in the source photo.",
+  "Keep the original body, wheels, tires, headlights, grille, windows, license plate, paint color, reflections, door handles, mirrors and every original detail untouched, pixel-accurate.",
+  "Do NOT add any new background, floor, shadow, reflection, scenery, text, watermark or AI artifacts.",
+  "If masking is uncertain at the edge, keep the original vehicle edge pixels instead of inventing new detail.",
+  "Crop tightly to the vehicle bounding box. Preserve maximum resolution. Output PNG with real alpha channel.",
 ].join(" ");
 
 type AdminClient = ReturnType<typeof createClient>;

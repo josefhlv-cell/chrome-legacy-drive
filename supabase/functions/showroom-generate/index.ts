@@ -149,12 +149,41 @@ STRICTLY FORBIDDEN:
 Rule: PREFER small framing corrections OVER any visible geometric manipulation. If a normalization step would cause deformation, an unnatural look, or any loss of realism — DO NOT apply that step. Ship the source framing instead. Realism > uniformity, ALWAYS.
 
 ================================================
+PHYSICAL GROUNDING SYSTEM — HIGHEST VISUAL PRIORITY
+================================================
+The single most important visual goal of this edit is that the vehicle looks PHYSICALLY STANDING in the space — a real car photographed in front of the facade, NEVER a cut-out PNG floated onto a backdrop.
+
+You MUST achieve all of the following, together:
+- TIRE-TO-GROUND CONTACT: each tire visibly sits ON the asphalt strip with a dense, dark, soft-edged contact shadow directly beneath the contact patch (darkest exactly where the rubber meets the ground, fading outward). No gap, no glow, no halo, no floating tire.
+- AMBIENT OCCLUSION: a subtle darkening in the crevices under the body (under sills, under bumpers, inside wheel arches, under mirrors) where ambient light is naturally blocked. This is what kills the "sticker" look.
+- CAST SHADOW ON THE GROUND: a soft, directional cast shadow of the whole car on the asphalt, consistent with the sun direction implied by the highlights already on the car body. Shadow length, softness and angle must match the car's own lighting — never invent a new sun.
+- LIGHT HARMONIZATION: gently match the car's overall exposure, contrast, white balance and color temperature to the daylight on the white facade. Tone down any source-photo color cast that fights the scene, but NEVER repaint the car, NEVER change its body color, NEVER restyle reflections.
+- PERSPECTIVE & HORIZON LOCK: keep the camera height, focal length feel and horizon line of the SOURCE CAR PHOTO. The horizon implied by the facade/asphalt seam MUST align with the car's own perspective — wheels on the same ground plane, no tilted floor, no mismatched vanishing point, no "car shot from below pasted onto wall shot from eye level".
+- GROUND REFLECTION: a very faint, realistic wet-asphalt style reflection of the lowest part of the car (sill, bumper, tire bottom) onto the asphalt directly below. Extremely subtle — must read as "slightly damp matte asphalt", never as a mirror, never as a studio floor.
+- EDGE INTEGRATION: no mask edge, no chromatic fringe, no white halo, no over-sharpened silhouette. The car's outline must dissolve into the scene with natural micro-shadow, not a cut line.
+
+HARD BANS (these are the symptoms of a floating PNG — never ship any of them):
+- visible gap of light/asphalt between tire and ground
+- uniform soft glow or "stamp" shadow under the whole car with no contact darkening at the tires
+- car lit from one direction, scene lit from another
+- car horizon different from facade horizon (car looks tilted relative to wall)
+- crisp, hard, knife-cut silhouette around the body
+- any halo, outer glow, vignette ring, or AI "sticker" rim around the vehicle
+- mirror-like studio floor reflection
+- repainting, recoloring, restyling or re-rendering the vehicle to "match" the scene — grounding is achieved through SHADOW, LIGHT and PERSPECTIVE only, NEVER by modifying the car
+
+DO NOT CHANGE: vehicle identity, size, angle, side, proportions, framing, paint, wheels, trim, badges, plate, glass, details. Grounding is purely an ENVIRONMENTAL/LIGHTING edit around and beneath the car.
+
+If you cannot satisfy this Physical Grounding System without altering the vehicle, return the source image unchanged. A clean ungrounded source is still better than a deformed car.
+
+================================================
 REALISTIC BLENDING
 ================================================
 - Segment the car / interior cleanly. Replace ONLY the original background / window view.
-- Natural soft contact shadows. Tires touch the asphalt believably.
+- Natural soft contact shadows. Tires touch the asphalt believably (see PHYSICAL GROUNDING SYSTEM above — mandatory).
 - Match light direction, contrast and white balance gently between subject and new background.
 - No halos, no mask edges, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look, no AI backdrop feel.
+
 
 ================================================
 OUTPUT

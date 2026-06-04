@@ -45,9 +45,11 @@ PRIORITY ORDER (apply in this order, never break a higher rule for a lower one)
 ================================================
 1) CAR / INTERIOR IDENTITY — LOCKED.
 2) PHOTOREALISM — natural light, real shadows, real material.
-3) NATURAL LIGHT — preserve the original light direction and daylight feel.
-4) COMPOSITION NORMALIZATION — gently unify framing.
-5) SHOWROOM BACKGROUND — applied last, never at the cost of realism.
+3) PHYSICAL GROUNDING — tire contact shadows, ambient occlusion, cast shadow, matching horizon/perspective. The car MUST look physically standing in the space, never a floating cut-out.
+4) NATURAL LIGHT — preserve the original light direction and daylight feel; harmonize gently with the scene.
+5) COMPOSITION NORMALIZATION — gently unify framing.
+6) SHOWROOM BACKGROUND — applied last, never at the cost of realism or grounding.
+
 
 If you cannot satisfy rules 1 and 2 at the same time, return the source as-is. NEVER ship a deformed, fake, plastic, CGI, studio-burn, AI-fantasy or halo result.
 

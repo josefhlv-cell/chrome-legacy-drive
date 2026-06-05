@@ -438,8 +438,17 @@ const VehiclesTab = () => {
   };
 
   const handleCreate = () => {
-    if (!newData.name || !newData.price_with_vat) {
-      toast({ title: "Vyplňte název a cenu", variant: "destructive" });
+    // Validace: pouze povinné minimum (název + cena). AI cenový tip je
+    // POUZE doporučení — i pokud admin s AI nesouhlasí, uložení se NEBLOKUJE.
+    const missing: string[] = [];
+    if (!newData.name) missing.push("Název");
+    if (!newData.price_with_vat || newData.price_with_vat <= 0) missing.push("Cena");
+    if (missing.length) {
+      toast({
+        title: "Nelze uložit vůz",
+        description: `Vyplňte povinná pole: ${missing.join(", ")}.`,
+        variant: "destructive",
+      });
       return;
     }
     createVehicle.mutate(newData, {
@@ -456,7 +465,11 @@ const VehiclesTab = () => {
             }
             toast({ title: `Vůz přidán · ${newPhotos.length} fotek nahráno` });
           } catch (e: any) {
-            toast({ title: "Vůz přidán, ale nahrávání fotek selhalo", description: e?.message, variant: "destructive" });
+            toast({
+              title: "Vůz přidán, ale nahrávání fotek selhalo",
+              description: e?.message || "Neznámá chyba při nahrávání fotek.",
+              variant: "destructive",
+            });
           } finally {
             setUploadingFor(null);
           }
@@ -469,7 +482,6 @@ const VehiclesTab = () => {
           toast({ title: "Generuji showroom pozadí…", description: "AI úprava titulní fotky" });
           (async () => {
             try {
-              // pick main image (first that was isMain), fallback first
               const mainIdx = newPhotos.findIndex((p) => p.isMain);
               const targetIds = showroomMode === "exterior"
                 ? createdImgIds.slice(0, 6)
@@ -481,7 +493,7 @@ const VehiclesTab = () => {
               }
               toast({ title: "Showroom pozadí aplikováno" });
             } catch (e: any) {
-              toast({ title: "Showroom selhal", description: e?.message, variant: "destructive" });
+              toast({ title: "Showroom selhal", description: e?.message || "Neznámá chyba", variant: "destructive" });
             }
           })();
         }
@@ -490,6 +502,24 @@ const VehiclesTab = () => {
         setNewPhotos([]);
         setShowNew(false);
         setNewData(emptyVehicle);
+      },
+      onError: (err: any) => {
+        // KRITICKÉ: pokud DB vrátí chybu (RLS, NOT NULL, duplicitní VIN,
+        // chybějící oprávnění apod.) — adminovi VŽDY ukážeme konkrétní důvod,
+        // ať neřeší tichý fail.
+        const raw = err?.message || err?.error_description || err?.hint || "Neznámá chyba databáze.";
+        const code = err?.code ? ` (kód: ${err.code})` : "";
+        let humanized = raw;
+        if (/duplicate key|already exists/i.test(raw)) humanized = "Vůz s tímto VIN už v katalogu existuje.";
+        else if (/violates not-null/i.test(raw)) humanized = `Chybí povinné pole: ${raw}`;
+        else if (/row-level security|permission denied|not authorized/i.test(raw)) humanized = "Nemáte oprávnění přidat vůz (přihlaste se znovu jako admin).";
+        else if (/network|fetch|Failed to fetch/i.test(raw)) humanized = "Výpadek spojení s databází — zkuste to znovu.";
+        toast({
+          title: "Vůz se nepodařilo uložit",
+          description: `${humanized}${code}`,
+          variant: "destructive",
+        });
+        console.error("[Admin] createVehicle failed:", err);
       },
     });
   };

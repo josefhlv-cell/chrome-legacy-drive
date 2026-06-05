@@ -817,16 +817,21 @@ const VehiclesTab = () => {
               onChange={(patch) => setNewData({ ...newData, ...patch } as any)}
             />
           </div>
-          <div className="flex gap-3 mt-4">
-            <button onClick={handleCreate} disabled={createVehicle.isPending || uploadingFor !== null} className="chrome-button inline-flex items-center gap-2 text-sm">
-              {(createVehicle.isPending || uploadingFor !== null) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-              {uploadingFor ? "Nahrávám fotky..." : "Uložit"}
-            </button>
-            <button onClick={() => {
-              newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-              setNewPhotos([]);
-              setShowNew(false); setNewData(emptyVehicle);
-            }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
+          <div className="flex flex-col gap-2 mt-4">
+            <div className="flex gap-3">
+              <button onClick={handleCreate} disabled={createVehicle.isPending || uploadingFor !== null} className="chrome-button inline-flex items-center gap-2 text-sm">
+                {(createVehicle.isPending || uploadingFor !== null) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                {uploadingFor ? "Nahrávám fotky..." : "Uložit"}
+              </button>
+              <button onClick={() => {
+                newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
+                setNewPhotos([]);
+                setShowNew(false); setNewData(emptyVehicle);
+              }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
+            </div>
+            <p className="text-[11px] text-muted-foreground">
+              💡 AI Smart Price Check je pouze doporučení — vůz se uloží i v případě, že s navrženou cenou nesouhlasíte.
+            </p>
           </div>
         </motion.div>
       )}

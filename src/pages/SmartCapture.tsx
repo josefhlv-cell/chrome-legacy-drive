@@ -51,6 +51,8 @@ export default function SmartCapture() {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [busy, setBusy] = useState(false);
+  const [queueCount, setQueueCount] = useState(0);   // ⚡ kolik fotek se zpracovává na pozadí
+  const [shutterFlash, setShutterFlash] = useState(false);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
   const [vinScanning, setVinScanning] = useState(false);

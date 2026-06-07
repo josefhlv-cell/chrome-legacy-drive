@@ -813,13 +813,56 @@ export default function SmartCapture() {
           </div>
 
           <div className="space-y-2 max-w-md mx-auto">
-            <Button onClick={handleExportZip} disabled={busy || photos.length === 0 || !requiredInfoFilled}
+            {/* Diktování údajů hlasem */}
+            {voiceEnabledSetting && !voiceUnsupported && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const v = voiceRef.current; if (!v) return;
+                  if (dictating) {
+                    v.setDictationHandler(null);
+                    v.stop();
+                    setDictating(false);
+                    toast({ title: "Diktování ukončeno" });
+                  } else {
+                    v.setDictationHandler((text) => {
+                      const parsed = parseDictation(text);
+                      if (Object.keys(parsed).length === 0) {
+                        // Nothing structured — push to description
+                        setVehicleInfo((s) => ({ ...s, description: ((s.description ?? "") + " " + text).trim() }));
+                      } else {
+                        setVehicleInfo((s) => ({ ...s, ...parsed }));
+                      }
+                      toast({ title: "Zaznamenáno", description: text });
+                    });
+                    v.start();
+                    setDictating(true);
+                    toast({ title: "Diktování spuštěno", description: "Např.: značka Škoda, model Octavia, rok 2018, najezd 120000, cena 250000, nafta automat." });
+                  }
+                }}
+                className={`w-full border-white/20 bg-transparent ${dictating ? "ring-2 ring-emerald-400/60" : ""}`}>
+                {dictating ? <MicOff className="mr-2" size={16} /> : <Mic className="mr-2" size={16} />}
+                {dictating ? "Zastavit diktování" : "Nadiktovat údaje o voze"}
+              </Button>
+            )}
+
+            <Button onClick={() => handleExportZip()} disabled={busy || photos.length === 0 || !requiredInfoFilled}
               className="w-full bg-white text-black hover:bg-white/90 disabled:bg-white/30 disabled:text-white/60">
               {busy ? <Loader2 className="animate-spin mr-2" size={16} /> : <Download className="mr-2" size={16} />}
               {requiredInfoFilled
                 ? "Exportovat ZIP (original + inzertní 1MB + web + info.txt)"
                 : "Vyplňte povinné údaje o voze"}
             </Button>
+
+            {/* Přeskočit info — dokončit i bez vyplnění */}
+            {!requiredInfoFilled && (
+              <Button onClick={() => handleExportZip({ skipInfo: true })} disabled={busy || photos.length === 0}
+                variant="outline"
+                className="w-full border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-200">
+                <SkipForward className="mr-2" size={16} /> Přeskočit údaje a exportovat ZIP
+              </Button>
+            )}
+
             <Button variant="outline" onClick={async () => {
               await startCamera(); setPhase("capturing");
             }} className="w-full border-white/20 bg-transparent">

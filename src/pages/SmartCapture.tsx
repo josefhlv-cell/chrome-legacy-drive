@@ -302,6 +302,70 @@ export default function SmartCapture() {
     setPhase("review");
   };
 
+  // ===== Voice control =====
+  const handleVoiceCommand = useCallback((cmd: VoiceCommand) => {
+    if (phase !== "capturing") {
+      if (cmd === "done" && phase === "vin") finishToReview();
+      return;
+    }
+    switch (cmd) {
+      case "shot": void handleShot(); break;
+      case "next": setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1)); break;
+      case "prev": setCurrentStepIdx((i) => Math.max(0, i - 1)); break;
+      case "retake": {
+        const last = photos[photos.length - 1] as { id: string } | undefined;
+        if (last && sessionId) {
+          deletePhoto.mutate({ id: last.id, sessionId });
+          setCurrentStepIdx((i) => Math.max(0, i - 1));
+        }
+        break;
+      }
+      case "vin": setPhase("vin"); break;
+      case "done": finishToReview(); break;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, photos, sessionId, totalSteps]);
+
+  // Init voice controller once
+  useEffect(() => {
+    if (voiceRef.current) return;
+    const v = createVoiceController();
+    voiceRef.current = v;
+    if (!v.isSupported) setVoiceUnsupported(true);
+  }, []);
+
+  // Always feed latest handler into voice controller
+  useEffect(() => {
+    voiceRef.current?.setHandler((cmd) => handleVoiceCommand(cmd));
+  }, [handleVoiceCommand]);
+
+  // Auto-start voice when capturing & enabled; stop on unmount/leave
+  useEffect(() => {
+    const v = voiceRef.current;
+    if (!v || !v.isSupported) return;
+    if (phase === "capturing" && voiceEnabledSetting) {
+      v.start(); setVoiceActive(true);
+    } else if (!dictating) {
+      v.stop(); setVoiceActive(false);
+    }
+    return () => { if (phase !== "capturing" && !dictating) v.stop(); };
+  }, [phase, voiceEnabledSetting, dictating]);
+
+  // ===== Horizon (gyroscope) =====
+  useEffect(() => {
+    if (!horizonEnabledSetting || phase !== "capturing") {
+      horizonRef.current?.stop(); horizonRef.current = null;
+      setHorizonAngle(0);
+      return;
+    }
+    const h = createHorizonController(setHorizonAngle);
+    horizonRef.current = h;
+    void h.start();
+    return () => { h.stop(); horizonRef.current = null; };
+  }, [horizonEnabledSetting, phase]);
+
+
+
   // Prefill vehicle info from VIN-decoded data + saved session metadata
   useEffect(() => {
     if (!session) return;

@@ -395,12 +395,13 @@ export default function SmartCapture() {
     setVehicleInfo((s) => ({ ...s, [k]: v }));
   };
 
-  const handleExportZip = async () => {
+  const handleExportZip = async (opts?: { skipInfo?: boolean }) => {
     if (!sessionId) return;
-    if (!requiredInfoFilled) {
+    const skipInfo = !!opts?.skipInfo;
+    if (!skipInfo && !requiredInfoFilled) {
       toast({
         title: "Vyplňte informace o voze",
-        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis.",
+        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis — nebo použijte tlačítko Přeskočit.",
         variant: "destructive",
       });
       return;

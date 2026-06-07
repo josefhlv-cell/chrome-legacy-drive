@@ -360,24 +360,31 @@ export default function SmartCapture() {
   }
 
   return (
-    <div className="fixed inset-0 bg-black text-white z-50 flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-3 border-b border-white/10 shrink-0">
+      <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0 backdrop-blur-xl bg-black/40">
         <button onClick={() => { stopCamera(); navigate("/admin"); }}
-          className="p-2 rounded-full hover:bg-white/10">
+          className="p-2 rounded-full hover:bg-white/10 transition-colors">
           <X size={20} />
         </button>
         <div className="flex items-center gap-2 text-sm font-medium">
-          <Sparkles size={16} className="text-blue-400" />
+          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
+            <Sparkles size={12} />
+          </div>
           Smart Capture
-          {photos.length > 0 && <span className="text-white/60">· {photos.length} fotek</span>}
+          {photos.length > 0 && <span className="text-white/50 tabular-nums">· {photos.length}</span>}
+          {queueCount > 0 && (
+            <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-blue-300 bg-blue-500/15 px-2 py-0.5 rounded-full">
+              <Loader2 size={10} className="animate-spin" /> {queueCount}
+            </span>
+          )}
         </div>
         <button onClick={() => {
             if (phase === "review") { stopCamera(); navigate("/admin"); }
             else { finishToReview(); }
           }}
           disabled={phase !== "review" && photos.length === 0}
-          className="text-sm px-3 py-1.5 rounded-full bg-white text-black font-medium disabled:opacity-30">
+          className="text-sm px-4 py-1.5 rounded-full bg-white text-black font-medium disabled:opacity-30 hover:bg-white/90 transition">
           {phase === "review" ? "Zavřít" : "Hotovo"}
         </button>
       </header>

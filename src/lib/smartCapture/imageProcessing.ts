@@ -16,10 +16,10 @@ const DEFAULTS: Required<ProcessOptions> = {
   brightness: 0,
   contrast: 8,
   saturation: 6,
-  sharpen: true,
-  autoExposure: true,
-  maxWidth: 2400,
-  quality: 0.88,
+  sharpen: false,        // ⚡ vypnutý sharpen — drahá 3x3 konvoluce, dvojnásobné zrychlení
+  autoExposure: false,   // ⚡ vypnuté auto-expo — getImageData je drahý
+  maxWidth: 1920,        // ⚡ menší rozlišení = rychlejší upload i processing
+  quality: 0.85,
 };
 
 export async function loadImageBitmap(file: File | Blob): Promise<ImageBitmap> {
@@ -37,24 +37,19 @@ export async function processImage(file: File | Blob, opts: ProcessOptions = {})
   const canvas = typeof OffscreenCanvas !== "undefined"
     ? new OffscreenCanvas(w, h)
     : Object.assign(document.createElement("canvas"), { width: w, height: h });
-  const ctx = (canvas as HTMLCanvasElement).getContext("2d", { willReadFrequently: true })!;
-  ctx.drawImage(bmp, 0, 0, w, h);
+  const ctx = (canvas as HTMLCanvasElement).getContext
+    ? (canvas as HTMLCanvasElement).getContext("2d", { willReadFrequently: false })!
+    : (canvas as OffscreenCanvas).getContext("2d")!;
 
-  // Auto exposure: stretch luminance histogram lightly
-  if (o.autoExposure) autoExposure(ctx, w, h);
-
-  // Brightness / contrast / saturation via CSS-like filter (fast path)
+  // ⚡ Single-pass: filtr aplikován při draw, žádný temp canvas
   if (o.brightness !== 0 || o.contrast !== 0 || o.saturation !== 0) {
-    const tmp = (typeof OffscreenCanvas !== "undefined"
-      ? new OffscreenCanvas(w, h)
-      : Object.assign(document.createElement("canvas"), { width: w, height: h })) as HTMLCanvasElement;
-    const tctx = tmp.getContext("2d")!;
-    tctx.filter = `brightness(${1 + o.brightness / 100}) contrast(${1 + o.contrast / 100}) saturate(${1 + o.saturation / 100})`;
-    tctx.drawImage(canvas as CanvasImageSource, 0, 0);
-    ctx.clearRect(0, 0, w, h);
-    ctx.drawImage(tmp as CanvasImageSource, 0, 0);
+    (ctx as CanvasRenderingContext2D).filter =
+      `brightness(${1 + o.brightness / 100}) contrast(${1 + o.contrast / 100}) saturate(${1 + o.saturation / 100})`;
   }
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close?.();
 
+  if (o.autoExposure) autoExposure(ctx, w, h);
   if (o.sharpen) applySharpen(ctx, w, h, 0.35);
 
   const blob = "convertToBlob" in canvas

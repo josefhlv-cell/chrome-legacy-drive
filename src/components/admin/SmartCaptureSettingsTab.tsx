@@ -36,6 +36,8 @@ const FEATURES: FeatureToggle[] = [
   { key: "quality_score_enabled", label: "Skóre kvality prezentace" },
   { key: "auto_360_generation", label: "Generování 360° pohledu" },
   { key: "background_video_capture", label: "Video na pozadí pro 360°" },
+  { key: "voice_control", label: "Hlasové ovládání (další / zpět / vyfotit / přefotit + diktování)" },
+  { key: "horizon_auto_level", label: "Auto-rovnání horizontu (gyroskop)" },
 ];
 
 export default function SmartCaptureSettingsTab() {

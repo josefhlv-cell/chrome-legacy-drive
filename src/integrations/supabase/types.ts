@@ -575,6 +575,7 @@ export type Database = {
           export_folders: string
           generate_listing_versions: string
           generate_web_versions: string
+          horizon_auto_level: string
           id: string
           quality_score_enabled: string
           safe_mode: boolean
@@ -583,6 +584,7 @@ export type Database = {
           vin_autofill: string
           vin_ocr: string
           vin_scan_enabled: string
+          voice_control: string
           watermark: string
         }
         Insert: {
@@ -604,6 +606,7 @@ export type Database = {
           export_folders?: string
           generate_listing_versions?: string
           generate_web_versions?: string
+          horizon_auto_level?: string
           id?: string
           quality_score_enabled?: string
           safe_mode?: boolean
@@ -612,6 +615,7 @@ export type Database = {
           vin_autofill?: string
           vin_ocr?: string
           vin_scan_enabled?: string
+          voice_control?: string
           watermark?: string
         }
         Update: {
@@ -633,6 +637,7 @@ export type Database = {
           export_folders?: string
           generate_listing_versions?: string
           generate_web_versions?: string
+          horizon_auto_level?: string
           id?: string
           quality_score_enabled?: string
           safe_mode?: boolean
@@ -641,6 +646,7 @@ export type Database = {
           vin_autofill?: string
           vin_ocr?: string
           vin_scan_enabled?: string
+          voice_control?: string
           watermark?: string
         }
         Relationships: []

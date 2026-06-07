@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle } from "lucide-react";
+import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle, Mic, MicOff, SkipForward, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -13,6 +13,8 @@ import {
 import { SHOT_SEQUENCE, SHOT_LABEL_MAP, type ShotType } from "@/lib/smartCapture/types";
 import { processImage, computeBlurScore, fileToBase64 } from "@/lib/smartCapture/imageProcessing";
 import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
+import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
+import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
 
 interface AnalysisResult {
   shot_type?: string;
@@ -65,6 +67,23 @@ export default function SmartCapture() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
+
+  // Voice + horizon
+  const voiceEnabledSetting = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { voice_control?: string }).voice_control !== "off";
+  }, [settings]);
+  const horizonEnabledSetting = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { horizon_auto_level?: string }).horizon_auto_level !== "off";
+  }, [settings]);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceUnsupported, setVoiceUnsupported] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const [voiceLegendOpen, setVoiceLegendOpen] = useState(false);
+  const [horizonAngle, setHorizonAngle] = useState(0);
+  const voiceRef = useRef<ReturnType<typeof createVoiceController> | null>(null);
+  const horizonRef = useRef<ReturnType<typeof createHorizonController> | null>(null);
 
   // Admin gate
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
@@ -283,6 +302,70 @@ export default function SmartCapture() {
     setPhase("review");
   };
 
+  // ===== Voice control =====
+  const handleVoiceCommand = useCallback((cmd: VoiceCommand) => {
+    if (phase !== "capturing") {
+      if (cmd === "done" && phase === "vin") finishToReview();
+      return;
+    }
+    switch (cmd) {
+      case "shot": void handleShot(); break;
+      case "next": setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1)); break;
+      case "prev": setCurrentStepIdx((i) => Math.max(0, i - 1)); break;
+      case "retake": {
+        const last = photos[photos.length - 1] as { id: string } | undefined;
+        if (last && sessionId) {
+          deletePhoto.mutate({ id: last.id, sessionId });
+          setCurrentStepIdx((i) => Math.max(0, i - 1));
+        }
+        break;
+      }
+      case "vin": setPhase("vin"); break;
+      case "done": finishToReview(); break;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, photos, sessionId, totalSteps]);
+
+  // Init voice controller once
+  useEffect(() => {
+    if (voiceRef.current) return;
+    const v = createVoiceController();
+    voiceRef.current = v;
+    if (!v.isSupported) setVoiceUnsupported(true);
+  }, []);
+
+  // Always feed latest handler into voice controller
+  useEffect(() => {
+    voiceRef.current?.setHandler((cmd) => handleVoiceCommand(cmd));
+  }, [handleVoiceCommand]);
+
+  // Auto-start voice when capturing & enabled; stop on unmount/leave
+  useEffect(() => {
+    const v = voiceRef.current;
+    if (!v || !v.isSupported) return;
+    if (phase === "capturing" && voiceEnabledSetting) {
+      v.start(); setVoiceActive(true);
+    } else if (!dictating) {
+      v.stop(); setVoiceActive(false);
+    }
+    return () => { if (phase !== "capturing" && !dictating) v.stop(); };
+  }, [phase, voiceEnabledSetting, dictating]);
+
+  // ===== Horizon (gyroscope) =====
+  useEffect(() => {
+    if (!horizonEnabledSetting || phase !== "capturing") {
+      horizonRef.current?.stop(); horizonRef.current = null;
+      setHorizonAngle(0);
+      return;
+    }
+    const h = createHorizonController(setHorizonAngle);
+    horizonRef.current = h;
+    void h.start();
+    return () => { h.stop(); horizonRef.current = null; };
+  }, [horizonEnabledSetting, phase]);
+
+
+
   // Prefill vehicle info from VIN-decoded data + saved session metadata
   useEffect(() => {
     if (!session) return;
@@ -312,12 +395,13 @@ export default function SmartCapture() {
     setVehicleInfo((s) => ({ ...s, [k]: v }));
   };
 
-  const handleExportZip = async () => {
+  const handleExportZip = async (opts?: { skipInfo?: boolean }) => {
     if (!sessionId) return;
-    if (!requiredInfoFilled) {
+    const skipInfo = !!opts?.skipInfo;
+    if (!skipInfo && !requiredInfoFilled) {
       toast({
         title: "Vyplňte informace o voze",
-        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis.",
+        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis — nebo použijte tlačítko Přeskočit.",
         variant: "destructive",
       });
       return;
@@ -399,9 +483,39 @@ export default function SmartCapture() {
           <p className="text-white/70 max-w-sm mb-2">
             Inteligentní průvodce vás povede ideálním pořadím záběrů. Můžete kdykoliv pokračovat svým způsobem.
           </p>
-          <p className="text-white/40 text-sm mb-8 flex items-center gap-2">
+          <p className="text-white/40 text-sm mb-6 flex items-center gap-2">
             <Shield size={14} /> Existující inzeráty zůstanou nedotčené.
           </p>
+
+          {/* Voice / Horizon legenda */}
+          {(voiceEnabledSetting || horizonEnabledSetting) && (
+            <div className="max-w-sm w-full mb-6 rounded-2xl bg-white/5 border border-white/10 p-4 text-left text-sm">
+              {voiceEnabledSetting && (
+                <>
+                  <div className="flex items-center gap-2 font-medium mb-2">
+                    <Mic size={14} className="text-emerald-400" /> Hlasové ovládání
+                    {voiceUnsupported && <span className="text-[10px] text-amber-300 ml-auto">prohlížeč nepodporuje</span>}
+                  </div>
+                  <ul className="text-white/70 text-xs space-y-1 mb-3">
+                    <li>„<b>vyfotit</b>" / „<b>foť</b>" — pořídí snímek</li>
+                    <li>„<b>další</b>" — přejde na další krok</li>
+                    <li>„<b>zpět</b>" — vrátí se o krok zpět</li>
+                    <li>„<b>přefotit</b>" — smaže poslední foto a opakuje</li>
+                    <li>„<b>VIN</b>" — přepne na VIN scan</li>
+                    <li>„<b>hotovo</b>" — ukončí focení</li>
+                  </ul>
+                  <p className="text-[10px] text-white/40 mb-3">Po startu poslouchá na pozadí. Lze vypnout v nastavení Smart Capture.</p>
+                </>
+              )}
+              {horizonEnabledSetting && (
+                <div className="flex items-center gap-2 text-xs text-white/70">
+                  <Compass size={14} className="text-blue-400" />
+                  Auto-rovnání horizontu (gyroskop) je aktivní.
+                </div>
+              )}
+            </div>
+          )}
+
           <Button size="lg" onClick={handleStart} disabled={busy}
             className="bg-white text-black hover:bg-white/90 px-10 py-6 text-lg rounded-full">
             {busy ? <Loader2 className="animate-spin" /> : <><Camera className="mr-2" size={20} />Spustit Smart Capture</>}
@@ -414,7 +528,38 @@ export default function SmartCapture() {
         <>
           {/* Camera preview */}
           <div className="relative flex-1 bg-black overflow-hidden">
-            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover transition-transform duration-100"
+              style={horizonEnabledSetting ? { transform: `scale(1.08) rotate(${-horizonAngle}deg)` } : undefined}
+              playsInline muted autoPlay
+            />
+
+            {/* Voice + horizon status badges */}
+            {(voiceEnabledSetting || horizonEnabledSetting) && stream && !cameraError && (
+              <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                {voiceEnabledSetting && (
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md text-[10px] font-medium ring-1 ${
+                    voiceActive ? "bg-emerald-500/20 ring-emerald-400/40 text-emerald-200" : "bg-white/10 ring-white/15 text-white/60"
+                  }`}>
+                    {voiceActive ? <Mic size={11} /> : <MicOff size={11} />} hlas
+                  </div>
+                )}
+                {horizonEnabledSetting && Math.abs(horizonAngle) > 0.5 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 ring-1 ring-blue-400/40 backdrop-blur-md text-[10px] text-blue-200 tabular-nums">
+                    <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Horizon level guide */}
+            {horizonEnabledSetting && stream && !cameraError && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                <div className="w-32 h-px bg-white/40" style={{ transform: `rotate(${-horizonAngle}deg)` }} />
+                <div className="absolute w-2 h-2 rounded-full bg-white/60" />
+              </div>
+            )}
 
             {/* Waiting-for-camera placeholder (only when no error, no stream) */}
             {!stream && !cameraError && (
@@ -668,13 +813,56 @@ export default function SmartCapture() {
           </div>
 
           <div className="space-y-2 max-w-md mx-auto">
-            <Button onClick={handleExportZip} disabled={busy || photos.length === 0 || !requiredInfoFilled}
+            {/* Diktování údajů hlasem */}
+            {voiceEnabledSetting && !voiceUnsupported && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const v = voiceRef.current; if (!v) return;
+                  if (dictating) {
+                    v.setDictationHandler(null);
+                    v.stop();
+                    setDictating(false);
+                    toast({ title: "Diktování ukončeno" });
+                  } else {
+                    v.setDictationHandler((text) => {
+                      const parsed = parseDictation(text);
+                      if (Object.keys(parsed).length === 0) {
+                        // Nothing structured — push to description
+                        setVehicleInfo((s) => ({ ...s, description: ((s.description ?? "") + " " + text).trim() }));
+                      } else {
+                        setVehicleInfo((s) => ({ ...s, ...parsed }));
+                      }
+                      toast({ title: "Zaznamenáno", description: text });
+                    });
+                    v.start();
+                    setDictating(true);
+                    toast({ title: "Diktování spuštěno", description: "Např.: značka Škoda, model Octavia, rok 2018, najezd 120000, cena 250000, nafta automat." });
+                  }
+                }}
+                className={`w-full border-white/20 bg-transparent ${dictating ? "ring-2 ring-emerald-400/60" : ""}`}>
+                {dictating ? <MicOff className="mr-2" size={16} /> : <Mic className="mr-2" size={16} />}
+                {dictating ? "Zastavit diktování" : "Nadiktovat údaje o voze"}
+              </Button>
+            )}
+
+            <Button onClick={() => handleExportZip()} disabled={busy || photos.length === 0 || !requiredInfoFilled}
               className="w-full bg-white text-black hover:bg-white/90 disabled:bg-white/30 disabled:text-white/60">
               {busy ? <Loader2 className="animate-spin mr-2" size={16} /> : <Download className="mr-2" size={16} />}
               {requiredInfoFilled
                 ? "Exportovat ZIP (original + inzertní 1MB + web + info.txt)"
                 : "Vyplňte povinné údaje o voze"}
             </Button>
+
+            {/* Přeskočit info — dokončit i bez vyplnění */}
+            {!requiredInfoFilled && (
+              <Button onClick={() => handleExportZip({ skipInfo: true })} disabled={busy || photos.length === 0}
+                variant="outline"
+                className="w-full border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-200">
+                <SkipForward className="mr-2" size={16} /> Přeskočit údaje a exportovat ZIP
+              </Button>
+            )}
+
             <Button variant="outline" onClick={async () => {
               await startCamera(); setPhase("capturing");
             }} className="w-full border-white/20 bg-transparent">

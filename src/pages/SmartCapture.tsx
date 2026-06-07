@@ -68,6 +68,23 @@ export default function SmartCapture() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
 
+  // Voice + horizon
+  const voiceEnabledSetting = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { voice_control?: string }).voice_control !== "off";
+  }, [settings]);
+  const horizonEnabledSetting = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { horizon_auto_level?: string }).horizon_auto_level !== "off";
+  }, [settings]);
+  const [voiceActive, setVoiceActive] = useState(false);
+  const [voiceUnsupported, setVoiceUnsupported] = useState(false);
+  const [dictating, setDictating] = useState(false);
+  const [voiceLegendOpen, setVoiceLegendOpen] = useState(false);
+  const [horizonAngle, setHorizonAngle] = useState(0);
+  const voiceRef = useRef<ReturnType<typeof createVoiceController> | null>(null);
+  const horizonRef = useRef<ReturnType<typeof createHorizonController> | null>(null);
+
   // Admin gate
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   useEffect(() => {

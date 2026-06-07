@@ -451,52 +451,56 @@ export default function SmartCapture() {
               </div>
             )}
 
-            {/* Guidance overlay */}
+            {/* Guidance overlay — glassmorphism */}
             {currentStep && stream && !cameraError && (
-              <div className="absolute top-4 left-4 right-4 flex items-start gap-3 bg-black/60 backdrop-blur rounded-2xl p-3">
-                <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-300 text-sm font-semibold shrink-0">
+              <div className="absolute top-4 left-4 right-4 flex items-start gap-3 bg-gradient-to-br from-black/70 to-black/40 backdrop-blur-xl ring-1 ring-white/10 rounded-2xl p-3 shadow-2xl">
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-lg shadow-blue-500/40 tabular-nums">
                   {currentStepIdx + 1}
                 </div>
-                <div className="min-w-0">
-                  <div className="text-sm font-medium">📸 {currentStep.label}</div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-sm font-semibold tracking-tight">{currentStep.label}</div>
                   <div className="text-xs text-white/70 mt-0.5 leading-relaxed">{currentStep.hint}</div>
+                </div>
+                <div className="text-[10px] text-white/40 tabular-nums shrink-0 mt-0.5">
+                  {currentStepIdx + 1}/{totalSteps}
                 </div>
               </div>
             )}
 
             {/* Last analysis tip */}
             {lastAnalysis?.tip && stream && (
-              <div className="absolute bottom-32 left-4 right-4 bg-emerald-500/90 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2">
+              <div className="absolute bottom-32 left-4 right-4 bg-gradient-to-r from-emerald-400 to-emerald-500 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2 shadow-xl animate-in slide-in-from-bottom-2 fade-in duration-300">
                 <Sparkles size={14} /> {lastAnalysis.tip}
               </div>
             )}
 
-            {/* Busy overlay (only while uploading/processing a real shot) */}
-            {busy && stream && (
-              <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                <Loader2 className="animate-spin" size={36} />
-              </div>
+            {/* ⚡ Shutter flash — vizuální feedback místo blokujícího spinneru */}
+            {shutterFlash && (
+              <div className="absolute inset-0 bg-white pointer-events-none animate-in fade-in duration-75" style={{ animationDirection: "alternate" }} />
             )}
           </div>
 
           {/* Bottom controls */}
-          <div className="shrink-0 bg-black border-t border-white/10 px-4 py-4">
+          <div className="shrink-0 bg-gradient-to-t from-black via-black to-black/80 border-t border-white/5 px-4 py-4">
             <div className="flex items-center justify-between gap-3 mb-3">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center"
+                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors"
                 title="Z galerie">
                 <ImageIcon size={20} />
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f); e.target.value = ""; }} />
 
-              <button onClick={handleShot} disabled={busy || !stream}
-                className="w-20 h-20 rounded-full bg-white border-4 border-white/40 active:scale-95 transition disabled:opacity-50" />
+              {/* ⚡ Shutter: vždy aktivní (neblokuje), jen vizuálně pulsuje při flash */}
+              <button onClick={handleShot} disabled={!stream}
+                className="relative w-20 h-20 rounded-full bg-white border-4 border-white/30 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
+                <span className="absolute inset-2 rounded-full bg-white ring-2 ring-black/10" />
+              </button>
 
               <button
                 onClick={() => { setPhase("vin"); }}
-                className="w-12 h-12 rounded-full bg-white/10 flex items-center justify-center"
+                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors"
                 title="VIN scan">
                 <ScanLine size={20} />
               </button>

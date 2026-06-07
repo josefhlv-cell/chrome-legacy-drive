@@ -482,9 +482,39 @@ export default function SmartCapture() {
           <p className="text-white/70 max-w-sm mb-2">
             Inteligentní průvodce vás povede ideálním pořadím záběrů. Můžete kdykoliv pokračovat svým způsobem.
           </p>
-          <p className="text-white/40 text-sm mb-8 flex items-center gap-2">
+          <p className="text-white/40 text-sm mb-6 flex items-center gap-2">
             <Shield size={14} /> Existující inzeráty zůstanou nedotčené.
           </p>
+
+          {/* Voice / Horizon legenda */}
+          {(voiceEnabledSetting || horizonEnabledSetting) && (
+            <div className="max-w-sm w-full mb-6 rounded-2xl bg-white/5 border border-white/10 p-4 text-left text-sm">
+              {voiceEnabledSetting && (
+                <>
+                  <div className="flex items-center gap-2 font-medium mb-2">
+                    <Mic size={14} className="text-emerald-400" /> Hlasové ovládání
+                    {voiceUnsupported && <span className="text-[10px] text-amber-300 ml-auto">prohlížeč nepodporuje</span>}
+                  </div>
+                  <ul className="text-white/70 text-xs space-y-1 mb-3">
+                    <li>„<b>vyfotit</b>" / „<b>foť</b>" — pořídí snímek</li>
+                    <li>„<b>další</b>" — přejde na další krok</li>
+                    <li>„<b>zpět</b>" — vrátí se o krok zpět</li>
+                    <li>„<b>přefotit</b>" — smaže poslední foto a opakuje</li>
+                    <li>„<b>VIN</b>" — přepne na VIN scan</li>
+                    <li>„<b>hotovo</b>" — ukončí focení</li>
+                  </ul>
+                  <p className="text-[10px] text-white/40 mb-3">Po startu poslouchá na pozadí. Lze vypnout v nastavení Smart Capture.</p>
+                </>
+              )}
+              {horizonEnabledSetting && (
+                <div className="flex items-center gap-2 text-xs text-white/70">
+                  <Compass size={14} className="text-blue-400" />
+                  Auto-rovnání horizontu (gyroskop) je aktivní.
+                </div>
+              )}
+            </div>
+          )}
+
           <Button size="lg" onClick={handleStart} disabled={busy}
             className="bg-white text-black hover:bg-white/90 px-10 py-6 text-lg rounded-full">
             {busy ? <Loader2 className="animate-spin" /> : <><Camera className="mr-2" size={20} />Spustit Smart Capture</>}

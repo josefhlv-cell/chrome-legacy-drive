@@ -163,46 +163,57 @@ export default function SmartCapture() {
   };
 
   const handleShot = async () => {
-    if (!sessionId) return;
-    setBusy(true);
-    try {
-      const blob = await captureFromVideo();
-      if (!blob) { toast({ title: "Nelze pořídit snímek", variant: "destructive" }); return; }
-      await processAndUpload(blob);
-    } finally { setBusy(false); }
+    if (!sessionId || busy) return;
+    // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
+    //    pak ihned advance + processing/upload na pozadí.
+    const blob = await captureFromVideo();
+    if (!blob) { toast({ title: "Nelze pořídit snímek", variant: "destructive" }); return; }
+    // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
+    const stepAtShot = currentStepIdx;
+    if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
+    // shutter feedback
+    setShutterFlash(true);
+    setTimeout(() => setShutterFlash(false), 120);
+    void processAndUpload(blob, stepAtShot);
   };
 
-  const processAndUpload = async (input: Blob | File) => {
+  const processAndUpload = async (input: Blob | File, stepIdx?: number) => {
     if (!sessionId) return;
-    setBusy(true);
+    setQueueCount((n) => n + 1);
     setLastAnalysis(null);
     try {
-      // Process locally (premium dealer look)
       const autoProcess = !settings || (settings as { auto_image_processing?: string }).auto_image_processing !== "off";
-      const { blob: processed, width, height } = autoProcess
-        ? await processImage(input)
-        : { blob: input as Blob, width: 0, height: 0 };
 
-      // Local blur score (always cheap)
-      const blurScore = await computeBlurScore(processed).catch(() => 50);
+      // ⚡ Paralelně: processing + blur score (oba potřebují bitmap, sdílejí cache prohlížeče)
+      const processedPromise = autoProcess
+        ? processImage(input)
+        : Promise.resolve({ blob: input as Blob, width: 0, height: 0 });
 
-      // AI analyze (optional)
-      let ai: AnalysisResult = {};
+      const { blob: processed, width, height } = await processedPromise;
+
+      // ⚡ Blur score paralelně s případnou AI analýzou + uploadem
+      const blurPromise = computeBlurScore(processed).catch(() => 50);
+
+      // AI analyze — non-blocking pro UI; pokud je vypnuto, přeskoč úplně
+      let aiPromise: Promise<AnalysisResult> = Promise.resolve({});
       if (aiEnabled) {
-        try {
-          const b64 = await fileToBase64(processed);
-          const { data, error } = await supabase.functions.invoke("smart-capture-analyze", {
-            body: { imageBase64: b64 },
-          });
-          if (!error && data) ai = data as AnalysisResult;
-        } catch (e) { console.warn("AI analyze fail:", e); }
+        aiPromise = (async () => {
+          try {
+            const b64 = await fileToBase64(processed);
+            const { data, error } = await supabase.functions.invoke("smart-capture-analyze", {
+              body: { imageBase64: b64 },
+            });
+            return !error && data ? (data as AnalysisResult) : {};
+          } catch { return {}; }
+        })();
       }
 
+      const [blurScore, ai] = await Promise.all([blurPromise, aiPromise]);
       setLastAnalysis(ai);
 
-      const detectedType = (ai.shot_type as ShotType) || currentStep?.type || "unknown";
+      const fallbackType = SHOT_SEQUENCE[stepIdx ?? currentStepIdx]?.type ?? "unknown";
+      const detectedType = (ai.shot_type as ShotType) || fallbackType;
       const score = ai.quality_score ?? Math.round((blurScore + 60) / 2);
-
       const isMain = detectedType === "predni-pravy-roh" && !photos.some((p) => (p as { is_main: boolean }).is_main);
 
       await uploadPhoto.mutateAsync({
@@ -217,12 +228,11 @@ export default function SmartCapture() {
         aiClassification: ai as Record<string, unknown>,
         isMain,
       });
-
-      // Auto-advance to next recommended step
-      if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
     } catch (e) {
       toast({ title: "Nahrání selhalo", description: String(e), variant: "destructive" });
-    } finally { setBusy(false); }
+    } finally {
+      setQueueCount((n) => Math.max(0, n - 1));
+    }
   };
 
   // VIN scan

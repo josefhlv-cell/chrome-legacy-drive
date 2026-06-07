@@ -527,7 +527,38 @@ export default function SmartCapture() {
         <>
           {/* Camera preview */}
           <div className="relative flex-1 bg-black overflow-hidden">
-            <video ref={videoRef} className="w-full h-full object-cover" playsInline muted autoPlay />
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover transition-transform duration-100"
+              style={horizonEnabledSetting ? { transform: `scale(1.08) rotate(${-horizonAngle}deg)` } : undefined}
+              playsInline muted autoPlay
+            />
+
+            {/* Voice + horizon status badges */}
+            {(voiceEnabledSetting || horizonEnabledSetting) && stream && !cameraError && (
+              <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
+                {voiceEnabledSetting && (
+                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md text-[10px] font-medium ring-1 ${
+                    voiceActive ? "bg-emerald-500/20 ring-emerald-400/40 text-emerald-200" : "bg-white/10 ring-white/15 text-white/60"
+                  }`}>
+                    {voiceActive ? <Mic size={11} /> : <MicOff size={11} />} hlas
+                  </div>
+                )}
+                {horizonEnabledSetting && Math.abs(horizonAngle) > 0.5 && (
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 ring-1 ring-blue-400/40 backdrop-blur-md text-[10px] text-blue-200 tabular-nums">
+                    <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Horizon level guide */}
+            {horizonEnabledSetting && stream && !cameraError && (
+              <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
+                <div className="w-32 h-px bg-white/40" style={{ transform: `rotate(${-horizonAngle}deg)` }} />
+                <div className="absolute w-2 h-2 rounded-full bg-white/60" />
+              </div>
+            )}
 
             {/* Waiting-for-camera placeholder (only when no error, no stream) */}
             {!stream && !cameraError && (

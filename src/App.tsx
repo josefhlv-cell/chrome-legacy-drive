@@ -24,6 +24,7 @@ const AdminExports = lazy(() => import("./pages/AdminExports.tsx"));
 const AdminTipCars = lazy(() => import("./pages/AdminTipCars.tsx"));
 const SmartCapture = lazy(() => import("./pages/SmartCapture.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
+const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 // AppBanner moved into Index page only — used to mount globally on every route.
 
 const queryClient = new QueryClient();
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/admin/tipcars" element={<AdminTipCars />} />
               <Route path="/admin/smart-capture" element={<SmartCapture />} />
               <Route path="*" element={<NotFound />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
             </Routes>
           </Suspense>
         </BrowserRouter>

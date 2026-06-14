@@ -17,7 +17,7 @@ export default function PrivacyPolicy() {
       </p>
 
       <p>
-        Web: https://chryslerpardubice.site
+        Web: https://chrysler.cz
       </p>
 
       <p>

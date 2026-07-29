@@ -364,6 +364,7 @@ export type Database = {
       page_views: {
         Row: {
           created_at: string
+          entry_referrer: string | null
           exit_page: boolean | null
           id: string
           is_bounce: boolean | null
@@ -373,9 +374,13 @@ export type Database = {
           screen_width: number | null
           session_id: string
           time_on_page: number | null
+          utm_campaign: string | null
+          utm_medium: string | null
+          utm_source: string | null
         }
         Insert: {
           created_at?: string
+          entry_referrer?: string | null
           exit_page?: boolean | null
           id?: string
           is_bounce?: boolean | null
@@ -385,9 +390,13 @@ export type Database = {
           screen_width?: number | null
           session_id: string
           time_on_page?: number | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Update: {
           created_at?: string
+          entry_referrer?: string | null
           exit_page?: boolean | null
           id?: string
           is_bounce?: boolean | null
@@ -397,6 +406,9 @@ export type Database = {
           screen_width?: number | null
           session_id?: string
           time_on_page?: number | null
+          utm_campaign?: string | null
+          utm_medium?: string | null
+          utm_source?: string | null
         }
         Relationships: []
       }
@@ -575,8 +587,10 @@ export type Database = {
           export_folders: string
           generate_listing_versions: string
           generate_web_versions: string
+          grid_overlay: string
           horizon_auto_level: string
           id: string
+          landscape_capture: string
           quality_score_enabled: string
           safe_mode: boolean
           singleton: boolean
@@ -606,8 +620,10 @@ export type Database = {
           export_folders?: string
           generate_listing_versions?: string
           generate_web_versions?: string
+          grid_overlay?: string
           horizon_auto_level?: string
           id?: string
+          landscape_capture?: string
           quality_score_enabled?: string
           safe_mode?: boolean
           singleton?: boolean
@@ -637,8 +653,10 @@ export type Database = {
           export_folders?: string
           generate_listing_versions?: string
           generate_web_versions?: string
+          grid_overlay?: string
           horizon_auto_level?: string
           id?: string
+          landscape_capture?: string
           quality_score_enabled?: string
           safe_mode?: boolean
           singleton?: boolean

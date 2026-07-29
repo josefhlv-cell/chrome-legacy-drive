@@ -39,7 +39,7 @@ function getUtm(): Utm {
   }
   const p = new URLSearchParams(window.location.search);
   const utm: Utm = {
-    source: p.get("utm_source") ?? p.get("gclid") ? (p.get("utm_source") ?? "google-ads") : "",
+    source: p.get("utm_source") || (p.get("gclid") ? "google-ads" : ""),
     medium: p.get("utm_medium") ?? "",
     campaign: p.get("utm_campaign") ?? "",
   };

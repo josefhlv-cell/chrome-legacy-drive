@@ -574,13 +574,25 @@ export default function SmartCapture() {
               </div>
             )}
 
+            {/* Composition grid (rule of thirds) */}
+            {gridEnabled && stream && !cameraError && (
+              <div className="pointer-events-none absolute inset-0 z-10">
+                <div className="absolute inset-y-0 left-1/3 w-px bg-white/15" />
+                <div className="absolute inset-y-0 left-2/3 w-px bg-white/15" />
+                <div className="absolute inset-x-0 top-1/3 h-px bg-white/15" />
+                <div className="absolute inset-x-0 top-2/3 h-px bg-white/15" />
+              </div>
+            )}
+
             {/* Horizon level guide */}
             {horizonEnabledSetting && stream && !cameraError && (
               <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                <div className="w-32 h-px bg-white/40" style={{ transform: `rotate(${-horizonAngle}deg)` }} />
+                <div className={`h-px ${Math.abs(horizonAngle) < 0.5 ? "bg-emerald-400/70 w-40" : "bg-white/40 w-32"}`}
+                  style={{ transform: `rotate(${-horizonAngle}deg)` }} />
                 <div className="absolute w-2 h-2 rounded-full bg-white/60" />
               </div>
             )}
+
 
             {/* Waiting-for-camera placeholder (only when no error, no stream) */}
             {!stream && !cameraError && (

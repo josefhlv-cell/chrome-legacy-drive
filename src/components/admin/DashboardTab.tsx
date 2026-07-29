@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics, useLeadsAnalytics } from "@/hooks/useAnalytics";
+import SiteStatsSection from "@/components/admin/SiteStatsSection";
 import { formatPrice } from "@/data/vehicles";
 
 type DashVehicle = {
@@ -231,6 +232,11 @@ const DashboardTab = () => {
         <StatCard index={5} icon={Timer} label="Průměrná doba na skladě"
           value={`${stats.avgDays} dní`} sub="Od přidání do systému" accent="warning" />
       </div>
+
+      {/* Kompletní statistiky webu */}
+      <SiteStatsSection />
+
+
 
       {/* Trends */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

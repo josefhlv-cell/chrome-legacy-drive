@@ -6,6 +6,10 @@ interface PageView {
   session_id: string;
   path: string;
   referrer: string;
+  entry_referrer?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
   time_on_page: number;
   screen_width: number;
   screen_height: number;
@@ -160,4 +164,118 @@ export function computeStats(views: PageView[]) {
     topExitPages, mostTimeSpent, devices: { mobile, tablet, desktop },
     dailyViews, hourlyViews, referrers,
   };
+}
+
+export type SourceGroup = "Přímý přístup" | "Vyhledávače" | "Sociální sítě" | "Inzertní portály" | "Odkazy" | "Kampaně";
+
+function classifySource(host: string, utmMedium?: string | null): SourceGroup {
+  if (utmMedium) return "Kampaně";
+  if (!host) return "Přímý přístup";
+  const h = host.toLowerCase();
+  if (/(google|seznam|bing|duckduckgo|yahoo|centrum|ecosia)\./.test(h)) return "Vyhledávače";
+  if (/(facebook|instagram|tiktok|youtube|linkedin|twitter|x\.com|t\.co|pinterest)/.test(h)) return "Sociální sítě";
+  if (/(sauto|tipcars|autobazar|autosoft|bazos|mobile\.de|autoesa)/.test(h)) return "Inzertní portály";
+  return "Odkazy";
+}
+
+function hostOf(url?: string | null): string {
+  if (!url) return "";
+  try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
+}
+
+/** Session-level insights: where visitors come from, where they stay, where they leave. */
+export function computeSiteInsights(views: PageView[]) {
+  // Group all views into sessions ordered in time
+  const sessions = new Map<string, PageView[]>();
+  views.forEach(v => {
+    const arr = sessions.get(v.session_id) ?? [];
+    arr.push(v);
+    sessions.set(v.session_id, arr);
+  });
+  sessions.forEach(arr => arr.sort((a, b) => a.created_at.localeCompare(b.created_at)));
+
+  const sourceMap = new Map<string, { group: SourceGroup; sessions: number; views: number; time: number }>();
+  const groupMap = new Map<SourceGroup, number>();
+  const landingMap = new Map<string, number>();
+  const exitMap = new Map<string, number>();
+  const campaignMap = new Map<string, number>();
+  let bounced = 0;
+  let totalDuration = 0;
+  let totalDepth = 0;
+
+  sessions.forEach(arr => {
+    const first = arr[0];
+    const last = arr[arr.length - 1];
+    const ref = first.entry_referrer || first.referrer || "";
+    const host = hostOf(ref);
+    const group = classifySource(host, first.utm_medium);
+    const label = first.utm_source ? `${first.utm_source}${first.utm_campaign ? ` / ${first.utm_campaign}` : ""}` : (host || "Přímý přístup");
+    const dur = arr.reduce((s, v) => s + (v.time_on_page || 0), 0);
+
+    const entry = sourceMap.get(label) ?? { group, sessions: 0, views: 0, time: 0 };
+    entry.sessions++; entry.views += arr.length; entry.time += dur;
+    sourceMap.set(label, entry);
+    groupMap.set(group, (groupMap.get(group) || 0) + 1);
+    if (first.utm_campaign) campaignMap.set(first.utm_campaign, (campaignMap.get(first.utm_campaign) || 0) + 1);
+
+    landingMap.set(first.path, (landingMap.get(first.path) || 0) + 1);
+    exitMap.set(last.path, (exitMap.get(last.path) || 0) + 1);
+
+    if (arr.length === 1) bounced++;
+    totalDuration += dur;
+    totalDepth += arr.length;
+  });
+
+  const sessionCount = sessions.size || 1;
+
+  // Per-page dwell + engagement
+  const pageMap = new Map<string, { views: number; time: number; sessions: Set<string> }>();
+  views.forEach(v => {
+    const e = pageMap.get(v.path) ?? { views: 0, time: 0, sessions: new Set<string>() };
+    e.views++; e.time += v.time_on_page || 0; e.sessions.add(v.session_id);
+    pageMap.set(v.path, e);
+  });
+
+  const pages = Array.from(pageMap.entries()).map(([path, e]) => ({
+    path,
+    views: e.views,
+    visitors: e.sessions.size,
+    totalTime: e.time,
+    avgTime: Math.round(e.time / Math.max(1, e.views)),
+    exits: exitMap.get(path) || 0,
+    exitRate: Math.round(((exitMap.get(path) || 0) / Math.max(1, e.sessions.size)) * 100),
+  }));
+
+  const sources = Array.from(sourceMap.entries())
+    .map(([source, e]) => ({
+      source, group: e.group, sessions: e.sessions, views: e.views,
+      avgTime: Math.round(e.time / Math.max(1, e.sessions)),
+      share: Math.round((e.sessions / sessionCount) * 100),
+    }))
+    .sort((a, b) => b.sessions - a.sessions);
+
+  const groups = Array.from(groupMap.entries())
+    .map(([group, count]) => ({ group, count, share: Math.round((count / sessionCount) * 100) }))
+    .sort((a, b) => b.count - a.count);
+
+  return {
+    sessionCount: sessions.size,
+    avgSessionDuration: Math.round(totalDuration / sessionCount),
+    avgDepth: +(totalDepth / sessionCount).toFixed(1),
+    bounceRate: Math.round((bounced / sessionCount) * 100),
+    sources,
+    groups,
+    campaigns: Array.from(campaignMap.entries()).map(([name, count]) => ({ name, count })).sort((a, b) => b.count - a.count),
+    landingPages: Array.from(landingMap.entries()).map(([path, count]) => ({ path, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+    exitPages: [...pages].sort((a, b) => b.exits - a.exits).slice(0, 10),
+    topPages: [...pages].sort((a, b) => b.views - a.views).slice(0, 10),
+    stickiestPages: [...pages].filter(p => p.views >= 2).sort((a, b) => b.avgTime - a.avgTime).slice(0, 10),
+  };
+}
+
+export function formatDuration(sec: number) {
+  if (!sec || sec < 0) return "0 s";
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m} m ${s} s` : `${s} s`;
 }

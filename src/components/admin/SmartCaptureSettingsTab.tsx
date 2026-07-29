@@ -38,6 +38,8 @@ const FEATURES: FeatureToggle[] = [
   { key: "background_video_capture", label: "Video na pozadí pro 360°" },
   { key: "voice_control", label: "Hlasové ovládání (další / zpět / vyfotit / přefotit + diktování)" },
   { key: "horizon_auto_level", label: "Auto-rovnání horizontu (gyroskop)" },
+  { key: "landscape_capture", label: "Focení na šířku (otočený telefon)" },
+  { key: "grid_overlay", label: "Kompoziční mřížka (třetiny) v hledáčku" },
 ];
 
 export default function SmartCaptureSettingsTab() {

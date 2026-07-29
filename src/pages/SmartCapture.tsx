@@ -77,6 +77,27 @@ export default function SmartCapture() {
     if (!settings) return true;
     return (settings as { horizon_auto_level?: string }).horizon_auto_level !== "off";
   }, [settings]);
+  const landscapeEnabled = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { landscape_capture?: string }).landscape_capture !== "off";
+  }, [settings]);
+  const gridEnabled = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { grid_overlay?: string }).grid_overlay !== "off";
+  }, [settings]);
+  const [isLandscape, setIsLandscape] = useState(
+    typeof window !== "undefined" ? window.innerWidth > window.innerHeight : false
+  );
+  useEffect(() => {
+    const onResize = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+    };
+  }, []);
+  const landscapeMode = isLandscape && landscapeEnabled;
   const [voiceActive, setVoiceActive] = useState(false);
   const [voiceUnsupported, setVoiceUnsupported] = useState(false);
   const [dictating, setDictating] = useState(false);

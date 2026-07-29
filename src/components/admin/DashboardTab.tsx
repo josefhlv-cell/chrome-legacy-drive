@@ -233,6 +233,11 @@ const DashboardTab = () => {
           value={`${stats.avgDays} dní`} sub="Od přidání do systému" accent="warning" />
       </div>
 
+      {/* Kompletní statistiky webu */}
+      <SiteStatsSection />
+
+
+
       {/* Trends */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <SectionCard title="Trend návštěv (30 dní)" icon={TrendingUp}

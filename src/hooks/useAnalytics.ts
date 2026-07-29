@@ -6,6 +6,10 @@ interface PageView {
   session_id: string;
   path: string;
   referrer: string;
+  entry_referrer?: string | null;
+  utm_source?: string | null;
+  utm_medium?: string | null;
+  utm_campaign?: string | null;
   time_on_page: number;
   screen_width: number;
   screen_height: number;

@@ -11,6 +11,7 @@ import {
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
 import { useAnalytics, useLeadsAnalytics } from "@/hooks/useAnalytics";
+import SiteStatsSection from "@/components/admin/SiteStatsSection";
 import { formatPrice } from "@/data/vehicles";
 
 type DashVehicle = {

@@ -658,29 +658,29 @@ export default function SmartCapture() {
             )}
           </div>
 
-          {/* Bottom controls */}
-          <div className="shrink-0 bg-gradient-to-t from-black via-black to-black/80 border-t border-white/5 px-4 py-4">
-            <div className="flex items-center justify-between gap-3 mb-3">
+          {/* Bottom controls — kompaktní režim při focení na šířku */}
+          <div className={`shrink-0 bg-gradient-to-t from-black via-black to-black/80 border-t border-white/5 px-4 ${landscapeMode ? "py-2" : "py-4"}`}>
+            <div className={`flex items-center justify-between gap-3 ${landscapeMode ? "mb-1.5" : "mb-3"}`}>
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors"
+                className={`${landscapeMode ? "w-10 h-10" : "w-12 h-12"} rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors`}
                 title="Z galerie">
-                <ImageIcon size={20} />
+                <ImageIcon size={landscapeMode ? 17 : 20} />
               </button>
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f); e.target.value = ""; }} />
 
               {/* ⚡ Shutter: vždy aktivní (neblokuje), jen vizuálně pulsuje při flash */}
               <button onClick={handleShot} disabled={!stream}
-                className="relative w-20 h-20 rounded-full bg-white border-4 border-white/30 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
+                className={`relative ${landscapeMode ? "w-14 h-14" : "w-20 h-20"} rounded-full bg-white border-4 border-white/30 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]`}>
                 <span className="absolute inset-2 rounded-full bg-white ring-2 ring-black/10" />
               </button>
 
               <button
                 onClick={() => { setPhase("vin"); }}
-                className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors"
+                className={`${landscapeMode ? "w-10 h-10" : "w-12 h-12"} rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors`}
                 title="VIN scan">
-                <ScanLine size={20} />
+                <ScanLine size={landscapeMode ? 17 : 20} />
               </button>
             </div>
 
@@ -694,8 +694,8 @@ export default function SmartCapture() {
             </div>
             <Progress value={((currentStepIdx + 1) / totalSteps) * 100} className="h-1 mt-2 bg-white/10" />
 
-            {/* Thumbnails strip */}
-            {photos.length > 0 && (
+            {/* Thumbnails strip — v landscape skryté, aby zůstal prostor pro hledáček */}
+            {photos.length > 0 && !landscapeMode && (
               <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
                 {photos.map((p) => {
                   const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
@@ -712,6 +712,7 @@ export default function SmartCapture() {
               </div>
             )}
           </div>
+
         </>
       )}
 

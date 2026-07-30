@@ -506,6 +506,8 @@ export default function SmartCapture() {
           {phase === "review" ? "Zavřít" : "Hotovo"}
         </button>
       </header>
+      )}
+
 
       {/* Intro */}
       {phase === "intro" && (

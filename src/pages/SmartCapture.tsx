@@ -181,6 +181,16 @@ export default function SmartCapture() {
     catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
   }, [requestCamera]);
 
+  // Switch between rear/front camera without leaving the capture UI.
+  const switchCamera = useCallback(async () => {
+    const next = facingRef.current === "environment" ? "user" : "environment";
+    facingRef.current = next;
+    stopCamera();
+    try { setStream(await requestCamera(next)); }
+    catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
+  }, [requestCamera, stopCamera]);
+
+
   const currentStep = SHOT_SEQUENCE[currentStepIdx];
   const totalSteps = SHOT_SEQUENCE.length;
 

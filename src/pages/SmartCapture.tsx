@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle, Mic, MicOff, SkipForward, Compass } from "lucide-react";
+import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle, Mic, MicOff, SkipForward, Compass, SwitchCamera, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
@@ -65,6 +65,7 @@ export default function SmartCapture() {
     description: "",
   });
   const videoRef = useRef<HTMLVideoElement>(null);
+  const facingRef = useRef<"environment" | "user">("environment");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
 
@@ -135,13 +136,13 @@ export default function SmartCapture() {
 
   // Gesture-safe camera request — must be the FIRST await after the user click
   // on iOS Safari, otherwise the permission prompt is silently dropped.
-  const requestCamera = useCallback(async (): Promise<MediaStream> => {
+  const requestCamera = useCallback(async (mode: "environment" | "user" = facingRef.current): Promise<MediaStream> => {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("Tento prohlížeč nepodporuje přístup ke kameře.");
     }
     try {
       return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
     } catch (err) {
@@ -179,6 +180,16 @@ export default function SmartCapture() {
     try { setStream(await requestCamera()); }
     catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
   }, [requestCamera]);
+
+  // Switch between rear/front camera without leaving the capture UI.
+  const switchCamera = useCallback(async () => {
+    const next = facingRef.current === "environment" ? "user" : "environment";
+    facingRef.current = next;
+    stopCamera();
+    try { setStream(await requestCamera(next)); }
+    catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
+  }, [requestCamera, stopCamera]);
+
 
   const currentStep = SHOT_SEQUENCE[currentStepIdx];
   const totalSteps = SHOT_SEQUENCE.length;
@@ -466,8 +477,10 @@ export default function SmartCapture() {
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden">
-      {/* Header */}
+      {/* Header — hidden while capturing (full-screen camera) */}
+      {phase !== "capturing" && (
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0 backdrop-blur-xl bg-black/40">
+
         <button onClick={() => { stopCamera(); navigate("/admin"); }}
           className="p-2 rounded-full hover:bg-white/10 transition-colors">
           <X size={20} />
@@ -493,6 +506,8 @@ export default function SmartCapture() {
           {phase === "review" ? "Zavřít" : "Hotovo"}
         </button>
       </header>
+      )}
+
 
       {/* Intro */}
       {phase === "intro" && (
@@ -544,177 +559,253 @@ export default function SmartCapture() {
         </div>
       )}
 
-      {/* Capturing */}
+      {/* Capturing — 100% full-screen native-style camera */}
       {phase === "capturing" && (
-        <>
-          {/* Camera preview */}
-          <div className="relative flex-1 bg-black overflow-hidden">
-            <video
-              ref={videoRef}
-              className="w-full h-full object-cover transition-transform duration-100"
-              style={horizonEnabledSetting ? { transform: `scale(1.08) rotate(${-horizonAngle}deg)` } : undefined}
-              playsInline muted autoPlay
-            />
+        <div className="absolute inset-0 bg-black overflow-hidden">
+          {/* Preview — never transformed by the gyroscope, only the OS rotates it */}
+          <video
+            ref={videoRef}
+            className="absolute inset-0 w-full h-full object-cover"
+            playsInline muted autoPlay
+          />
 
-            {/* Voice + horizon status badges */}
-            {(voiceEnabledSetting || horizonEnabledSetting) && stream && !cameraError && (
-              <div className="absolute top-4 right-4 flex flex-col items-end gap-1.5 z-10">
-                {voiceEnabledSetting && (
-                  <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-md text-[10px] font-medium ring-1 ${
-                    voiceActive ? "bg-emerald-500/20 ring-emerald-400/40 text-emerald-200" : "bg-white/10 ring-white/15 text-white/60"
-                  }`}>
-                    {voiceActive ? <Mic size={11} /> : <MicOff size={11} />} hlas
-                  </div>
-                )}
-                {horizonEnabledSetting && Math.abs(horizonAngle) > 0.5 && (
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-500/20 ring-1 ring-blue-400/40 backdrop-blur-md text-[10px] text-blue-200 tabular-nums">
-                    <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
-                  </div>
-                )}
-              </div>
-            )}
+          {/* Composition grid (rule of thirds) */}
+          {gridEnabled && stream && !cameraError && (
+            <div className="pointer-events-none absolute inset-0">
+              <div className="absolute inset-y-0 left-1/3 w-px bg-white/15" />
+              <div className="absolute inset-y-0 left-2/3 w-px bg-white/15" />
+              <div className="absolute inset-x-0 top-1/3 h-px bg-white/15" />
+              <div className="absolute inset-x-0 top-2/3 h-px bg-white/15" />
+            </div>
+          )}
 
-            {/* Composition grid (rule of thirds) */}
-            {gridEnabled && stream && !cameraError && (
-              <div className="pointer-events-none absolute inset-0 z-10">
-                <div className="absolute inset-y-0 left-1/3 w-px bg-white/15" />
-                <div className="absolute inset-y-0 left-2/3 w-px bg-white/15" />
-                <div className="absolute inset-x-0 top-1/3 h-px bg-white/15" />
-                <div className="absolute inset-x-0 top-2/3 h-px bg-white/15" />
-              </div>
-            )}
+          {/* Horizon level guide — only the guide rotates, the preview stays put */}
+          {horizonEnabledSetting && stream && !cameraError && (
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
+              <div className={`h-px transition-colors ${Math.abs(horizonAngle) < 0.5 ? "bg-emerald-400/80 w-44" : "bg-white/40 w-32"}`}
+                style={{ transform: `rotate(${-horizonAngle}deg)` }} />
+              <div className="absolute w-2 h-2 rounded-full bg-white/70" />
+            </div>
+          )}
 
-            {/* Horizon level guide */}
-            {horizonEnabledSetting && stream && !cameraError && (
-              <div className="pointer-events-none absolute inset-0 flex items-center justify-center z-10">
-                <div className={`h-px ${Math.abs(horizonAngle) < 0.5 ? "bg-emerald-400/70 w-40" : "bg-white/40 w-32"}`}
-                  style={{ transform: `rotate(${-horizonAngle}deg)` }} />
-                <div className="absolute w-2 h-2 rounded-full bg-white/60" />
-              </div>
-            )}
+          {/* Top bar — floating glass */}
+          <div className={`absolute top-0 inset-x-0 flex items-center justify-between gap-3 ${landscapeMode ? "px-4 pt-3" : "px-4 pt-4"}`}>
+            <button onClick={() => { stopCamera(); navigate("/admin"); }}
+              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition">
+              <X size={18} />
+            </button>
 
-
-            {/* Waiting-for-camera placeholder (only when no error, no stream) */}
-            {!stream && !cameraError && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
-                <Loader2 className="animate-spin" size={28} />
-                <div className="text-xs">Aktivuji kameru…</div>
-                <div className="text-[11px] text-white/40">Pokud se objeví dotaz, povolte přístup ke kameře.</div>
-              </div>
-            )}
-
-            {/* Camera error fallback */}
-            {cameraError && (
-              <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center px-6 text-center">
-                <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
-                  <AlertCircle className="text-red-400" size={26} />
-                </div>
-                <h3 className="text-lg font-medium mb-1">Nepodařilo se aktivovat kameru</h3>
-                <p className="text-sm text-white/60 max-w-xs mb-5">{cameraError}</p>
-                <div className="flex flex-col gap-2 w-full max-w-xs">
-                  <Button onClick={startCamera} className="bg-white text-black hover:bg-white/90">
-                    <RotateCcw size={16} className="mr-2" /> Zkusit znovu
-                  </Button>
-                  <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}
-                    className="border-white/20 bg-transparent">
-                    <ImageIcon size={16} className="mr-2" /> Nahrát fotografie ručně
-                  </Button>
-                  <input ref={fallbackUploadRef} type="file" accept="image/*" multiple className="hidden"
-                    onChange={async (e) => {
-                      const files = Array.from(e.target.files ?? []);
-                      e.target.value = "";
-                      for (const f of files) await handleFilePicked(f);
-                    }} />
-                </div>
-              </div>
-            )}
-
-            {/* Guidance overlay — glassmorphism */}
-            {currentStep && stream && !cameraError && (
-              <div className="absolute top-4 left-4 right-4 flex items-start gap-3 bg-gradient-to-br from-black/70 to-black/40 backdrop-blur-xl ring-1 ring-white/10 rounded-2xl p-3 shadow-2xl">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-lg shadow-blue-500/40 tabular-nums">
-                  {currentStepIdx + 1}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <div className="text-sm font-semibold tracking-tight">{currentStep.label}</div>
-                  <div className="text-xs text-white/70 mt-0.5 leading-relaxed">{currentStep.hint}</div>
-                </div>
-                <div className="text-[10px] text-white/40 tabular-nums shrink-0 mt-0.5">
-                  {currentStepIdx + 1}/{totalSteps}
-                </div>
-              </div>
-            )}
-
-            {/* Last analysis tip */}
-            {lastAnalysis?.tip && stream && (
-              <div className="absolute bottom-32 left-4 right-4 bg-gradient-to-r from-emerald-400 to-emerald-500 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2 shadow-xl animate-in slide-in-from-bottom-2 fade-in duration-300">
-                <Sparkles size={14} /> {lastAnalysis.tip}
-              </div>
-            )}
-
-            {/* ⚡ Shutter flash — vizuální feedback místo blokujícího spinneru */}
-            {shutterFlash && (
-              <div className="absolute inset-0 bg-white pointer-events-none animate-in fade-in duration-75" style={{ animationDirection: "alternate" }} />
-            )}
-          </div>
-
-          {/* Bottom controls — kompaktní režim při focení na šířku */}
-          <div className={`shrink-0 bg-gradient-to-t from-black via-black to-black/80 border-t border-white/5 px-4 ${landscapeMode ? "py-2" : "py-4"}`}>
-            <div className={`flex items-center justify-between gap-3 ${landscapeMode ? "mb-1.5" : "mb-3"}`}>
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className={`${landscapeMode ? "w-10 h-10" : "w-12 h-12"} rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors`}
-                title="Z galerie">
-                <ImageIcon size={landscapeMode ? 17 : 20} />
-              </button>
-              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f); e.target.value = ""; }} />
-
-              {/* ⚡ Shutter: vždy aktivní (neblokuje), jen vizuálně pulsuje při flash */}
-              <button onClick={handleShot} disabled={!stream}
-                className={`relative ${landscapeMode ? "w-14 h-14" : "w-20 h-20"} rounded-full bg-white border-4 border-white/30 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]`}>
-                <span className="absolute inset-2 rounded-full bg-white ring-2 ring-black/10" />
-              </button>
-
-              <button
-                onClick={() => { setPhase("vin"); }}
-                className={`${landscapeMode ? "w-10 h-10" : "w-12 h-12"} rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur flex items-center justify-center transition-colors`}
-                title="VIN scan">
-                <ScanLine size={landscapeMode ? 17 : 20} />
-              </button>
+            <div className="flex items-center gap-2">
+              {queueCount > 0 && (
+                <span className="inline-flex items-center gap-1 text-[10px] text-blue-200 bg-blue-500/25 backdrop-blur-xl ring-1 ring-blue-300/30 px-2.5 py-1 rounded-full">
+                  <Loader2 size={10} className="animate-spin" /> {queueCount}
+                </span>
+              )}
+              {voiceEnabledSetting && (
+                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-xl text-[10px] font-medium ring-1 ${
+                  voiceActive ? "bg-emerald-500/25 ring-emerald-300/40 text-emerald-100" : "bg-black/40 ring-white/15 text-white/60"
+                }`}>
+                  {voiceActive ? <Mic size={11} /> : <MicOff size={11} />} hlas
+                </span>
+              )}
+              {horizonEnabledSetting && Math.abs(horizonAngle) > 0.5 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 text-[10px] text-white/80 tabular-nums">
+                  <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
+                </span>
+              )}
+              <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 text-[10px] tabular-nums text-white/80">
+                {currentStepIdx + 1} / {totalSteps}
+              </span>
             </div>
 
-            {/* Step navigation */}
-            <div className="flex items-center justify-between text-xs">
-              <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))}
-                className="text-white/60 px-2 py-1" disabled={currentStepIdx === 0}>← Předchozí</button>
-              <div className="text-white/40">{currentStepIdx + 1} / {totalSteps}</div>
-              <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
-                className="text-white/60 px-2 py-1">Přeskočit →</button>
-            </div>
-            <Progress value={((currentStepIdx + 1) / totalSteps) * 100} className="h-1 mt-2 bg-white/10" />
-
-            {/* Thumbnails strip — v landscape skryté, aby zůstal prostor pro hledáček */}
-            {photos.length > 0 && !landscapeMode && (
-              <div className="mt-3 flex gap-2 overflow-x-auto pb-1">
-                {photos.map((p) => {
-                  const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
-                  return (
-                    <div key={row.id} className="relative shrink-0">
-                      <img src={row.processed_url} alt={row.shot_type}
-                        className="w-14 h-14 rounded-lg object-cover" />
-                      <span className="absolute -top-1 -right-1 text-[9px] bg-black/80 rounded-full px-1.5 py-0.5">
-                        {row.quality_score}%
-                      </span>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
+            <button onClick={finishToReview} disabled={photos.length === 0}
+              className="text-xs px-4 py-2 rounded-full bg-white text-black font-semibold disabled:opacity-30 hover:bg-white/90 transition">
+              Hotovo
+            </button>
           </div>
 
-        </>
+          {/* Instruction card — floating glass */}
+          {currentStep && stream && !cameraError && (
+            <div className={`absolute ${landscapeMode ? "top-16 left-4 max-w-xs" : "top-20 left-4 right-4"} flex items-start gap-3 bg-black/45 backdrop-blur-2xl ring-1 ring-white/15 rounded-2xl p-3 shadow-2xl`}>
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-lg shadow-blue-500/40 tabular-nums">
+                {currentStepIdx + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="text-sm font-semibold tracking-tight">{currentStep.label}</div>
+                <div className="text-xs text-white/70 mt-0.5 leading-relaxed">{currentStep.hint}</div>
+              </div>
+            </div>
+          )}
+
+          {/* Last analysis tip */}
+          {lastAnalysis?.tip && stream && (
+            <div className={`absolute ${landscapeMode ? "bottom-28 left-4 max-w-sm" : "bottom-48 left-4 right-4"} bg-gradient-to-r from-emerald-400 to-emerald-500 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2 shadow-xl animate-in slide-in-from-bottom-2 fade-in duration-300`}>
+              <Sparkles size={14} /> {lastAnalysis.tip}
+            </div>
+          )}
+
+          {/* Waiting-for-camera placeholder */}
+          {!stream && !cameraError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
+              <Loader2 className="animate-spin" size={28} />
+              <div className="text-xs">Aktivuji kameru…</div>
+              <div className="text-[11px] text-white/40">Pokud se objeví dotaz, povolte přístup ke kameře.</div>
+            </div>
+          )}
+
+          {/* Camera error fallback */}
+          {cameraError && (
+            <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center px-6 text-center z-20">
+              <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
+                <AlertCircle className="text-red-400" size={26} />
+              </div>
+              <h3 className="text-lg font-medium mb-1">Nepodařilo se aktivovat kameru</h3>
+              <p className="text-sm text-white/60 max-w-xs mb-5">{cameraError}</p>
+              <div className="flex flex-col gap-2 w-full max-w-xs">
+                <Button onClick={startCamera} className="bg-white text-black hover:bg-white/90">
+                  <RotateCcw size={16} className="mr-2" /> Zkusit znovu
+                </Button>
+                <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}
+                  className="border-white/20 bg-transparent">
+                  <ImageIcon size={16} className="mr-2" /> Nahrát fotografie ručně
+                </Button>
+                <input ref={fallbackUploadRef} type="file" accept="image/*" multiple className="hidden"
+                  onChange={async (e) => {
+                    const files = Array.from(e.target.files ?? []);
+                    e.target.value = "";
+                    for (const f of files) await handleFilePicked(f);
+                  }} />
+              </div>
+            </div>
+          )}
+
+          {/* Hidden gallery input (shared by both layouts) */}
+          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
+            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f); e.target.value = ""; }} />
+
+          {landscapeMode ? (
+            <>
+              {/* LEFT column — navigation */}
+              <div className="absolute left-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-3 pointer-events-none">
+                <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 hover:bg-black/60 transition"
+                  title="Předchozí">
+                  <ChevronLeft size={20} />
+                </button>
+                <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
+                  title="Přeskočit">
+                  <ChevronRight size={20} />
+                </button>
+                <button onClick={() => setPhase("vin")}
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
+                  title="VIN scan">
+                  <ScanLine size={18} />
+                </button>
+              </div>
+
+              {/* RIGHT column — shutter stack */}
+              <div className="absolute right-0 inset-y-0 w-24 flex flex-col items-center justify-center gap-4 pointer-events-none">
+                <button onClick={switchCamera}
+                  className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
+                  title="Přepnout kameru">
+                  <SwitchCamera size={18} />
+                </button>
+                <button onClick={handleShot} disabled={!stream}
+                  className="pointer-events-auto relative w-16 h-16 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
+                  <span className="absolute inset-1.5 rounded-full bg-white" />
+                </button>
+                <button onClick={() => fileInputRef.current?.click()}
+                  className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
+                  title="Z galerie">
+                  <ImageIcon size={18} />
+                </button>
+              </div>
+
+              {/* BOTTOM filmstrip */}
+              {photos.length > 0 && (
+                <div className="absolute bottom-0 inset-x-20 px-4 pb-3">
+                  <div className="flex gap-2 overflow-x-auto pb-1">
+                    {photos.map((p) => {
+                      const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
+                      return (
+                        <div key={row.id} className="relative shrink-0">
+                          <img src={row.processed_url} alt={row.shot_type}
+                            className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/25" />
+                          <span className="absolute -top-1 -right-1 text-[9px] bg-black/80 backdrop-blur rounded-full px-1.5 py-0.5">
+                            {row.quality_score}%
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            /* PORTRAIT — floating bottom console */
+            <div className="absolute bottom-0 inset-x-0 px-4 pb-5 pt-4 bg-gradient-to-t from-black via-black/80 to-transparent">
+              {photos.length > 0 && (
+                <div className="flex gap-2 overflow-x-auto pb-3">
+                  {photos.map((p) => {
+                    const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
+                    return (
+                      <div key={row.id} className="relative shrink-0">
+                        <img src={row.processed_url} alt={row.shot_type}
+                          className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/25" />
+                        <span className="absolute -top-1 -right-1 text-[9px] bg-black/80 backdrop-blur rounded-full px-1.5 py-0.5">
+                          {row.quality_score}%
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              <Progress value={((currentStepIdx + 1) / totalSteps) * 100} className="h-1 mb-4 bg-white/10" />
+
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="Z galerie">
+                    <ImageIcon size={20} />
+                  </button>
+                  <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
+                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 transition"
+                    title="Předchozí">
+                    <ChevronLeft size={20} />
+                  </button>
+                </div>
+
+                <button onClick={handleShot} disabled={!stream}
+                  className="relative w-20 h-20 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
+                  <span className="absolute inset-2 rounded-full bg-white" />
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
+                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="Přeskočit">
+                    <ChevronRight size={20} />
+                  </button>
+                  <button onClick={() => setPhase("vin")}
+                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="VIN scan">
+                    <ScanLine size={20} />
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* ⚡ Shutter flash */}
+          {shutterFlash && (
+            <div className="absolute inset-0 bg-white pointer-events-none animate-in fade-in duration-75" style={{ animationDirection: "alternate" }} />
+          )}
+        </div>
       )}
+
 
       {/* VIN phase */}
       {phase === "vin" && (

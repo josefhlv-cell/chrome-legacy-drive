@@ -477,8 +477,10 @@ export default function SmartCapture() {
 
   return (
     <div className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden">
-      {/* Header */}
+      {/* Header — hidden while capturing (full-screen camera) */}
+      {phase !== "capturing" && (
       <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0 backdrop-blur-xl bg-black/40">
+
         <button onClick={() => { stopCamera(); navigate("/admin"); }}
           className="p-2 rounded-full hover:bg-white/10 transition-colors">
           <X size={20} />

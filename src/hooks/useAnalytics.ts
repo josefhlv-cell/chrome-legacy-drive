@@ -24,22 +24,51 @@ interface Lead {
   created_at: string;
 }
 
+// Supabase/PostgREST vrací max. 1000 řádků na jeden request (výchozí "max-rows").
+// Bez stránkování přes .range() se tak jakýkoli dotaz s víc než 1000 shodami
+// vždy tise ořízne na přesně 1000 – proto dashboard "zamrzl" na čísle 1 000.
+// Tahle funkce prochází výsledky po stránkách, dokud nedojdou všechna data.
+async function fetchAllRows<T>(
+  table: string,
+  columns: string,
+  since: string
+): Promise<T[]> {
+  const pageSize = 1000;
+  let from = 0;
+  let all: T[] = [];
+
+  while (true) {
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+
+    const rows = (data || []) as T[];
+    all = all.concat(rows);
+
+    if (rows.length < pageSize) break; // poslední (neúplná) stránka -> konec
+    from += pageSize;
+
+    // pojistka proti nekonečné smyčce při neočekávaných datech
+    if (from > 200_000) break;
+  }
+
+  return all;
+}
+
 export function useAnalytics(days: number = 30) {
   return useQuery({
     queryKey: ["analytics", days],
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - days);
-
-      const { data, error } = await supabase
-        .from("page_views")
-        .select("*")
-        .gte("created_at", since.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as PageView[];
+      return fetchAllRows<PageView>("page_views", "*", since.toISOString());
     },
+    staleTime: 60_000, // 1 min cache, ať se dashboard zbytečně nedotazuje při každém renderu
   });
 }
 
@@ -49,16 +78,9 @@ export function useLeadsAnalytics(days: number = 30) {
     queryFn: async () => {
       const since = new Date();
       since.setDate(since.getDate() - days);
-
-      const { data, error } = await supabase
-        .from("leads")
-        .select("id, type, created_at")
-        .gte("created_at", since.toISOString())
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return (data || []) as Lead[];
+      return fetchAllRows<Lead>("leads", "id, type, created_at", since.toISOString());
     },
+    staleTime: 60_000,
   });
 }
 

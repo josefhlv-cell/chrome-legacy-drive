@@ -65,6 +65,7 @@ export default function SmartCapture() {
     description: "",
   });
   const videoRef = useRef<HTMLVideoElement>(null);
+  const facingRef = useRef<"environment" | "user">("environment");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
 

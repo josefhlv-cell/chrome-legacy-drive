@@ -11,6 +11,7 @@ import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 import { getPublicVehicleImageUrl } from "@/lib/showroomImage";
+import { useVehicleStructuredData } from "@/lib/vehicleStructuredData";
 
 const VehicleDetail = () => {
   const { id } = useParams();
@@ -54,6 +55,10 @@ const VehicleDetail = () => {
     if (isUsable(vehicle?.image_url)) return [vehicle!.image_url];
     return [];
   }, [vehicleImages, vehicle]);
+
+  // Injects schema.org/Vehicle JSON-LD into <head> for this vehicle — helps
+  // Google show price/availability in search results. No visible UI change.
+  useVehicleStructuredData(vehicle, galleryUrls);
 
   useEffect(() => {
     if (isLoading) {

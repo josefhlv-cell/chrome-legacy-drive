@@ -135,13 +135,13 @@ export default function SmartCapture() {
 
   // Gesture-safe camera request — must be the FIRST await after the user click
   // on iOS Safari, otherwise the permission prompt is silently dropped.
-  const requestCamera = useCallback(async (): Promise<MediaStream> => {
+  const requestCamera = useCallback(async (mode: "environment" | "user" = facingRef.current): Promise<MediaStream> => {
     if (!navigator.mediaDevices?.getUserMedia) {
       throw new Error("Tento prohlížeč nepodporuje přístup ke kameře.");
     }
     try {
       return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: "environment" }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+        video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
         audio: false,
       });
     } catch (err) {

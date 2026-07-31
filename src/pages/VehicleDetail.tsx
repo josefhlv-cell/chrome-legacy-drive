@@ -307,9 +307,19 @@ const VehicleDetail = () => {
                 );
               })()}
 
-              <div className="mt-6 flex gap-4">
+              <div className="mt-6 flex flex-wrap gap-4">
                 <Link to="/kontakt" className="chrome-button inline-block text-center flex-1">Mám zájem o tento vůz</Link>
+                {compareEnabled && (
+                  <button
+                    onClick={() => (compareSelected ? removeFromCompare(vehicle.id) : addToCompare(vehicle.id))}
+                    className="outline-button inline-flex items-center justify-center gap-2 flex-1"
+                  >
+                    <Scale className="w-4 h-4" />
+                    {compareSelected ? "Odebrat z porovnání" : "Porovnat vozy"}
+                  </button>
+                )}
               </div>
+
             </motion.div>
           </div>
 

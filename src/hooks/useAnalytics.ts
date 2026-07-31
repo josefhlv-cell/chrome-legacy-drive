@@ -39,7 +39,7 @@ async function fetchAllRows<T>(
 
   while (true) {
     const { data, error } = await supabase
-      .from(table)
+      .from(table as never)
       .select(columns)
       .gte("created_at", since)
       .order("created_at", { ascending: false })

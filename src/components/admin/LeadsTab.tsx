@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Mail, Phone, Car, MessageSquare, Calendar, Filter, Search, Download, Inbox, Wrench, Repeat, ShoppingBag, HelpCircle, Image as ImageIcon, Trash2, CheckSquare, Square } from "lucide-react";
 
-type LeadType = "all" | "contact" | "service" | "trade-in" | "spare-parts" | "import" | "vehicle-inquiry" | "other";
+type LeadType = "all" | "contact" | "service" | "trade-in" | "spare-parts" | "import" | "vehicle-inquiry" | "live-chat" | "other";
 
 interface Lead {
   id: string;
@@ -25,6 +25,7 @@ const TYPE_META: Record<string, { label: string; icon: React.ReactNode; color: s
   "spare-parts": { label: "Náhradní díly", icon: <ShoppingBag className="w-3.5 h-3.5" />, color: "bg-purple-500/15 text-purple-700 border-purple-500/30" },
   import: { label: "Dovoz", icon: <Car className="w-3.5 h-3.5" />, color: "bg-cyan-500/15 text-cyan-700 border-cyan-500/30" },
   "vehicle-inquiry": { label: "Dotaz na vozidlo", icon: <Car className="w-3.5 h-3.5" />, color: "bg-indigo-500/15 text-indigo-700 border-indigo-500/30" },
+  "live-chat": { label: "Živý chat", icon: <MessageSquare className="w-3.5 h-3.5" />, color: "bg-teal-500/15 text-teal-700 border-teal-500/30" },
   other: { label: "Ostatní", icon: <HelpCircle className="w-3.5 h-3.5" />, color: "bg-gray-500/15 text-gray-700 border-gray-500/30" },
 };
 

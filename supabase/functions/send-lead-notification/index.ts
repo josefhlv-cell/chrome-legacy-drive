@@ -25,6 +25,7 @@ const TYPE_LABELS: Record<string, string> = {
   service: "Servis",
   "spare-parts": "Náhradní díly",
   vehicle: "Poptávka konkrétního vozidla",
+  "live-chat": "Živý chat (web)",
 };
 
 const escape = (s: unknown) =>

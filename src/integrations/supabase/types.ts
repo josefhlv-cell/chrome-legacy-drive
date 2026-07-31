@@ -1060,6 +1060,39 @@ export type Database = {
         }
         Relationships: []
       }
+      watchdog_subscriptions: {
+        Row: {
+          created_at: string
+          email: string
+          id: string
+          keyword: string | null
+          notified_vehicle_ids: string[]
+          price_max: number | null
+          unsubscribe_token: string
+          year_min: number | null
+        }
+        Insert: {
+          created_at?: string
+          email: string
+          id?: string
+          keyword?: string | null
+          notified_vehicle_ids?: string[]
+          price_max?: number | null
+          unsubscribe_token?: string
+          year_min?: number | null
+        }
+        Update: {
+          created_at?: string
+          email?: string
+          id?: string
+          keyword?: string | null
+          notified_vehicle_ids?: string[]
+          price_max?: number | null
+          unsubscribe_token?: string
+          year_min?: number | null
+        }
+        Relationships: []
+      }
       weekly_hit_songs: {
         Row: {
           created_at: string

@@ -8,6 +8,7 @@ import Footer from "@/components/Footer";
 import VehicleCard from "@/components/VehicleCard";
 import VehicleCardSkeleton from "@/components/VehicleCardSkeleton";
 import BannerSlot from "@/components/BannerSlot";
+import WatchdogDialog from "@/components/WatchdogDialog";
 import { useVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
@@ -127,6 +128,7 @@ const VehiclesPage = () => {
             <select value={sort} onChange={(e) => setSort(e.target.value)} className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border">
               {sortOptions.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
+            <WatchdogDialog />
             <span className="ml-auto text-xs text-muted-foreground font-montserrat">{filtered.length} vozů</span>
           </div>
 

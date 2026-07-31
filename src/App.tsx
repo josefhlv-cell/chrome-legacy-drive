@@ -8,6 +8,9 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "@/hooks/useAuth";
 import { usePageTracking } from "@/hooks/usePageTracking";
 import ScrollToTop from "./components/ScrollToTop.tsx";
+import LiveChatWidget from "./components/LiveChatWidget.tsx";
+import CompareBar from "./components/CompareBar.tsx";
+import { CompareProvider } from "./contexts/CompareContext.tsx";
 
 // Lazy load all routes — keeps the initial bundle minimal and lets each page stream its own chunk
 const Index = lazy(() => import("./pages/Index.tsx"));
@@ -25,6 +28,7 @@ const AdminTipCars = lazy(() => import("./pages/AdminTipCars.tsx"));
 const SmartCapture = lazy(() => import("./pages/SmartCapture.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
+const CompareVehicles = lazy(() => import("./pages/CompareVehicles.tsx"));
 // AppBanner moved into Index page only — used to mount globally on every route.
 
 const queryClient = new QueryClient();
@@ -49,6 +53,7 @@ const App = () => (
         <Toaster />
         <Sonner />
         <BrowserRouter>
+          <CompareProvider>
           <ScrollToTop />
           <PageTracker />
           <Suspense fallback={<PageFallback />}>
@@ -68,8 +73,12 @@ const App = () => (
               <Route path="/admin/smart-capture" element={<SmartCapture />} />
               <Route path="*" element={<NotFound />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/porovnani-vozidel" element={<CompareVehicles />} />
             </Routes>
           </Suspense>
+          <LiveChatWidget />
+          <CompareBar />
+          </CompareProvider>
         </BrowserRouter>
       </TooltipProvider>
       </LazyMotion>

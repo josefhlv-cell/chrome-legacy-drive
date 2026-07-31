@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import { Fuel, Gauge, Shield, Leaf } from "lucide-react";
 import { formatPrice, priceWithVatFromNet, statusLabels, statusStyles } from "@/data/vehicles";
 import type { DbVehicle } from "@/hooks/useVehicles";
-import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
-import { getPublicVehicleImageUrl } from "@/lib/showroomImage";
+import { getVehicleCardImage, VEHICLE_IMAGE_PLACEHOLDER } from "@/lib/vehicleImageSelection";
+import { useCompare } from "@/contexts/CompareContext";
+import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 interface VehicleCardProps {
@@ -13,38 +14,28 @@ interface VehicleCardProps {
 }
 
 const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
-  const PLACEHOLDER = "/vehicle-placeholder.svg";
-
-  // Treat dead legacy server URLs as missing — they reliably 404 / time out.
-  const isUsableImageUrl = (url: string | null | undefined): url is string =>
-    !!url && !url.includes("chrysler-pardubice.cz");
+  const PLACEHOLDER = VEHICLE_IMAGE_PLACEHOLDER;
+  const compareEnabled = useFeatureFlag("feature_vehicle_compare_enabled");
+  const { isSelected, toggle } = useCompare();
 
   const cardImageUrl = useMemo(() => {
-    const sortedGallery = [...(vehicle?.vehicle_images ?? [])].sort((a, b) => {
-      if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
-      return a.sort_order - b.sort_order;
-    });
-
-    const candidates = dedupeImageUrls([
-      ...sortedGallery.map((img) => getPublicVehicleImageUrl(img)),
-      vehicle?.image_url,
-    ]).filter(isUsableImageUrl);
-
-    const chosen = candidates[0] ?? "";
+    const chosen = getVehicleCardImage(vehicle);
     if (import.meta.env.DEV) {
       // Helps verify in console that we never serve a chrysler-pardubice.cz URL.
       // eslint-disable-next-line no-console
       console.debug(`[VehicleCard] ${vehicle?.name} → ${chosen || "PLACEHOLDER"}`);
     }
     return chosen;
-  }, [vehicle?.image_url, vehicle?.vehicle_images, vehicle?.name]);
+  }, [vehicle]);
 
   if (!vehicle?.name || !vehicle?.id) return null;
 
   const isPriority = index < 4;
   const hasImage = Boolean(cardImageUrl);
+  const selected = isSelected(vehicle.id);
 
   const status = vehicle.status as keyof typeof statusLabels;
+
 
   return (
     <div className="h-full">
@@ -93,6 +84,34 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
               <Leaf className="w-3 h-3" /> LPG
             </div>
           )}
+          {compareEnabled && (
+            /* The whole card is a <Link>, so the click must be fully neutralised. */
+            <button
+              type="button"
+              aria-pressed={selected}
+              aria-label={selected ? "Odebrat z porovnání" : "Přidat do porovnání"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggle(vehicle.id);
+              }}
+              className={`absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-montserrat backdrop-blur-sm transition-colors ${
+                selected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background/80 text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <span
+                className={`w-3 h-3 rounded-[3px] border flex items-center justify-center ${
+                  selected ? "bg-primary-foreground border-primary-foreground" : "border-current"
+                }`}
+              >
+                {selected && <span className="w-1.5 h-1.5 rounded-[1px] bg-primary" />}
+              </span>
+              Porovnat
+            </button>
+          )}
+
         </div>
 
         <div className="p-5 flex flex-col flex-grow">

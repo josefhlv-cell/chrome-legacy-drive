@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useParams, Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play, AlertTriangle, Copy, Check, ChevronDown, Info } from "lucide-react";
+import { ArrowLeft, Fuel, Gauge, Cog, Palette, Shield, Leaf, ExternalLink, Play, AlertTriangle, Copy, Check, ChevronDown, Info, Scale } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
@@ -12,6 +12,8 @@ import { useVehicleImages } from "@/hooks/useVehicleImages";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 import { getPublicVehicleImageUrl } from "@/lib/showroomImage";
 import { useVehicleStructuredData } from "@/lib/vehicleStructuredData";
+import { useCompare } from "@/contexts/CompareContext";
+import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 
 const VehicleDetail = () => {
   const { id } = useParams();
@@ -21,6 +23,9 @@ const VehicleDetail = () => {
   const [preferredGalleryIndex, setPreferredGalleryIndex] = useState<number | null>(null);
   const [vinCopied, setVinCopied] = useState(false);
   const [showExtra, setShowExtra] = useState(false);
+  const compareEnabled = useFeatureFlag("feature_vehicle_compare_enabled");
+  const { isSelected, add: addToCompare, remove: removeFromCompare } = useCompare();
+  const compareSelected = id ? isSelected(id) : false;
 
   const handleCopyVin = async (vin: string) => {
     try {
@@ -307,9 +312,19 @@ const VehicleDetail = () => {
                 );
               })()}
 
-              <div className="mt-6 flex gap-4">
+              <div className="mt-6 flex flex-wrap gap-4">
                 <Link to="/kontakt" className="chrome-button inline-block text-center flex-1">Mám zájem o tento vůz</Link>
+                {compareEnabled && (
+                  <button
+                    onClick={() => (compareSelected ? removeFromCompare(vehicle.id) : addToCompare(vehicle.id))}
+                    className="outline-button inline-flex items-center justify-center gap-2 flex-1"
+                  >
+                    <Scale className="w-4 h-4" />
+                    {compareSelected ? "Odebrat z porovnání" : "Porovnat vozy"}
+                  </button>
+                )}
               </div>
+
             </motion.div>
           </div>
 

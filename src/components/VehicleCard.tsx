@@ -84,6 +84,34 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
               <Leaf className="w-3 h-3" /> LPG
             </div>
           )}
+          {compareEnabled && (
+            /* The whole card is a <Link>, so the click must be fully neutralised. */
+            <button
+              type="button"
+              aria-pressed={selected}
+              aria-label={selected ? "Odebrat z porovnání" : "Přidat do porovnání"}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                toggle(vehicle.id);
+              }}
+              className={`absolute bottom-3 right-3 z-10 inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-montserrat backdrop-blur-sm transition-colors ${
+                selected
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-background/80 text-muted-foreground border-border hover:text-foreground"
+              }`}
+            >
+              <span
+                className={`w-3 h-3 rounded-[3px] border flex items-center justify-center ${
+                  selected ? "bg-primary-foreground border-primary-foreground" : "border-current"
+                }`}
+              >
+                {selected && <span className="w-1.5 h-1.5 rounded-[1px] bg-primary" />}
+              </span>
+              Porovnat
+            </button>
+          )}
+
         </div>
 
         <div className="p-5 flex flex-col flex-grow">

@@ -1506,9 +1506,40 @@ const ContactsTab = () => {
           </div>
         ))}
       </div>
+
+      {/* Feature switches — stored as rows in site_contacts ('true' / 'false').
+          Turning one off immediately hides every public entry point of that feature. */}
+      <h2 className="text-lg font-bold text-foreground uppercase tracking-wider mt-10 mb-4">Funkce webu</h2>
+      <div className="space-y-3">
+        {[
+          { key: "feature_watchdog_enabled", label: "Hlídací pes", hint: "Formulář na /vozidla a e-maily o nových vozech" },
+          { key: "feature_live_chat_enabled", label: "Živý chat", hint: "Plovoucí obálka vpravo dole na celém webu" },
+          { key: "feature_vehicle_compare_enabled", label: "Porovnání vozů", hint: "Zaškrtávátko na kartách a stránka /porovnani-vozidel" },
+        ].map((f) => {
+          const enabled = contacts?.[f.key] !== "false";
+          return (
+            <div key={f.key} className="flex items-center justify-between gap-4 p-4 rounded-md bg-secondary/30">
+              <div>
+                <p className="text-sm font-semibold text-foreground">{f.label}</p>
+                <p className="text-xs text-muted-foreground">{f.hint}</p>
+              </div>
+              <Switch
+                checked={enabled}
+                onCheckedChange={(v) =>
+                  updateContact.mutate(
+                    { key: f.key, value: v ? "true" : "false" },
+                    { onSuccess: () => toast({ title: v ? `${f.label} zapnuto` : `${f.label} vypnuto` }) },
+                  )
+                }
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 };
+
 
 // ════════════════════════════════════════════════════
 // TICKER TAB

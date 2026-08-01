@@ -20,9 +20,13 @@ export const BACKGROUND_URL =
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 // Fixed catalog geometry — identical for every single vehicle.
-const CAR_WIDTH_RATIO = 0.76; // vehicle spans 76 % of the canvas width
-const MAX_CAR_HEIGHT_RATIO = 0.62; // never taller than 62 % of the canvas
-const WHEEL_LINE_Y_RATIO = 0.90; // tyres always touch the floor at this line
+const CAR_WIDTH_RATIO = 0.72; // vehicle spans 72 % of the canvas width
+const MAX_CAR_HEIGHT_RATIO = 0.60; // never taller than 60 % of the canvas
+// The wall/floor seam of the fixed background sits at y ≈ 840 (of 1080). The
+// tyres must land clearly BELOW it, on the polished floor — otherwise the car
+// visually leans against the wall and looks pasted on.
+const WHEEL_LINE_Y_RATIO = 0.945; // tyres touch the floor at y ≈ 1020
+
 
 // The model cannot be trusted to emit a real alpha channel — it paints a fake
 // "transparency checkerboard" instead. So we ask for a CHROMA KEY background

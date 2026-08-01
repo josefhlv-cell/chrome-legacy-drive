@@ -510,13 +510,13 @@ export async function runShowroom(
       keyOutFlatBackground(cutout);
     }
     keepVehicleComponent(cutout);
+    const levelled = levelToGround(cutout);
+    keepVehicleComponent(levelled);
 
-
-
-
-    const box = alphaBounds(cutout);
+    const box = alphaBounds(levelled);
     if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");
-    const car = cutout.clone().crop(box.x, box.y, box.w, box.h);
+    const car = levelled.clone().crop(box.x, box.y, box.w, box.h);
+
 
     let targetW = Math.round(CANVAS_W * CAR_WIDTH_RATIO);
     let targetH = Math.round((car.height / car.width) * targetW);

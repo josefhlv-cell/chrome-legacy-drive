@@ -433,40 +433,39 @@ function alphaBounds(img: Image) {
 }
 
 /**
- * The cutout model often leaves the vehicle's ORIGINAL ground shadow / dark
- * asphalt as a soft near-black halo attached to the silhouette, which reads as
- * a smudge glued to the car. Erode only dark, desaturated pixels that sit on
- * the alpha border, so real bodywork edges keep their shape while the halo is
- * peeled away layer by layer.
+ * The cutout model keeps the vehicle's ORIGINAL ground shadow as a dark pool
+ * spilling below the tyres. We paint our own physically correct contact shadow
+ * on the showroom floor, so that pool must go — otherwise the car sits on a
+ * black smudge and instantly reads as a fake paste-up.
+ *
+ * Strategy: find the real tyre contact line (robust percentile of the column
+ * bottoms), then erase everything under it that is dark and desaturated.
  */
-function stripDarkHalo(img: Image) {
+function stripGroundShadow(img: Image) {
   const w = img.width, h = img.height;
   const bmp = img.bitmap as unknown as Uint8Array;
-  const depth = Math.max(4, Math.round(w * 0.012));
-  for (let pass = 0; pass < depth; pass++) {
-    const kill: number[] = [];
-    for (let y = 0; y < h; y++) {
-      for (let x = 0; x < w; x++) {
-        const idx = y * w + x;
-        const a = bmp[idx * 4 + 3];
-        if (a < 24) continue;
-        let border = false;
-        for (let dy = -1; dy <= 1 && !border; dy++) {
-          for (let dx = -1; dx <= 1; dx++) {
-            const nx = x + dx, ny = y + dy;
-            if (nx < 0 || ny < 0 || nx >= w || ny >= h) { border = true; break; }
-            if (bmp[(ny * w + nx) * 4 + 3] < 24) { border = true; break; }
-          }
-        }
-        if (!border) continue;
-        const r = bmp[idx * 4], g = bmp[idx * 4 + 1], b = bmp[idx * 4 + 2];
-        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
-        const sat = Math.max(r, g, b) - Math.min(r, g, b);
-        if (lum < 95 && sat < 28) kill.push(idx);
-      }
+
+  const bottoms: number[] = [];
+  const colBottom = new Array<number>(w).fill(-1);
+  for (let x = 0; x < w; x++) {
+    for (let y = h - 1; y >= 0; y--) {
+      if (bmp[(y * w + x) * 4 + 3] > 24) { colBottom[x] = y; bottoms.push(y); break; }
     }
-    if (kill.length === 0) break;
-    for (const idx of kill) bmp[idx * 4 + 3] = 0;
+  }
+  if (bottoms.length < 10) return;
+  bottoms.sort((a, b) => a - b);
+  // Tyres are the lowest genuine geometry; the shadow pool dips a bit lower.
+  const contactY = bottoms[Math.floor(bottoms.length * 0.90)];
+
+  for (let x = 0; x < w; x++) {
+    for (let y = contactY + 1; y < h; y++) {
+      const idx = y * w + x;
+      if (bmp[idx * 4 + 3] < 24) continue;
+      const r = bmp[idx * 4], g = bmp[idx * 4 + 1], b = bmp[idx * 4 + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const sat = Math.max(r, g, b) - Math.min(r, g, b);
+      if (lum < 110 && sat < 34) bmp[idx * 4 + 3] = 0;
+    }
   }
 }
 
@@ -728,7 +727,7 @@ export async function runShowroom(
     }
     fillInteriorHoles(cutout);
     keepVehicleComponent(cutout);
-    stripDarkHalo(cutout);
+    stripGroundShadow(cutout);
 
 
     const box = alphaBounds(cutout);

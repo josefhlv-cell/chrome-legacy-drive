@@ -144,6 +144,43 @@ function chromaKey(img: Image): number {
   return removed / (w * h);
 }
 
+/**
+ * The model sometimes smears magenta INSIDE the car (over a taillight lens, a
+ * window reflection). Keying those pixels leaves see-through holes in the body.
+ * Any transparent area not connected to the image border is therefore an
+ * interior hole: make it opaque again and neutralise the purple tint.
+ */
+function fillInteriorHoles(img: Image) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  const outside = new Uint8Array(w * h);
+  const stack: number[] = [];
+  const push = (x: number, y: number) => {
+    if (x < 0 || y < 0 || x >= w || y >= h) return;
+    const p = y * w + x;
+    if (outside[p] || bmp[p * 4 + 3] > 24) return;
+    outside[p] = 1;
+    stack.push(p);
+  };
+  for (let x = 0; x < w; x++) { push(x, 0); push(x, h - 1); }
+  for (let y = 0; y < h; y++) { push(0, y); push(w - 1, y); }
+  while (stack.length) {
+    const p = stack.pop()!;
+    const x = p % w, y = (p - x) / w;
+    push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
+  }
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    if (bmp[i + 3] > 24 || outside[p]) continue;
+    const r = bmp[i], g = bmp[i + 1], b = bmp[i + 2];
+    const grey = Math.round(g * 0.5 + (r + b) / 4);
+    bmp[i] = grey; bmp[i + 1] = grey; bmp[i + 2] = grey;
+    bmp[i + 3] = 255;
+  }
+}
+
+
+
 function removeCheckerboard(img: Image) {
 
   const w = img.width, h = img.height;

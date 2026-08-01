@@ -378,24 +378,64 @@ function alphaBounds(img: Image) {
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
-/** Soft elliptical contact shadow painted directly into the background. */
-function paintShadow(canvas: Image, cx: number, cy: number, rx: number, ry: number) {
+/**
+ * Perspective-correct contact shadow.
+ *
+ * A single centred ellipse makes a 3/4-view car look like it hovers, because in
+ * that perspective the near wheels sit far lower than the far wheels. So instead
+ * we follow the vehicle's own silhouette: for every column we find its lowest
+ * visible pixel and paint a soft, blurred shadow directly beneath it. The result
+ * is tyre-to-floor contact plus ambient occlusion under the whole body.
+ */
+function paintContactShadow(canvas: Image, car: Image, carX: number, carY: number) {
+  const cw = car.width, ch = car.height;
+  const cbmp = car.bitmap as unknown as Uint8Array;
+
+  // lowest visible pixel per column
+  const floor: Array<number | null> = new Array(cw).fill(null);
+  for (let x = 0; x < cw; x++) {
+    for (let y = ch - 1; y >= 0; y--) {
+      if (cbmp[(y * cw + x) * 4 + 3] > 24) { floor[x] = y; break; }
+    }
+  }
+  // horizontal smoothing so the shadow edge is soft, not jagged
+  const smooth = new Array<number | null>(cw).fill(null);
+  const win = Math.max(3, Math.round(cw * 0.02));
+  for (let x = 0; x < cw; x++) {
+    let sum = 0, n = 0;
+    for (let k = -win; k <= win; k++) {
+      const v = floor[x + k];
+      if (v != null) { sum += v; n++; }
+    }
+    if (n > 0) smooth[x] = sum / n;
+  }
+
+  const reach = Math.max(10, Math.round(ch * 0.09)); // how far the shadow spreads
   const bmp = canvas.bitmap as unknown as Uint8Array;
-  const x0 = Math.max(0, Math.floor(cx - rx)), x1 = Math.min(canvas.width - 1, Math.ceil(cx + rx));
-  const y0 = Math.max(0, Math.floor(cy - ry)), y1 = Math.min(canvas.height - 1, Math.ceil(cy + ry));
-  for (let y = y0; y <= y1; y++) {
-    for (let x = x0; x <= x1; x++) {
-      const dx = (x - cx) / rx, dy = (y - cy) / ry;
-      const d = dx * dx + dy * dy;
-      if (d >= 1) continue;
-      const strength = 0.42 * Math.pow(1 - d, 1.6);
-      const i = (y * canvas.width + x) * 4;
+  const W = canvas.width, H = canvas.height;
+
+  for (let x = 0; x < cw; x++) {
+    const fy = smooth[x];
+    if (fy == null) continue;
+    const px = carX + x;
+    if (px < 0 || px >= W) continue;
+    // fade the shadow out towards the front/rear ends of the car
+    const edge = Math.min(x, cw - 1 - x) / (cw * 0.08);
+    const endFade = Math.min(1, Math.max(0, edge));
+    for (let d = -Math.round(reach * 0.25); d <= reach; d++) {
+      const py = Math.round(carY + fy + d);
+      if (py < 0 || py >= H) continue;
+      const t = Math.abs(d) / reach;
+      const strength = 0.5 * Math.pow(1 - Math.min(1, t), 2.0) * endFade;
+      if (strength <= 0.002) continue;
+      const i = (py * W + px) * 4;
       bmp[i] = Math.round(bmp[i] * (1 - strength));
       bmp[i + 1] = Math.round(bmp[i + 1] * (1 - strength));
       bmp[i + 2] = Math.round(bmp[i + 2] * (1 - strength));
     }
   }
 }
+
 
 export type ShowroomResult =
   | { ok: true; cached?: boolean; showroom_url: string; showroom_thumb_url?: string }

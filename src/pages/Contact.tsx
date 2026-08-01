@@ -77,8 +77,22 @@ const ContactPage = () => {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
             >
-              <div className="glass-card p-6 space-y-6">
-                <div className="flex items-start gap-4">
+              <div className="glass-card p-6 space-y-6 relative overflow-hidden">
+                {/* Decentní obrázek v pozadí — stejné zpracování jako v mobilním menu */}
+                <div
+                  aria-hidden="true"
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundImage: `url(/menu-bg.webp)`,
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center 40%',
+                    opacity: 0.16,
+                    filter: 'grayscale(0.55) contrast(0.95) brightness(0.9)',
+                    maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
+                    WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
+                  }}
+                />
+                <div className="flex items-start gap-4 relative z-10">
                   <Phone className="w-5 h-5 text-primary mt-0.5" />
                   <div className="space-y-2">
                     <div>
@@ -100,7 +114,7 @@ const ContactPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 relative z-10">
                   <Mail className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">E-mail</p>
@@ -108,7 +122,7 @@ const ContactPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 relative z-10">
                   <MapPin className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Adresa</p>

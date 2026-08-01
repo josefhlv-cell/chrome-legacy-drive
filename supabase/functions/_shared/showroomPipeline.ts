@@ -424,7 +424,9 @@ export async function runShowroom(
   try {
     const cutoutBytes = dataUrlToBytes(outDataUrl).bytes;
     const cutout = await Image.decode(cutoutBytes);
+    removeCheckerboard(cutout);
     keyOutFlatBackground(cutout);
+
     keepVehicleComponent(cutout);
 
 

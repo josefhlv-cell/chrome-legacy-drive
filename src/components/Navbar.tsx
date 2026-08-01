@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Play } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
-import menuBg from "@/assets/menu-bg.jpg.asset.json";
 
 // Pending-replay flag is read by IntroAnimation when it mounts on the homepage.
 const REPLAY_FLAG = "intro:replay-pending";
@@ -103,7 +102,7 @@ const Navbar = () => {
           aria-hidden="true"
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `url(${menuBg.url})`,
+            backgroundImage: `url(/menu-bg.webp)`,
             backgroundSize: 'cover',
             backgroundPosition: 'center 40%',
             opacity: 0.28,

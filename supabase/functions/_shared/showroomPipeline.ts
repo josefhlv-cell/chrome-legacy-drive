@@ -24,19 +24,26 @@ const CAR_WIDTH_RATIO = 0.76; // vehicle spans 76 % of the canvas width
 const MAX_CAR_HEIGHT_RATIO = 0.62; // never taller than 62 % of the canvas
 const WHEEL_LINE_Y_RATIO = 0.90; // tyres always touch the floor at this line
 
-const CUTOUT_PROMPT = `CUTOUT MODE — REMOVE THE BACKGROUND ONLY.
+// The model cannot be trusted to emit a real alpha channel — it paints a fake
+// "transparency checkerboard" instead. So we ask for a CHROMA KEY background
+// (pure magenta, a colour that never occurs on a car) and remove it ourselves,
+// deterministically, in code.
+export const CHROMA = { r: 255, g: 0, b: 255 };
 
-TASK: Return the supplied vehicle as a PNG with a FULLY TRANSPARENT background (real alpha channel). Nothing but the vehicle may remain.
+const CUTOUT_PROMPT = `CHROMA-KEY CUTOUT MODE — REPLACE THE BACKGROUND WITH SOLID MAGENTA.
+
+TASK: Return ONE image of the supplied vehicle where every single background pixel is replaced by PERFECTLY UNIFORM, FULLY SATURATED PURE MAGENTA (hex #FF00FF, RGB 255,0,255). The magenta must be one flat, even colour — no texture, no gradient, no shading, no noise.
 
 ABSOLUTE VEHICLE IDENTITY LOCK — the vehicle must stay 100% pixel-faithful to the source:
-Do not change or re-draw the body, paint colour, panels, wheels, tyres, glass, headlights, taillights, badges, grille, mirrors, trim, licence plate, damage, reflections, perspective, camera angle, orientation, proportions or sharpness. No mirroring, no rotating, no re-posing, no re-styling, no re-rendering, no beautifying, no upscaling artefacts.
+Do not change or re-draw the body, paint colour, panels, wheels, tyres, glass, headlights, taillights, badges, grille, mirrors, trim, licence plate, damage, reflections, perspective, camera angle, orientation, proportions or sharpness. No mirroring, no rotating, no tilting, no re-posing, no re-styling, no re-rendering, no beautifying. Keep the vehicle perfectly level exactly as in the source.
 
-REMOVE: every background pixel — floor, ground, asphalt, walls, buildings, sky, plants, people, other cars, signs, shadows cast on the ground.
-KEEP: only the vehicle itself, including its own dark under-body area.
+REPLACE WITH MAGENTA: every background pixel — floor, ground, asphalt, walls, buildings, sky, plants, people, other cars, signs, and every shadow cast on the ground.
+KEEP: only the vehicle itself, including its own dark under-body area, its glass and everything visible through the glass.
 
-FORBIDDEN: no new background, no white/grey/coloured fill, no checkerboard, no gradient, no drop shadow, no glow, no outline, no halo, no matte fringe, no text, no watermark, no border, no second copy of the car.
+STRICTLY FORBIDDEN: no transparency checkerboard pattern, no chequered squares, no grey/white tiles, no alpha preview pattern, no white or grey fill, no gradient, no drop shadow, no glow, no outline, no halo, no matte fringe, no text, no watermark, no border, no second copy of the car. Magenta must not appear anywhere on the vehicle itself.
 
-OUTPUT: exactly ONE PNG image, transparent background, vehicle tightly framed, same orientation as the source.`;
+OUTPUT: exactly ONE image, vehicle tightly framed and perfectly level, on a flat pure magenta (#FF00FF) background, same orientation as the source.`;
+
 
 export type AdminClient = ReturnType<typeof createClient>;
 

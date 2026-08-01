@@ -104,27 +104,8 @@ async function fetchAsDataUrl(url: string): Promise<{ dataUrl: string; contentTy
   return { dataUrl: `data:${contentType};base64,${btoa(bin)}`, contentType, bytes };
 }
 
-async function fetchBackground(): Promise<string> {
-  for (const u of BG_FALLBACK_URLS) {
-    try {
-      return (await fetchAsDataUrl(u)).dataUrl;
-    } catch (_) {
-      // try next background source
-    }
-  }
-  throw new Error("Reference showroom background is unreachable");
-}
 
-async function fetchLogo(): Promise<string | null> {
-  for (const u of LOGO_FALLBACK_URLS) {
-    try {
-      return (await fetchAsDataUrl(u)).dataUrl;
-    } catch (_) {
-      // try next logo source
-    }
-  }
-  return null;
-}
+
 
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);

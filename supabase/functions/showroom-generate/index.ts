@@ -171,14 +171,9 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-    let bgDataUrl: string;
     let carDataUrl: string;
-    let logoDataUrl: string | null = null;
     try {
-      const [bg, car, logo] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl), fetchLogo()]);
-      bgDataUrl = bg;
-      carDataUrl = car.dataUrl;
-      logoDataUrl = logo;
+      carDataUrl = (await fetchAsDataUrl(sourceUrl)).dataUrl;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -194,14 +189,9 @@ Deno.serve(async (req) => {
 
     const content: any[] = [
       { type: "text", text: SHOWROOM_PROMPT },
-      { type: "image_url", image_url: { url: bgDataUrl } },
+      { type: "text", text: "SOURCE VEHICLE PHOTO (identity-lock the vehicle, replace only the background):" },
+      { type: "image_url", image_url: { url: carDataUrl } },
     ];
-    if (logoDataUrl) {
-      content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
-      content.push({ type: "image_url", image_url: { url: logoDataUrl } });
-    }
-    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
-    content.push({ type: "image_url", image_url: { url: carDataUrl } });
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -211,7 +201,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
+        model: "google/gemini-3.1-flash-image",
         modalities: ["image", "text"],
         messages: [{
           role: "user",
@@ -219,6 +209,7 @@ Deno.serve(async (req) => {
         }],
       }),
     });
+
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();

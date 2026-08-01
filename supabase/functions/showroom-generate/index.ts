@@ -11,189 +11,37 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
-const BG_PUBLIC_URL = "https://chdp.chryslerpardubice.site/showroom-background.jpg";
-const BG_FALLBACK_URLS = [
-  BG_PUBLIC_URL,
-  "https://chtysler-cz.lovable.app/showroom-background.jpg",
-  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-background.jpg",
-];
+// SHOWROOM MODE — premium white cyclorama studio, identical for every vehicle.
+// Background is fully synthesised by the image model; no external reference asset
+// is fetched, so the look can never drift with a changed/deleted file.
+const SHOWROOM_PROMPT = `SHOWROOM MODE — STRICT BACKGROUND-ONLY REPLACEMENT
 
-const LOGO_FALLBACK_URLS = [
-  "https://chdp.chryslerpardubice.site/showroom-logo-shield.png",
-  "https://chtysler-cz.lovable.app/showroom-logo-shield.png",
-  "https://id-preview--c84aefff-909b-427b-9038-4e6708c93b3b.lovable.app/showroom-logo-shield.png",
-];
+TASK: Replace ONLY the background of the supplied vehicle photo. Output one ultra photorealistic automotive studio photograph.
 
-const SHOWROOM_PROMPT = `MASTER PROMPT — CHRYSLER.CZ SHOWROOM BACKGROUND MODE v3 (REFERENCE-LOCKED)
+BACKGROUND SPECIFICATION (identical in every single output, no variation ever):
+- premium luxury automotive studio / dealership showroom
+- seamless white cyclorama walls with softly rounded corners, smooth and clean
+- light grey polished cast concrete floor
+- soft, evenly diffused ceiling lighting
+- realistic contact shadow directly beneath every tyre
+- soft, natural, very subtle floor reflection under the vehicle
+- minimalistic premium studio, nothing else in the frame
 
-GOLD REFERENCE BEHAVIOR — MANDATORY STYLE TARGET:
-Every output MUST visually match this exact reference style: a white Chrysler Town & Country photographed from a natural 3/4 front angle, standing on a thin strip of light gray asphalt directly in front of a clean, slightly warm off-white plaster facade wall, with realistic outdoor daylight, soft natural contact shadows under the tires, and the SHIELD-shaped "CHRYSLER & DODGE PARDUBICE" logo mounted on the wall in the top-right corner. The car keeps its EXACT original angle, side, orientation, framing, proportions and details from the SOURCE CAR PHOTO. The wall is endless, the logo is identical in every photo (same shield silhouette, same chrome frame, same dark glossy black face, same pentastar, same typography, same size, same position). No mirroring. No re-angling. No reposing. No studio look. No CGI. No halos. No fake daylight. Photographer-grade realism only.
+NEVER GENERATE: furniture, people, plants, windows, doors, columns, decorations, banners, posters, logos, text, watermarks, outdoor scenery, parking lots, streets, houses, sky, other cars.
 
-If you cannot match this gold reference behavior, return the SOURCE CAR PHOTO unchanged. A clean unedited source is always better than a deformed, rotated, mirrored, mis-angled, mis-placed, or logo-mismatched result.
+VEHICLE IDENTITY LOCK — the vehicle must remain 100% identical to the source:
+Do not change the body, paint colour, panels, wheels, tyres, glass, headlights, taillights, badges, trim, licence plate, reflections on the vehicle, perspective, camera angle, proportions, framing, sharpness, or level of detail. No mirroring, no rotating, no re-posing, no re-styling, no re-rendering of the car. Preserve the vehicle exactly as provided, pixel-faithful.
 
+GROUNDING: the tyres must sit on the concrete floor with a dense, soft-edged contact shadow at each contact patch, subtle ambient occlusion in the crevices under the sills, bumpers and wheel arches, and a whisper-faint floor reflection. No floating cut-out, no halo, no mask edge, no chromatic fringe, no over-sharpened silhouette.
 
-Produce ONE photorealistic dealership listing photo of the EXACT same vehicle shown in the SOURCE CAR PHOTO, placed against a clean white Chrysler & Dodge Pardubice showroom facade wall.
+CONSISTENCY: keep the vehicle centred, keep the same framing and the same lighting style for every vehicle, so that all photos look like they were shot in the exact same studio on the same day.
 
-LOGO SHAPE — CRITICAL: The official dealership logo is a SHIELD (crest / heraldic shield shape with pointed bottom and rounded top corners), NOT a circle/round disc. The shield has a dark glossy black/dark-chrome face with a polished silver/chrome beveled outer frame. Inside the shield, from top to bottom: (1) the silver Chrysler pentastar emblem, (2) the word "CHRYSLER" in bold chrome letters, (3) a horizontal divider with a small "&" centered, (4) the word "DODGE" in bold chrome letters, (5) the word "PARDUBICE" in smaller chrome letters at the bottom. NEVER render this logo as a round/circular disc — it MUST be a shield silhouette.
+INTERIOR PHOTOS: if the source is an interior shot, leave the whole interior untouched and only gently clean and softly blur what is visible through the glass into a neutral bright studio tone. No showroom hall, no other cars, no logos behind the glass.
 
-INPUTS:
-1) LOGO REFERENCE: the official round "CHRYSLER & DODGE PARDUBICE" pentastar sign. Use ONLY for logo/typography reference. Do NOT copy the building, roof, sky, trees or surroundings from this reference.
-2) SOURCE CAR PHOTO: the real vehicle (exterior OR interior). This is the truth source for the car.
+QUALITY GATE: highest possible resolution and photorealism, no CGI look, no HDR look, no plastic paint, no AI artefacts. If you cannot replace the background without altering the vehicle, return the source image unchanged.
 
-================================================
-PRIORITY ORDER (apply in this order, never break a higher rule for a lower one)
-================================================
-1) CAR / INTERIOR IDENTITY — LOCKED.
-2) PHOTOREALISM — natural light, real shadows, real material.
-3) PHYSICAL GROUNDING — tire contact shadows, ambient occlusion, cast shadow, matching horizon/perspective. The car MUST look physically standing in the space, never a floating cut-out.
-4) NATURAL LIGHT — preserve the original light direction and daylight feel; harmonize gently with the scene.
-5) COMPOSITION NORMALIZATION — gently unify framing.
-6) SHOWROOM BACKGROUND — applied last, never at the cost of realism or grounding.
+OUTPUT: exactly one image, same aspect ratio as the source, no text, no border, no overlay.`;
 
-
-If you cannot satisfy rules 1 and 2 at the same time, return the source as-is. NEVER ship a deformed, fake, plastic, CGI, studio-burn, AI-fantasy or halo result.
-
-================================================
-CAR / INTERIOR IDENTITY LOCK
-================================================
-- Same make, model, generation, year, body color, paint, wheels, tires, bumpers (front AND rear), grille, headlights, taillights, mirrors, trim, badges, glass, license plate, proportions, stance, visible damage and details.
-- Same side / angle as the source. NEVER mirror, flip or rotate the vehicle. If the source shows the LEFT side, the output MUST show the LEFT side, and so on for right / front / rear / interior.
-- Preserve original framing. Keep ALL visible vehicle parts intact (no cropping off bumpers, mirrors, wheels, steering wheel, screens, seats).
-- Do NOT re-pose, recolor, redesign, replace with another model, alter bumpers, add spoilers, change wheels, grille or lights, change interior trim or upholstery.
-
-================================================
-BACKGROUND — WHITE SHOWROOM FACADE WALL ONLY
-================================================
-The background is ONLY a clean, premium, realistic white exterior facade wall of the dealership. Treat it as if the car is standing directly in front of an endless white plaster facade.
-
-YOU MUST NOT show:
-- roof, roof edge, gutter, eaves, rooftop, top of the building, building corners, end of the building.
-- sky, clouds, sun, trees, plants, lamps, doors, windows on the facade, fences, people, other cars, road signs, futuristic elements.
-- studio cyclorama, photo backdrop, green screen, gradient sweep, CGI plane, vignette.
-
-YOU MUST show:
-- subtle real plaster/render texture (fine grain, hairline imperfections).
-- realistic outdoor daylight on the wall.
-- realistic soft shadows where the car body or mirrors approach the wall.
-- believable contact shadows under the tires on a thin strip of gray asphalt (only the asphalt strip — no horizon, no environment behind it).
-
-The wall must look like a REAL outdoor dealership facade — endlessly wide, premium, neutral. NEVER like a studio backdrop, green screen, or AI background.
-
-================================================
-LOGO PLACEMENT — STRICT PROPORTIONS
-================================================
-- Place the SHIELD-SHAPED "CHRYSLER & DODGE PARDUBICE" logo on the wall, ALWAYS in the TOP-RIGHT corner, as if physically mounted on the facade. The logo silhouette is a HERALDIC SHIELD (rounded top, pointed/curved bottom) — absolutely NOT a circle, NOT a round disc, NOT a ring.
-- LOGO SIZE — STRICT and CONSISTENT across every generated photo: the shield's visible height MUST equal exactly 9% (±0.5%) of the OUTPUT IMAGE HEIGHT. Never scale relative to the car or to the wall area. This rule overrides any aesthetic preference.
-- LOGO POSITION — STRICT: the shield's center sits at 92% of the image width (from left) and 11% of the image height (from top). Same exact spot in every output, regardless of the car or framing.
-- LOGO STYLE — STRICT: shield silhouette with a polished chrome/silver beveled frame and a dark glossy black face. Inside (top→bottom): silver Chrysler pentastar, then "CHRYSLER" in bold chrome letters, then a thin horizontal divider with a small "&", then "DODGE" in bold chrome letters, then "PARDUBICE" in smaller chrome letters at the bottom. Identical typography, identical layout, identical proportions, identical line weight as in the SHIELD reference. Do NOT re-draw, re-letter, re-kern or re-balance.
-- LOGO COLOR — STRICT: dark glossy black face, polished chrome/silver frame and lettering, silver pentastar. Never navy blue, never gold, never neon, never flat painted, never a colored ring. Slight realistic gloss/reflection on the shield surface, with a faint soft drop shadow on the white wall behind it.
-- The logo must always be FULLY visible (never cropped, never tilted, never perspective-warped, never covered by the car, never duplicated). Exactly ONE logo per image. No extra signs, no extra text, no taglines.
-- Consistency rule: if you cannot render the logo at the exact size, position, style and color described above, OMIT the logo entirely rather than ship a mismatched one.
-
-================================================
-INTERIOR — REALISTIC CLEAN INTERIOR MODE v4 (STYLE LOCK)
-================================================
-If the SOURCE CAR PHOTO is an interior shot (steering wheel, dashboard, screen, seats, rear cabin) and outside scenery is visible through any window:
-
-STYLE LOCK — match the visual style of a real photographer's work, NOT an AI render. The baseline reference style is a quiet, civilian, realistic outdoor environment seen through softly blurred glass — natural daylight, calm depth, no architecture, no logos, no other prominent cars, no showroom feel. Aim for "photographed by a professional", not "edited by AI".
-
-The goal is NOT to build a showroom, NOT to place the car inside a dealership hall, NOT to add other cars in the background. The goal is ONLY to gently CLEAN UP what is visible through the windows so the interior becomes the obvious hero.
-
-Behind the glass (windshield / rear window / side glass), do ONLY this:
-- remove distracting elements (street clutter, people, signs, cars, mess, harsh backgrounds)
-- unify and soften outside light
-- gently blur the outdoor environment (shallow, natural depth of field)
-- produce a clean, neutral, natural outdoor background with soft daylight and decent depth — quiet and unobtrusive
-
-STRICTLY FORBIDDEN behind the glass:
-- corner of a building, roof edge, gutters, eaves, visible architecture
-- any logo, sign, text, badge on the background
-- new-car showroom / dealership hall / luxury salon / sci-fi showroom
-- other prominent cars, sharp silhouettes of cars, car-shaped bokeh
-- CGI interior, studio environment, photo backdrop, green screen
-- artificial reflections, dramatic light, HDR look, neon, stylized colors
-- blown-out white plane or fake daylight burn
-
-The outside view must look REAL, civilian, clean, professional and trustworthy — calm and tidy. It must be unobtrusive, soft, secondary. The car interior is the hero; the background is whisper-quiet.
-
-NEVER touch the interior of the car itself: dashboard, infotainment / screen content (keep displayed content exactly as in source), ambient lighting, buttons, stitching, leather, fabric, plastics, steering wheel, pedals, seatbelts, headrests, headliner, mirrors, trim, textures, materials, colors, scratches, wear.
-
-QUALITY FILTER — if the result would look more artificial, more CGI, more showroom-like, or less realistic than the source, DO NOT ship it. Return the original source image unchanged. Realism > AI effect. Trustworthiness > polish. A photographer's natural look > a render.
-
-Priority order: 1) Realism  2) Trustworthiness  3) Natural light  4) Car interior intact  5) Subtle background cleanup. The best edit is the one a viewer does not notice.
-
-================================================
-GALLERY ORDER — DO NOT TOUCH
-================================================
-This function processes ONLY the single image referenced by imageId. NEVER imply or produce changes to other photos, never reorder, never re-rank, never regenerate siblings. Admin gallery order has absolute priority over any AI behavior.
-
-================================================
-SMART ANGLE / FRAMING NORMALIZATION (GENTLE)
-================================================
-Normalization MUST stay SUBTLE, GENTLE and SAFE. The goal is to unify the catalog, NOT to redraw the car.
-
-Allowed (only these, only in tiny amounts):
-- gentle horizon leveling
-- light re-centering of the car within the frame
-- small framing correction (a few percent)
-- light unification of perceived distance
-- adaptive scaling within safe limits
-
-STRICTLY FORBIDDEN:
-- aggressive perspective change, fish-eye, tilt-shift, lens warp
-- warping body lines, wheel arches, roofline, beltline
-- deforming wheels (must stay perfectly round) or bodywork
-- changing car proportions, ride height, stance, track width
-- changing interior proportions (wheel, dashboard, seats, screens)
-- extreme zoom-in or aggressive cropping
-- cropping bumpers, mirrors, wheels, steering wheel, seats, screens
-
-Rule: PREFER small framing corrections OVER any visible geometric manipulation. If a normalization step would cause deformation, an unnatural look, or any loss of realism — DO NOT apply that step. Ship the source framing instead. Realism > uniformity, ALWAYS.
-
-================================================
-PHYSICAL GROUNDING SYSTEM — HIGHEST VISUAL PRIORITY
-================================================
-The single most important visual goal of this edit is that the vehicle looks PHYSICALLY STANDING in the space — a real car photographed in front of the facade, NEVER a cut-out PNG floated onto a backdrop.
-
-You MUST achieve all of the following, together:
-- TIRE-TO-GROUND CONTACT: each tire visibly sits ON the asphalt strip with a dense, dark, soft-edged contact shadow directly beneath the contact patch (darkest exactly where the rubber meets the ground, fading outward). No gap, no glow, no halo, no floating tire.
-- AMBIENT OCCLUSION: a subtle darkening in the crevices under the body (under sills, under bumpers, inside wheel arches, under mirrors) where ambient light is naturally blocked. This is what kills the "sticker" look.
-- CAST SHADOW ON THE GROUND: a soft, directional cast shadow of the whole car on the asphalt, consistent with the sun direction implied by the highlights already on the car body. Shadow length, softness and angle must match the car's own lighting — never invent a new sun.
-- LIGHT HARMONIZATION: gently match the car's overall exposure, contrast, white balance and color temperature to the daylight on the white facade. Tone down any source-photo color cast that fights the scene, but NEVER repaint the car, NEVER change its body color, NEVER restyle reflections.
-- PERSPECTIVE & HORIZON LOCK: keep the camera height, focal length feel and horizon line of the SOURCE CAR PHOTO. The horizon implied by the facade/asphalt seam MUST align with the car's own perspective — wheels on the same ground plane, no tilted floor, no mismatched vanishing point, no "car shot from below pasted onto wall shot from eye level".
-- GROUND REFLECTION: a very faint, realistic wet-asphalt style reflection of the lowest part of the car (sill, bumper, tire bottom) onto the asphalt directly below. Extremely subtle — must read as "slightly damp matte asphalt", never as a mirror, never as a studio floor.
-- EDGE INTEGRATION: no mask edge, no chromatic fringe, no white halo, no over-sharpened silhouette. The car's outline must dissolve into the scene with natural micro-shadow, not a cut line.
-
-HARD BANS (these are the symptoms of a floating PNG — never ship any of them):
-- visible gap of light/asphalt between tire and ground
-- uniform soft glow or "stamp" shadow under the whole car with no contact darkening at the tires
-- car lit from one direction, scene lit from another
-- car horizon different from facade horizon (car looks tilted relative to wall)
-- crisp, hard, knife-cut silhouette around the body
-- any halo, outer glow, vignette ring, or AI "sticker" rim around the vehicle
-- mirror-like studio floor reflection
-- repainting, recoloring, restyling or re-rendering the vehicle to "match" the scene — grounding is achieved through SHADOW, LIGHT and PERSPECTIVE only, NEVER by modifying the car
-
-DO NOT CHANGE: vehicle identity, size, angle, side, proportions, framing, paint, wheels, trim, badges, plate, glass, details. Grounding is purely an ENVIRONMENTAL/LIGHTING edit around and beneath the car.
-
-If you cannot satisfy this Physical Grounding System without altering the vehicle, return the source image unchanged. A clean ungrounded source is still better than a deformed car.
-
-================================================
-REALISTIC BLENDING
-================================================
-- Segment the car / interior cleanly. Replace ONLY the original background / window view.
-- Natural soft contact shadows. Tires touch the asphalt believably (see PHYSICAL GROUNDING SYSTEM above — mandatory).
-- Match light direction, contrast and white balance gently between subject and new background.
-- No halos, no mask edges, no over-sharpening, no fake glow, no surreal HDR, no plastic paint, no studio look, no AI backdrop feel.
-
-
-================================================
-OUTPUT
-================================================
-- Return ONLY one final image.
-- Horizontal listing photo when the source is horizontal; otherwise keep the source aspect ratio.
-- No text, no watermark, no border, no UI overlay.
-- If you cannot deliver a fully realistic result that honors rules 1–3, return the original source image unchanged.`;
 
 const ALLOWED_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/webp"];
 
@@ -256,27 +104,8 @@ async function fetchAsDataUrl(url: string): Promise<{ dataUrl: string; contentTy
   return { dataUrl: `data:${contentType};base64,${btoa(bin)}`, contentType, bytes };
 }
 
-async function fetchBackground(): Promise<string> {
-  for (const u of BG_FALLBACK_URLS) {
-    try {
-      return (await fetchAsDataUrl(u)).dataUrl;
-    } catch (_) {
-      // try next background source
-    }
-  }
-  throw new Error("Reference showroom background is unreachable");
-}
 
-async function fetchLogo(): Promise<string | null> {
-  for (const u of LOGO_FALLBACK_URLS) {
-    try {
-      return (await fetchAsDataUrl(u)).dataUrl;
-    } catch (_) {
-      // try next logo source
-    }
-  }
-  return null;
-}
+
 
 function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; contentType: string } {
   const m = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
@@ -342,14 +171,9 @@ Deno.serve(async (req) => {
 
     await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-    let bgDataUrl: string;
     let carDataUrl: string;
-    let logoDataUrl: string | null = null;
     try {
-      const [bg, car, logo] = await Promise.all([fetchBackground(), fetchAsDataUrl(sourceUrl), fetchLogo()]);
-      bgDataUrl = bg;
-      carDataUrl = car.dataUrl;
-      logoDataUrl = logo;
+      carDataUrl = (await fetchAsDataUrl(sourceUrl)).dataUrl;
     } catch (e: any) {
       const msg = `Fetch failed: ${e?.message ?? e}`;
       await setImageState(admin, imageId, {
@@ -365,14 +189,9 @@ Deno.serve(async (req) => {
 
     const content: any[] = [
       { type: "text", text: SHOWROOM_PROMPT },
-      { type: "image_url", image_url: { url: bgDataUrl } },
+      { type: "text", text: "SOURCE VEHICLE PHOTO (identity-lock the vehicle, replace only the background):" },
+      { type: "image_url", image_url: { url: carDataUrl } },
     ];
-    if (logoDataUrl) {
-      content.push({ type: "text", text: "SHIELD LOGO REFERENCE (use this exact shield silhouette, layout, chrome frame and lettering — NEVER a round disc):" });
-      content.push({ type: "image_url", image_url: { url: logoDataUrl } });
-    }
-    content.push({ type: "text", text: "SOURCE CAR PHOTO (identity-lock the vehicle):" });
-    content.push({ type: "image_url", image_url: { url: carDataUrl } });
 
     const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
@@ -382,7 +201,7 @@ Deno.serve(async (req) => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image-preview",
+        model: "google/gemini-3.1-flash-image",
         modalities: ["image", "text"],
         messages: [{
           role: "user",
@@ -390,6 +209,7 @@ Deno.serve(async (req) => {
         }],
       }),
     });
+
 
     if (!aiResp.ok) {
       const errText = await aiResp.text();

@@ -469,6 +469,35 @@ function stripGroundShadow(img: Image) {
   }
 }
 
+/**
+ * Uniform alpha erosion. The cutout border always carries a faint 3–5 px matte
+ * of the original background (asphalt grey, sky, shadow). Shaving it off is what
+ * removes the "sticker glued on" fringe — at this scale it costs no visible
+ * vehicle detail.
+ */
+function erodeAlpha(img: Image, px: number) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  for (let pass = 0; pass < px; pass++) {
+    const alpha = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) alpha[i] = bmp[i * 4 + 3];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (alpha[idx] < 24) continue;
+        let edge = false;
+        for (let dy = -1; dy <= 1 && !edge; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h || alpha[ny * w + nx] < 24) { edge = true; break; }
+          }
+        }
+        if (edge) bmp[idx * 4 + 3] = 0;
+      }
+    }
+  }
+}
+
 /** Lowest visible pixel per column, horizontally smoothed. */
 function silhouetteFloor(car: Image): Array<number | null> {
   const cw = car.width, ch = car.height;
@@ -728,6 +757,7 @@ export async function runShowroom(
     fillInteriorHoles(cutout);
     keepVehicleComponent(cutout);
     stripGroundShadow(cutout);
+    erodeAlpha(cutout, Math.max(2, Math.round(cutout.width * 0.004)));
 
 
     const box = alphaBounds(cutout);

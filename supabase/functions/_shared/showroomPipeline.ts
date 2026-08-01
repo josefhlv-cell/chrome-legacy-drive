@@ -111,7 +111,37 @@ function extractImageDataUrl(aiData: any): string | undefined {
  * cell away matches the OTHER tone. A large flat white/silver car panel never
  * satisfies that, so light-coloured bodywork is preserved.
  */
+/**
+ * Removes the magenta chroma-key background and its edge spill.
+ * A pixel is background when magenta clearly dominates green; the remaining
+ * partly-magenta rim pixels get de-spilled so no purple fringe survives.
+ * Returns the share of pixels that were keyed out.
+ */
+function chromaKey(img: Image): number {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  let removed = 0;
+  for (let p = 0; p < w * h; p++) {
+    const i = p * 4;
+    const r = bmp[i], g = bmp[i + 1], b = bmp[i + 2];
+    const magenta = Math.min(r, b) - g; // strong for #FF00FF, negative for greys
+    if (magenta > 60 && r > 90 && b > 90) {
+      bmp[i + 3] = 0;
+      removed++;
+      continue;
+    }
+    if (magenta > 20) {
+      // de-spill: pull the purple rim back towards a neutral edge colour
+      const target = Math.round((r + b) / 2 - magenta * 0.5);
+      bmp[i] = Math.max(0, Math.min(255, target));
+      bmp[i + 2] = Math.max(0, Math.min(255, target));
+    }
+  }
+  return removed / (w * h);
+}
+
 function removeCheckerboard(img: Image) {
+
   const w = img.width, h = img.height;
   const bmp = img.bitmap as unknown as Uint8Array;
   const at = (x: number, y: number) => (y * w + x) * 4;

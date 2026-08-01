@@ -467,7 +467,10 @@ export async function runShowroom(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "google/gemini-3.1-flash-image",
+      // Pro image model: the flash model re-draws the framing (tilted car,
+      // magenta bleeding through the glass); pro stays far closer to the source.
+      model: "google/gemini-3-pro-image",
+
       modalities: ["image", "text"],
       messages: [{
         role: "user",

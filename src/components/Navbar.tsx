@@ -2,7 +2,6 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Play } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
-import menuBg from "@/assets/menu-bg.jpg.asset.json";
 
 // Pending-replay flag is read by IntroAnimation when it mounts on the homepage.
 const REPLAY_FLAG = "intro:replay-pending";
@@ -94,24 +93,25 @@ const Navbar = () => {
         style={{
           maxHeight: mobileOpen ? '400px' : '0',
           opacity: mobileOpen ? 1 : 0,
-          background: 'hsla(218, 50%, 8%, 0.95)',
+          background: 'hsla(218, 50%, 8%, 0.88)',
           backdropFilter: 'blur(24px)',
         }}
       >
-        {/* Decentní obrázek v pozadí — 10 % krytí, odbarvený, plynulé prolnutí */}
+        {/* Decentní obrázek v pozadí — odbarvený, plynulé prolnutí, čitelnost menu zůstává */}
         <div
           aria-hidden="true"
           className="absolute inset-0 pointer-events-none"
           style={{
-            backgroundImage: `url(${menuBg.url})`,
+            backgroundImage: `url(/menu-bg.webp)`,
             backgroundSize: 'cover',
-            backgroundPosition: 'center',
-            opacity: 0.1,
-            filter: 'grayscale(0.7) contrast(0.9)',
-            maskImage: 'linear-gradient(to bottom, transparent 0%, black 35%, black 70%, transparent 100%)',
-            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 35%, black 70%, transparent 100%)',
+            backgroundPosition: 'center 40%',
+            opacity: 0.16,
+            filter: 'grayscale(0.55) contrast(0.95) brightness(0.9)',
+            maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
           }}
         />
+
         <div className="container mx-auto px-4 py-4 flex flex-col gap-4 relative z-10">
           {navItems.map((item) => (
             <Link

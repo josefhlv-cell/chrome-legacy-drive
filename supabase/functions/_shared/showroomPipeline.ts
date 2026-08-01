@@ -20,9 +20,13 @@ export const BACKGROUND_URL =
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 // Fixed catalog geometry — identical for every single vehicle.
-const CAR_WIDTH_RATIO = 0.76; // vehicle spans 76 % of the canvas width
-const MAX_CAR_HEIGHT_RATIO = 0.62; // never taller than 62 % of the canvas
-const WHEEL_LINE_Y_RATIO = 0.90; // tyres always touch the floor at this line
+const CAR_WIDTH_RATIO = 0.62; // vehicle spans 62 % of the canvas width
+const MAX_CAR_HEIGHT_RATIO = 0.52; // never taller than 60 % of the canvas
+// The wall/floor seam of the fixed background sits at y ≈ 840 (of 1080). The
+// tyres must land clearly BELOW it, on the polished floor — otherwise the car
+// visually leans against the wall and looks pasted on.
+const WHEEL_LINE_Y_RATIO = 0.905; // tyres touch the floor at y ≈ 977
+
 
 // The model cannot be trusted to emit a real alpha channel — it paints a fake
 // "transparency checkerboard" instead. So we ask for a CHROMA KEY background
@@ -139,6 +143,15 @@ function chromaKey(img: Image): number {
       bmp[i] = Math.max(0, Math.min(255, target));
       bmp[i + 2] = Math.max(0, Math.min(255, target));
     }
+    // Final de-purple guard: a pixel where BOTH red and blue sit well above
+    // green is magenta spill, never real paint or a red taillight (those have
+    // low blue). Clamp it back so no violet glow survives on lenses/glass.
+    if (bmp[i] > bmp[i + 1] + 18 && bmp[i + 2] > bmp[i + 1] + 18) {
+      const cap = bmp[i + 1] + 18;
+      bmp[i] = Math.min(bmp[i], cap);
+      bmp[i + 2] = Math.min(bmp[i + 2], cap);
+    }
+
 
   }
   return removed / (w * h);
@@ -420,28 +433,83 @@ function alphaBounds(img: Image) {
 }
 
 /**
- * Perspective-correct contact shadow.
+ * The cutout model keeps the vehicle's ORIGINAL ground shadow as a dark pool
+ * spilling below the tyres. We paint our own physically correct contact shadow
+ * on the showroom floor, so that pool must go — otherwise the car sits on a
+ * black smudge and instantly reads as a fake paste-up.
  *
- * A single centred ellipse makes a 3/4-view car look like it hovers, because in
- * that perspective the near wheels sit far lower than the far wheels. So instead
- * we follow the vehicle's own silhouette: for every column we find its lowest
- * visible pixel and paint a soft, blurred shadow directly beneath it. The result
- * is tyre-to-floor contact plus ambient occlusion under the whole body.
+ * Strategy: find the real tyre contact line (robust percentile of the column
+ * bottoms), then erase everything under it that is dark and desaturated.
  */
-function paintContactShadow(canvas: Image, car: Image, carX: number, carY: number) {
+function stripGroundShadow(img: Image) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+
+  const bottoms: number[] = [];
+  const colBottom = new Array<number>(w).fill(-1);
+  for (let x = 0; x < w; x++) {
+    for (let y = h - 1; y >= 0; y--) {
+      if (bmp[(y * w + x) * 4 + 3] > 24) { colBottom[x] = y; bottoms.push(y); break; }
+    }
+  }
+  if (bottoms.length < 10) return;
+  bottoms.sort((a, b) => a - b);
+  // Tyres are the lowest genuine geometry; the shadow pool dips a bit lower.
+  const contactY = bottoms[Math.floor(bottoms.length * 0.90)];
+
+  for (let x = 0; x < w; x++) {
+    for (let y = contactY + 1; y < h; y++) {
+      const idx = y * w + x;
+      if (bmp[idx * 4 + 3] < 24) continue;
+      const r = bmp[idx * 4], g = bmp[idx * 4 + 1], b = bmp[idx * 4 + 2];
+      const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+      const sat = Math.max(r, g, b) - Math.min(r, g, b);
+      if (lum < 110 && sat < 34) bmp[idx * 4 + 3] = 0;
+    }
+  }
+}
+
+/**
+ * Uniform alpha erosion. The cutout border always carries a faint 3–5 px matte
+ * of the original background (asphalt grey, sky, shadow). Shaving it off is what
+ * removes the "sticker glued on" fringe — at this scale it costs no visible
+ * vehicle detail.
+ */
+function erodeAlpha(img: Image, px: number) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  for (let pass = 0; pass < px; pass++) {
+    const alpha = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) alpha[i] = bmp[i * 4 + 3];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        if (alpha[idx] < 24) continue;
+        let edge = false;
+        for (let dy = -1; dy <= 1 && !edge; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h || alpha[ny * w + nx] < 24) { edge = true; break; }
+          }
+        }
+        if (edge) bmp[idx * 4 + 3] = 0;
+      }
+    }
+  }
+}
+
+/** Lowest visible pixel per column, horizontally smoothed. */
+function silhouetteFloor(car: Image): Array<number | null> {
   const cw = car.width, ch = car.height;
   const cbmp = car.bitmap as unknown as Uint8Array;
-
-  // lowest visible pixel per column
   const floor: Array<number | null> = new Array(cw).fill(null);
   for (let x = 0; x < cw; x++) {
     for (let y = ch - 1; y >= 0; y--) {
       if (cbmp[(y * cw + x) * 4 + 3] > 24) { floor[x] = y; break; }
     }
   }
-  // horizontal smoothing so the shadow edge is soft, not jagged
   const smooth = new Array<number | null>(cw).fill(null);
-  const win = Math.max(3, Math.round(cw * 0.02));
+  const win = Math.max(3, Math.round(cw * 0.015));
   for (let x = 0; x < cw; x++) {
     let sum = 0, n = 0;
     for (let k = -win; k <= win; k++) {
@@ -450,32 +518,125 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     }
     if (n > 0) smooth[x] = sum / n;
   }
+  return smooth;
+}
 
-  const reach = Math.max(10, Math.round(ch * 0.09)); // how far the shadow spreads
+/**
+ * Physical grounding: two shadow layers instead of one.
+ *
+ *  1. AMBIENT OCCLUSION — a wide, very soft dark pool under the whole body. This
+ *     is what stops the car reading as a sticker floating on a bright floor.
+ *  2. CONTACT SHADOW — a tight, much darker band immediately under the tyres,
+ *     following the silhouette so the near wheels of a 3/4 view sit lower than
+ *     the far ones. Real tyre-to-floor contact is almost black at the point of
+ *     contact and fades within a few centimetres.
+ */
+function paintContactShadow(canvas: Image, car: Image, carX: number, carY: number) {
+  const cw = car.width, ch = car.height;
+  const smooth = silhouetteFloor(car);
   const bmp = canvas.bitmap as unknown as Uint8Array;
   const W = canvas.width, H = canvas.height;
+
+  const darken = (px: number, py: number, strength: number) => {
+    if (strength <= 0.002 || px < 0 || px >= W || py < 0 || py >= H) return;
+    const i = (py * W + px) * 4;
+    const k = 1 - Math.min(0.9, strength);
+    bmp[i] = Math.round(bmp[i] * k);
+    bmp[i + 1] = Math.round(bmp[i + 1] * k);
+    bmp[i + 2] = Math.round(bmp[i + 2] * k);
+  };
+
+  const ambientReach = Math.max(18, Math.round(ch * 0.11));
+  const contactReach = Math.max(5, Math.round(ch * 0.022));
+  const spread = Math.max(6, Math.round(cw * 0.015)); // ambient bleeds sideways
+
+  for (let x = 0; x < cw; x++) {
+    const fy = smooth[x];
+    if (fy == null) continue;
+    // fade out towards the very front/rear ends of the car
+    const endFade = Math.min(1, Math.max(0, Math.min(x, cw - 1 - x) / (cw * 0.06)));
+
+    // 1) ambient occlusion pool (soft, wide, weak)
+    for (let d = -Math.round(ambientReach * 0.15); d <= ambientReach; d++) {
+      const t = Math.abs(d) / ambientReach;
+      const s = 0.30 * Math.pow(1 - Math.min(1, t), 2.4) * endFade;
+      for (let sx = -spread; sx <= spread; sx++) {
+        const lateral = 1 - Math.abs(sx) / (spread + 1);
+        darken(carX + x + sx, Math.round(carY + fy + d), s * lateral * 0.7);
+      }
+    }
+
+    // 2) hard contact band right under the tyres/rockers
+    for (let d = -2; d <= contactReach; d++) {
+      const t = Math.max(0, d) / contactReach;
+      const s = 0.58 * Math.pow(1 - Math.min(1, t), 1.6) * endFade;
+      darken(carX + x, Math.round(carY + fy + d), s);
+    }
+  }
+}
+
+/**
+ * Subtle mirrored reflection on the polished floor. Very low opacity and it
+ * dies out fast — just enough that the floor reads as a real hard surface the
+ * car is standing on, never a glossy CGI mirror.
+ */
+function paintFloorReflection(canvas: Image, car: Image, carX: number, carY: number) {
+  const cw = car.width, ch = car.height;
+  const cbmp = car.bitmap as unknown as Uint8Array;
+  const smooth = silhouetteFloor(car);
+  const bmp = canvas.bitmap as unknown as Uint8Array;
+  const W = canvas.width, H = canvas.height;
+  const depth = Math.max(16, Math.round(ch * 0.10));
 
   for (let x = 0; x < cw; x++) {
     const fy = smooth[x];
     if (fy == null) continue;
     const px = carX + x;
     if (px < 0 || px >= W) continue;
-    // fade the shadow out towards the front/rear ends of the car
-    const edge = Math.min(x, cw - 1 - x) / (cw * 0.08);
-    const endFade = Math.min(1, Math.max(0, edge));
-    for (let d = -Math.round(reach * 0.25); d <= reach; d++) {
+    for (let d = 1; d <= depth; d++) {
+      const srcY = Math.round(fy - d * 1.6); // squashed reflection
+      if (srcY < 0) break;
+      const si = ((srcY * cw) + x) * 4;
+      if (cbmp[si + 3] < 40) continue;
       const py = Math.round(carY + fy + d);
       if (py < 0 || py >= H) continue;
-      const t = Math.abs(d) / reach;
-      const strength = 0.5 * Math.pow(1 - Math.min(1, t), 2.0) * endFade;
-      if (strength <= 0.002) continue;
+      const a = 0.14 * Math.pow(1 - d / depth, 1.8);
+      if (a <= 0.004) continue;
       const i = (py * W + px) * 4;
-      bmp[i] = Math.round(bmp[i] * (1 - strength));
-      bmp[i + 1] = Math.round(bmp[i + 1] * (1 - strength));
-      bmp[i + 2] = Math.round(bmp[i + 2] * (1 - strength));
+      bmp[i] = Math.round(bmp[i] * (1 - a) + cbmp[si] * a);
+      bmp[i + 1] = Math.round(bmp[i + 1] * (1 - a) + cbmp[si + 1] * a);
+      bmp[i + 2] = Math.round(bmp[i + 2] * (1 - a) + cbmp[si + 2] * a);
     }
   }
 }
+
+/**
+ * 1 px alpha feather along the cutout border. A razor-sharp alpha edge is the
+ * single most obvious "this was AI-pasted" tell; a slight feather makes the
+ * vehicle sit in the scene.
+ */
+function featherEdges(car: Image) {
+  const w = car.width, h = car.height;
+  const bmp = car.bitmap as unknown as Uint8Array;
+  const alpha = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) alpha[i] = bmp[i * 4 + 3];
+  for (let y = 1; y < h - 1; y++) {
+    for (let x = 1; x < w - 1; x++) {
+      const idx = y * w + x;
+      if (alpha[idx] < 200) continue;
+      let transparentNeighbours = 0;
+      for (let dy = -1; dy <= 1; dy++) {
+        for (let dx = -1; dx <= 1; dx++) {
+          if (alpha[(y + dy) * w + (x + dx)] < 40) transparentNeighbours++;
+        }
+      }
+      if (transparentNeighbours > 0) {
+        bmp[idx * 4 + 3] = Math.round(alpha[idx] * (transparentNeighbours >= 4 ? 0.45 : 0.75));
+      }
+    }
+  }
+}
+
 
 
 export type ShowroomResult =
@@ -595,6 +756,8 @@ export async function runShowroom(
     }
     fillInteriorHoles(cutout);
     keepVehicleComponent(cutout);
+    stripGroundShadow(cutout);
+    erodeAlpha(cutout, Math.max(2, Math.round(cutout.width * 0.004)));
 
 
     const box = alphaBounds(cutout);
@@ -609,14 +772,17 @@ export async function runShowroom(
       targetW = Math.round((car.width / car.height) * targetH);
     }
     car.resize(targetW, targetH);
+    featherEdges(car);
 
     const canvas = (await Image.decode(bgBytes)).resize(CANVAS_W, CANVAS_H);
     const wheelLineY = Math.round(CANVAS_H * WHEEL_LINE_Y_RATIO);
     const carX = Math.round((CANVAS_W - targetW) / 2);
     const carY = wheelLineY - targetH;
 
+    paintFloorReflection(canvas, car, carX, carY);
     paintContactShadow(canvas, car, carX, carY);
     canvas.composite(car, carX, carY);
+
 
 
     jpeg = await canvas.encodeJPEG(94);

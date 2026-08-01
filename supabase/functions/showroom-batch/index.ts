@@ -1,19 +1,35 @@
 // deno-lint-ignore-file no-explicit-any
+// Bulk showroom regeneration. Authorized either by an admin JWT or by a
+// one-off job token stored in `public.job_tokens` (service-role only table).
+// It regenerates composites but NEVER publishes them (showroom_applied_at
+// is left untouched), so nothing changes on the public site.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { createAdminClient, runShowroom, type AdminClient } from "../_shared/showroomPipeline.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-job-token",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
-async function assertAdmin(req: Request): Promise<AdminClient | Response> {
+async function authorize(req: Request): Promise<AdminClient | Response> {
+  const admin = createAdminClient();
+
+  const jobToken = req.headers.get("x-job-token") || "";
+  if (jobToken) {
+    const { data } = await admin
+      .from("job_tokens")
+      .select("token")
+      .eq("name", "showroom_batch")
+      .maybeSingle();
+    if ((data as any)?.token && (data as any).token === jobToken) return admin;
+    return json({ error: "Unauthorized" }, 401);
+  }
+
   const jwt = (req.headers.get("Authorization") || "").replace("Bearer ", "");
   if (!jwt) return json({ error: "Unauthorized" }, 401);
-
   const userClient = createClient(
     SUPABASE_URL,
     Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "",
@@ -22,8 +38,6 @@ async function assertAdmin(req: Request): Promise<AdminClient | Response> {
   const { data: userData } = await userClient.auth.getUser();
   const userId = userData?.user?.id;
   if (!userId) return json({ error: "Unauthorized" }, 401);
-
-  const admin = createAdminClient();
   const { data: roleRow } = await admin
     .from("user_roles")
     .select("role")
@@ -38,23 +52,28 @@ Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
 
-  let imageId = "";
   try {
-    const adminOrResponse = await assertAdmin(req);
+    const adminOrResponse = await authorize(req);
     if (adminOrResponse instanceof Response) return adminOrResponse;
     const admin = adminOrResponse;
 
     const body = await req.json().catch(() => ({}));
-    imageId = typeof body?.imageId === "string" ? body.imageId : "";
-    const force = body?.force === true;
-    if (!imageId) return json({ error: "imageId required" }, 400);
+    const imageIds: string[] = Array.isArray(body?.imageIds)
+      ? body.imageIds.filter((v: unknown) => typeof v === "string").slice(0, 5)
+      : [];
+    const force = body?.force !== false;
+    if (imageIds.length === 0) return json({ error: "imageIds required" }, 400);
 
-    const result = await runShowroom(admin, imageId, force);
-    if (!result.ok) return json({ error: result.error }, result.status);
-    return json(result);
+    const results: Array<Record<string, unknown>> = [];
+    for (const id of imageIds) {
+      const r = await runShowroom(admin, id, force);
+      results.push({ imageId: id, ...r });
+    }
+
+    return json({ ok: true, processed: results.length, results });
   } catch (e: any) {
-    console.error("showroom-generate fatal:", e);
-    return json({ error: e?.message ?? "Internal error", imageId }, 500);
+    console.error("showroom-batch fatal:", e);
+    return json({ error: e?.message ?? "Internal error" }, 500);
   }
 });
 

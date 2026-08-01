@@ -125,17 +125,21 @@ function chromaKey(img: Image): number {
     const i = p * 4;
     const r = bmp[i], g = bmp[i + 1], b = bmp[i + 2];
     const magenta = Math.min(r, b) - g; // strong for #FF00FF, negative for greys
-    if (magenta > 60 && r > 90 && b > 90) {
+    // Any magenta-dominant pixel is background — including the DARK magenta the
+    // model paints where the original ground shadow was. No car colour (red
+    // taillights included) is magenta-dominant, so bodywork is never touched.
+    if (magenta > 22) {
       bmp[i + 3] = 0;
       removed++;
       continue;
     }
-    if (magenta > 20) {
-      // de-spill: pull the purple rim back towards a neutral edge colour
-      const target = Math.round((r + b) / 2 - magenta * 0.5);
+    if (magenta > 6) {
+      // de-spill: pull the faint purple rim back to a neutral edge colour
+      const target = Math.round((r + b) / 2 - magenta);
       bmp[i] = Math.max(0, Math.min(255, target));
       bmp[i + 2] = Math.max(0, Math.min(255, target));
     }
+
   }
   return removed / (w * h);
 }

@@ -432,6 +432,44 @@ function alphaBounds(img: Image) {
   return { x: minX, y: minY, w: maxX - minX + 1, h: maxY - minY + 1 };
 }
 
+/**
+ * The cutout model often leaves the vehicle's ORIGINAL ground shadow / dark
+ * asphalt as a soft near-black halo attached to the silhouette, which reads as
+ * a smudge glued to the car. Erode only dark, desaturated pixels that sit on
+ * the alpha border, so real bodywork edges keep their shape while the halo is
+ * peeled away layer by layer.
+ */
+function stripDarkHalo(img: Image) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  const depth = Math.max(4, Math.round(w * 0.012));
+  for (let pass = 0; pass < depth; pass++) {
+    const kill: number[] = [];
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const idx = y * w + x;
+        const a = bmp[idx * 4 + 3];
+        if (a < 24) continue;
+        let border = false;
+        for (let dy = -1; dy <= 1 && !border; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            const nx = x + dx, ny = y + dy;
+            if (nx < 0 || ny < 0 || nx >= w || ny >= h) { border = true; break; }
+            if (bmp[(ny * w + nx) * 4 + 3] < 24) { border = true; break; }
+          }
+        }
+        if (!border) continue;
+        const r = bmp[idx * 4], g = bmp[idx * 4 + 1], b = bmp[idx * 4 + 2];
+        const lum = 0.299 * r + 0.587 * g + 0.114 * b;
+        const sat = Math.max(r, g, b) - Math.min(r, g, b);
+        if (lum < 95 && sat < 28) kill.push(idx);
+      }
+    }
+    if (kill.length === 0) break;
+    for (const idx of kill) bmp[idx * 4 + 3] = 0;
+  }
+}
+
 /** Lowest visible pixel per column, horizontally smoothed. */
 function silhouetteFloor(car: Image): Array<number | null> {
   const cw = car.width, ch = car.height;
@@ -690,6 +728,7 @@ export async function runShowroom(
     }
     fillInteriorHoles(cutout);
     keepVehicleComponent(cutout);
+    stripDarkHalo(cutout);
 
 
     const box = alphaBounds(cutout);

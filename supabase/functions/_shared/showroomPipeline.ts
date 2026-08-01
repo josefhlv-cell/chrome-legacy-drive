@@ -20,12 +20,12 @@ export const BACKGROUND_URL =
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 // Fixed catalog geometry — identical for every single vehicle.
-const CAR_WIDTH_RATIO = 0.66; // vehicle spans 72 % of the canvas width
+const CAR_WIDTH_RATIO = 0.66; // vehicle spans 66 % of the canvas width
 const MAX_CAR_HEIGHT_RATIO = 0.60; // never taller than 60 % of the canvas
 // The wall/floor seam of the fixed background sits at y ≈ 840 (of 1080). The
 // tyres must land clearly BELOW it, on the polished floor — otherwise the car
 // visually leans against the wall and looks pasted on.
-const WHEEL_LINE_Y_RATIO = 0.905; // tyres touch the floor at y ≈ 1020
+const WHEEL_LINE_Y_RATIO = 0.905; // tyres touch the floor at y ≈ 977
 
 
 // The model cannot be trusted to emit a real alpha channel — it paints a fake

@@ -114,7 +114,7 @@ const ContactPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 relative z-10">
                   <Mail className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">E-mail</p>
@@ -122,7 +122,7 @@ const ContactPage = () => {
                   </div>
                 </div>
 
-                <div className="flex items-start gap-4">
+                <div className="flex items-start gap-4 relative z-10">
                   <MapPin className="w-5 h-5 text-primary mt-0.5" />
                   <div>
                     <p className="font-semibold text-foreground text-sm">Adresa</p>

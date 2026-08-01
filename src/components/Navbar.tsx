@@ -93,7 +93,7 @@ const Navbar = () => {
         style={{
           maxHeight: mobileOpen ? '400px' : '0',
           opacity: mobileOpen ? 1 : 0,
-          background: 'hsla(218, 50%, 8%, 0.78)',
+          background: 'hsla(218, 50%, 8%, 0.88)',
           backdropFilter: 'blur(24px)',
         }}
       >
@@ -105,7 +105,7 @@ const Navbar = () => {
             backgroundImage: `url(/menu-bg.webp)`,
             backgroundSize: 'cover',
             backgroundPosition: 'center 40%',
-            opacity: 0.28,
+            opacity: 0.16,
             filter: 'grayscale(0.55) contrast(0.95) brightness(0.9)',
             maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
             WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',

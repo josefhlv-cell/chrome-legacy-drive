@@ -553,13 +553,10 @@ export async function runShowroom(
       keyOutFlatBackground(cutout);
     }
     keepVehicleComponent(cutout);
-    const levelled = levelToGround(cutout);
-    keepVehicleComponent(levelled);
 
-    const box = alphaBounds(levelled);
+    const box = alphaBounds(cutout);
     if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");
-    const car = levelled.clone().crop(box.x, box.y, box.w, box.h);
-
+    const car = cutout.clone().crop(box.x, box.y, box.w, box.h);
 
     let targetW = Math.round(CANVAS_W * CAR_WIDTH_RATIO);
     let targetH = Math.round((car.height / car.width) * targetW);
@@ -575,14 +572,9 @@ export async function runShowroom(
     const carX = Math.round((CANVAS_W - targetW) / 2);
     const carY = wheelLineY - targetH;
 
-    paintShadow(
-      canvas,
-      CANVAS_W / 2,
-      wheelLineY - Math.max(4, Math.round(targetH * 0.015)),
-      targetW * 0.44,
-      Math.max(12, targetH * 0.075),
-    );
+    paintContactShadow(canvas, car, carX, carY);
     canvas.composite(car, carX, carY);
+
 
     jpeg = await canvas.encodeJPEG(94);
   } catch (e: any) {

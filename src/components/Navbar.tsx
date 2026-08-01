@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import { Menu, X, Play } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
+import menuBg from "@/assets/menu-bg.jpg.asset.json";
 
 // Pending-replay flag is read by IntroAnimation when it mounts on the homepage.
 const REPLAY_FLAG = "intro:replay-pending";

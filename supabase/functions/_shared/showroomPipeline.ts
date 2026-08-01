@@ -94,7 +94,18 @@ function extractImageDataUrl(aiData: any): string | undefined {
     ?? aiData?.choices?.[0]?.message?.content?.find?.((part: any) => part?.type === "image_url")?.image_url?.url;
 }
 
-/** Some models return an opaque PNG with a flat background. Key it out from the borders. */
+/**
+ * Some models return an OPAQUE png where the "transparent" area is painted —
+ * either a flat colour or a grey/white checkerboard (the classic Photoshop
+ * transparency pattern). Both must be keyed out, otherwise the checkerboard
+ * would be baked into the final catalog photo and the vehicle bounding box
+ * would be wrong (car ends up tiny).
+ *
+ * Strategy: sample the whole border, cluster it into up to 3 near-neutral
+ * reference colours (a checkerboard has exactly 2), then flood-fill inwards
+ * from the border. Flood filling means a white/silver car body is never eaten,
+ * because the fill stops at the vehicle silhouette.
+ */
 function keyOutFlatBackground(img: Image) {
   const w = img.width, h = img.height;
   const bmp = img.bitmap as unknown as Uint8Array;
@@ -104,15 +115,40 @@ function keyOutFlatBackground(img: Image) {
   for (let i = 3; i < bmp.length; i += 4) if (bmp[i] > 250) opaque++;
   if (opaque < (bmp.length / 4) * 0.98) return; // already has real transparency
 
-  const corners = [at(0, 0), at(w - 1, 0), at(0, h - 1), at(w - 1, h - 1)];
-  let r = 0, g = 0, b = 0;
-  for (const c of corners) { r += bmp[c]; g += bmp[c + 1]; b += bmp[c + 2]; }
-  r /= 4; g /= 4; b /= 4;
+  // --- collect border colours -------------------------------------------
+  const borderIdx: number[] = [];
+  for (let x = 0; x < w; x++) { borderIdx.push(at(x, 0), at(x, h - 1)); }
+  for (let y = 0; y < h; y++) { borderIdx.push(at(0, y), at(w - 1, y)); }
 
   const TOL = 26;
-  const matches = (i: number) =>
-    Math.abs(bmp[i] - r) < TOL && Math.abs(bmp[i + 1] - g) < TOL && Math.abs(bmp[i + 2] - b) < TOL;
+  type Cluster = { r: number; g: number; b: number; n: number };
+  const clusters: Cluster[] = [];
+  for (const i of borderIdx) {
+    const r = bmp[i], g = bmp[i + 1], b = bmp[i + 2];
+    // only near-neutral colours may be treated as background
+    if (Math.max(r, g, b) - Math.min(r, g, b) > 22) continue;
+    const c = clusters.find((c) =>
+      Math.abs(c.r / c.n - r) < TOL && Math.abs(c.g / c.n - g) < TOL && Math.abs(c.b / c.n - b) < TOL
+    );
+    if (c) { c.r += r; c.g += g; c.b += b; c.n++; }
+    else clusters.push({ r, g, b, n: 1 });
+  }
+  const minShare = borderIdx.length * 0.06;
+  const refs = clusters
+    .filter((c) => c.n >= minShare)
+    .sort((a, b) => b.n - a.n)
+    .slice(0, 3)
+    .map((c) => ({ r: c.r / c.n, g: c.g / c.n, b: c.b / c.n }));
+  if (refs.length === 0) return;
 
+  const matches = (i: number) =>
+    refs.some((ref) =>
+      Math.abs(bmp[i] - ref.r) < TOL &&
+      Math.abs(bmp[i + 1] - ref.g) < TOL &&
+      Math.abs(bmp[i + 2] - ref.b) < TOL
+    );
+
+  // Flood fill from the border so a white car body is never eaten.
   const seen = new Uint8Array(w * h);
   const stack: number[] = [];
   const push = (x: number, y: number) => {
@@ -132,6 +168,51 @@ function keyOutFlatBackground(img: Image) {
     push(x + 1, y); push(x - 1, y); push(x, y + 1); push(x, y - 1);
   }
 }
+
+/**
+ * Keeps only the largest connected visible blob (the vehicle) and erases the
+ * leftover specks — checkerboard remnants, matte fringes, stray artefacts —
+ * that would otherwise inflate the bounding box and shrink the car.
+ */
+function keepVehicleComponent(img: Image) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  const label = new Int32Array(w * h).fill(-1);
+  let best = -1, bestSize = 0;
+  const sizes: number[] = [];
+
+  for (let start = 0; start < w * h; start++) {
+    if (label[start] !== -1 || bmp[start * 4 + 3] <= 24) continue;
+    const id = sizes.length;
+    let size = 0;
+    const stack = [start];
+    label[start] = id;
+    while (stack.length) {
+      const p = stack.pop()!;
+      size++;
+      const x = p % w, y = (p - x) / w;
+      const nb = [
+        x > 0 ? p - 1 : -1,
+        x < w - 1 ? p + 1 : -1,
+        y > 0 ? p - w : -1,
+        y < h - 1 ? p + w : -1,
+      ];
+      for (const q of nb) {
+        if (q < 0 || label[q] !== -1 || bmp[q * 4 + 3] <= 24) continue;
+        label[q] = id;
+        stack.push(q);
+      }
+    }
+    sizes.push(size);
+    if (size > bestSize) { bestSize = size; best = id; }
+  }
+
+  if (best < 0) return;
+  for (let p = 0; p < w * h; p++) {
+    if (label[p] !== -1 && label[p] !== best) bmp[p * 4 + 3] = 0;
+  }
+}
+
 
 /** Tight bounding box of visible pixels. */
 function alphaBounds(img: Image) {

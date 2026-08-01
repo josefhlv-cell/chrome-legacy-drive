@@ -593,7 +593,9 @@ export async function runShowroom(
       removeCheckerboard(cutout);
       keyOutFlatBackground(cutout);
     }
+    fillInteriorHoles(cutout);
     keepVehicleComponent(cutout);
+
 
     const box = alphaBounds(cutout);
     if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");

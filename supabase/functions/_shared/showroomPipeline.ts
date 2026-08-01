@@ -461,10 +461,16 @@ export async function runShowroom(
   try {
     const cutoutBytes = dataUrlToBytes(outDataUrl).bytes;
     const cutout = await Image.decode(cutoutBytes);
-    removeCheckerboard(cutout);
-    keyOutFlatBackground(cutout);
-
+    // Primary path: magenta chroma key. Fallbacks handle a model that ignored
+    // the instruction and painted a checkerboard or a flat grey instead.
+    const keyed = chromaKey(cutout);
+    if (keyed < 0.02) {
+      removeCheckerboard(cutout);
+      keyOutFlatBackground(cutout);
+    }
     keepVehicleComponent(cutout);
+
+
 
 
     const box = alphaBounds(cutout);

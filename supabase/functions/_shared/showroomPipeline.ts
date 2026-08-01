@@ -358,6 +358,8 @@ export async function runShowroom(
     const cutoutBytes = dataUrlToBytes(outDataUrl).bytes;
     const cutout = await Image.decode(cutoutBytes);
     keyOutFlatBackground(cutout);
+    keepVehicleComponent(cutout);
+
 
     const box = alphaBounds(cutout);
     if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");

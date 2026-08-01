@@ -695,14 +695,17 @@ export async function runShowroom(
       targetW = Math.round((car.width / car.height) * targetH);
     }
     car.resize(targetW, targetH);
+    featherEdges(car);
 
     const canvas = (await Image.decode(bgBytes)).resize(CANVAS_W, CANVAS_H);
     const wheelLineY = Math.round(CANVAS_H * WHEEL_LINE_Y_RATIO);
     const carX = Math.round((CANVAS_W - targetW) / 2);
     const carY = wheelLineY - targetH;
 
+    paintFloorReflection(canvas, car, carX, carY);
     paintContactShadow(canvas, car, carX, carY);
     canvas.composite(car, carX, carY);
+
 
 
     jpeg = await canvas.encodeJPEG(94);

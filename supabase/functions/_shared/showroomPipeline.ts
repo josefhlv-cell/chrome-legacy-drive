@@ -318,6 +318,47 @@ function keepVehicleComponent(img: Image) {
 }
 
 
+/**
+ * The cut-out vehicle sometimes comes back slightly tilted (the model re-draws
+ * the framing), which makes a wheel hang in mid-air above the showroom floor.
+ * We measure the slope of the wheel-contact silhouette and rotate it back to
+ * level. Clamped and threshold-gated, so a natural 3/4 perspective is untouched.
+ */
+function levelToGround(img: Image): Image {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  const lowest: Array<number | null> = new Array(w).fill(null);
+  let maxY = -1, minY = h;
+  for (let x = 0; x < w; x++) {
+    for (let y = h - 1; y >= 0; y--) {
+      if (bmp[(y * w + x) * 4 + 3] > 24) { lowest[x] = y; if (y > maxY) maxY = y; if (y < minY) minY = y; break; }
+    }
+  }
+  if (maxY < 0) return img;
+
+  // Only the bottom band counts — that is where the tyres meet the ground.
+  const band = maxY - (maxY - minY) * 0.12;
+  let n = 0, sx = 0, sy = 0, sxx = 0, sxy = 0;
+  for (let x = 0; x < w; x++) {
+    const y = lowest[x];
+    if (y === null || y < band) continue;
+    n++; sx += x; sy += y; sxx += x * x; sxy += x * y;
+  }
+  if (n < 40) return img;
+  const denom = n * sxx - sx * sx;
+  if (denom === 0) return img;
+  const slope = (n * sxy - sx * sy) / denom;
+  let deg = Math.atan(slope) * 180 / Math.PI;
+  if (Math.abs(deg) < 2.5) return img;      // natural perspective — leave alone
+  deg = Math.max(-8, Math.min(8, deg));
+  try {
+    return img.rotate(-deg, false);
+  } catch {
+    return img;
+  }
+}
+
+
 /** Tight bounding box of visible pixels. */
 function alphaBounds(img: Image) {
   const w = img.width, h = img.height;

@@ -143,6 +143,15 @@ function chromaKey(img: Image): number {
       bmp[i] = Math.max(0, Math.min(255, target));
       bmp[i + 2] = Math.max(0, Math.min(255, target));
     }
+    // Final de-purple guard: a pixel where BOTH red and blue sit well above
+    // green is magenta spill, never real paint or a red taillight (those have
+    // low blue). Clamp it back so no violet glow survives on lenses/glass.
+    if (bmp[i] > bmp[i + 1] + 18 && bmp[i + 2] > bmp[i + 1] + 18) {
+      const cap = bmp[i + 1] + 18;
+      bmp[i] = Math.min(bmp[i], cap);
+      bmp[i + 2] = Math.min(bmp[i + 2], cap);
+    }
+
 
   }
   return removed / (w * h);

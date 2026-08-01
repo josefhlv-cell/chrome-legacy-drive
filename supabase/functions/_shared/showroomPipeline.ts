@@ -20,12 +20,12 @@ export const BACKGROUND_URL =
 const CANVAS_W = 1920;
 const CANVAS_H = 1080;
 // Fixed catalog geometry — identical for every single vehicle.
-const CAR_WIDTH_RATIO = 0.72; // vehicle spans 72 % of the canvas width
+const CAR_WIDTH_RATIO = 0.66; // vehicle spans 72 % of the canvas width
 const MAX_CAR_HEIGHT_RATIO = 0.60; // never taller than 60 % of the canvas
 // The wall/floor seam of the fixed background sits at y ≈ 840 (of 1080). The
 // tyres must land clearly BELOW it, on the polished floor — otherwise the car
 // visually leans against the wall and looks pasted on.
-const WHEEL_LINE_Y_RATIO = 0.945; // tyres touch the floor at y ≈ 1020
+const WHEEL_LINE_Y_RATIO = 0.905; // tyres touch the floor at y ≈ 1020
 
 
 // The model cannot be trusted to emit a real alpha channel — it paints a fake
@@ -480,9 +480,9 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     bmp[i + 2] = Math.round(bmp[i + 2] * k);
   };
 
-  const ambientReach = Math.max(24, Math.round(ch * 0.22));
-  const contactReach = Math.max(6, Math.round(ch * 0.035));
-  const spread = Math.max(6, Math.round(cw * 0.02)); // ambient bleeds sideways
+  const ambientReach = Math.max(14, Math.round(ch * 0.06));
+  const contactReach = Math.max(4, Math.round(ch * 0.02));
+  const spread = Math.max(4, Math.round(cw * 0.008)); // ambient bleeds sideways
 
   for (let x = 0; x < cw; x++) {
     const fy = smooth[x];
@@ -493,7 +493,7 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     // 1) ambient occlusion pool (soft, wide, weak)
     for (let d = -Math.round(ambientReach * 0.15); d <= ambientReach; d++) {
       const t = Math.abs(d) / ambientReach;
-      const s = 0.30 * Math.pow(1 - Math.min(1, t), 2.2) * endFade;
+      const s = 0.16 * Math.pow(1 - Math.min(1, t), 2.4) * endFade;
       for (let sx = -spread; sx <= spread; sx++) {
         const lateral = 1 - Math.abs(sx) / (spread + 1);
         darken(carX + x + sx, Math.round(carY + fy + d), s * lateral * 0.7);
@@ -503,7 +503,7 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     // 2) hard contact band right under the tyres/rockers
     for (let d = -2; d <= contactReach; d++) {
       const t = Math.max(0, d) / contactReach;
-      const s = 0.62 * Math.pow(1 - Math.min(1, t), 1.4) * endFade;
+      const s = 0.42 * Math.pow(1 - Math.min(1, t), 1.6) * endFade;
       darken(carX + x, Math.round(carY + fy + d), s);
     }
   }
@@ -520,7 +520,7 @@ function paintFloorReflection(canvas: Image, car: Image, carX: number, carY: num
   const smooth = silhouetteFloor(car);
   const bmp = canvas.bitmap as unknown as Uint8Array;
   const W = canvas.width, H = canvas.height;
-  const depth = Math.max(20, Math.round(ch * 0.16));
+  const depth = Math.max(16, Math.round(ch * 0.10));
 
   for (let x = 0; x < cw; x++) {
     const fy = smooth[x];

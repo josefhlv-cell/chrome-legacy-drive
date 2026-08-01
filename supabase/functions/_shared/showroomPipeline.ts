@@ -95,6 +95,73 @@ function extractImageDataUrl(aiData: any): string | undefined {
 }
 
 /**
+ * Erases a painted transparency CHECKERBOARD anywhere in the image — including
+ * the patches the model paints INSIDE the vehicle outline (windscreen, under the
+ * bumper), which a border flood fill can never reach.
+ *
+ * Detection is pattern based, not colour based: a pixel is only erased when it
+ * matches one of the two dominant neutral border tones AND a pixel exactly one
+ * cell away matches the OTHER tone. A large flat white/silver car panel never
+ * satisfies that, so light-coloured bodywork is preserved.
+ */
+function removeCheckerboard(img: Image) {
+  const w = img.width, h = img.height;
+  const bmp = img.bitmap as unknown as Uint8Array;
+  const at = (x: number, y: number) => (y * w + x) * 4;
+  const neutral = (i: number) =>
+    bmp[i + 3] > 250 && Math.max(bmp[i], bmp[i + 1], bmp[i + 2]) - Math.min(bmp[i], bmp[i + 1], bmp[i + 2]) <= 14;
+
+  // Two dominant neutral tones on the border.
+  const buckets = new Map<number, number>();
+  const sample = (i: number) => {
+    if (!neutral(i)) return;
+    const key = Math.round(bmp[i] / 8) * 8;
+    buckets.set(key, (buckets.get(key) ?? 0) + 1);
+  };
+  for (let x = 0; x < w; x++) { sample(at(x, 0)); sample(at(x, h - 1)); }
+  for (let y = 0; y < h; y++) { sample(at(0, y)); sample(at(w - 1, y)); }
+  const tones = [...buckets.entries()].sort((a, b) => b[1] - a[1]).slice(0, 2).map(([v]) => v);
+  if (tones.length < 2 || Math.abs(tones[0] - tones[1]) < 16) return;
+
+  const TOL = 14;
+  const tone = (i: number) => {
+    if (!neutral(i)) return -1;
+    if (Math.abs(bmp[i] - tones[0]) <= TOL) return 0;
+    if (Math.abs(bmp[i] - tones[1]) <= TOL) return 1;
+    return -1;
+  };
+
+  // Estimate the checker cell size from the alternation on the top border row.
+  const runs: number[] = [];
+  let prev = tone(at(0, 0)), len = 1;
+  for (let x = 1; x < w; x++) {
+    const t = tone(at(x, 0));
+    if (t === prev && t >= 0) len++;
+    else { if (prev >= 0 && len > 1) runs.push(len); prev = t; len = 1; }
+  }
+  runs.sort((a, b) => a - b);
+  const cell = Math.min(64, Math.max(4, runs.length ? runs[Math.floor(runs.length / 2)] : 16));
+
+  const kill = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const i = at(x, y);
+      const t = tone(i);
+      if (t < 0) continue;
+      const other = 1 - t;
+      const probes = [
+        x - cell >= 0 ? at(x - cell, y) : -1,
+        x + cell < w ? at(x + cell, y) : -1,
+        y - cell >= 0 ? at(x, y - cell) : -1,
+        y + cell < h ? at(x, y + cell) : -1,
+      ];
+      if (probes.some((p) => p >= 0 && tone(p) === other)) kill[y * w + x] = 1;
+    }
+  }
+  for (let p = 0; p < w * h; p++) if (kill[p]) bmp[p * 4 + 3] = 0;
+}
+
+/**
  * Some models return an OPAQUE png where the "transparent" area is painted —
  * either a flat colour or a grey/white checkerboard (the classic Photoshop
  * transparency pattern). Both must be keyed out, otherwise the checkerboard

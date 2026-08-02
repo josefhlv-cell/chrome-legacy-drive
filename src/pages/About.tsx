@@ -62,7 +62,7 @@ const AboutPage = () => {
                 className="pointer-events-none absolute inset-0 bg-no-repeat"
                 style={{
                   backgroundImage: `url(${logoWall.url})`,
-                  backgroundSize: "clamp(300px, 70%, 820px) auto",
+                  backgroundSize: "contain",
                   backgroundPosition: "center top",
                   opacity: 0.22,
                   filter: "grayscale(0.55) contrast(1.05) brightness(1.15)",

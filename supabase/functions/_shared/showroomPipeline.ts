@@ -614,7 +614,7 @@ function paintFloorReflection(canvas: Image, car: Image, carX: number, carY: num
       if (cbmp[si + 3] < 40) continue;
       const py = Math.round(carY + fy + d);
       if (py < 0 || py >= H) continue;
-      const a = 0.14 * Math.pow(1 - d / depth, 1.8);
+      const a = GROUND.reflectionOpacity * Math.pow(1 - d / depth, 1.8);
       if (a <= 0.004) continue;
       const i = (py * W + px) * 4;
       bmp[i] = Math.round(bmp[i] * (1 - a) + cbmp[si] * a);

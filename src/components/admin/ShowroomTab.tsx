@@ -160,9 +160,17 @@ export default function ShowroomTab() {
       await refetch();
       return data as any;
     } catch (e: any) {
-      toast({ title: "Showroom zůstal zachován", description: "Fotografie nebyla změněna, můžete pokračovat v práci." });
+      // Surface the REAL reason (deploy 404, AI 429/402, validation 422, upload error)
+      // instead of a vague message — otherwise every failure looks identical.
+      const msg = e?.message || e?.error?.message || "Neznámá chyba";
+      toast({
+        title: "Showroom generování selhalo",
+        description: `${msg} — původní fotografie zůstala nezměněná.`,
+        variant: "destructive",
+      });
+      console.error("showroom-generate failed:", e);
       await refetch();
-      return { ok: false, skipped: true };
+      return { ok: false, skipped: true, error: msg };
     } finally {
       setBusyIds((p) => {
         const n = new Set(p);

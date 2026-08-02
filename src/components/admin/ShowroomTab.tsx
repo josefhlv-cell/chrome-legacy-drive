@@ -98,7 +98,8 @@ const useVehicleImagesAdmin = (vehicleId?: string) =>
         .select("id, vehicle_id, image_url, is_main, sort_order, showroom_url, showroom_thumb_url, showroom_status, showroom_progress, showroom_error, original_backup_url, showroom_generated_at, showroom_applied_at, showroom_history, showroom_placement, showroom_validation, showroom_metadata")
         .eq("vehicle_id", vehicleId)
         .order("is_main", { ascending: false })
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
       if (error) throw error;
       return (data ?? []).map(normalizeImageRow);
     },
@@ -243,7 +244,8 @@ export default function ShowroomTab() {
       .select("id, is_main, sort_order, showroom_url, showroom_status")
       .eq("vehicle_id", vehicleId)
       .order("is_main", { ascending: false })
-      .order("sort_order", { ascending: true });
+      .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
     if (error) throw error;
     const rows = data ?? [];
     const targets = mode === "main" ? rows.filter((d) => d.is_main).slice(0, 1) : rows.slice(0, SHOWROOM_LIMIT);

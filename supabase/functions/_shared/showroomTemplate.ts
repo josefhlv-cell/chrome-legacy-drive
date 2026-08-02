@@ -5,10 +5,10 @@
 // ============================================================================
 
 export const CAMERA_VERSION = "camera-v1";
-export const BACKGROUND_VERSION = "background-v1";
+export const BACKGROUND_VERSION = "background-v2";
 export const PLACEMENT_VERSION = "placement-v1";
 export const LIGHTING_VERSION = "lighting-v1";
-export const GROUND_VERSION = "ground-v1";
+export const GROUND_VERSION = "ground-v2";
 
 export const CANVAS_W = 1920;
 export const CANVAS_H = 1080;
@@ -26,11 +26,11 @@ export const CAMERA = {
 
 /** Ground plane (ground_plane.json). */
 export const GROUND = {
-  wheelLineY: 977,
+  wheelLineY: 1000,
   anchorX: 960,
   usableMinX: 210,
   usableMaxX: 1710,
-  wallFloorSeamY: 840,
+  wallFloorSeamY: 648,
   ambientReachRatio: 0.11,
   contactReachRatio: 0.022,
   ambientOpacity: 0.30,

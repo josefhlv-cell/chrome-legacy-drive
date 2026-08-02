@@ -94,7 +94,7 @@ export default function QuickExportButton({ vehicle }: Props) {
       .from("vehicle_images")
       .select("image_url, sort_order, is_main")
       .eq("vehicle_id", vehicle.id)
-      .order("sort_order");
+      .order("sort_order").order("id");
     if (error) throw error;
     if (!images || images.length === 0) return [];
 

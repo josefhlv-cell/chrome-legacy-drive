@@ -8,6 +8,7 @@ import workshop1 from "@/assets/workshop-1.webp";
 import workshop2 from "@/assets/workshop-2.webp";
 import workshop3 from "@/assets/workshop-3.webp";
 import workshop4 from "@/assets/workshop-4.webp";
+import logoWall from "@/assets/chdp-logo-wall.jpg.asset.json";
 
 const reasons = [
   { icon: Search, title: "Specializace", text: "Chrysler není jen jedna z mnoha značek v našem portfoliu. Je to naše vášeň. Známe každý šroubek modelů Pacifica, Voyager i Grand Caravan." },
@@ -55,17 +56,33 @@ const AboutPage = () => {
       <div className="pt-24 pb-16">
         <div className="container mx-auto px-4 max-w-5xl lg:max-w-[1920px] lg:px-12">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <h1 className="section-heading">Více než jen auto</h1>
-            <p className="text-primary text-lg font-medium mt-2 tracking-wide">Tradice, která definuje komfort.</p>
-            <p className="section-subheading mt-1">Jsme specialisté na značku Chrysler v České republice. Přinášíme vám americký luxus bez kompromisů.</p>
+            <div className="relative overflow-hidden rounded-xl px-2 py-6 sm:px-6">
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-center bg-no-repeat bg-contain"
+                style={{
+                  backgroundImage: `url(${logoWall.url})`,
+                  opacity: 0.16,
+                  filter: "grayscale(0.55) contrast(0.95) brightness(0.9)",
+                  maskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)",
+                }}
+              />
+              <div className="relative z-10">
+                <h1 className="section-heading">Více než jen auto</h1>
+                <p className="text-primary text-lg font-medium mt-2 tracking-wide">Tradice, která definuje komfort.</p>
+                <p className="section-subheading mt-1">Jsme specialisté na značku Chrysler v České republice. Přinášíme vám americký luxus bez kompromisů.</p>
 
-            <div className="mt-10 glass-card p-8">
-              <p className="text-foreground leading-relaxed">
-                Značka Chrysler vždy stála na vrcholu inovací a rodinného pohodlí. Od ikonického sedanu 300C
-                až po revoluční rodinné vozy Pacifica, Chrysler definuje, co znamená cestovat první třídou.
-                Naším posláním na Chrysler.cz je zprostředkovat tento zážitek i českým řidičům.
-              </p>
+                <div className="mt-10 glass-card p-8">
+                  <p className="text-foreground leading-relaxed">
+                    Značka Chrysler vždy stála na vrcholu inovací a rodinného pohodlí. Od ikonického sedanu 300C
+                    až po revoluční rodinné vozy Pacifica, Chrysler definuje, co znamená cestovat první třídou.
+                    Naším posláním na Chrysler.cz je zprostředkovat tento zážitek i českým řidičům.
+                  </p>
+                </div>
+              </div>
             </div>
+
 
             {/* Company History */}
             <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">

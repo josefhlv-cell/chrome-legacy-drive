@@ -952,12 +952,13 @@ export async function runShowroom(
     return await fail(`Compositing failed: ${e?.message ?? e}`);
   }
 
-  if (!validation.passed) {
+  const report = validation as ValidationReport;
+  if (!report.passed) {
     return await fail(
-      `Kontrola kvality neprošla (skóre ${(validation.score * 100).toFixed(0)} %): ` +
-        validation.checks.filter((c) => !c.ok).map((c) => c.check).join(", "),
+      `Kontrola kvality neprošla (skóre ${(report.score * 100).toFixed(0)} %): ` +
+        report.checks.filter((c) => !c.ok).map((c) => c.check).join(", "),
       422,
-      validation,
+      report,
     );
   }
 
@@ -993,7 +994,7 @@ export async function runShowroom(
     showroom_error: "",
     showroom_generated_at: new Date().toISOString(),
     showroom_placement: usedPlace,
-    showroom_validation: validation,
+    showroom_validation: report,
     showroom_metadata: {
       scale: usedPlace.scale,
       position: { x: usedGeometry.carX, y: usedGeometry.carY, w: usedGeometry.targetW, h: usedGeometry.targetH },
@@ -1006,21 +1007,21 @@ export async function runShowroom(
       generated_at: new Date().toISOString(),
       ai_model: aiModel,
       ai_role: "segmentation-only",
-      validation_score: validation.score,
+      validation_score: report.score,
     },
   });
   await appendHistory(
     admin,
     imageId,
     "generated",
-    `${vehicleClass} • scale ${usedPlace.scale.toFixed(2)} • skóre ${(validation.score * 100).toFixed(0)} %`,
+    `${vehicleClass} • scale ${usedPlace.scale.toFixed(2)} • skóre ${(report.score * 100).toFixed(0)} %`,
   );
 
   return {
     ok: true,
     showroom_url: showroomUrl,
     showroom_thumb_url: thumbUrl,
-    validation,
+    validation: report,
     placement: usedPlace,
     vehicle_class: vehicleClass,
   };

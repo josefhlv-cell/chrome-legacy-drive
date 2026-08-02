@@ -8,7 +8,7 @@ import workshop1 from "@/assets/workshop-1.webp";
 import workshop2 from "@/assets/workshop-2.webp";
 import workshop3 from "@/assets/workshop-3.webp";
 import workshop4 from "@/assets/workshop-4.webp";
-import logoWall from "@/assets/chdp-logo-wall.jpg.asset.json";
+import logoWall from "@/assets/chdp-logo-clean.png.asset.json";
 
 const reasons = [
   { icon: Search, title: "Specializace", text: "Chrysler není jen jedna z mnoha značek v našem portfoliu. Je to naše vášeň. Známe každý šroubek modelů Pacifica, Voyager i Grand Caravan." },
@@ -59,13 +59,15 @@ const AboutPage = () => {
             <div className="relative overflow-hidden rounded-xl px-2 py-6 sm:px-6">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-center bg-no-repeat bg-contain"
+                className="pointer-events-none absolute inset-0 bg-no-repeat"
                 style={{
                   backgroundImage: `url(${logoWall.url})`,
-                  opacity: 0.16,
-                  filter: "grayscale(0.55) contrast(0.95) brightness(0.9)",
-                  maskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)",
+                  backgroundSize: "contain",
+                  backgroundPosition: "center top",
+                  opacity: 0.22,
+                  filter: "grayscale(0.55) contrast(1.05) brightness(1.15)",
+                  maskImage: "linear-gradient(to bottom, black 0%, black 45%, transparent 85%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 45%, transparent 85%)",
                 }}
               />
               <div className="relative z-10">

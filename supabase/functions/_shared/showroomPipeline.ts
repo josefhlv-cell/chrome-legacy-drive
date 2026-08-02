@@ -543,7 +543,7 @@ function silhouetteFloor(car: Image): Array<number | null> {
  *     the far ones. Real tyre-to-floor contact is almost black at the point of
  *     contact and fades within a few centimetres.
  */
-function paintContactShadow(canvas: Image, car: Image, carX: number, carY: number) {
+function paintContactShadow(canvas: Image, car: Image, carX: number, carY: number, place: Placement) {
   const cw = car.width, ch = car.height;
   const smooth = silhouetteFloor(car);
   const bmp = canvas.bitmap as unknown as Uint8Array;
@@ -558,9 +558,10 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     bmp[i + 2] = Math.round(bmp[i + 2] * k);
   };
 
-  const ambientReach = Math.max(18, Math.round(ch * 0.11));
-  const contactReach = Math.max(5, Math.round(ch * 0.022));
-  const spread = Math.max(6, Math.round(cw * 0.015)); // ambient bleeds sideways
+  const dy = Math.round(place.shadowOffsetY);
+  const ambientReach = Math.max(18, Math.round(ch * GROUND.ambientReachRatio * place.shadowBlur));
+  const contactReach = Math.max(5, Math.round(ch * GROUND.contactReachRatio * place.shadowBlur));
+  const spread = Math.max(6, Math.round(cw * 0.015 * place.shadowBlur)); // ambient bleeds sideways
 
   for (let x = 0; x < cw; x++) {
     const fy = smooth[x];
@@ -571,21 +572,22 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     // 1) ambient occlusion pool (soft, wide, weak)
     for (let d = -Math.round(ambientReach * 0.15); d <= ambientReach; d++) {
       const t = Math.abs(d) / ambientReach;
-      const s = 0.30 * Math.pow(1 - Math.min(1, t), 2.4) * endFade;
+      const s = GROUND.ambientOpacity * place.shadowOpacity * Math.pow(1 - Math.min(1, t), 2.4) * endFade;
       for (let sx = -spread; sx <= spread; sx++) {
         const lateral = 1 - Math.abs(sx) / (spread + 1);
-        darken(carX + x + sx, Math.round(carY + fy + d), s * lateral * 0.7);
+        darken(carX + x + sx, Math.round(carY + fy + d + dy), s * lateral * 0.7);
       }
     }
 
     // 2) hard contact band right under the tyres/rockers
     for (let d = -2; d <= contactReach; d++) {
       const t = Math.max(0, d) / contactReach;
-      const s = 0.58 * Math.pow(1 - Math.min(1, t), 1.6) * endFade;
-      darken(carX + x, Math.round(carY + fy + d), s);
+      const s = GROUND.contactOpacity * place.shadowOpacity * Math.pow(1 - Math.min(1, t), 1.6) * endFade;
+      darken(carX + x, Math.round(carY + fy + d + dy), s);
     }
   }
 }
+
 
 /**
  * Subtle mirrored reflection on the polished floor. Very low opacity and it

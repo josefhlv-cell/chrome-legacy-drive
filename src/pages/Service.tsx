@@ -135,10 +135,11 @@ const ServicePage = () => {
             </motion.div>
 
             {/* Category 2 */}
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-3">
-              <Cog className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Technické vybavení</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-3 relative overflow-hidden">
+              <CardBg src={prevodovkyAsset.url} />
+              <Cog className="w-8 h-8 text-primary relative z-10" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground relative z-10">Technické vybavení</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground relative z-10">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Opravy automatických převodovek</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Moderně vybavené autodílny</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Diagnostické pomůcky</li>

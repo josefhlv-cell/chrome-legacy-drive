@@ -19,6 +19,7 @@ import {
   detectVehicleClass,
   GROUND,
   LIGHTING_VERSION,
+  LOGO_SAFE_ZONE,
   modelKey,
   PLACEMENT_LIMITS,
   PLACEMENT_VERSION,
@@ -681,9 +682,9 @@ function validateComposite(args: {
     `x=${carX} y=${carY} w=${targetW} h=${targetH}`,
   );
 
-  // Wheels must sit ON the asphalt: below the wall/floor seam, at the anchor line.
+  // Wheels must sit on the locked tyre line, not merely somewhere on asphalt.
   const wheelY = carY + targetH;
-  add("wheels_on_asphalt", wheelY > GROUND.wallFloorSeamY + 40 && wheelY <= CANVAS_H - m, `wheelY=${wheelY}`);
+  add("wheels_on_asphalt", Math.abs(wheelY - GROUND.wheelLineY) <= 8, `wheelY=${wheelY}`);
 
   const widthRatio = targetW / CANVAS_W;
   add("scale_in_range", widthRatio >= 0.34 && widthRatio <= PLACEMENT_LIMITS.maxCarWidthRatio, `w=${widthRatio.toFixed(3)}`);
@@ -692,8 +693,14 @@ function validateComposite(args: {
   // pixel count proves the master background survived.
   add("background_unchanged", bgUntouchedPixels > CANVAS_W * CANVAS_H * 0.25, `clean=${bgUntouchedPixels}`);
 
-  // The CHDP logo lives on the upper wall; the car must not cover it.
-  add("logo_visible", carY > 260 || targetW < CANVAS_W * 0.66, `carY=${carY}`);
+  // Hard exclusion zone: the vehicle must remain entirely below the CHDP wall
+  // artwork. This is mandatory; a high score can never waive this check.
+  const carTop = carY;
+  const carLeft = carX;
+  const carRight = carX + targetW;
+  const overlapsLogoX = carRight > LOGO_SAFE_ZONE.minX && carLeft < LOGO_SAFE_ZONE.maxX;
+  const clearsLogo = !overlapsLogoX || carTop >= LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx;
+  add("logo_visible", clearsLogo, `carTop=${carTop} required>=${LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx}`);
 
   // Cut-out sanity — silhouette must be a car-shaped single blob.
   const cw = car.width, ch = car.height;
@@ -714,7 +721,8 @@ function validateComposite(args: {
   add("no_body_deformation", aspect > 1.1 && aspect < 4.6, `aspect=${aspect.toFixed(2)}`);
 
   const score = checks.filter((c) => c.ok).length / checks.length;
-  return { score, passed: score >= VALIDATION.minScore && checks.every((c) => c.ok || c.check === "logo_visible") };
+  const mandatory = new Set(["inside_frame", "wheels_on_asphalt", "scale_in_range", "logo_visible", "no_chroma_residue", "no_body_deformation"]);
+  return { score, passed: score >= VALIDATION.minScore && checks.every((c) => c.ok || !mandatory.has(c.check)) };
 }
 
 export type ShowroomResult =
@@ -933,6 +941,12 @@ export async function runShowroom(
         }
         if (!report.checks.find((c) => c.check === "wheels_on_asphalt")?.ok) fixed.offsetY = 0;
         if (!report.checks.find((c) => c.check === "scale_in_range")?.ok) fixed.scale = CLASS_FALLBACK_SCALE;
+        if (!report.checks.find((c) => c.check === "logo_visible")?.ok) {
+          const allowedHeight = GROUND.wheelLineY - LOGO_SAFE_ZONE.maxY - LOGO_SAFE_ZONE.clearancePx;
+          const correctedWidth = (car.width / car.height) * allowedHeight;
+          fixed.scale = Math.min(usedPlace.scale, correctedWidth / CANVAS_W);
+          fixed.offsetY = 0;
+        }
         usedPlace = placementFromProfile(vehicleClass, { ...usedPlace, ...fixed });
         await appendHistory(admin, imageId, "validation_retry", `score ${report.score.toFixed(2)} — přepočet umístění`);
         continue;
@@ -1027,4 +1041,4 @@ export async function runShowroom(
   };
 }
 
-const CLASS_FALLBACK_SCALE = 0.58;
+const CLASS_FALLBACK_SCALE = 0.46;

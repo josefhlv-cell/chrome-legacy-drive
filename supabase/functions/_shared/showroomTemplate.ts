@@ -26,7 +26,7 @@ export const CAMERA = {
 
 /** Ground plane (ground_plane.json). */
 export const GROUND = {
-  wheelLineY: 1000,
+  wheelLineY: 1015,
   anchorX: 960,
   usableMinX: 210,
   usableMaxX: 1710,
@@ -36,6 +36,15 @@ export const GROUND = {
   ambientOpacity: 0.30,
   contactOpacity: 0.58,
   reflectionOpacity: 0.14,
+} as const;
+
+/** Reserved wall artwork. A vehicle is never allowed to enter this zone. */
+export const LOGO_SAFE_ZONE = {
+  minX: 610,
+  maxX: 1450,
+  minY: 235,
+  maxY: 565,
+  clearancePx: 18,
 } as const;
 
 export type VehicleClass =
@@ -53,22 +62,22 @@ export type ClassProfile = {
 
 /** Per-class default profiles (placement_rules.json). */
 export const CLASS_PROFILES: Record<VehicleClass, ClassProfile> = {
-  CITY:      { scale: 0.52, wheelbase_ratio: 0.58, ground_clearance: 0.030, shadow_size: 0.90, offset_x: 0, offset_y: 0 },
-  HATCHBACK: { scale: 0.56, wheelbase_ratio: 0.59, ground_clearance: 0.032, shadow_size: 0.92, offset_x: 0, offset_y: 0 },
-  SEDAN:     { scale: 0.62, wheelbase_ratio: 0.62, ground_clearance: 0.030, shadow_size: 1.00, offset_x: 0, offset_y: 0 },
-  COUPE:     { scale: 0.60, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
-  CABRIO:    { scale: 0.60, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
-  WAGON:     { scale: 0.63, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
-  SUV:       { scale: 0.64, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
-  PICKUP:    { scale: 0.68, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
-  VAN:       { scale: 0.66, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
+  CITY:      { scale: 0.40, wheelbase_ratio: 0.58, ground_clearance: 0.030, shadow_size: 0.90, offset_x: 0, offset_y: 0 },
+  HATCHBACK: { scale: 0.43, wheelbase_ratio: 0.59, ground_clearance: 0.032, shadow_size: 0.92, offset_x: 0, offset_y: 0 },
+  SEDAN:     { scale: 0.47, wheelbase_ratio: 0.62, ground_clearance: 0.030, shadow_size: 1.00, offset_x: 0, offset_y: 0 },
+  COUPE:     { scale: 0.46, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
+  CABRIO:    { scale: 0.46, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
+  WAGON:     { scale: 0.48, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
+  SUV:       { scale: 0.49, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
+  PICKUP:    { scale: 0.52, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
+  VAN:       { scale: 0.49, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
 };
 
 export const PLACEMENT_LIMITS = {
   maxRotationDeg: 1,
   minFrameMarginPx: 24,
-  maxCarWidthRatio: 0.72,
-  maxCarHeightRatio: 0.58,
+  maxCarWidthRatio: 0.54,
+  maxCarHeightRatio: 0.40,
 } as const;
 
 export const VALIDATION = {
@@ -100,7 +109,7 @@ export const placementFromProfile = (cls: VehicleClass, over?: Partial<Placement
   };
   const merged = { ...base, ...(over ?? {}) };
   return {
-    scale: clamp(merged.scale, 0.30, PLACEMENT_LIMITS.maxCarWidthRatio),
+    scale: clamp(merged.scale, 0.34, PLACEMENT_LIMITS.maxCarWidthRatio),
     offsetX: clamp(merged.offsetX, -300, 300),
     offsetY: clamp(merged.offsetY, -160, 160),
     rotationDeg: clamp(merged.rotationDeg, -PLACEMENT_LIMITS.maxRotationDeg, PLACEMENT_LIMITS.maxRotationDeg),

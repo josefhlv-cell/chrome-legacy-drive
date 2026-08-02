@@ -1,0 +1,39 @@
+{
+  "version": "placement-v1",
+  "readOnly": true,
+  "note": "Deterministic placement rules + per-class default profiles. AI never decides placement.",
+  "global": {
+    "align": "bottom-center",
+    "anchor_x": 960,
+    "wheel_line_y": 977,
+    "max_rotation_deg": 1,
+    "min_frame_margin_px": 24,
+    "max_car_width_ratio": 0.72,
+    "max_car_height_ratio": 0.58
+  },
+  "classes": {
+    "CITY":      { "scale": 0.52, "wheelbase_ratio": 0.58, "ground_clearance": 0.030, "shadow_size": 0.90, "offset_x": 0, "offset_y": 0 },
+    "HATCHBACK": { "scale": 0.56, "wheelbase_ratio": 0.59, "ground_clearance": 0.032, "shadow_size": 0.92, "offset_x": 0, "offset_y": 0 },
+    "SEDAN":     { "scale": 0.62, "wheelbase_ratio": 0.62, "ground_clearance": 0.030, "shadow_size": 1.00, "offset_x": 0, "offset_y": 0 },
+    "COUPE":     { "scale": 0.60, "wheelbase_ratio": 0.61, "ground_clearance": 0.028, "shadow_size": 0.96, "offset_x": 0, "offset_y": 0 },
+    "CABRIO":    { "scale": 0.60, "wheelbase_ratio": 0.61, "ground_clearance": 0.028, "shadow_size": 0.96, "offset_x": 0, "offset_y": 0 },
+    "WAGON":     { "scale": 0.63, "wheelbase_ratio": 0.63, "ground_clearance": 0.032, "shadow_size": 1.02, "offset_x": 0, "offset_y": 0 },
+    "SUV":       { "scale": 0.64, "wheelbase_ratio": 0.61, "ground_clearance": 0.045, "shadow_size": 1.05, "offset_x": 0, "offset_y": 0 },
+    "PICKUP":    { "scale": 0.68, "wheelbase_ratio": 0.66, "ground_clearance": 0.050, "shadow_size": 1.10, "offset_x": 0, "offset_y": 0 },
+    "VAN":       { "scale": 0.66, "wheelbase_ratio": 0.64, "ground_clearance": 0.040, "shadow_size": 1.08, "offset_x": 0, "offset_y": 0 }
+  },
+  "validation": {
+    "min_score": 0.72,
+    "max_attempts": 2,
+    "checks": [
+      "inside_frame",
+      "wheels_on_asphalt",
+      "scale_in_range",
+      "background_unchanged",
+      "logo_visible",
+      "no_mask_artifacts",
+      "no_chroma_residue",
+      "silhouette_plausible"
+    ]
+  }
+}

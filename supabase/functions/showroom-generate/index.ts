@@ -1,6 +1,8 @@
 // deno-lint-ignore-file no-explicit-any
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { createAdminClient, runShowroom, type AdminClient } from "../_shared/showroomPipeline.ts";
+import { modelKey } from "../_shared/showroomTemplate.ts";
+
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

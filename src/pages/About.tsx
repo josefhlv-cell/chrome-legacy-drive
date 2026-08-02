@@ -59,13 +59,13 @@ const AboutPage = () => {
             <div className="relative overflow-hidden rounded-xl px-2 py-6 sm:px-6">
               <div
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-center bg-no-repeat bg-contain"
+                className="pointer-events-none absolute inset-x-0 top-0 h-[70%] bg-top bg-no-repeat bg-contain"
                 style={{
                   backgroundImage: `url(${logoWall.url})`,
                   opacity: 0.16,
                   filter: "grayscale(0.55) contrast(0.95) brightness(0.9)",
-                  maskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)",
+                  maskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
+                  WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
                 }}
               />
               <div className="relative z-10">

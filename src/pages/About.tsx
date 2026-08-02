@@ -62,8 +62,8 @@ const AboutPage = () => {
                 className="pointer-events-none absolute inset-x-0 top-0 h-[70%] bg-top bg-no-repeat bg-contain"
                 style={{
                   backgroundImage: `url(${logoWall.url})`,
-                  opacity: 0.16,
-                  filter: "grayscale(0.55) contrast(0.95) brightness(0.9)",
+                  opacity: 0.28,
+                  filter: "grayscale(0.55) contrast(1.05) brightness(1.15)",
                   maskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
                   WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 55%, transparent 100%)",
                 }}

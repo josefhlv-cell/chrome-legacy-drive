@@ -10,6 +10,23 @@
 // ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
+import {
+  BACKGROUND_VERSION,
+  CAMERA,
+  CAMERA_VERSION,
+  CANVAS_H,
+  CANVAS_W,
+  detectVehicleClass,
+  GROUND,
+  LIGHTING_VERSION,
+  modelKey,
+  PLACEMENT_LIMITS,
+  PLACEMENT_VERSION,
+  placementFromProfile,
+  VALIDATION,
+  type Placement,
+  type VehicleClass,
+} from "./showroomTemplate.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
@@ -17,15 +34,10 @@ const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 export const BACKGROUND_URL =
   `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v1.jpg`;
 
-const CANVAS_W = 1920;
-const CANVAS_H = 1080;
-// Fixed catalog geometry — identical for every single vehicle.
-const CAR_WIDTH_RATIO = 0.62; // vehicle spans 62 % of the canvas width
-const MAX_CAR_HEIGHT_RATIO = 0.52; // never taller than 60 % of the canvas
-// The wall/floor seam of the fixed background sits at y ≈ 840 (of 1080). The
-// tyres must land clearly BELOW it, on the polished floor — otherwise the car
-// visually leans against the wall and looks pasted on.
-const WHEEL_LINE_Y_RATIO = 0.905; // tyres touch the floor at y ≈ 977
+// Every geometric constant now comes from the read-only static template
+// (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
+const MAX_CAR_HEIGHT_RATIO = PLACEMENT_LIMITS.maxCarHeightRatio;
+
 
 
 // The model cannot be trusted to emit a real alpha channel — it paints a fake

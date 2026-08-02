@@ -109,11 +109,12 @@ const ServicePage = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="glass-card p-6"
+                className="glass-card p-6 relative overflow-hidden"
               >
-                <s.icon className="w-8 h-8 text-gold mb-4" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2">{s.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                <CardBg src={s.bg} />
+                <s.icon className="w-8 h-8 text-gold mb-4 relative z-10" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2 relative z-10">{s.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed relative z-10">{s.desc}</p>
               </motion.div>
             ))}
           </div>

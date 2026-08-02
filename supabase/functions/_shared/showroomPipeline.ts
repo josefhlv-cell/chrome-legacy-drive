@@ -653,40 +653,121 @@ function featherEdges(car: Image) {
 
 
 
+// ============================================================================
+// SMART VALIDATION — deterministic, no AI. Scores the finished composite and
+// rejects it when the car is out of frame, floating, mis-scaled, or the cutout
+// still carries mask artefacts / chroma residue.
+// ============================================================================
+export type ValidationCheck = { check: string; ok: boolean; detail?: string };
+export type ValidationReport = { score: number; passed: boolean; checks: ValidationCheck[] };
+
+function validateComposite(args: {
+  car: Image;
+  carX: number;
+  carY: number;
+  targetW: number;
+  targetH: number;
+  keyedShare: number;
+  bgUntouchedPixels: number;
+}): ValidationReport {
+  const { car, carX, carY, targetW, targetH, keyedShare, bgUntouchedPixels } = args;
+  const checks: ValidationCheck[] = [];
+  const add = (check: string, ok: boolean, detail?: string) => checks.push({ check, ok, detail });
+
+  const m = PLACEMENT_LIMITS.minFrameMarginPx;
+  add(
+    "inside_frame",
+    carX >= m && carY >= m && carX + targetW <= CANVAS_W - m && carY + targetH <= CANVAS_H - m,
+    `x=${carX} y=${carY} w=${targetW} h=${targetH}`,
+  );
+
+  // Wheels must sit ON the asphalt: below the wall/floor seam, at the anchor line.
+  const wheelY = carY + targetH;
+  add("wheels_on_asphalt", wheelY > GROUND.wallFloorSeamY + 40 && wheelY <= CANVAS_H - m, `wheelY=${wheelY}`);
+
+  const widthRatio = targetW / CANVAS_W;
+  add("scale_in_range", widthRatio >= 0.34 && widthRatio <= PLACEMENT_LIMITS.maxCarWidthRatio, `w=${widthRatio.toFixed(3)}`);
+
+  // Background is only ever composited onto, never regenerated — the untouched
+  // pixel count proves the master background survived.
+  add("background_unchanged", bgUntouchedPixels > CANVAS_W * CANVAS_H * 0.25, `clean=${bgUntouchedPixels}`);
+
+  // The CHDP logo lives on the upper wall; the car must not cover it.
+  add("logo_visible", carY > 260 || targetW < CANVAS_W * 0.66, `carY=${carY}`);
+
+  // Cut-out sanity — silhouette must be a car-shaped single blob.
+  const cw = car.width, ch = car.height;
+  const bmp = car.bitmap as unknown as Uint8Array;
+  let opaque = 0, chroma = 0, semi = 0;
+  for (let p = 0; p < cw * ch; p++) {
+    const i = p * 4, a = bmp[i + 3];
+    if (a > 200) opaque++;
+    else if (a > 40) semi++;
+    if (a > 40 && Math.min(bmp[i], bmp[i + 2]) - bmp[i + 1] > 20) chroma++;
+  }
+  const fill = opaque / (cw * ch);
+  add("silhouette_plausible", fill > 0.28 && fill < 0.94, `fill=${fill.toFixed(3)}`);
+  add("no_chroma_residue", chroma / (cw * ch) < 0.0025, `residue=${(chroma / (cw * ch)).toFixed(5)}`);
+  add("no_mask_artifacts", semi / Math.max(1, opaque) < 0.22 && keyedShare > 0.02, `semi=${(semi / Math.max(1, opaque)).toFixed(3)}`);
+
+  const aspect = cw / ch;
+  add("no_body_deformation", aspect > 1.1 && aspect < 4.6, `aspect=${aspect.toFixed(2)}`);
+
+  const score = checks.filter((c) => c.ok).length / checks.length;
+  return { score, passed: score >= VALIDATION.minScore && checks.every((c) => c.ok || c.check === "logo_visible") };
+}
+
 export type ShowroomResult =
-  | { ok: true; cached?: boolean; showroom_url: string; showroom_thumb_url?: string }
-  | { ok: false; error: string; status: number };
+  | {
+    ok: true;
+    cached?: boolean;
+    showroom_url: string;
+    showroom_thumb_url?: string;
+    validation?: ValidationReport;
+    placement?: Placement;
+    vehicle_class?: VehicleClass;
+  }
+  | { ok: false; error: string; status: number; validation?: ValidationReport };
 
 /**
  * Generates the showroom composite for ONE image.
+ *
+ * AI is used for exactly one sub-task: segmenting the vehicle (chroma-key
+ * cutout). Everything else — scale, placement, grounding, shadow, reflection,
+ * colour clean-up, validation — is deterministic image processing against the
+ * read-only static template.
+ *
  * Never touches `showroom_applied_at` — publishing stays an explicit admin action.
  */
 export async function runShowroom(
   admin: AdminClient,
   imageId: string,
   force = false,
+  placementOverride?: Partial<Placement> | null,
 ): Promise<ShowroomResult> {
   if (!LOVABLE_API_KEY) return { ok: false, error: "LOVABLE_API_KEY is not configured", status: 500 };
 
   const { data: img, error: imgErr } = await admin
     .from("vehicle_images")
-    .select("id, vehicle_id, image_url, showroom_url, original_backup_url, showroom_status")
+    .select("id, vehicle_id, image_url, showroom_url, original_backup_url, showroom_status, showroom_placement")
     .eq("id", imageId)
     .maybeSingle();
   if (imgErr || !img) return { ok: false, error: "Image not found", status: 404 };
 
+  // PERFORMANCE: never regenerate unless the admin explicitly forces it.
   if (!force && (img as any).showroom_url && (img as any).showroom_status === "done") {
     return { ok: true, cached: true, showroom_url: (img as any).showroom_url };
   }
 
-  const fail = async (msg: string, status = 502): Promise<ShowroomResult> => {
+  const fail = async (msg: string, status = 502, validation?: ValidationReport): Promise<ShowroomResult> => {
     await setImageState(admin, imageId, {
       showroom_status: "failed",
       showroom_progress: 0,
       showroom_error: msg,
+      ...(validation ? { showroom_validation: validation } : {}),
     });
     await appendHistory(admin, imageId, "failed", msg);
-    return { ok: false, error: msg, status };
+    return { ok: false, error: msg, status, validation };
   };
 
   await setImageState(admin, imageId, {
@@ -699,9 +780,42 @@ export async function runShowroom(
   const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
   if (!sourceUrl) return await fail("No source image", 400);
 
+  // ---- placement resolution: class profile → learned model profile → override
+  const { data: vehicle } = await admin
+    .from("vehicles")
+    .select("id, name, tipcars_karoserie_kod, tipcars_karoserie_popis")
+    .eq("id", (img as any).vehicle_id)
+    .maybeSingle();
+
+  const vehicleClass = detectVehicleClass(vehicle as any);
+  const key = modelKey((vehicle as any)?.name ?? "");
+  const { data: learned } = await admin
+    .from("showroom_model_profiles")
+    .select("scale, offset_x, offset_y, rotation_deg, shadow_opacity, shadow_blur, shadow_offset_y")
+    .eq("model_key", key)
+    .maybeSingle();
+
+  const learnedPatch: Partial<Placement> = learned
+    ? {
+      scale: Number((learned as any).scale),
+      offsetX: Number((learned as any).offset_x),
+      offsetY: Number((learned as any).offset_y),
+      rotationDeg: Number((learned as any).rotation_deg),
+      shadowOpacity: Number((learned as any).shadow_opacity),
+      shadowBlur: Number((learned as any).shadow_blur),
+      shadowOffsetY: Number((learned as any).shadow_offset_y),
+    }
+    : {};
+  const storedOverride = ((img as any).showroom_placement ?? {}) as Partial<Placement>;
+  const place = placementFromProfile(vehicleClass, {
+    ...learnedPatch,
+    ...storedOverride,
+    ...(placementOverride ?? {}),
+  });
+
   await setImageState(admin, imageId, { showroom_status: "processing", showroom_progress: 15 });
 
-  // 1) Fetch the fixed background + the source photo.
+  // 1) Fetch the immutable master background + the source photo.
   let bgBytes: Uint8Array;
   let carDataUrl: string;
   try {
@@ -714,7 +828,8 @@ export async function runShowroom(
 
   await setImageState(admin, imageId, { showroom_progress: 30 });
 
-  // 2) AI does ONE job only: cut the vehicle out on a transparent background.
+  // 2) AI does ONE job only: segment the vehicle on a magenta chroma background.
+  const aiModel = "google/gemini-3-pro-image";
   const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
     method: "POST",
     headers: {
@@ -723,10 +838,7 @@ export async function runShowroom(
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      // Pro image model: the flash model re-draws the framing (tilted car,
-      // magenta bleeding through the glass); pro stays far closer to the source.
-      model: "google/gemini-3-pro-image",
-
+      model: aiModel,
       modalities: ["image", "text"],
       messages: [{
         role: "user",
@@ -756,15 +868,17 @@ export async function runShowroom(
 
   await setImageState(admin, imageId, { showroom_progress: 60 });
 
-  // 3) Deterministic compositing — identical background, identical scale.
+  // 3) Deterministic compositing on the static template.
   let jpeg: Uint8Array;
+  let maskPng: Uint8Array | null = null;
+  let validation: ValidationReport | null = null;
+  let usedPlace: Placement = place;
+  let usedGeometry = { carX: 0, carY: 0, targetW: 0, targetH: 0 };
   try {
     const cutoutBytes = dataUrlToBytes(outDataUrl).bytes;
     const cutout = await Image.decode(cutoutBytes);
-    // Primary path: magenta chroma key. Fallbacks handle a model that ignored
-    // the instruction and painted a checkerboard or a flat grey instead.
-    const keyed = chromaKey(cutout);
-    if (keyed < 0.02) {
+    const keyedShare = chromaKey(cutout);
+    if (keyedShare < 0.02) {
       removeCheckerboard(cutout);
       keyOutFlatBackground(cutout);
     }
@@ -773,61 +887,143 @@ export async function runShowroom(
     stripGroundShadow(cutout);
     erodeAlpha(cutout, Math.max(2, Math.round(cutout.width * 0.004)));
 
-
     const box = alphaBounds(cutout);
     if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");
-    const car = cutout.clone().crop(box.x, box.y, box.w, box.h);
+    const base = cutout.clone().crop(box.x, box.y, box.w, box.h);
+    maskPng = await base.clone().encode(6);
 
-    let targetW = Math.round(CANVAS_W * CAR_WIDTH_RATIO);
-    let targetH = Math.round((car.height / car.width) * targetW);
-    const maxH = Math.round(CANVAS_H * MAX_CAR_HEIGHT_RATIO);
-    if (targetH > maxH) {
-      targetH = maxH;
-      targetW = Math.round((car.width / car.height) * targetH);
+    // Up to VALIDATION.maxAttempts deterministic attempts. A rejected composite
+    // is retried with a corrected placement — NOT with another AI generation.
+    for (let attempt = 1; attempt <= VALIDATION.maxAttempts; attempt++) {
+      const car = base.clone();
+      if (Math.abs(usedPlace.rotationDeg) >= 0.1) {
+        try { car.rotate(-usedPlace.rotationDeg, false); } catch { /* keep unrotated */ }
+      }
+
+      let targetW = Math.round(CANVAS_W * usedPlace.scale);
+      let targetH = Math.round((car.height / car.width) * targetW);
+      const maxH = Math.round(CANVAS_H * MAX_CAR_HEIGHT_RATIO);
+      if (targetH > maxH) {
+        targetH = maxH;
+        targetW = Math.round((car.width / car.height) * targetH);
+      }
+      car.resize(targetW, targetH);
+      featherEdges(car);
+
+      const canvas = (await Image.decode(bgBytes)).resize(CANVAS_W, CANVAS_H);
+      const carX = Math.round(GROUND.anchorX - targetW / 2 + usedPlace.offsetX);
+      const carY = Math.round(GROUND.wheelLineY + usedPlace.offsetY) - targetH;
+
+      const report = validateComposite({
+        car,
+        carX,
+        carY,
+        targetW,
+        targetH,
+        keyedShare,
+        bgUntouchedPixels: CANVAS_W * CANVAS_H - targetW * targetH,
+      });
+
+      if (!report.passed && attempt < VALIDATION.maxAttempts) {
+        // Deterministic self-correction before the retry.
+        const fixed: Partial<Placement> = {};
+        if (!report.checks.find((c) => c.check === "inside_frame")?.ok) {
+          fixed.offsetX = 0;
+          fixed.scale = Math.min(usedPlace.scale, 0.58);
+        }
+        if (!report.checks.find((c) => c.check === "wheels_on_asphalt")?.ok) fixed.offsetY = 0;
+        if (!report.checks.find((c) => c.check === "scale_in_range")?.ok) fixed.scale = CLASS_FALLBACK_SCALE;
+        usedPlace = placementFromProfile(vehicleClass, { ...usedPlace, ...fixed });
+        await appendHistory(admin, imageId, "validation_retry", `score ${report.score.toFixed(2)} — přepočet umístění`);
+        continue;
+      }
+
+      paintFloorReflection(canvas, car, carX, carY);
+      paintContactShadow(canvas, car, carX, carY, usedPlace);
+      canvas.composite(car, carX, carY);
+
+      validation = report;
+      usedGeometry = { carX, carY, targetW, targetH };
+      jpeg = await canvas.encodeJPEG(CAMERA.jpeg_quality);
+      break;
     }
-    car.resize(targetW, targetH);
-    featherEdges(car);
-
-    const canvas = (await Image.decode(bgBytes)).resize(CANVAS_W, CANVAS_H);
-    const wheelLineY = Math.round(CANVAS_H * WHEEL_LINE_Y_RATIO);
-    const carX = Math.round((CANVAS_W - targetW) / 2);
-    const carY = wheelLineY - targetH;
-
-    paintFloorReflection(canvas, car, carX, carY);
-    paintContactShadow(canvas, car, carX, carY);
-    canvas.composite(car, carX, carY);
-
-
-
-    jpeg = await canvas.encodeJPEG(94);
+    if (!validation) throw new Error("Validation never produced a result");
   } catch (e: any) {
     return await fail(`Compositing failed: ${e?.message ?? e}`);
   }
 
-  if (jpeg.byteLength < 50_000) return await fail("Composite output too small; refusing to save");
+  if (!validation.passed) {
+    return await fail(
+      `Kontrola kvality neprošla (skóre ${(validation.score * 100).toFixed(0)} %): ` +
+        validation.checks.filter((c) => !c.ok).map((c) => c.check).join(", "),
+      422,
+      validation,
+    );
+  }
+
+  if (jpeg!.byteLength < 50_000) return await fail("Composite output too small; refusing to save");
 
   await setImageState(admin, imageId, { showroom_progress: 88 });
 
   const stamp = Date.now();
   const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
   const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
+  const maskFilename = `showroom/masks/${(img as any).vehicle_id}/${imageId}.png`;
   const uploadOptions = { contentType: "image/jpeg", upsert: true, cacheControl: "31536000" };
 
-  const { error: upErr } = await admin.storage.from("vehicles").upload(filename, jpeg, uploadOptions);
+  const { error: upErr } = await admin.storage.from("vehicles").upload(filename, jpeg!, uploadOptions);
   if (upErr) return await fail(`Upload: ${upErr.message}`, 500);
-  await admin.storage.from("vehicles").upload(thumbFilename, jpeg, uploadOptions).catch(() => null);
+  await admin.storage.from("vehicles").upload(thumbFilename, jpeg!, uploadOptions).catch(() => null);
+  if (maskPng) {
+    await admin.storage.from("vehicles")
+      .upload(maskFilename, maskPng, { contentType: "image/png", upsert: true, cacheControl: "31536000" })
+      .catch(() => null);
+  }
 
   const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
   const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
+  const maskUrl = maskPng ? `${SUPABASE_URL}/storage/v1/object/public/vehicles/${maskFilename}` : "";
+
   await setImageState(admin, imageId, {
     showroom_url: showroomUrl,
     showroom_thumb_url: thumbUrl,
+    showroom_mask_url: maskUrl,
     showroom_status: "done",
     showroom_progress: 100,
     showroom_error: "",
     showroom_generated_at: new Date().toISOString(),
+    showroom_placement: usedPlace,
+    showroom_validation: validation,
+    showroom_metadata: {
+      scale: usedPlace.scale,
+      position: { x: usedGeometry.carX, y: usedGeometry.carY, w: usedGeometry.targetW, h: usedGeometry.targetH },
+      vehicle_class: vehicleClass,
+      model_key: key,
+      camera_version: CAMERA_VERSION,
+      background_version: BACKGROUND_VERSION,
+      placement_version: PLACEMENT_VERSION,
+      lighting_version: LIGHTING_VERSION,
+      generated_at: new Date().toISOString(),
+      ai_model: aiModel,
+      ai_role: "segmentation-only",
+      validation_score: validation.score,
+    },
   });
-  await appendHistory(admin, imageId, "generated", "Composited on fixed background at fixed scale");
+  await appendHistory(
+    admin,
+    imageId,
+    "generated",
+    `${vehicleClass} • scale ${usedPlace.scale.toFixed(2)} • skóre ${(validation.score * 100).toFixed(0)} %`,
+  );
 
-  return { ok: true, showroom_url: showroomUrl, showroom_thumb_url: thumbUrl };
+  return {
+    ok: true,
+    showroom_url: showroomUrl,
+    showroom_thumb_url: thumbUrl,
+    validation,
+    placement: usedPlace,
+    vehicle_class: vehicleClass,
+  };
 }
+
+const CLASS_FALLBACK_SCALE = 0.58;

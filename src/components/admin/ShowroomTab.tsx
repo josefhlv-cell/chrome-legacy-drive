@@ -36,6 +36,30 @@ type ImgRow = {
   showroom_generated_at: string | null;
   showroom_applied_at?: string | null;
   showroom_history?: Array<{ at: string; event: string; detail?: string }>;
+  showroom_placement?: Placement | null;
+  showroom_validation?: { score: number; passed: boolean; checks: Array<{ check: string; ok: boolean; detail?: string }> } | null;
+  showroom_metadata?: Record<string, unknown> | null;
+};
+
+/** Manual admin override — mirrors the placement contract of the edge pipeline. */
+type Placement = {
+  scale: number;
+  offsetX: number;
+  offsetY: number;
+  rotationDeg: number;
+  shadowOpacity: number;
+  shadowBlur: number;
+  shadowOffsetY: number;
+};
+
+const DEFAULT_PLACEMENT: Placement = {
+  scale: 0.62,
+  offsetX: 0,
+  offsetY: 0,
+  rotationDeg: 0,
+  shadowOpacity: 1,
+  shadowBlur: 1,
+  shadowOffsetY: 0,
 };
 
 type ShowroomMode = "off" | "main" | "exterior";
@@ -51,7 +75,7 @@ const useVehicleImagesAdmin = (vehicleId?: string) =>
     queryFn: async () => {
       const { data, error } = await supabase
         .from("vehicle_images")
-        .select("id, vehicle_id, image_url, is_main, sort_order, showroom_url, showroom_thumb_url, showroom_status, showroom_progress, showroom_error, original_backup_url, showroom_generated_at, showroom_applied_at, showroom_history")
+        .select("id, vehicle_id, image_url, is_main, sort_order, showroom_url, showroom_thumb_url, showroom_status, showroom_progress, showroom_error, original_backup_url, showroom_generated_at, showroom_applied_at, showroom_history, showroom_placement, showroom_validation, showroom_metadata")
         .eq("vehicle_id", vehicleId!)
         .order("is_main", { ascending: false })
         .order("sort_order", { ascending: true });
@@ -89,6 +113,10 @@ export default function ShowroomTab() {
   const [bulkBusy, setBulkBusy] = useState(false);
   const [queueProgress, setQueueProgress] = useState({ done: 0, total: 0 });
   const [downloading, setDownloading] = useState(false);
+  // Manual placement override for the selected vehicle's main photo.
+  const [overrideOn, setOverrideOn] = useState(false);
+  const [placement, setPlacement] = useState<Placement>(DEFAULT_PLACEMENT);
+  const [saveAsDefault, setSaveAsDefault] = useState(false);
 
   const selected = useMemo(
     () => (vehicles ?? []).find((v: DbVehicle) => v.id === selectedId) ?? null,
@@ -117,10 +145,16 @@ export default function ShowroomTab() {
     });
   };
 
-  const callGen = async (imageId: string, force = false) => {
+  const callGen = async (imageId: string, force = false, withOverride = false) => {
     setBusyIds((p) => new Set(p).add(imageId));
     try {
-      const { data, error } = await supabase.functions.invoke("showroom-generate", { body: { imageId, force } });
+      const { data, error } = await supabase.functions.invoke("showroom-generate", {
+        body: {
+          imageId,
+          force,
+          ...(withOverride && overrideOn ? { placement, saveAsDefault } : {}),
+        },
+      });
       if (error) throw error;
       if ((data as any)?.error) throw new Error((data as any).error);
       await refetch();
@@ -458,6 +492,71 @@ export default function ShowroomTab() {
                 <button onClick={downloadZip} disabled={downloading || !images?.some((img) => img.showroom_url)} className="outline-button inline-flex items-center gap-2 text-xs">
                   {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Stáhnout všechny upravené fotografie
                 </button>
+              </div>
+
+              {/* ---- Manuální doladění umístění (bez AI, jen matematika) ---- */}
+              <div className="border border-border rounded-md p-3 space-y-3 bg-secondary/10">
+                <label className="flex items-center gap-2 text-xs font-medium cursor-pointer">
+                  <input type="checkbox" checked={overrideOn} onChange={(e) => setOverrideOn(e.target.checked)} />
+                  Manuální doladění umístění (přepíše naučený profil modelu)
+                </label>
+                {overrideOn && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                      {([
+                        ["Velikost (šířka plátna)", "scale", 0.3, 0.72, 0.01],
+                        ["Posun X (px)", "offsetX", -300, 300, 1],
+                        ["Posun Y (px)", "offsetY", -160, 160, 1],
+                        ["Rotace (°)", "rotationDeg", -1, 1, 0.1],
+                        ["Síla stínu", "shadowOpacity", 0, 2, 0.05],
+                        ["Rozostření stínu", "shadowBlur", 0.4, 2, 0.05],
+                        ["Posun stínu Y (px)", "shadowOffsetY", -40, 40, 1],
+                      ] as Array<[string, keyof Placement, number, number, number]>).map(([label, key, min, max, step]) => (
+                        <div key={key}>
+                          <div className="flex justify-between text-[11px] text-muted-foreground mb-1">
+                            <span>{label}</span>
+                            <span className="text-foreground font-mono">{placement[key]}</span>
+                          </div>
+                          <input
+                            type="range"
+                            min={min}
+                            max={max}
+                            step={step}
+                            value={placement[key]}
+                            onChange={(e) => setPlacement((prev) => ({ ...prev, [key]: Number(e.target.value) }))}
+                            className="w-full accent-primary"
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="flex flex-wrap items-center gap-3">
+                      <label className="flex items-center gap-2 text-xs cursor-pointer">
+                        <input type="checkbox" checked={saveAsDefault} onChange={(e) => setSaveAsDefault(e.target.checked)} />
+                        Uložit jako výchozí pro tento model
+                      </label>
+                      <button
+                        onClick={() => selectedMain && callGen(selectedMain.id, true, true)}
+                        disabled={!selectedMain || busyIds.size > 0 || bulkBusy}
+                        className="chrome-button inline-flex items-center gap-2 text-xs"
+                      >
+                        <Wand2 className="w-3.5 h-3.5" /> Přegenerovat titulní s tímto nastavením
+                      </button>
+                      <button onClick={() => setPlacement(DEFAULT_PLACEMENT)} className="outline-button text-xs">
+                        Reset
+                      </button>
+                    </div>
+                  </>
+                )}
+                {selectedMain?.showroom_validation && (
+                  <p className="text-[11px] text-muted-foreground">
+                    Kontrola kvality: <span className={selectedMain.showroom_validation.passed ? "text-emerald-500" : "text-destructive"}>
+                      {(selectedMain.showroom_validation.score * 100).toFixed(0)} %
+                    </span>
+                    {selectedMain.showroom_validation.checks.filter((c) => !c.ok).length > 0 && (
+                      <> · problémy: {selectedMain.showroom_validation.checks.filter((c) => !c.ok).map((c) => c.check).join(", ")}</>
+                    )}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">

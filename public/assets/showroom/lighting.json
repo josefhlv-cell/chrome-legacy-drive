@@ -1,0 +1,12 @@
+{
+  "version": "lighting-v1",
+  "readOnly": true,
+  "note": "Lighting signature of the master showroom. Used for colour matching / anti-halo cleanup only.",
+  "key_light": { "type": "soft-overhead", "direction_deg": 96, "intensity": 1, "temperature_k": 5600 },
+  "fill_light": { "type": "ambient-bounce", "intensity": 0.42, "temperature_k": 6200 },
+  "white_balance_k": 5800,
+  "exposure_ev": 0,
+  "target_body_luma": { "min": 26, "max": 232 },
+  "highlight_rolloff": 0.86,
+  "shadow_tint": { "r": 0.94, "g": 0.96, "b": 1 }
+}

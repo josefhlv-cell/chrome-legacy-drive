@@ -64,6 +64,25 @@ const DEFAULT_PLACEMENT: Placement = {
 
 type ShowroomMode = "off" | "main" | "exterior";
 
+const normalizeImageRow = (row: unknown): ImgRow => {
+  const image = row as ImgRow;
+  const rawValidation = image.showroom_validation;
+  const hasValidScore = typeof rawValidation?.score === "number";
+  const checks = Array.isArray(rawValidation?.checks) ? rawValidation.checks : [];
+
+  return {
+    ...image,
+    showroom_history: Array.isArray(image.showroom_history) ? image.showroom_history : [],
+    showroom_validation: hasValidScore
+      ? {
+          score: rawValidation.score,
+          passed: typeof rawValidation.passed === "boolean" ? rawValidation.passed : false,
+          checks,
+        }
+      : null,
+  };
+};
+
 const useVehicleImagesAdmin = (vehicleId?: string) =>
   useQuery({
     queryKey: ["showroom-images", vehicleId],
@@ -73,14 +92,15 @@ const useVehicleImagesAdmin = (vehicleId?: string) =>
       return rows.some((img) => img.showroom_status === "queued" || img.showroom_status === "processing") ? 2500 : false;
     },
     queryFn: async () => {
+      if (!vehicleId) return [];
       const { data, error } = await supabase
         .from("vehicle_images")
         .select("id, vehicle_id, image_url, is_main, sort_order, showroom_url, showroom_thumb_url, showroom_status, showroom_progress, showroom_error, original_backup_url, showroom_generated_at, showroom_applied_at, showroom_history, showroom_placement, showroom_validation, showroom_metadata")
-        .eq("vehicle_id", vehicleId!)
+        .eq("vehicle_id", vehicleId)
         .order("is_main", { ascending: false })
         .order("sort_order", { ascending: true });
       if (error) throw error;
-      return (data ?? []) as unknown as ImgRow[];
+      return (data ?? []).map(normalizeImageRow);
     },
   });
 

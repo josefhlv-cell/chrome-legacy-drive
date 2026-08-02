@@ -1,6 +1,5 @@
 // deno-lint-ignore-file no-explicit-any
-// Bulk showroom regeneration. Authorized either by an admin JWT or by a
-// one-off job token stored in `public.job_tokens` (service-role only table).
+// Bulk showroom regeneration. Authorized only by an authenticated admin JWT.
 // It regenerates composites but NEVER publishes them (showroom_applied_at
 // is left untouched), so nothing changes on the public site.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
@@ -8,7 +7,7 @@ import { createAdminClient, runShowroom, type AdminClient } from "../_shared/sho
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, x-job-token",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
   "Access-Control-Allow-Methods": "POST, OPTIONS",
 };
 
@@ -16,17 +15,6 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 
 async function authorize(req: Request): Promise<AdminClient | Response> {
   const admin = createAdminClient();
-
-  const jobToken = req.headers.get("x-job-token") || "";
-  if (jobToken) {
-    const { data } = await admin
-      .from("job_tokens")
-      .select("token")
-      .eq("name", "showroom_batch")
-      .maybeSingle();
-    if ((data as any)?.token && (data as any).token === jobToken) return admin;
-    return json({ error: "Unauthorized" }, 401);
-  }
 
   const jwt = (req.headers.get("Authorization") || "").replace("Bearer ", "");
   if (!jwt) return json({ error: "Unauthorized" }, 401);
@@ -61,7 +49,9 @@ Deno.serve(async (req) => {
     const imageIds: string[] = Array.isArray(body?.imageIds)
       ? body.imageIds.filter((v: unknown) => typeof v === "string").slice(0, 5)
       : [];
-    const force = body?.force !== false;
+    // Existing approved composites are protected by default. Regeneration is
+    // destructive and therefore requires an explicit admin request.
+    const force = body?.force === true;
     if (imageIds.length === 0) return json({ error: "imageIds required" }, 400);
 
     const results: Array<Record<string, unknown>> = [];

@@ -397,7 +397,7 @@ Deno.serve(async (req) => {
     if (vErr || !vehicle) throw new Error(`Vozidlo nenalezeno: ${vErr?.message}`);
 
     const { data: images } = await supabase
-      .from("vehicle_images").select("*").eq("vehicle_id", vehicle_id).order("sort_order");
+      .from("vehicle_images").select("*").eq("vehicle_id", vehicle_id).order("sort_order").order("id");
 
     // Existing export record (for cached IDs and external_id)
     const { data: existingExport } = await supabase

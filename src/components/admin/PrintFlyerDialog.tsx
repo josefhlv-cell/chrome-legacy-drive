@@ -357,7 +357,8 @@ const PrintFlyerDialog = ({ open, onOpenChange, vehicle, siteUrl }: Props) => {
         .select("image_url, is_main, sort_order")
         .eq("vehicle_id", vehicle.id)
         .order("is_main", { ascending: false })
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
       const list = (imgs || []).map((i) => ({ url: i.image_url, isMain: i.is_main }));
       setAllPhotos(list);
       const main = list.find((i) => i.isMain)?.url || list[0]?.url || vehicle.image_url || "";

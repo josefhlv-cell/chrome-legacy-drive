@@ -16,7 +16,8 @@ export const useVehicleImages = (vehicleId: string | undefined) => {
         .select("*")
         .eq("vehicle_id", vehicleId)
         .order("is_main", { ascending: false })
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
       if (error) throw error;
       return data ?? [];
     },
@@ -142,7 +143,8 @@ export const useReorderVehicleImage = () => {
         .select("id, sort_order, is_main")
         .eq("vehicle_id", vehicleId)
         .order("is_main", { ascending: false })
-        .order("sort_order", { ascending: true });
+        .order("sort_order", { ascending: true })
+        .order("id", { ascending: true });
       if (error) throw error;
       const list = rows ?? [];
       const idx = list.findIndex((r) => r.id === id);

@@ -728,7 +728,7 @@ Deno.serve(async (req) => {
         .from("vehicle_images")
         .select("image_url, sort_order")
         .eq("vehicle_id", vehicle.id)
-        .order("sort_order");
+        .order("sort_order").order("id");
 
       const images = (imagesAll || []).slice(0, MAX_PHOTOS_PER_VEHICLE);
       if ((imagesAll?.length || 0) > MAX_PHOTOS_PER_VEHICLE) {

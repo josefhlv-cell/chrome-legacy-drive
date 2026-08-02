@@ -7,29 +7,59 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import LPGCalculator from "@/components/LPGCalculator";
 import BannerSlot from "@/components/BannerSlot";
+import udrzbaAsset from "@/assets/servis/udrzba.jpg.asset.json";
+import lpgAsset from "@/assets/servis/lpg.jpg.asset.json";
+import moparAsset from "@/assets/servis/mopar.jpg.asset.json";
+import diagnostikaAsset from "@/assets/servis/diagnostika.png.asset.json";
+import stkAsset from "@/assets/servis/stk.jpg.asset.json";
+import lakovnaAsset from "@/assets/servis/lakovna.jpg.asset.json";
+import prevodovkyAsset from "@/assets/servis/prevodovky.jpg.asset.json";
+import fcaAsset from "@/assets/servis/fca.png.asset.json";
+
+/** Decentní obrázek v pozadí karty — zpracování identické s mobilním menu */
+const CardBg = ({ src }: { src: string }) => (
+  <div
+    aria-hidden="true"
+    className="absolute inset-0 pointer-events-none"
+    style={{
+      backgroundImage: `url(${src})`,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center 40%',
+      opacity: 0.16,
+      filter: 'grayscale(0.55) contrast(0.95) brightness(0.9)',
+      maskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
+      WebkitMaskImage: 'linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)',
+    }}
+  />
+);
 
 const services = [
   {
     icon: Wrench,
     title: "Pravidelná údržba",
     desc: "Kompletní servisní prohlídky dle výrobce. Výměna olejů, filtrů, brzdových destiček a další běžná údržba amerických vozů Chrysler - Dodge.",
+    bg: udrzbaAsset.url,
   },
   {
     icon: Fuel,
     title: "Přestavby na LPG",
     desc: "Zprostředkujme vám profesionální přestavby motorů Pentastar V6 a HEMI V8 na LPG. Certifikované systémy Prins a BRC s plnou zárukou. Tuto přestavbu s námi můžete konzultovat.",
+    bg: lpgAsset.url,
   },
   {
     icon: Cog,
     title: "Originální náhradní díly Mopar",
     desc: "Dodávky originálních i kvalitních aftermarket dílů přímo z USA. Brzdy, filtry, svíčky, řemeny, podvozek i karoserie.",
+    bg: moparAsset.url,
   },
   {
     icon: ShieldCheck,
     title: "Diagnostika - Opravy",
     desc: "Počítačová diagnostika amerických vozů. (DRB II, DRB III, Star Scan, WiTech) Opravy elektroniky, převodovek, motorů a klimatizačních systémů.",
+    bg: diagnostikaAsset.url,
   },
 ];
+
 
 const ServicePage = () => {
   const { toast } = useToast();
@@ -79,11 +109,12 @@ const ServicePage = () => {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ delay: i * 0.1 }}
-                className="glass-card p-6"
+                className="glass-card p-6 relative overflow-hidden"
               >
-                <s.icon className="w-8 h-8 text-gold mb-4" />
-                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2">{s.title}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">{s.desc}</p>
+                <CardBg src={s.bg} />
+                <s.icon className="w-8 h-8 text-gold mb-4 relative z-10" />
+                <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2 relative z-10">{s.title}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed relative z-10">{s.desc}</p>
               </motion.div>
             ))}
           </div>
@@ -91,11 +122,12 @@ const ServicePage = () => {
           {/* Detailed Service Categories */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-16">
             {/* Category 1 */}
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0 }} className="glass-card p-6 space-y-3">
-              <Award className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Odborný značkový servis</h3>
-              <p className="text-xs text-muted-foreground">Chrysler Dodge pod autorizací FCA CZ</p>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0 }} className="glass-card p-6 space-y-3 relative overflow-hidden">
+              <CardBg src={fcaAsset.url} />
+              <Award className="w-8 h-8 text-primary relative z-10" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground relative z-10">Odborný značkový servis</h3>
+              <p className="text-xs text-muted-foreground relative z-10">Chrysler Dodge pod autorizací FCA CZ</p>
+              <ul className="space-y-2 text-sm text-muted-foreground relative z-10">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Chrysler, Dodge, Lancia</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Individuální přístup k zákazníkům</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Více než 20letá zkušenost</li>
@@ -103,10 +135,11 @@ const ServicePage = () => {
             </motion.div>
 
             {/* Category 2 */}
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-3">
-              <Cog className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Technické vybavení</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.1 }} className="glass-card p-6 space-y-3 relative overflow-hidden">
+              <CardBg src={prevodovkyAsset.url} />
+              <Cog className="w-8 h-8 text-primary relative z-10" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground relative z-10">Technické vybavení</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground relative z-10">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Opravy automatických převodovek</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Moderně vybavené autodílny</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Diagnostické pomůcky</li>
@@ -117,10 +150,11 @@ const ServicePage = () => {
             </motion.div>
 
             {/* Category 3 */}
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="glass-card p-6 space-y-3">
-              <Paintbrush className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Nadstandardní služby</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="glass-card p-6 space-y-3 relative overflow-hidden">
+              <CardBg src={lakovnaAsset.url} />
+              <Paintbrush className="w-8 h-8 text-primary relative z-10" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground relative z-10">Nadstandardní služby</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground relative z-10">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autolakovna</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Zastoupení při dopravních nehodách</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Čištění a renovace laku</li>
@@ -130,10 +164,11 @@ const ServicePage = () => {
             </motion.div>
 
             {/* Category 4 */}
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="glass-card p-6 space-y-3">
-              <Car className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Zajišťujeme</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.3 }} className="glass-card p-6 space-y-3 relative overflow-hidden">
+              <CardBg src={stkAsset.url} />
+              <Car className="w-8 h-8 text-primary relative z-10" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground relative z-10">Zajišťujeme</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground relative z-10">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> STK, ME, Homologace</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Výjimky MDČR</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Financování vozidel</li>

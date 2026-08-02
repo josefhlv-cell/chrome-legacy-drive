@@ -150,10 +150,11 @@ const ServicePage = () => {
             </motion.div>
 
             {/* Category 3 */}
-            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="glass-card p-6 space-y-3">
-              <Paintbrush className="w-8 h-8 text-primary" />
-              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground">Nadstandardní služby</h3>
-              <ul className="space-y-2 text-sm text-muted-foreground">
+            <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: 0.2 }} className="glass-card p-6 space-y-3 relative overflow-hidden">
+              <CardBg src={lakovnaAsset.url} />
+              <Paintbrush className="w-8 h-8 text-primary relative z-10" />
+              <h3 className="text-sm font-bold uppercase tracking-wider text-foreground relative z-10">Nadstandardní služby</h3>
+              <ul className="space-y-2 text-sm text-muted-foreground relative z-10">
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Autolakovna</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Zastoupení při dopravních nehodách</li>
                 <li className="flex items-start gap-2"><CheckCircle className="w-4 h-4 text-primary mt-0.5 shrink-0" /> Čištění a renovace laku</li>

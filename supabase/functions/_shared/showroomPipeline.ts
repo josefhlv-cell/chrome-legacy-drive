@@ -32,7 +32,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v1.jpg`;
+  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v2.jpg`;
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).

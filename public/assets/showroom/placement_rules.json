@@ -5,7 +5,7 @@
   "global": {
     "align": "bottom-center",
     "anchor_x": 960,
-    "wheel_line_y": 977,
+    "wheel_line_y": 1000,
     "max_rotation_deg": 1,
     "min_frame_margin_px": 24,
     "max_car_width_ratio": 0.72,

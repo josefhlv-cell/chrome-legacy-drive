@@ -466,6 +466,54 @@ export type Database = {
         }
         Relationships: []
       }
+      showroom_model_profiles: {
+        Row: {
+          created_at: string
+          id: string
+          model_key: string
+          offset_x: number
+          offset_y: number
+          rotation_deg: number
+          sample_label: string
+          scale: number
+          shadow_blur: number
+          shadow_offset_y: number
+          shadow_opacity: number
+          updated_at: string
+          vehicle_class: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          model_key: string
+          offset_x?: number
+          offset_y?: number
+          rotation_deg?: number
+          sample_label?: string
+          scale?: number
+          shadow_blur?: number
+          shadow_offset_y?: number
+          shadow_opacity?: number
+          updated_at?: string
+          vehicle_class?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          model_key?: string
+          offset_x?: number
+          offset_y?: number
+          rotation_deg?: number
+          sample_label?: string
+          scale?: number
+          shadow_blur?: number
+          shadow_offset_y?: number
+          shadow_opacity?: number
+          updated_at?: string
+          vehicle_class?: string
+        }
+        Relationships: []
+      }
       site_contacts: {
         Row: {
           id: string
@@ -889,10 +937,14 @@ export type Database = {
           showroom_error: string
           showroom_generated_at: string | null
           showroom_history: Json
+          showroom_mask_url: string
+          showroom_metadata: Json
+          showroom_placement: Json
           showroom_progress: number
           showroom_status: string
           showroom_thumb_url: string
           showroom_url: string
+          showroom_validation: Json
           sort_order: number
           vehicle_id: string
         }
@@ -906,10 +958,14 @@ export type Database = {
           showroom_error?: string
           showroom_generated_at?: string | null
           showroom_history?: Json
+          showroom_mask_url?: string
+          showroom_metadata?: Json
+          showroom_placement?: Json
           showroom_progress?: number
           showroom_status?: string
           showroom_thumb_url?: string
           showroom_url?: string
+          showroom_validation?: Json
           sort_order?: number
           vehicle_id: string
         }
@@ -923,10 +979,14 @@ export type Database = {
           showroom_error?: string
           showroom_generated_at?: string | null
           showroom_history?: Json
+          showroom_mask_url?: string
+          showroom_metadata?: Json
+          showroom_placement?: Json
           showroom_progress?: number
           showroom_status?: string
           showroom_thumb_url?: string
           showroom_url?: string
+          showroom_validation?: Json
           sort_order?: number
           vehicle_id?: string
         }

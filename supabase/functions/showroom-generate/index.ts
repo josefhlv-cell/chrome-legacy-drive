@@ -47,11 +47,46 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     imageId = typeof body?.imageId === "string" ? body.imageId : "";
     const force = body?.force === true;
+    // Manual admin override (scale / X / Y / rotation / shadow). Absent fields
+    // fall back to the learned model profile, then the class profile.
+    const placement = body?.placement && typeof body.placement === "object" ? body.placement : null;
+    const saveAsDefault = body?.saveAsDefault === true;
     if (!imageId) return json({ error: "imageId required" }, 400);
 
-    const result = await runShowroom(admin, imageId, force);
-    if (!result.ok) return json({ error: result.error }, result.status);
+    const result = await runShowroom(admin, imageId, force, placement);
+    if (!result.ok) return json({ error: result.error, validation: result.validation }, result.status);
+
+    // "Save as default for this model" — learned placement memory.
+    if (saveAsDefault && result.placement) {
+      const { data: img } = await admin
+        .from("vehicle_images")
+        .select("vehicle_id")
+        .eq("id", imageId)
+        .maybeSingle();
+      const { data: vehicle } = await admin
+        .from("vehicles")
+        .select("name")
+        .eq("id", (img as any)?.vehicle_id)
+        .maybeSingle();
+      const key = modelKey((vehicle as any)?.name ?? "");
+      const p = result.placement;
+      await admin.from("showroom_model_profiles").upsert({
+        model_key: key,
+        model_label: (vehicle as any)?.name ?? key,
+        vehicle_class: result.vehicle_class,
+        scale: p.scale,
+        offset_x: p.offsetX,
+        offset_y: p.offsetY,
+        rotation_deg: p.rotationDeg,
+        shadow_opacity: p.shadowOpacity,
+        shadow_blur: p.shadowBlur,
+        shadow_offset_y: p.shadowOffsetY,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: "model_key" });
+    }
+
     return json(result);
+
   } catch (e: any) {
     console.error("showroom-generate fatal:", e);
     return json({ error: e?.message ?? "Internal error", imageId }, 500);

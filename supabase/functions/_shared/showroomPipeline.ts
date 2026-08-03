@@ -1021,12 +1021,15 @@ const CLASS_FALLBACK_SCALE = 0.46;
 
 
 // ============================================================================
-// AI SEGMENTATION — model chain (newest OpenAI GPT Image editing model first)
+// AI SEGMENTATION — model chain
+// NOTE: OpenAI GPT Image models are NOT usable here. Through the AI Gateway they
+// only accept text-to-image (`/v1/images/generations` rejects `image`, and
+// `/v1/images/edits` is not routed), so they cannot receive the source vehicle
+// photo and would invent a different car. Only image-input capable models here.
 // ============================================================================
 const CUTOUT_MODELS = [
-  "openai/gpt-image-2",      // newest OpenAI GPT Image editing model
-  "openai/gpt-image-1-mini", // cost-efficient OpenAI fallback
   "google/gemini-3-pro-image",
+  "google/gemini-3.1-flash-image",
 ] as const;
 
 type CutoutResult = { ok: boolean; dataUrl?: string; model?: string; error?: string };

@@ -5,6 +5,7 @@ import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase
 export type VehicleImageRecord = Pick<Tables<"vehicle_images">, "image_url" | "is_main" | "sort_order"> & {
   showroom_url?: string;
   showroom_applied_at?: string | null;
+  showroom_metadata?: unknown;
 };
 export type DbVehicle = Tables<"vehicles"> & { vehicle_images?: VehicleImageRecord[] };
 
@@ -115,7 +116,7 @@ export const useInfiniteVehicles = (pageSize = 12) => {
         .range(from, to);
       if (error) throw error;
 
-      const rows = (data as DbVehicle[]) ?? [];
+      const rows = ((data as unknown) as DbVehicle[]) ?? [];
       const trimmed = rows.map((v) => {
         const main = v.vehicle_images?.find((i) => i.is_main) ?? v.vehicle_images?.[0];
         return { ...v, vehicle_images: main ? [main] : [] };

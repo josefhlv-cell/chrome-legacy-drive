@@ -57,19 +57,7 @@ const AboutPage = () => {
         <div className="container mx-auto px-4 max-w-5xl lg:max-w-[1920px] lg:px-12">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
             <div className="relative overflow-hidden rounded-xl px-2 py-6 sm:px-6">
-              <div
-                aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-no-repeat"
-                style={{
-                  backgroundImage: `url(${logoWall})`,
-                  backgroundSize: "contain",
-                  backgroundPosition: "center top",
-                  opacity: 0.22,
-                  filter: "grayscale(0.55) contrast(1.05) brightness(1.15)",
-                  maskImage: "linear-gradient(to bottom, black 0%, black 45%, transparent 85%)",
-                  WebkitMaskImage: "linear-gradient(to bottom, black 0%, black 45%, transparent 85%)",
-                }}
-              />
+              <CardBg src={logoWall} variant="logo" position="center top" opacity={0.22} />
               <div className="relative z-10">
                 <h1 className="section-heading">Více než jen auto</h1>
                 <p className="text-primary text-lg font-medium mt-2 tracking-wide">Tradice, která definuje komfort.</p>

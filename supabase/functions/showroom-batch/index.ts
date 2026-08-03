@@ -16,6 +16,10 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 async function authorize(req: Request): Promise<AdminClient | Response> {
   const admin = createAdminClient();
 
+  // Internal automation (automatic cache invalidation / cron): shared token.
+  const cronToken = Deno.env.get("SHOWROOM_CRON_TOKEN") ?? "";
+  if (cronToken && req.headers.get("x-showroom-cron") === cronToken) return admin;
+
   const jwt = (req.headers.get("Authorization") || "").replace("Bearer ", "");
   if (!jwt) return json({ error: "Unauthorized" }, 401);
   // Internal server-to-server invocation (cron / automatic cache invalidation).

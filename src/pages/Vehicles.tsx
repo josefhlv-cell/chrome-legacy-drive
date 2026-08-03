@@ -9,6 +9,8 @@ import VehicleCard from "@/components/VehicleCard";
 import VehicleCardSkeleton from "@/components/VehicleCardSkeleton";
 import BannerSlot from "@/components/BannerSlot";
 import WatchdogDialog from "@/components/WatchdogDialog";
+import CardBg from "@/components/CardBg";
+import heroBg from "@/assets/vozidla-hero.jpg.asset.json";
 import { useVehicles } from "@/hooks/useVehicles";
 
 const sortOptions = [
@@ -42,10 +44,14 @@ const VehiclesPage = () => {
       <BannerSlot page="vehicles" position="hero" priority="high" />
       <div className="pt-24 pb-16">
         <div className="mx-auto w-full max-w-[1920px] px-4 md:px-12">
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6">
-            <h1 className="section-heading">Skladové vozy</h1>
-            <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler - Dodge připravené k předání</p>
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="relative overflow-hidden rounded-lg mb-6 px-4 py-8 md:px-8 md:py-12">
+            <CardBg src={heroBg.url} position="center 45%" />
+            <div className="relative">
+              <h1 className="section-heading">Skladové vozy</h1>
+              <p className="section-subheading mt-2">Pečlivě vybrané vozy Chrysler - Dodge připravené k předání</p>
+            </div>
           </motion.div>
+
 
           {/* Scrolling guarantee banner */}
           <div className="relative overflow-hidden mb-8 rounded-lg border border-border/30 bg-secondary/30 flex items-stretch min-h-[72px] md:min-h-[90px]">

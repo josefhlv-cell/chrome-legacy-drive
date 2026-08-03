@@ -1,12 +1,14 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Wrench, Cog, ShieldCheck, Fuel, ArrowRight } from "lucide-react";
+import CardBg from "@/components/CardBg";
+import { SERVICE_BG } from "@/lib/serviceBackgrounds";
 
 const services = [
-  { icon: Wrench, title: "Pravidelná údržba", desc: "Kompletní servisní prohlídky dle výrobce pro Chrysler, Dodge a Lancia." },
-  { icon: Cog, title: "Diagnostika a opravy", desc: "Počítačová diagnostika, opravy elektroniky, převodovek a motorů." },
-  { icon: Fuel, title: "Přestavby na LPG", desc: "Certifikované systémy Prins a BRC s plnou zárukou." },
-  { icon: ShieldCheck, title: "STK a homologace", desc: "STK, ME, homologace a výjimky MDČR pro americké vozy." },
+  { icon: Wrench, title: "Pravidelná údržba", desc: "Kompletní servisní prohlídky dle výrobce pro Chrysler, Dodge a Lancia.", bg: SERVICE_BG.udrzba },
+  { icon: Cog, title: "Diagnostika a opravy", desc: "Počítačová diagnostika, opravy elektroniky, převodovek a motorů.", bg: SERVICE_BG.diagnostika },
+  { icon: Fuel, title: "Přestavby na LPG", desc: "Certifikované systémy Prins a BRC s plnou zárukou.", bg: SERVICE_BG.lpg },
+  { icon: ShieldCheck, title: "STK a homologace", desc: "STK, ME, homologace a výjimky MDČR pro americké vozy.", bg: SERVICE_BG.stk },
 ];
 
 const ServicePreview = () => (
@@ -33,11 +35,14 @@ const ServicePreview = () => (
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ delay: i * 0.1 }}
-            className="glass-card p-6"
+            className="glass-card p-6 relative overflow-hidden"
           >
+            <CardBg src={s.bg} />
+            <div className="relative z-10">
             <s.icon className="w-8 h-8 text-primary mb-4" />
             <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2 font-montserrat">{s.title}</h3>
             <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">{s.desc}</p>
+            </div>
           </motion.div>
         ))}
       </div>

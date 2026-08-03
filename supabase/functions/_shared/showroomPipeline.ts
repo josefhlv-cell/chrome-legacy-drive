@@ -33,7 +33,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v2.jpg`;
+  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v3.jpg`;
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
@@ -757,14 +757,20 @@ export async function runShowroom(
 
   const { data: img, error: imgErr } = await admin
     .from("vehicle_images")
-    .select("id, vehicle_id, image_url, showroom_url, original_backup_url, showroom_status, showroom_placement")
+    .select("id, vehicle_id, image_url, showroom_url, original_backup_url, showroom_status, showroom_placement, showroom_metadata")
     .eq("id", imageId)
     .maybeSingle();
   if (imgErr || !img) return { ok: false, error: "Image not found", status: 404 };
 
-  // PERFORMANCE: never regenerate unless the admin explicitly forces it.
+  // CACHE + AUTOMATIC INVALIDATION.
+  // A cached composite is reused only when it was produced by the CURRENT
+  // template (background / camera / placement / lighting). Anything older is
+  // stale and is regenerated automatically — no manual action required.
   if (!force && (img as any).showroom_url && (img as any).showroom_status === "done") {
-    return { ok: true, cached: true, showroom_url: (img as any).showroom_url };
+    if (isCurrentTemplate((img as any).showroom_metadata)) {
+      return { ok: true, cached: true, showroom_url: (img as any).showroom_url };
+    }
+    await appendHistory(admin, imageId, "stale_template", "Starší verze showroomu — automatické přegenerování");
   }
 
   const fail = async (msg: string, status = 502, validation?: ValidationReport): Promise<ShowroomResult> => {
@@ -837,42 +843,12 @@ export async function runShowroom(
   await setImageState(admin, imageId, { showroom_progress: 30 });
 
   // 2) AI does ONE job only: segment the vehicle on a magenta chroma background.
-  const aiModel = "google/gemini-3-pro-image";
-  const aiResp = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Lovable-API-Key": LOVABLE_API_KEY,
-      "X-Lovable-AIG-SDK": "native-fetch",
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: aiModel,
-      modalities: ["image", "text"],
-      messages: [{
-        role: "user",
-        content: [
-          { type: "text", text: CUTOUT_PROMPT },
-          { type: "text", text: "SOURCE VEHICLE PHOTO (identity-lock the vehicle, remove only the background):" },
-          { type: "image_url", image_url: { url: carDataUrl } },
-        ],
-      }],
-    }),
-  });
-
-  if (!aiResp.ok) {
-    const errText = await aiResp.text();
-    return await fail(
-      aiResp.status === 429
-        ? "AI rate limit — zkuste znovu za chvíli"
-        : aiResp.status === 402
-        ? "AI kredity vyčerpány — doplňte kredity ve Workspace Usage"
-        : `AI error ${aiResp.status}: ${errText.slice(0, 300)}`,
-    );
-  }
-
-  const aiData = await aiResp.json();
-  const outDataUrl = extractImageDataUrl(aiData);
-  if (!outDataUrl) return await fail("AI returned no cutout image");
+  //    Newest OpenAI GPT Image editing model first, automatic fallback down the
+  //    chain if a model is unavailable / rejects the request.
+  const cutoutResult = await requestCutout(carDataUrl);
+  if (!cutoutResult.ok) return await fail(cutoutResult.error!);
+  const aiModel = cutoutResult.model!;
+  const outDataUrl = cutoutResult.dataUrl!;
 
   await setImageState(admin, imageId, { showroom_progress: 60 });
 
@@ -1042,3 +1018,82 @@ export async function runShowroom(
 }
 
 const CLASS_FALLBACK_SCALE = 0.46;
+
+
+// ============================================================================
+// AI SEGMENTATION — model chain (newest OpenAI GPT Image editing model first)
+// ============================================================================
+const CUTOUT_MODELS = [
+  "openai/gpt-image-2",      // newest OpenAI GPT Image editing model
+  "openai/gpt-image-1-mini", // cost-efficient OpenAI fallback
+  "google/gemini-3-pro-image",
+] as const;
+
+type CutoutResult = { ok: boolean; dataUrl?: string; model?: string; error?: string };
+
+async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
+  const errors: string[] = [];
+  for (const model of CUTOUT_MODELS) {
+    try {
+      const isOpenAI = model.startsWith("openai/");
+      const url = isOpenAI
+        ? "https://ai.gateway.lovable.dev/v1/images/generations"
+        : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      const body = isOpenAI
+        ? {
+          model,
+          prompt: CUTOUT_PROMPT,
+          image: [carDataUrl],
+          size: "1536x1024",
+          n: 1,
+        }
+        : {
+          model,
+          modalities: ["image", "text"],
+          messages: [{
+            role: "user",
+            content: [
+              { type: "text", text: CUTOUT_PROMPT },
+              { type: "text", text: "SOURCE VEHICLE PHOTO (identity-lock the vehicle, remove only the background):" },
+              { type: "image_url", image_url: { url: carDataUrl } },
+            ],
+          }],
+        };
+      const resp = await fetch(url, {
+        method: "POST",
+        headers: {
+          "Lovable-API-Key": LOVABLE_API_KEY,
+          "X-Lovable-AIG-SDK": "native-fetch",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) {
+        const t = await resp.text();
+        if (resp.status === 402) return { ok: false, error: "AI kredity vyčerpány — doplňte kredity ve Workspace Usage" };
+        errors.push(`${model}: ${resp.status} ${t.slice(0, 160)}`);
+        continue;
+      }
+      const data = await resp.json();
+      const b64 = data?.data?.[0]?.b64_json;
+      const dataUrl = b64 ? `data:image/png;base64,${b64}` : extractImageDataUrl(data);
+      if (!dataUrl) {
+        errors.push(`${model}: no image in response`);
+        continue;
+      }
+      return { ok: true, dataUrl, model };
+    } catch (e: any) {
+      errors.push(`${model}: ${e?.message ?? e}`);
+    }
+  }
+  return { ok: false, error: `AI segmentation failed — ${errors.join(" | ").slice(0, 400)}` };
+}
+
+/** True when a cached composite was produced by the current locked template. */
+export function isCurrentTemplate(meta: unknown): boolean {
+  const m = (meta ?? {}) as Record<string, unknown>;
+  return m.background_version === BACKGROUND_VERSION
+    && m.camera_version === CAMERA_VERSION
+    && m.placement_version === PLACEMENT_VERSION
+    && m.lighting_version === LIGHTING_VERSION;
+}

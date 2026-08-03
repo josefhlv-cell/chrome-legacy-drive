@@ -5,10 +5,10 @@
 // ============================================================================
 
 export const CAMERA_VERSION = "camera-v1";
-export const BACKGROUND_VERSION = "background-v2";
+export const BACKGROUND_VERSION = "background-v3";
 export const PLACEMENT_VERSION = "placement-v1";
 export const LIGHTING_VERSION = "lighting-v1";
-export const GROUND_VERSION = "ground-v2";
+export const GROUND_VERSION = "ground-v3";
 
 export const CANVAS_W = 1920;
 export const CANVAS_H = 1080;
@@ -20,7 +20,7 @@ export const CAMERA = {
   pitch_deg: -1.8,
   yaw_deg: 0,
   roll_deg: 0,
-  horizon_y: 792,
+  horizon_y: 640,
   jpeg_quality: 94,
 } as const;
 
@@ -30,7 +30,7 @@ export const GROUND = {
   anchorX: 960,
   usableMinX: 210,
   usableMaxX: 1710,
-  wallFloorSeamY: 648,
+  wallFloorSeamY: 640,
   ambientReachRatio: 0.11,
   contactReachRatio: 0.022,
   ambientOpacity: 0.30,

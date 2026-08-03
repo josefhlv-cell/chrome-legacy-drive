@@ -2,11 +2,38 @@
   "version": "camera-v1",
   "readOnly": true,
   "note": "Locked virtual camera of the master showroom. NEVER regenerate or edit — every vehicle composite must use exactly these values.",
-  "canvas": { "width": 1920, "height": 1080, "aspect": "16:9" },
-  "sensor": { "type": "full-frame", "width_mm": 36, "height_mm": 24 },
-  "lens": { "focal_length_mm": 50, "field_of_view_deg": 39.6, "aperture": "f/8", "distortion": "none" },
-  "position": { "height_m": 1.45, "distance_m": 9.2 },
-  "rotation": { "pitch_deg": -1.8, "yaw_deg": 0, "roll_deg": 0 },
-  "perspective": { "type": "linear", "vanishing_point_x": 960, "horizon_y": 648 },
-  "output": { "encoding": "jpeg", "quality": 94 }
+  "canvas": {
+    "width": 1920,
+    "height": 1080,
+    "aspect": "16:9"
+  },
+  "sensor": {
+    "type": "full-frame",
+    "width_mm": 36,
+    "height_mm": 24
+  },
+  "lens": {
+    "focal_length_mm": 50,
+    "field_of_view_deg": 39.6,
+    "aperture": "f/8",
+    "distortion": "none"
+  },
+  "position": {
+    "height_m": 1.45,
+    "distance_m": 9.2
+  },
+  "rotation": {
+    "pitch_deg": -1.8,
+    "yaw_deg": 0,
+    "roll_deg": 0
+  },
+  "perspective": {
+    "type": "linear",
+    "vanishing_point_x": 960,
+    "horizon_y": 640
+  },
+  "output": {
+    "encoding": "jpeg",
+    "quality": 94
+  }
 }

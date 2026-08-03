@@ -5,6 +5,7 @@ import type { Tables, TablesInsert, TablesUpdate } from "@/integrations/supabase
 export type VehicleImageRecord = Pick<Tables<"vehicle_images">, "image_url" | "is_main" | "sort_order"> & {
   showroom_url?: string;
   showroom_applied_at?: string | null;
+  showroom_metadata?: unknown;
 };
 export type DbVehicle = Tables<"vehicles"> & { vehicle_images?: VehicleImageRecord[] };
 
@@ -14,18 +15,18 @@ const UUID_REGEX =
 // Lean column set for list views — drops heavy fields like description/lpg_description/carfax_url
 // that are only needed on the detail page. Cuts JSON payload by ~70%.
 const LIST_COLUMNS =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order,showroom_url,showroom_applied_at)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
 
 // Fallback when a vehicle has no rows in vehicle_images yet — left join variant.
 const LIST_COLUMNS_LEFT =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
 
 // Admin needs FULL row data (description, engine, transmission, power, color,
 // lpg_description, carfax_url, video_id, etc.) so the edit form is pre-filled.
 // The lean LIST_COLUMNS_LEFT drops those for performance — fine for the public
 // catalog, but breaks admin editing.
 const ADMIN_COLUMNS_FULL =
-  "*,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at)";
+  "*,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
 
 // Dedupe by VIN (fallback to id). When duplicates exist, prefer the row that
 // actually has gallery images. Avoids picking a stale duplicate whose only
@@ -115,7 +116,7 @@ export const useInfiniteVehicles = (pageSize = 12) => {
         .range(from, to);
       if (error) throw error;
 
-      const rows = (data as DbVehicle[]) ?? [];
+      const rows = ((data as unknown) as DbVehicle[]) ?? [];
       const trimmed = rows.map((v) => {
         const main = v.vehicle_images?.find((i) => i.is_main) ?? v.vehicle_images?.[0];
         return { ...v, vehicle_images: main ? [main] : [] };

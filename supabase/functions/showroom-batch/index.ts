@@ -3,7 +3,7 @@
 // It regenerates composites but NEVER publishes them (showroom_applied_at
 // is left untouched), so nothing changes on the public site.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { createAdminClient, runShowroom, type AdminClient } from "../_shared/showroomPipeline.ts";
+import { createAdminClient, runShowroom, isCurrentTemplate, type AdminClient } from "../_shared/showroomPipeline.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -16,8 +16,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 async function authorize(req: Request): Promise<AdminClient | Response> {
   const admin = createAdminClient();
 
+  // Internal automation (automatic cache invalidation / cron): shared token.
+  const cronToken = Deno.env.get("SHOWROOM_CRON_TOKEN") ?? "";
+  if (cronToken && req.headers.get("x-showroom-cron") === cronToken) return admin;
+
   const jwt = (req.headers.get("Authorization") || "").replace("Bearer ", "");
   if (!jwt) return json({ error: "Unauthorized" }, 401);
+  // Internal server-to-server invocation (cron / automatic cache invalidation).
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  if (serviceKey && jwt === serviceKey) return admin;
   const userClient = createClient(
     SUPABASE_URL,
     Deno.env.get("SUPABASE_ANON_KEY") ?? Deno.env.get("SUPABASE_PUBLISHABLE_KEY") ?? "",
@@ -46,9 +53,25 @@ Deno.serve(async (req) => {
     const admin = adminOrResponse;
 
     const body = await req.json().catch(() => ({}));
-    const imageIds: string[] = Array.isArray(body?.imageIds)
+    let imageIds: string[] = Array.isArray(body?.imageIds)
       ? body.imageIds.filter((v: unknown) => typeof v === "string").slice(0, 5)
       : [];
+
+    // mode "stale": automatically pick main photos whose composite was produced
+    // by an older showroom template version and regenerate them.
+    if (body?.mode === "stale") {
+      const limit = Math.min(Number(body?.limit) || 3, 5);
+      const { data: rows } = await admin
+        .from("vehicle_images")
+        .select("id, showroom_metadata, showroom_status, showroom_url")
+        .eq("is_main", true)
+        .order("created_at", { ascending: true });
+      imageIds = (rows ?? [])
+        .filter((r: any) => !r.showroom_url || r.showroom_status !== "done" || !isCurrentTemplate(r.showroom_metadata))
+        .slice(0, limit)
+        .map((r: any) => r.id);
+      if (imageIds.length === 0) return json({ ok: true, processed: 0, remaining: 0, results: [] });
+    }
     // Existing approved composites are protected by default. Regeneration is
     // destructive and therefore requires an explicit admin request.
     const force = body?.force === true;
@@ -56,7 +79,7 @@ Deno.serve(async (req) => {
 
     const results: Array<Record<string, unknown>> = [];
     for (const id of imageIds) {
-      const r = await runShowroom(admin, id, force);
+      const r = await runShowroom(admin, id, force || body?.mode === "stale");
       results.push({ imageId: id, ...r });
     }
 

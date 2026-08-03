@@ -1,4 +1,4 @@
-import { useState } from "react";
+yimport { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Search, Shield, Wrench, Star, Quote, MapPin, Clock, Users, Phone, Mail, Camera, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -8,7 +8,6 @@ import workshop1 from "@/assets/workshop-1.webp";
 import workshop2 from "@/assets/workshop-2.webp";
 import workshop3 from "@/assets/workshop-3.webp";
 import workshop4 from "@/assets/workshop-4.webp";
-import logoWall from "@/assets/chdp-logo-clean.webp";
 import CardBg from "@/components/CardBg";
 
 const reasons = [

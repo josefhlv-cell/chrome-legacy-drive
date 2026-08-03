@@ -1,4 +1,4 @@
-yimport { useState } from "react";
+import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle, Search, Shield, Wrench, Star, Quote, MapPin, Clock, Users, Phone, Mail, Camera, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
@@ -35,249 +35,216 @@ const reviews = [
   { name: "0610", source: "Chrysler Club CZ", text: "Dobré zkušenosti. I servis v Rakousku doporučují Mopar. Jinak jste vždy pomohli.", rating: 5 },
 ];
 
-const galleryImages = [
-  { src: workshop1, alt: "Profesionální autodílna — hydraulické zvedáky", caption: "Moderní dílna s hydraulickými zvedáky" },
-  { src: workshop2, alt: "Oprava automatické převodovky", caption: "Specializace na automatické převodovky" },
-  { src: workshop3, alt: "Diagnostika motoru", caption: "Profesionální diagnostické vybavení" },
-  { src: workshop4, alt: "Autolakovna", caption: "Vlastní lakovací kabina" },
+const fallbackFacilityPhotos = [
+  { id: "f1", url: workshop1, caption: "Hlavní servisní hala" },
+  { id: "f2", url: workshop2, caption: "Diagnostické pracoviště" },
+  { id: "f3", url: workshop3, caption: "Sklad náhradních dílů" },
+  { id: "f4", url: workshop4, caption: "Zázemí pro zákazníky" },
 ];
 
-const AboutPage = () => {
-  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+export default function About() {
   const { data: dbPhotos } = useFacilityPhotos();
+  const facilityPhotos = dbPhotos && dbPhotos.length > 0
+    ? dbPhotos.map(p => ({ id: p.id, url: p.url, caption: p.caption || "" }))
+    : fallbackFacilityPhotos;
 
-  // Use DB photos if available, otherwise fallback to static
-  const displayPhotos = dbPhotos && dbPhotos.length > 0
-    ? dbPhotos.map((p) => ({ src: p.image_url, alt: p.alt_text || p.caption, caption: p.caption }))
-    : galleryImages;
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-black text-white selection:bg-red-600 selection:text-white">
       <Navbar />
-      <div className="pt-24 pb-16">
-        <div className="container mx-auto px-4 max-w-5xl lg:max-w-[1920px] lg:px-12">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="relative overflow-hidden rounded-xl px-2 py-6 sm:px-6">
-              <CardBg src={logoWall} variant="logo" position="center top" opacity={0.22} />
-              <div className="relative z-10">
-                <h1 className="section-heading">Více než jen auto</h1>
-                <p className="text-primary text-lg font-medium mt-2 tracking-wide">Tradice, která definuje komfort.</p>
-                <p className="section-subheading mt-1">Jsme specialisté na značku Chrysler v České republice. Přinášíme vám americký luxus bez kompromisů.</p>
 
-                <div className="mt-10 glass-card p-8">
-                  <p className="text-foreground leading-relaxed">
-                    Značka Chrysler vždy stála na vrcholu inovací a rodinného pohodlí. Od ikonického sedanu 300C
-                    až po revoluční rodinné vozy Pacifica, Chrysler definuje, co znamená cestovat první třídou.
-                    Naším posláním na Chrysler.cz je zprostředkovat tento zážitek i českým řidičům.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-
-            {/* Company History */}
-            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
-              <Clock className="w-6 h-6 text-primary" />
-              Historie firmy
-            </h2>
-            <p className="text-muted-foreground text-sm mb-8">Od malé dílny v Lukovně k přednímu specialistovi na americké vozy v ČR.</p>
-
-            <div className="relative pl-8 border-l-2 border-primary/30 space-y-8">
-              {milestones.map((m, i) => (
-                <motion.div key={m.year} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="relative">
-                  <div className="absolute -left-[calc(1rem+5px)] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
-                  <div className="glass-card p-5">
-                    <span className="text-primary font-bold text-lg">{m.year}</span>
-                    <p className="text-sm text-foreground mt-1">{m.text}</p>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Workshop Gallery */}
-            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
-              <Camera className="w-6 h-6 text-primary" />
-              Naše zázemí
-            </h2>
-            <p className="text-muted-foreground text-sm mb-8">Profesionální dílna a vybavení v Lukovně u Pardubic.</p>
-
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-              {displayPhotos.map((img, i) => (
-                <motion.button
-                  key={i}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  whileInView={{ opacity: 1, scale: 1 }}
-                  viewport={{ once: true }}
-                  transition={{ delay: i * 0.08 }}
-                  onClick={() => setLightboxIndex(i)}
-                  className="group relative overflow-hidden rounded-lg aspect-[3/2]"
-                >
-                  <img src={img.src} alt={img.alt} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" width={1024} height={680} />
-                  <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
-                    <p className="text-xs text-foreground font-medium">{img.caption}</p>
-                  </div>
-                </motion.button>
-              ))}
-            </div>
-
-            {/* Lightbox */}
-            <AnimatePresence>
-              {lightboxIndex !== null && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  className="fixed inset-0 z-50 bg-background/90 flex items-center justify-center p-4"
-                  onClick={() => setLightboxIndex(null)}
-                >
-                  <button onClick={() => setLightboxIndex(null)} className="absolute top-4 right-4 text-foreground hover:text-primary transition-colors">
-                    <X className="w-8 h-8" />
-                  </button>
-                  <img
-                    src={displayPhotos[lightboxIndex].src}
-                    alt={displayPhotos[lightboxIndex].alt}
-                    className="max-w-full max-h-[85vh] rounded-lg object-contain"
-                  />
-                  <p className="absolute bottom-6 text-foreground text-sm font-medium">{displayPhotos[lightboxIndex].caption}</p>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Key Info */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12">
-              <div className="glass-card p-6 text-center">
-                <MapPin className="w-6 h-6 text-primary mx-auto mb-2" />
-                <p className="text-sm font-bold text-foreground">Lukovna 11, Sezemice</p>
-                <p className="text-xs text-muted-foreground">533 04, u Pardubic</p>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <Clock className="w-6 h-6 text-primary mx-auto mb-2" />
-                <p className="text-sm font-bold text-foreground">20+ let praxe</p>
-                <p className="text-xs text-muted-foreground">Na trhu od roku 2003</p>
-              </div>
-              <div className="glass-card p-6 text-center">
-                <Users className="w-6 h-6 text-primary mx-auto mb-2" />
-                <p className="text-sm font-bold text-foreground">Stovky spokojených klientů</p>
-                <p className="text-xs text-muted-foreground">Partner Chrysler Club CZ</p>
-              </div>
-            </div>
-
-            {/* Why Us */}
-            <h2 className="text-2xl font-bold text-foreground mt-16 mb-6 tracking-wider">Proč zvolit právě nás?</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {reasons.map((r, i) => (
-                <motion.div key={r.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="glass-card p-6">
-                  <r.icon className="w-6 h-6 text-gold mb-3" />
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2">{r.title}</h3>
-                  <p className="text-sm text-muted-foreground leading-relaxed">{r.text}</p>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Customer Reviews */}
-            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
-              <Star className="w-6 h-6 text-primary fill-primary" />
-              Co o nás říkají zákazníci
-            </h2>
-            <p className="text-muted-foreground text-sm mb-8">
-              Autentické reference z komunity{" "}
-              <a href="https://www.chrysler-club.net/forum-tema/lukovna-chrysler-pardubice-10753" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
-                Chrysler Club CZ
-              </a>
+      {/* Hero Section */}
+      <section className="relative pt-32 pb-20 overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-b from-red-950/20 via-black to-black pointer-events-none" />
+        <div className="container mx-auto px-4 relative z-10">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center max-w-3xl mx-auto"
+          >
+            <span className="text-red-500 font-semibold tracking-wider uppercase text-sm">O nás</span>
+            <h1 className="text-4xl md:text-6xl font-bold mt-2 mb-6 tracking-tight">
+              Specialisté na <span className="text-red-500">Chrysler & Dodge</span>
+            </h1>
+            <p className="text-gray-400 text-lg md:text-xl leading-relaxed">
+              Jsme rodinná firma s více než 20letou tradicí. Žijeme americkými vozy a poskytujeme kompletní péči pro vašeho miláčka.
             </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {reviews.map((review, i) => (
-                <motion.div key={review.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="glass-card p-6 flex flex-col">
-                  <Quote className="w-5 h-5 text-primary/40 mb-3" />
-                  <p className="text-sm text-foreground leading-relaxed flex-1 italic">„{review.text}"</p>
-                  <div className="mt-4 pt-3 border-t border-primary/10 flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-semibold text-foreground">{review.name}</p>
-                      <p className="text-xs text-muted-foreground">{review.source}</p>
-                    </div>
-                    <div className="flex gap-0.5">
-                      {Array.from({ length: review.rating }).map((_, j) => (
-                        <Star key={j} className="w-3.5 h-3.5 text-primary fill-primary" />
-                      ))}
-                    </div>
-                  </div>
-                </motion.div>
-              ))}
-            </div>
-
-            {/* Map & Contact */}
-            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
-              <MapPin className="w-6 h-6 text-primary" />
-              Kde nás najdete
-            </h2>
-            <p className="text-muted-foreground text-sm mb-8">Lukovna 11, 533 04 Sezemice u Pardubic</p>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 rounded-lg overflow-hidden glass-card aspect-[16/9]">
-                <iframe
-                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2559.5!2d15.8667!3d50.0667!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470dc94d5a2b0f1d%3A0x400af0f661460e0!2sLukovna%2011%2C%20533%2004%20Sezemice!5e0!3m2!1scs!2scz!4v1700000000000!5m2!1scs!2scz"
-                  width="100%"
-                  height="100%"
-                  style={{ border: 0 }}
-                  allowFullScreen
-                  loading="lazy"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Mapa — Chrysler - Dodge Pardubice, Lukovna 11"
-                />
-              </div>
-
-              <div className="space-y-4">
-                <div className="glass-card p-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4">Kontakt</h3>
-                  <div className="space-y-3">
-                    <a href="tel:+420603559767" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
-                      <Phone className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-foreground font-medium">+420 603 559 767</p>
-                        <p className="text-xs">Prodej vozidel</p>
-                      </div>
-                    </a>
-                    <a href="mailto:obchod@chrysler.cz" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
-                      <Mail className="w-4 h-4 text-primary" />
-                      <div>
-                        <p className="text-foreground font-medium">obchod@chrysler.cz</p>
-                        <p className="text-xs">E-mail</p>
-                      </div>
-                    </a>
-                  </div>
-                </div>
-
-                <div className="glass-card p-6">
-                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-3">Otevírací doba</h3>
-                  <div className="space-y-1 text-sm">
-                    <div className="flex justify-between"><span className="text-muted-foreground">Po – Pá</span><span className="text-foreground font-medium">8:00 – 17:00</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Sobota</span><span className="text-foreground font-medium">Po domluvě</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Neděle</span><span className="text-foreground font-medium">Zavřeno</span></div>
-                  </div>
-                </div>
-
-                <a
-                  href="https://www.google.com/maps/dir//Lukovna+11,+533+04+Sezemice"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="chrome-button w-full text-center block"
-                >
-                  Navigovat do Lukovny
-                </a>
-              </div>
-            </div>
-
-            {/* CTA */}
-            <div className="mt-12 glass-card p-8 border-gold/30 text-center">
-              <p className="text-lg text-foreground font-semibold">Staňte se součástí rodiny Chrysler.</p>
-              <p className="text-muted-foreground mt-2">Přijďte si vyzkoušet, jak chutná americký sen na českých silnicích.</p>
-            </div>
           </motion.div>
         </div>
-      </div>
+      </section>
+
+      {/* Why Choose Us */}
+      <section className="py-16 relative">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {reasons.map((reason, index) => {
+              const Icon = reason.icon;
+              return (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className="relative group p-6 rounded-2xl bg-zinc-900/50 border border-zinc-800/80 hover:border-red-500/50 transition-all duration-300"
+                >
+                  <CardBg />
+                  <div className="relative z-10">
+                    <div className="w-12 h-12 rounded-xl bg-red-600/10 border border-red-500/20 flex items-center justify-center text-red-500 mb-4 group-hover:scale-110 transition-transform">
+                      <Icon className="w-6 h-6" />
+                    </div>
+                    <h3 className="text-xl font-bold mb-2 text-white">{reason.title}</h3>
+                    <p className="text-gray-400 text-sm leading-relaxed">{reason.text}</p>
+                  </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Milestones */}
+      <section className="py-16 relative bg-zinc-950/50 border-y border-zinc-800/50">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="text-3xl font-bold mb-4">Naše historie</h2>
+            <p className="text-gray-400">Jak jsme se stali předním specialistou na americké vozy v ČR</p>
+          </div>
+
+          <div className="max-w-4xl mx-auto relative">
+            <div className="absolute left-1/2 transform -translate-x-1/2 h-full w-0.5 bg-zinc-800 hidden md:block" />
+
+            <div className="space-y-8">
+              {milestones.map((ms, index) => (
+                <motion.div
+                  key={index}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: index * 0.1 }}
+                  className={`flex flex-col md:flex-row items-center ${
+                    index % 2 === 0 ? "md:flex-row-reverse" : ""
+                  }`}
+                >
+                  <div className="w-full md:w-1/2 p-4">
+                    <div className="p-6 rounded-2xl bg-zinc-900/80 border border-zinc-800">
+                      <span className="text-red-500 font-bold text-xl block mb-1">{ms.year}</span>
+                      <p className="text-gray-300 text-sm">{ms.text}</p>
+                    </div>
+                  </div>
+                  <div className="w-8 h-8 rounded-full bg-red-600 border-4 border-black flex items-center justify-center relative z-10 my-2 md:my-0">
+                    <div className="w-2 h-2 rounded-full bg-white" />
+                  </div>
+                  <div className="w-full md:w-1/2 p-4 hidden md:block" />
+                </motion.div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Facility Gallery */}
+      <section className="py-16 relative">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="text-3xl font-bold mb-4">Prostory nášho servisu</h2>
+            <p className="text-gray-400">Nahlédněte do našeho moderně vybaveného zázemí</p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {facilityPhotos.map((photo) => (
+              <motion.div
+                key={photo.id}
+                whileHover={{ scale: 1.02 }}
+                className="relative aspect-video rounded-xl overflow-hidden cursor-pointer group bg-zinc-900 border border-zinc-800"
+                onClick={() => setSelectedPhoto(photo.url)}
+              >
+                <img
+                  src={photo.url}
+                  alt={photo.caption || "Servisní prostory"}
+                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-4">
+                  <span className="text-sm font-medium text-white flex items-center gap-2">
+                    <Camera className="w-4 h-4 text-red-500" />
+                    {photo.caption || "Zvětšit"}
+                  </span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Reviews Section */}
+      <section className="py-16 relative bg-zinc-950/50 border-t border-zinc-800/50">
+        <div className="container mx-auto px-4">
+          <div className="text-center max-w-2xl mx-auto mb-12">
+            <h2 className="text-3xl font-bold mb-4">Co o nás říkají zákazníci</h2>
+            <p className="text-gray-400">Reálné recenze z komunity Chrysler Club CZ</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {reviews.map((review, index) => (
+              <motion.div
+                key={index}
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: index * 0.1 }}
+                className="p-6 rounded-2xl bg-zinc-900/40 border border-zinc-800 flex flex-col justify-between"
+              >
+                <div>
+                  <Quote className="w-8 h-8 text-red-500/40 mb-4" />
+                  <p className="text-gray-300 text-sm mb-6 italic">{review.text}</p>
+                </div>
+                <div>
+                  <div className="flex gap-1 mb-2">
+                    {[...Array(review.rating)].map((_, i) => (
+                      <Star key={i} className="w-4 h-4 fill-amber-500 text-amber-500" />
+                    ))}
+                  </div>
+                  <h4 className="font-bold text-white text-sm">{review.name}</h4>
+                  <span className="text-xs text-gray-500">{review.source}</span>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Lightbox Modal */}
+      <AnimatePresence>
+        {selectedPhoto && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4 backdrop-blur-sm"
+            onClick={() => setSelectedPhoto(null)}
+          >
+            <button
+              onClick={() => setSelectedPhoto(null)}
+              className="absolute top-6 right-6 text-gray-400 hover:text-white p-2 rounded-full bg-zinc-900/80"
+            >
+              <X className="w-6 h-6" />
+            </button>
+            <motion.img
+              initial={{ scale: 0.9 }}
+              animate={{ scale: 1 }}
+              exit={{ scale: 0.9 }}
+              src={selectedPhoto}
+              alt="Zvětšený náhled"
+              className="max-w-full max-h-[90vh] object-contain rounded-xl border border-zinc-800"
+              onClick={(e) => e.stopPropagation()}
+            />
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       <Footer />
     </div>
   );
-};
-
-export default AboutPage;
+}

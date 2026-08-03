@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Wrench, Fuel, Cog, Send, ShieldCheck, Clock, Phone, Award, Paintbrush, Car, CheckCircle, Receipt } from "lucide-react";
+import { Wrench, Fuel, Cog, Send, ShieldCheck, Clock, Phone, Award, Paintbrush, Car, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useCreateLead } from "@/hooks/useLeads";
 import Navbar from "@/components/Navbar";
@@ -156,117 +156,6 @@ const ServicePage = () => {
           </div>
 
           <BannerSlot page="service" position="mid" />
-
-          {/* ─── CENÍK PRACÍ A ODBORNÉ DIAGNOSTIKY VOZŮ ─── */}
-          <motion.section
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            className="mt-16 glass-card p-6 md:p-8"
-            id="cenik"
-          >
-            <div className="flex items-center gap-3 mb-2">
-              <Receipt className="w-7 h-7 text-gold" />
-              <h2 className="text-2xl md:text-3xl font-bold uppercase tracking-wider text-foreground">
-                Ceník prací a odborné diagnostiky vozů
-              </h2>
-            </div>
-            <p className="text-xs text-muted-foreground mb-6">
-              Platný pro rok 2026 · Ceny jsou uvedeny bez DPH · CHDP s.r.o., Lukovna 11, 533 04 Sezemice ·
-              IČ: 27527638 · DIČ: CZ27527638 · Odpovědná osoba: Marek Lejhanec
-            </p>
-
-            {/* Diagnostika */}
-            <div className="mb-8">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gold mb-3">Diagnostika</h3>
-              <ul className="divide-y divide-border/40 text-sm">
-                {[
-                  ["1. Odborná diagnostika vozů – DRB II, DRB III", "700,- Kč"],
-                  ["2. Odborná diagnostika vozů – StarScan", "800,- Kč"],
-                  ["3. Odborná diagnostika Witech", "1 000,- Kč"],
-                  ["4. Pin – dohrání klíčů Witech", "2 000,- Kč"],
-                ].map(([k, v]) => (
-                  <li key={k} className="flex justify-between gap-4 py-2">
-                    <span className="text-foreground">{k}</span>
-                    <span className="font-semibold text-primary whitespace-nowrap">{v}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Servis vozů */}
-            <div className="mb-8">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gold mb-3">Servis vozů</h3>
-              <ul className="divide-y divide-border/40 text-sm">
-                {[
-                  ["a) oleje, filtry, destičky, čepy, řemeny, mechanické části motorů i náprav atd.", "1 500,- Kč / 1 hod"],
-                  ["b) diagnostika, programování, elektroinstalace", "1 500,- Kč / 1 hod"],
-                  ["c) náplň klimatizace R134", "700,- Kč + 2,20,- Kč/g náplň"],
-                  ["d) plnění klimatizace R1234YF", "700,- Kč + 6,00,- Kč/g náplň"],
-                  ["e) geometrie vozů", "1 000,- Kč"],
-                ].map(([k, v]) => (
-                  <li key={k} className="flex justify-between gap-4 py-2">
-                    <span className="text-foreground">{k}</span>
-                    <span className="font-semibold text-primary whitespace-nowrap">{v}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Výměny olejů */}
-            <div className="mb-8">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gold mb-3">Výměny olejů</h3>
-              <ul className="divide-y divide-border/40 text-sm">
-                {[
-                  ["a) motor 2,5i, 3,0i, 3,3i, 2,4i, 3,8i 10w40 Castrol vč. filtru, práce a likvidace starého oleje", "2 900,-"],
-                  ["b) motor 2,5 TD, 2,5 TDi, 10w40 Castrol vč. filtru, práce a likvidace starého oleje", "2 900,-"],
-                  ["c) motor 2,5 CRD 5w30 Castrol Mag. do 100 000 km vč. filtru a práce", "3 650,-"],
-                  ["d) motor 2,5 CRD 10w40 Castrol, nad 100 000 km vč. filtru a práce", "2 900,-"],
-                  ["e) motor 3,6 (2011–2016) 5w20 olej, filtr vč. práce", "3 800,-"],
-                  ["f) motor 3,6 (2011–2016) 5w30 olej, filtr vč. práce", "3 800,-"],
-                  ["g) motor 3,6 Pacifica olej, filtr vč. práce", "4 500,-"],
-                  ["h) převodovka 3–4kv automat 1990–2000 vč. filtru, práce a likvidace starého oleje", "3 900,-"],
-                  ["i) převodovka 4kv automat 2001–2006 ATF+4 vč. filtru, práce a likvidace oleje", "4 400,-"],
-                  ["j) manuální převodovka vč. práce a likvidace starého oleje", "1 900,-"],
-                  ["k) manuální převodovka 2001–2005", "2 950,-"],
-                  ["l) automat 6kv 2008–2020 vč. filtrů a likvidace oleje", "4 990,-"],
-                  ["m) převodovka 8&9 3,5l oleje (nad 3,5l doplatek 1l/1 350,-) … 2h", "7 400,-"],
-                ].map(([k, v]) => (
-                  <li key={k} className="flex justify-between gap-4 py-2">
-                    <span className="text-foreground">{k}</span>
-                    <span className="font-semibold text-primary whitespace-nowrap">{v}</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* Ceny olejů */}
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-wider text-gold mb-3">Ceny olejů (za 1 litr)</h3>
-              <ul className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 text-sm divide-y divide-border/40 sm:divide-y-0">
-                {[
-                  ["Castrol 10w40", "220,-"],
-                  ["Castrol 5w30 magnatec", "350,-"],
-                  ["Mopar 5w20", "300,-"],
-                  ["Mopar 5w30", "290,-"],
-                  ["ATF dextron III", "220,-"],
-                  ["ATF+4 Mopar", "355,-"],
-                  ["Castrol SMX S Man", "600,-"],
-                  ["Castrol 0w20 C5", "450,-"],
-                  ["Automat 8&9", "1 350,-"],
-                ].map(([k, v]) => (
-                  <li key={k} className="flex justify-between gap-4 py-2 sm:border-b sm:border-border/40">
-                    <span className="text-foreground">{k}</span>
-                    <span className="font-semibold text-primary whitespace-nowrap">{v} Kč</span>
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <p className="mt-6 text-xs italic text-muted-foreground border-t border-border/40 pt-4">
-              Ceny jsou uvedeny bez DPH. Vyhrazujeme si právo úpravy ceníku v průběhu roku.
-            </p>
-          </motion.section>
 
           {/* LPG Calculator */}
           <LPGCalculator />

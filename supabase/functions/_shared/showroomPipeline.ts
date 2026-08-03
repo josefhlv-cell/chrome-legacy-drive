@@ -1070,7 +1070,7 @@ async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
       });
       if (!resp.ok) {
         const t = await resp.text();
-        if (resp.status === 402) return { ok: false, error: "AI kredity vyčerpány — doplňte kredity ve Workspace Usage" };
+        // 402 / 4xx on one model must not abort the chain — try the next model.
         errors.push(`${model}: ${resp.status} ${t.slice(0, 160)}`);
         continue;
       }
@@ -1085,6 +1085,9 @@ async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
     } catch (e: any) {
       errors.push(`${model}: ${e?.message ?? e}`);
     }
+  }
+  if (errors.every((e) => e.includes(": 402"))) {
+    return { ok: false, error: "AI kredity vyčerpány — doplňte kredity ve Workspace Usage" };
   }
   return { ok: false, error: `AI segmentation failed — ${errors.join(" | ").slice(0, 400)}` };
 }

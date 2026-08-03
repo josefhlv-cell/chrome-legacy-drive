@@ -20,7 +20,7 @@ export type ShowroomImageLike = {
   image_url?: string | null;
   showroom_url?: string | null;
   showroom_applied_at?: string | null;
-  showroom_metadata?: Record<string, unknown> | null;
+  showroom_metadata?: unknown;
 };
 
 export const isCurrentShowroomTemplate = (meta: unknown): boolean => {

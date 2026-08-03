@@ -8,7 +8,7 @@ import workshop1 from "@/assets/workshop-1.webp";
 import workshop2 from "@/assets/workshop-2.webp";
 import workshop3 from "@/assets/workshop-3.webp";
 import workshop4 from "@/assets/workshop-4.webp";
-import logoWall from "@/assets/chdp-logo-clean.png.asset.json";
+import logoWall from "@/assets/chdp-logo-clean.webp";
 
 const reasons = [
   { icon: Search, title: "Specializace", text: "Chrysler není jen jedna z mnoha značek v našem portfoliu. Je to naše vášeň. Známe každý šroubek modelů Pacifica, Voyager i Grand Caravan." },
@@ -61,7 +61,7 @@ const AboutPage = () => {
                 aria-hidden="true"
                 className="pointer-events-none absolute inset-0 bg-no-repeat"
                 style={{
-                  backgroundImage: `url(${logoWall.url})`,
+                  backgroundImage: `url(${logoWall})`,
                   backgroundSize: "contain",
                   backgroundPosition: "center top",
                   opacity: 0.22,

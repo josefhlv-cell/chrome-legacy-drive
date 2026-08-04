@@ -18,30 +18,40 @@ type CardBgProps = {
    * "contain" = whole image always visible, fitted to the frame.
    */
   fit?: "cover" | "contain";
+  /** Inner breathing room so the artwork doesn't touch the card edges. */
+  inset?: string;
 };
 
 const MASK = "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)";
 const LOGO_MASK = "linear-gradient(to bottom, black 0%, black 45%, transparent 85%)";
+const SOFT_MASK = "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)";
 
-const CardBg = ({ src, position = "center 40%", opacity = 0.16, variant = "photo", fit }: CardBgProps) => (
-  <div
-    aria-hidden="true"
-    className="absolute inset-0 pointer-events-none"
-    style={{
-      backgroundImage: `url(${src})`,
-      backgroundSize:
-        fit === "contain" ? "100% 100%" : fit === "cover" ? "cover" : variant === "logo" ? "contain" : "cover",
-      backgroundPosition: fit ? "center" : position,
-      backgroundRepeat: "no-repeat",
-      opacity,
-      filter:
-        variant === "logo"
-          ? "grayscale(0.55) contrast(1.05) brightness(1.15)"
-          : "grayscale(0.55) contrast(0.95) brightness(0.9)",
-      maskImage: variant === "logo" ? LOGO_MASK : MASK,
-      WebkitMaskImage: variant === "logo" ? LOGO_MASK : MASK,
-    }}
-  />
-);
+const CardBg = ({ src, position = "center 40%", opacity = 0.16, variant = "photo", fit, inset }: CardBgProps) => {
+  const mask = inset || fit === "contain" ? SOFT_MASK : variant === "logo" ? LOGO_MASK : MASK;
+  return (
+    <div
+      aria-hidden="true"
+      className="absolute inset-0 pointer-events-none"
+      style={{
+        padding: inset,
+        boxSizing: "border-box",
+        backgroundImage: `url(${src})`,
+        backgroundClip: inset ? "content-box" : undefined,
+        backgroundOrigin: inset ? "content-box" : undefined,
+        backgroundSize:
+          fit === "contain" ? "contain" : fit === "cover" ? "cover" : variant === "logo" ? "contain" : "cover",
+        backgroundPosition: fit || inset ? "center" : position,
+        backgroundRepeat: "no-repeat",
+        opacity,
+        filter:
+          variant === "logo"
+            ? "grayscale(0.55) contrast(1.05) brightness(1.15)"
+            : "grayscale(0.55) contrast(0.95) brightness(0.9)",
+        maskImage: mask,
+        WebkitMaskImage: mask,
+      }}
+    />
+  );
+};
 
 export default CardBg;

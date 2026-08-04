@@ -4,15 +4,21 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 import BannerSlot from "@/components/BannerSlot";
+import CardBg from "@/components/CardBg";
+import moparAsset from "@/assets/dily/mopar.png.asset.json";
+import vinAsset from "@/assets/dily/vin.jpg.asset.json";
+import doruceniAsset from "@/assets/dily/doruceni.jpg.asset.json";
+import aftermarketAsset from "@/assets/dily/aftermarket.jpg.asset.json";
 
 const APP_URL = "https://chryslerpardubice.site/";
 
 const advantages = [
-  { icon: ShieldCheck, title: "Originální Mopar díly", desc: "Dodáváme originální díly Mopar pro všechny modely Chrysler a Dodge." },
-  { icon: Search, title: "Vyhledávání podle VIN", desc: "Přesná identifikace dílu podle VIN kódu vašeho vozu — žádné omyly." },
-  { icon: Truck, title: "Rychlé dodání", desc: "Díly ze skladu v EU obvykle do 3–5 pracovních dnů." },
-  { icon: Package, title: "Aftermarket alternativy", desc: "Nabízíme i kvalitní aftermarket díly za příznivější cenu." },
+  { icon: ShieldCheck, title: "Originální Mopar díly", desc: "Dodáváme originální díly Mopar pro všechny modely Chrysler a Dodge.", bg: moparAsset.url, variant: "logo" as const },
+  { icon: Search, title: "Vyhledávání podle VIN", desc: "Přesná identifikace dílu podle VIN kódu vašeho vozu — žádné omyly.", bg: vinAsset.url, variant: "photo" as const },
+  { icon: Truck, title: "Rychlé dodání", desc: "Díly ze skladu v EU obvykle do 3–5 pracovních dnů.", bg: doruceniAsset.url, variant: "logo" as const },
+  { icon: Package, title: "Aftermarket alternativy", desc: "Nabízíme i kvalitní aftermarket díly za příznivější cenu.", bg: aftermarketAsset.url, variant: "photo" as const },
 ];
+
 
 const SpareParts = () => {
   return (
@@ -60,11 +66,14 @@ const SpareParts = () => {
           className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12"
         >
           {advantages.map((a) => (
-            <div key={a.title} className="glass-card p-5 flex items-start gap-3">
-              <a.icon className="w-6 h-6 text-primary shrink-0 mt-0.5" />
-              <div>
-                <h3 className="font-semibold text-foreground text-sm">{a.title}</h3>
-                <p className="text-xs text-muted-foreground mt-1">{a.desc}</p>
+            <div key={a.title} className="glass-card p-5 relative overflow-hidden">
+              <CardBg src={a.bg} variant={a.variant} />
+              <div className="relative z-10 flex items-start gap-3">
+                <a.icon className="w-6 h-6 text-primary shrink-0 mt-0.5" />
+                <div>
+                  <h3 className="font-semibold text-foreground text-sm">{a.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{a.desc}</p>
+                </div>
               </div>
             </div>
           ))}

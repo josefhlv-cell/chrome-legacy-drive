@@ -13,6 +13,11 @@ type CardBgProps = {
   opacity?: number;
   /** Brighter treatment for logo/transparent artwork. */
   variant?: "photo" | "logo";
+  /**
+   * "cover" = image fills the frame (may crop),
+   * "contain" = whole image always visible, fitted to the frame.
+   */
+  fit?: "cover" | "contain";
 };
 
 const MASK = "linear-gradient(to bottom, transparent 0%, black 30%, black 75%, transparent 100%)";

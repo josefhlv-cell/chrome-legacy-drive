@@ -67,7 +67,7 @@ const SpareParts = () => {
         >
           {advantages.map((a) => (
             <div key={a.title} className="glass-card p-5 relative overflow-hidden">
-              <CardBg src={a.bg} variant={a.variant} fit="contain" />
+              <CardBg src={a.bg} variant={a.variant} fit="stretch" />
               <div className="relative z-10 flex items-start gap-3">
                 <a.icon className="w-6 h-6 text-primary shrink-0 mt-0.5" />
                 <div>

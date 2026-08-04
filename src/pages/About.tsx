@@ -5,7 +5,7 @@ import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useFacilityPhotos } from "@/hooks/useAdminContent";
 import CardBg from "@/components/CardBg";
-import chdpChromeAsset from "@/assets/chdp-chrome.jpg.asset.json";
+import chdpChromeAsset from "@/assets/chdp-chrome-blue.jpg.asset.json";
 import workshop1 from "@/assets/workshop-1.webp";
 import workshop2 from "@/assets/workshop-2.webp";
 import workshop3 from "@/assets/workshop-3.webp";
@@ -64,7 +64,7 @@ const AboutPage = () => {
                 <p className="section-subheading mt-1">Jsme specialisté na značku Chrysler v České republice. Přinášíme vám americký luxus bez kompromisů.</p>
 
                 <div className="mt-10 glass-card p-8 relative overflow-hidden">
-                  <CardBg src={chdpChromeAsset.url} variant="logo" fit="contain" inset="18px" opacity={0.13} />
+                  <CardBg src={chdpChromeAsset.url} variant="logo" fit="contain" inset="18px" opacity={0.3} keepColor backdrop="#000" />
                   <p className="relative z-10 text-foreground leading-relaxed">
                     Značka Chrysler vždy stála na vrcholu inovací a rodinného pohodlí. Od ikonického sedanu 300C
                     až po revoluční rodinné vozy Pacifica, Chrysler definuje, co znamená cestovat první třídou.

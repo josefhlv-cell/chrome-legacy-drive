@@ -17,7 +17,7 @@ type CardBgProps = {
    * "cover" = image fills the frame (may crop),
    * "contain" = whole image always visible, fitted to the frame.
    */
-  fit?: "cover" | "contain";
+  fit?: "cover" | "contain" | "stretch";
   /** Inner breathing room so the artwork doesn't touch the card edges. */
   inset?: string;
 };
@@ -27,7 +27,7 @@ const LOGO_MASK = "linear-gradient(to bottom, black 0%, black 45%, transparent 8
 const SOFT_MASK = "linear-gradient(to bottom, transparent 0%, black 14%, black 86%, transparent 100%)";
 
 const CardBg = ({ src, position = "center 40%", opacity = 0.16, variant = "photo", fit, inset }: CardBgProps) => {
-  const mask = inset || fit === "contain" ? SOFT_MASK : variant === "logo" ? LOGO_MASK : MASK;
+  const mask = inset || fit ? SOFT_MASK : variant === "logo" ? LOGO_MASK : MASK;
   return (
     <div
       aria-hidden="true"
@@ -39,7 +39,7 @@ const CardBg = ({ src, position = "center 40%", opacity = 0.16, variant = "photo
         backgroundClip: inset ? "content-box" : undefined,
         backgroundOrigin: inset ? "content-box" : undefined,
         backgroundSize:
-          fit === "contain" ? "contain" : fit === "cover" ? "cover" : variant === "logo" ? "contain" : "cover",
+          fit === "stretch" ? "100% 100%" : fit === "contain" ? "contain" : fit === "cover" ? "cover" : variant === "logo" ? "contain" : "cover",
         backgroundPosition: fit || inset ? "center" : position,
         backgroundRepeat: "no-repeat",
         opacity,

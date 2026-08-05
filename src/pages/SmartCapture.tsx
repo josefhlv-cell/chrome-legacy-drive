@@ -566,8 +566,10 @@ export default function SmartCapture() {
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
+            style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
             playsInline muted autoPlay
           />
+
 
           {/* Composition grid (rule of thirds) */}
           {gridEnabled && stream && !cameraError && (

@@ -753,7 +753,7 @@ export default function SmartCapture() {
 
               {/* BOTTOM filmstrip */}
               {photos.length > 0 && (
-                <div className="absolute bottom-0 inset-x-20 px-4 pb-3">
+                <div className="absolute bottom-0 left-20 right-24 px-4 pb-3">
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {photos.map((p) => {
                       const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };

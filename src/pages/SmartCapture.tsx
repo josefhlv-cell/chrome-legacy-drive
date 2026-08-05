@@ -711,8 +711,8 @@ export default function SmartCapture() {
 
           {landscapeMode ? (
             <>
-              {/* LEFT column — navigation */}
-              <div className="absolute left-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-3 pointer-events-none">
+              {/* LEFT column — navigation + secondary controls (kept away from the shutter) */}
+              <div className="absolute left-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-3 pointer-events-none z-20">
                 <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
                   className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 hover:bg-black/60 transition"
                   title="Předchozí">
@@ -728,25 +728,28 @@ export default function SmartCapture() {
                   title="VIN scan">
                   <ScanLine size={18} />
                 </button>
-              </div>
-
-              {/* RIGHT column — shutter stack */}
-              <div className="absolute right-0 inset-y-0 w-24 flex flex-col items-center justify-center gap-4 pointer-events-none">
-                <button onClick={switchCamera}
-                  className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
-                  title="Přepnout kameru">
-                  <SwitchCamera size={18} />
-                </button>
-                <button onClick={handleShot} disabled={!stream}
-                  className="pointer-events-auto relative w-16 h-16 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
-                  <span className="absolute inset-1.5 rounded-full bg-white" />
-                </button>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
                   title="Z galerie">
                   <ImageIcon size={18} />
                 </button>
+                <button onClick={switchCamera} disabled={switching}
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-40 hover:bg-black/60 transition"
+                  title="Přepnout kameru">
+                  {switching ? <Loader2 size={18} className="animate-spin" /> : <SwitchCamera size={18} />}
+                </button>
               </div>
+
+              {/* RIGHT column — ONLY the shutter, nothing else can steal the tap */}
+              <div className="absolute right-0 inset-y-0 w-24 flex items-center justify-center pointer-events-none z-30">
+                <button onClick={handleShot} disabled={!stream || switching}
+                  style={{ touchAction: "manipulation" }}
+                  className="pointer-events-auto relative w-[74px] h-[74px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
+                  title="Vyfotit">
+                  <span className="absolute inset-2 rounded-full bg-white" />
+                </button>
+              </div>
+
 
               {/* BOTTOM filmstrip */}
               {photos.length > 0 && (

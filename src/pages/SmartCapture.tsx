@@ -186,13 +186,20 @@ export default function SmartCapture() {
   }, [requestCamera]);
 
   // Switch between rear/front camera without leaving the capture UI.
+  // Guarded — a second tap while the new stream is being acquired used to flip
+  // the camera twice (and on iOS could hijack a shutter tap).
   const switchCamera = useCallback(async () => {
+    if (switching || shootingRef.current) return;
+    setSwitching(true);
     const next = facingRef.current === "environment" ? "user" : "environment";
     facingRef.current = next;
+    setFacing(next);
     stopCamera();
     try { setStream(await requestCamera(next)); }
     catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
-  }, [requestCamera, stopCamera]);
+    finally { setSwitching(false); }
+  }, [requestCamera, stopCamera, switching]);
+
 
 
   const currentStep = SHOT_SEQUENCE[currentStepIdx];

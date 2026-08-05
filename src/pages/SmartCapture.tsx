@@ -69,6 +69,7 @@ export default function SmartCapture() {
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [switching, setSwitching] = useState(false);
   const shootingRef = useRef(false);
+  const shotIndexRef = useRef(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);

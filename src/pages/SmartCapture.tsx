@@ -215,9 +215,16 @@ export default function SmartCapture() {
   const captureFromVideo = async (): Promise<Blob | null> => {
     if (!videoRef.current || !stream) return null;
     const v = videoRef.current;
+    if (!v.videoWidth || !v.videoHeight) return null;   // stream not ready yet
     const c = document.createElement("canvas");
     c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext("2d")!.drawImage(v, 0, 0);
+    const ctx = c.getContext("2d")!;
+    if (facingRef.current === "user") {
+      // Front camera preview is mirrored — save what the user actually sees.
+      ctx.translate(c.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(v, 0, 0);
     return await new Promise<Blob | null>((res) => c.toBlob((b) => res(b), "image/jpeg", 0.92));
   };
 
@@ -227,19 +234,25 @@ export default function SmartCapture() {
   };
 
   const handleShot = async () => {
-    if (!sessionId || busy) return;
-    // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
-    //    pak ihned advance + processing/upload na pozadí.
-    const blob = await captureFromVideo();
-    if (!blob) { toast({ title: "Nelze pořídit snímek", variant: "destructive" }); return; }
-    // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
-    const stepAtShot = currentStepIdx;
-    if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
-    // shutter feedback
-    setShutterFlash(true);
-    setTimeout(() => setShutterFlash(false), 120);
-    void processAndUpload(blob, stepAtShot);
+    if (!sessionId || busy || switching || shootingRef.current) return;
+    shootingRef.current = true;
+    try {
+      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
+      //    pak ihned advance + processing/upload na pozadí.
+      const blob = await captureFromVideo();
+      if (!blob) { toast({ title: "Nelze pořídit snímek", description: "Kamera ještě není připravená, zkuste to znovu.", variant: "destructive" }); return; }
+      // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
+      const stepAtShot = currentStepIdx;
+      if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
+      // shutter feedback
+      setShutterFlash(true);
+      setTimeout(() => setShutterFlash(false), 120);
+      void processAndUpload(blob, stepAtShot);
+    } finally {
+      setTimeout(() => { shootingRef.current = false; }, 250);
+    }
   };
+
 
   const processAndUpload = async (input: Blob | File, stepIdx?: number) => {
     if (!sessionId) return;

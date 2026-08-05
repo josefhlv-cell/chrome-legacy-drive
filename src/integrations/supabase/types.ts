@@ -660,6 +660,7 @@ export type Database = {
           quality_score_enabled: string
           safe_mode: boolean
           singleton: boolean
+          thumbnail_background: string
           updated_at: string
           vin_autofill: string
           vin_ocr: string
@@ -693,6 +694,7 @@ export type Database = {
           quality_score_enabled?: string
           safe_mode?: boolean
           singleton?: boolean
+          thumbnail_background?: string
           updated_at?: string
           vin_autofill?: string
           vin_ocr?: string
@@ -726,6 +728,7 @@ export type Database = {
           quality_score_enabled?: string
           safe_mode?: boolean
           singleton?: boolean
+          thumbnail_background?: string
           updated_at?: string
           vin_autofill?: string
           vin_ocr?: string
@@ -1021,6 +1024,7 @@ export type Database = {
           show_vat: boolean
           showroom_mode: string
           status: Database["public"]["Enums"]["vehicle_status"]
+          thumbnail_url: string | null
           tipcars_airbagy: number | null
           tipcars_emisni_norma: string | null
           tipcars_export_enabled: boolean | null
@@ -1066,6 +1070,7 @@ export type Database = {
           show_vat?: boolean
           showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
+          thumbnail_url?: string | null
           tipcars_airbagy?: number | null
           tipcars_emisni_norma?: string | null
           tipcars_export_enabled?: boolean | null
@@ -1111,6 +1116,7 @@ export type Database = {
           show_vat?: boolean
           showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
+          thumbnail_url?: string | null
           tipcars_airbagy?: number | null
           tipcars_emisni_norma?: string | null
           tipcars_export_enabled?: boolean | null

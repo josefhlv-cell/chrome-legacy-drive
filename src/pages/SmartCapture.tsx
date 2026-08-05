@@ -66,6 +66,11 @@ export default function SmartCapture() {
   });
   const videoRef = useRef<HTMLVideoElement>(null);
   const facingRef = useRef<"environment" | "user">("environment");
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
+  const [switching, setSwitching] = useState(false);
+  const shootingRef = useRef(false);
+  const shotIndexRef = useRef(0);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
 
@@ -182,13 +187,20 @@ export default function SmartCapture() {
   }, [requestCamera]);
 
   // Switch between rear/front camera without leaving the capture UI.
+  // Guarded — a second tap while the new stream is being acquired used to flip
+  // the camera twice (and on iOS could hijack a shutter tap).
   const switchCamera = useCallback(async () => {
+    if (switching || shootingRef.current) return;
+    setSwitching(true);
     const next = facingRef.current === "environment" ? "user" : "environment";
     facingRef.current = next;
+    setFacing(next);
     stopCamera();
     try { setStream(await requestCamera(next)); }
     catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
-  }, [requestCamera, stopCamera]);
+    finally { setSwitching(false); }
+  }, [requestCamera, stopCamera, switching]);
+
 
 
   const currentStep = SHOT_SEQUENCE[currentStepIdx];
@@ -204,9 +216,16 @@ export default function SmartCapture() {
   const captureFromVideo = async (): Promise<Blob | null> => {
     if (!videoRef.current || !stream) return null;
     const v = videoRef.current;
+    if (!v.videoWidth || !v.videoHeight) return null;   // stream not ready yet
     const c = document.createElement("canvas");
     c.width = v.videoWidth; c.height = v.videoHeight;
-    c.getContext("2d")!.drawImage(v, 0, 0);
+    const ctx = c.getContext("2d")!;
+    if (facingRef.current === "user") {
+      // Front camera preview is mirrored — save what the user actually sees.
+      ctx.translate(c.width, 0);
+      ctx.scale(-1, 1);
+    }
+    ctx.drawImage(v, 0, 0);
     return await new Promise<Blob | null>((res) => c.toBlob((b) => res(b), "image/jpeg", 0.92));
   };
 
@@ -216,24 +235,35 @@ export default function SmartCapture() {
   };
 
   const handleShot = async () => {
-    if (!sessionId || busy) return;
-    // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
-    //    pak ihned advance + processing/upload na pozadí.
-    const blob = await captureFromVideo();
-    if (!blob) { toast({ title: "Nelze pořídit snímek", variant: "destructive" }); return; }
-    // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
-    const stepAtShot = currentStepIdx;
-    if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
-    // shutter feedback
-    setShutterFlash(true);
-    setTimeout(() => setShutterFlash(false), 120);
-    void processAndUpload(blob, stepAtShot);
+    if (!sessionId || busy || switching || shootingRef.current) return;
+    shootingRef.current = true;
+    try {
+      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
+      //    pak ihned advance + processing/upload na pozadí.
+      const blob = await captureFromVideo();
+      if (!blob) { toast({ title: "Nelze pořídit snímek", description: "Kamera ještě není připravená, zkuste to znovu.", variant: "destructive" }); return; }
+      // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
+      const stepAtShot = currentStepIdx;
+      if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
+      // shutter feedback
+      setShutterFlash(true);
+      setTimeout(() => setShutterFlash(false), 120);
+      void processAndUpload(blob, stepAtShot);
+    } finally {
+      setTimeout(() => { shootingRef.current = false; }, 250);
+    }
   };
+
 
   const processAndUpload = async (input: Blob | File, stepIdx?: number) => {
     if (!sessionId) return;
+    // Claim a unique shot index up-front — parallel uploads used to reuse
+    // photos.length and produce duplicate ordering.
+    shotIndexRef.current = Math.max(shotIndexRef.current, photos.length);
+    const myIndex = shotIndexRef.current++;
     setQueueCount((n) => n + 1);
     setLastAnalysis(null);
+
     try {
       const autoProcess = !settings || (settings as { auto_image_processing?: string }).auto_image_processing !== "off";
 
@@ -272,7 +302,7 @@ export default function SmartCapture() {
       await uploadPhoto.mutateAsync({
         sessionId,
         shotType: detectedType,
-        shotIndex: photos.length,
+        shotIndex: myIndex,
         originalBlob: input,
         processedBlob: processed,
         width, height,
@@ -566,8 +596,10 @@ export default function SmartCapture() {
           <video
             ref={videoRef}
             className="absolute inset-0 w-full h-full object-cover"
+            style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
             playsInline muted autoPlay
           />
+
 
           {/* Composition grid (rule of thirds) */}
           {gridEnabled && stream && !cameraError && (
@@ -685,8 +717,8 @@ export default function SmartCapture() {
 
           {landscapeMode ? (
             <>
-              {/* LEFT column — navigation */}
-              <div className="absolute left-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-3 pointer-events-none">
+              {/* LEFT column — navigation + secondary controls (kept away from the shutter) */}
+              <div className="absolute left-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-3 pointer-events-none z-20">
                 <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
                   className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 hover:bg-black/60 transition"
                   title="Předchozí">
@@ -702,29 +734,32 @@ export default function SmartCapture() {
                   title="VIN scan">
                   <ScanLine size={18} />
                 </button>
-              </div>
-
-              {/* RIGHT column — shutter stack */}
-              <div className="absolute right-0 inset-y-0 w-24 flex flex-col items-center justify-center gap-4 pointer-events-none">
-                <button onClick={switchCamera}
-                  className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
-                  title="Přepnout kameru">
-                  <SwitchCamera size={18} />
-                </button>
-                <button onClick={handleShot} disabled={!stream}
-                  className="pointer-events-auto relative w-16 h-16 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
-                  <span className="absolute inset-1.5 rounded-full bg-white" />
-                </button>
                 <button onClick={() => fileInputRef.current?.click()}
-                  className="pointer-events-auto w-11 h-11 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
                   title="Z galerie">
                   <ImageIcon size={18} />
                 </button>
+                <button onClick={switchCamera} disabled={switching}
+                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-40 hover:bg-black/60 transition"
+                  title="Přepnout kameru">
+                  {switching ? <Loader2 size={18} className="animate-spin" /> : <SwitchCamera size={18} />}
+                </button>
               </div>
+
+              {/* RIGHT column — ONLY the shutter, nothing else can steal the tap */}
+              <div className="absolute right-0 inset-y-0 w-24 flex items-center justify-center pointer-events-none z-30">
+                <button onClick={handleShot} disabled={!stream || switching}
+                  style={{ touchAction: "manipulation" }}
+                  className="pointer-events-auto relative w-[74px] h-[74px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
+                  title="Vyfotit">
+                  <span className="absolute inset-2 rounded-full bg-white" />
+                </button>
+              </div>
+
 
               {/* BOTTOM filmstrip */}
               {photos.length > 0 && (
-                <div className="absolute bottom-0 inset-x-20 px-4 pb-3">
+                <div className="absolute bottom-0 left-20 right-24 px-4 pb-3">
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {photos.map((p) => {
                       const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };

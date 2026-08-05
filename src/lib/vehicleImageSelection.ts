@@ -11,6 +11,8 @@ export const isUsableImageUrl = (url: string | null | undefined): url is string 
 export const VEHICLE_IMAGE_PLACEHOLDER = "/vehicle-placeholder.svg";
 
 type VehicleLike = {
+  /** Miniatura z Smart Capture — POUZE pro kartu v nabídce, ne pro detail. */
+  thumbnail_url?: string | null;
   image_url?: string | null;
   vehicle_images?: Array<ShowroomImageLike & { is_main?: boolean; sort_order?: number }> | null;
 };
@@ -28,6 +30,7 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
   });
 
   const candidates = dedupeImageUrls([
+    vehicle.thumbnail_url,
     ...sorted.map((img) => getPublicVehicleImageUrl(img)),
     vehicle.image_url,
   ]).filter(isUsableImageUrl);

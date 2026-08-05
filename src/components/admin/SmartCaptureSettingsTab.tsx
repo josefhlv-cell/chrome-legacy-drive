@@ -40,6 +40,8 @@ const FEATURES: FeatureToggle[] = [
   { key: "horizon_auto_level", label: "Auto-rovnání horizontu (gyroskop)" },
   { key: "landscape_capture", label: "Focení na šířku (otočený telefon)" },
   { key: "grid_overlay", label: "Kompoziční mřížka (třetiny) v hledáčku" },
+  { key: "thumbnail_background", label: "Miniatura na přednastaveném pozadí (1. záběr — pouze pro nabídku vozů)" },
+
 ];
 
 export default function SmartCaptureSettingsTab() {

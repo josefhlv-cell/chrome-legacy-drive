@@ -15,6 +15,8 @@ import { processImage, computeBlurScore, fileToBase64 } from "@/lib/smartCapture
 import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
 import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
+import { CAPTURE_BG_URL, THUMB_PLACEMENT, composeThumbnail, frameToThumbnail } from "@/lib/smartCapture/thumbnail";
+
 
 interface AnalysisResult {
   shot_type?: string;
@@ -91,6 +93,21 @@ export default function SmartCapture() {
     if (!settings) return true;
     return (settings as { grid_overlay?: string }).grid_overlay !== "off";
   }, [settings]);
+  /**
+   * Miniatura na přednastaveném pozadí (vypínatelné v nastavení Smart Capture).
+   * "off"     = úplně vypnuto
+   * "suggest" = pozadí se jen zobrazí v hledáčku jako vodítko (nic se neskládá)
+   * "on"      = navíc se z prvního záběru automaticky složí miniatura
+   */
+  const thumbBgMode = useMemo(() => {
+    return ((settings as { thumbnail_background?: string })?.thumbnail_background ?? "off") as "on" | "suggest" | "off";
+  }, [settings]);
+  const thumbOverlayEnabled = thumbBgMode !== "off";
+  const thumbComposeEnabled = thumbBgMode === "on";
+  const [thumbBusy, setThumbBusy] = useState(false);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  const [thumbOverlayOn, setThumbOverlayOn] = useState(true);
+
   const [isLandscape, setIsLandscape] = useState(
     typeof window !== "undefined" ? window.innerWidth > window.innerHeight : false
   );
@@ -234,6 +251,61 @@ export default function SmartCapture() {
     await processAndUpload(file);
   };
 
+  /**
+   * Z prvního záběru vytvoří miniaturu na FIXNÍM přednastaveném pozadí.
+   * 1) snímek se nahraje do storage (kvůli výřezu potřebuje Remove.bg URL)
+   * 2) edge funkce `remove-background` vrátí PNG s alfou (žádné AI pozadí)
+   * 3) canvas složí výřez na totožné pozadí (deterministická geometrie)
+   * 4) výsledek se nahraje a uloží do metadat relace jako `thumbnail_url`
+   * Pokud výřez selže, použije se snímek přímo (uživatel fotil do reálného pozadí).
+   */
+  const buildThumbnail = async (frame: Blob, sid: string) => {
+    setThumbBusy(true);
+    try {
+      const srcPath = `${sid}/thumb-src-${Date.now()}.jpg`;
+      const up = await supabase.storage.from("smart-capture")
+        .upload(srcPath, frame, { contentType: "image/jpeg", upsert: true });
+      if (up.error) throw up.error;
+      const { data: pub } = supabase.storage.from("smart-capture").getPublicUrl(srcPath);
+
+      let thumb: Blob | null = null;
+      try {
+        const { data, error } = await supabase.functions.invoke("remove-background", {
+          body: { imageUrl: pub.publicUrl },
+        });
+        if (error) throw error;
+        const png = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "image/png" });
+        thumb = await composeThumbnail(png);
+      } catch (cutErr) {
+        console.warn("[thumbnail] cutout failed, using raw frame", cutErr);
+        thumb = await frameToThumbnail(frame);
+      }
+
+      const thumbPath = `${sid}/thumbnail.jpg`;
+      const upT = await supabase.storage.from("smart-capture")
+        .upload(thumbPath, thumb, { contentType: "image/jpeg", upsert: true });
+      if (upT.error) throw upT.error;
+      const { data: pubT } = supabase.storage.from("smart-capture").getPublicUrl(thumbPath);
+      const url = `${pubT.publicUrl}?v=${Date.now()}`;
+      setThumbnailUrl(url);
+
+      await updateSession.mutateAsync({
+        id: sid,
+        updates: {
+          metadata: {
+            ...((session as { metadata?: Record<string, unknown> })?.metadata ?? {}),
+            thumbnail_url: url,
+          },
+        },
+      });
+      toast({ title: "Miniatura připravena", description: "Použije se pouze v nabídce vozů, v detailu nikoli." });
+    } catch (e) {
+      toast({ title: "Miniatura se nevytvořila", description: String(e), variant: "destructive" });
+    } finally {
+      setThumbBusy(false);
+    }
+  };
+
   const handleShot = async () => {
     if (!sessionId || busy || switching || shootingRef.current) return;
     shootingRef.current = true;
@@ -249,10 +321,13 @@ export default function SmartCapture() {
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
       void processAndUpload(blob, stepAtShot);
+      // První záběr → miniatura na přednastaveném pozadí (na pozadí, neblokuje)
+      if (stepAtShot === 0 && thumbComposeEnabled && !thumbBusy) void buildThumbnail(blob, sessionId);
     } finally {
       setTimeout(() => { shootingRef.current = false; }, 250);
     }
   };
+
 
 
   const processAndUpload = async (input: Blob | File, stepIdx?: number) => {
@@ -434,6 +509,8 @@ export default function SmartCapture() {
     const decoded = ((session as { decoded_data?: Record<string, unknown> }).decoded_data ?? {}) as Record<string, unknown>;
     const meta = ((session as { metadata?: Record<string, unknown> }).metadata ?? {}) as Record<string, unknown>;
     const savedInfo = (meta.vehicle_info ?? {}) as Partial<VehicleInfo>;
+    if (typeof meta.thumbnail_url === "string") setThumbnailUrl(meta.thumbnail_url);
+
     setVehicleInfo((cur) => {
       const next: VehicleInfo = { ...cur, ...savedInfo };
       if (!next.brand && decoded.make) next.brand = String(decoded.make);
@@ -506,10 +583,19 @@ export default function SmartCapture() {
   }
 
   return (
-    <div className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden">
+    /* 100dvh + safe-area: na iPhonu (dynamický toolbar Safari, notch, home indicator)
+       je `fixed inset-0` samo o sobě nespolehlivé — obsah se schovával pod lištu. */
+    <div
+      className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden"
+      style={{ height: "100dvh", width: "100dvw" }}
+    >
       {/* Header — hidden while capturing (full-screen camera) */}
       {phase !== "capturing" && (
-      <header className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0 backdrop-blur-xl bg-black/40">
+      <header
+        className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0 backdrop-blur-xl bg-black/40"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
+      >
+
 
         <button onClick={() => { stopCamera(); navigate("/admin"); }}
           className="p-2 rounded-full hover:bg-white/10 transition-colors">
@@ -600,6 +686,34 @@ export default function SmartCapture() {
             playsInline muted autoPlay
           />
 
+          {/* Přednastavené pozadí pro MINIATURU — vidíte ho už při focení
+              prvního záběru a vozidlo do něj „zaparkujete". */}
+          {thumbOverlayEnabled && thumbOverlayOn && currentStepIdx === 0 && stream && !cameraError && (
+            <div className="pointer-events-none absolute inset-0 z-10">
+              <div
+                className="absolute inset-0"
+                style={{
+                  backgroundImage: `url(${CAPTURE_BG_URL})`,
+                  backgroundSize: "cover",
+                  backgroundPosition: "center",
+                  opacity: 0.5,
+                }}
+              />
+              {/* Vodítka: středová osa + linie kol (asfalt) + rámec vozidla */}
+              <div className="absolute inset-y-0 left-1/2 w-px bg-emerald-300/50" />
+              <div className="absolute inset-x-0 h-px bg-emerald-300/70" style={{ top: `${THUMB_PLACEMENT.wheelLineRatio * 100}%` }} />
+              <div
+                className="absolute border border-dashed border-emerald-300/60 rounded-md"
+                style={{
+                  left: `${(1 - THUMB_PLACEMENT.widthRatio) * 50}%`,
+                  width: `${THUMB_PLACEMENT.widthRatio * 100}%`,
+                  top: `${(THUMB_PLACEMENT.wheelLineRatio - THUMB_PLACEMENT.maxHeightRatio) * 100}%`,
+                  height: `${THUMB_PLACEMENT.maxHeightRatio * 100}%`,
+                }}
+              />
+            </div>
+          )}
+
 
           {/* Composition grid (rule of thirds) */}
           {gridEnabled && stream && !cameraError && (
@@ -620,8 +734,16 @@ export default function SmartCapture() {
             </div>
           )}
 
-          {/* Top bar — floating glass */}
-          <div className={`absolute top-0 inset-x-0 flex items-center justify-between gap-3 ${landscapeMode ? "px-4 pt-3" : "px-4 pt-4"}`}>
+          {/* Top bar — floating glass (nad overlayem pozadí, respektuje notch) */}
+          <div
+            className={`absolute top-0 inset-x-0 z-40 flex items-center justify-between gap-3 ${landscapeMode ? "px-4 pt-2" : "px-4 pt-4"}`}
+            style={{
+              paddingTop: landscapeMode ? "max(0.5rem, env(safe-area-inset-top))" : "max(1rem, env(safe-area-inset-top))",
+              paddingLeft: "max(1rem, env(safe-area-inset-left))",
+              paddingRight: "max(1rem, env(safe-area-inset-right))",
+            }}
+          >
+
             <button onClick={() => { stopCamera(); navigate("/admin"); }}
               className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition">
               <X size={18} />
@@ -718,7 +840,8 @@ export default function SmartCapture() {
           {landscapeMode ? (
             <>
               {/* LEFT column — navigation + secondary controls (kept away from the shutter) */}
-              <div className="absolute left-0 inset-y-0 w-20 flex flex-col items-center justify-center gap-3 pointer-events-none z-20">
+              <div className="absolute left-0 inset-y-0 w-24 flex flex-col items-center justify-center gap-3 pointer-events-none z-30"
+                style={{ paddingLeft: "env(safe-area-inset-left)" }}>
                 <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
                   className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 hover:bg-black/60 transition"
                   title="Předchozí">
@@ -747,7 +870,8 @@ export default function SmartCapture() {
               </div>
 
               {/* RIGHT column — ONLY the shutter, nothing else can steal the tap */}
-              <div className="absolute right-0 inset-y-0 w-24 flex items-center justify-center pointer-events-none z-30">
+              <div className="absolute right-0 inset-y-0 w-28 flex items-center justify-center pointer-events-none z-40"
+                style={{ paddingRight: "env(safe-area-inset-right)" }}>
                 <button onClick={handleShot} disabled={!stream || switching}
                   style={{ touchAction: "manipulation" }}
                   className="pointer-events-auto relative w-[74px] h-[74px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
@@ -759,7 +883,8 @@ export default function SmartCapture() {
 
               {/* BOTTOM filmstrip */}
               {photos.length > 0 && (
-                <div className="absolute bottom-0 left-20 right-24 px-4 pb-3">
+                <div className="absolute bottom-0 left-24 right-28 px-4 pb-3 z-20"
+                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
                   <div className="flex gap-2 overflow-x-auto pb-1">
                     {photos.map((p) => {
                       const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
@@ -779,7 +904,8 @@ export default function SmartCapture() {
             </>
           ) : (
             /* PORTRAIT — floating bottom console */
-            <div className="absolute bottom-0 inset-x-0 px-4 pb-5 pt-4 bg-gradient-to-t from-black via-black/80 to-transparent">
+            <div className="absolute bottom-0 inset-x-0 z-20 px-4 pb-5 pt-4 bg-gradient-to-t from-black via-black/80 to-transparent"
+              style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
               {photos.length > 0 && (
                 <div className="flex gap-2 overflow-x-auto pb-3">
                   {photos.map((p) => {
@@ -915,6 +1041,31 @@ export default function SmartCapture() {
               {(session as { has_360?: boolean })?.has_360 && " · 🔄 360° připraveno"}
             </p>
           </div>
+
+          {/* Miniatura na přednastaveném pozadí — jen pro nabídku vozů */}
+          {(thumbOverlayEnabled || thumbnailUrl) && (
+            <div className="max-w-md mx-auto mb-6 bg-white/5 border border-white/10 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium">Miniatura pro nabídku vozů</h3>
+                {thumbBusy && <span className="text-[11px] text-blue-300 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> skládám…</span>}
+              </div>
+              {thumbnailUrl ? (
+                <>
+                  <img src={thumbnailUrl} alt="Miniatura vozidla na showroom pozadí"
+                    className="w-full aspect-video object-cover rounded-xl ring-1 ring-white/15" />
+                  <p className="text-[11px] text-white/50 mt-2">
+                    Použije se pouze jako miniatura v nabídce vozů — v detailu vozidla se nezobrazuje.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-white/50">
+                  Miniatura se vytvoří z prvního záběru pořízeného s vloženým pozadím.
+                </p>
+              )}
+            </div>
+          )}
+
+
 
           {/* Gallery */}
           <div className="grid grid-cols-3 gap-2 mb-6">

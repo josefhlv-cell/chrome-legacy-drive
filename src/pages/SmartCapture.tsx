@@ -302,7 +302,7 @@ export default function SmartCapture() {
       await uploadPhoto.mutateAsync({
         sessionId,
         shotType: detectedType,
-        shotIndex: photos.length,
+        shotIndex: myIndex,
         originalBlob: input,
         processedBlob: processed,
         width, height,

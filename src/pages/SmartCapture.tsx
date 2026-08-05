@@ -66,6 +66,10 @@ export default function SmartCapture() {
   });
   const videoRef = useRef<HTMLVideoElement>(null);
   const facingRef = useRef<"environment" | "user">("environment");
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
+  const [switching, setSwitching] = useState(false);
+  const shootingRef = useRef(false);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const fallbackUploadRef = useRef<HTMLInputElement>(null);
 

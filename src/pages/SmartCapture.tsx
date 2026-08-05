@@ -256,8 +256,13 @@ export default function SmartCapture() {
 
   const processAndUpload = async (input: Blob | File, stepIdx?: number) => {
     if (!sessionId) return;
+    // Claim a unique shot index up-front — parallel uploads used to reuse
+    // photos.length and produce duplicate ordering.
+    shotIndexRef.current = Math.max(shotIndexRef.current, photos.length);
+    const myIndex = shotIndexRef.current++;
     setQueueCount((n) => n + 1);
     setLastAnalysis(null);
+
     try {
       const autoProcess = !settings || (settings as { auto_image_processing?: string }).auto_image_processing !== "off";
 

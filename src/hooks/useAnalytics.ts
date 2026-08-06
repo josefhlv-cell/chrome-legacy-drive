@@ -238,7 +238,7 @@ export function computeStats(views: PageView[]) {
 
   const dailyMap = new Map<string, number>();
   views.forEach(v => {
-    const day = v.created_at.slice(0, 10);
+    const day = dayKey(v.created_at);
     dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
   });
   const dailyViews = Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));

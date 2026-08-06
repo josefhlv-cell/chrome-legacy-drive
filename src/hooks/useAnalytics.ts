@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 interface PageView {
   id: string;
   session_id: string;
+  visitor_id?: string | null;
+  is_new_visitor?: boolean | null;
   path: string;
   referrer: string;
   entry_referrer?: string | null;
@@ -21,7 +23,34 @@ interface PageView {
 interface Lead {
   id: string;
   type: string;
+  email?: string | null;
+  phone?: string | null;
   created_at: string;
+}
+
+export interface PhoneClick {
+  id: string;
+  session_id: string;
+  visitor_id?: string | null;
+  is_new_visitor?: boolean | null;
+  phone: string;
+  path: string;
+  source: string;
+  created_at: string;
+}
+
+/** Strop doby na stránce (30 min) – stejný jako v usePageTracking.
+ *  Starší řádky v DB mohou mít nesmyslné hodnoty (karta otevřená přes noc),
+ *  proto je normalizujeme i při čtení. */
+const MAX_TIME_ON_PAGE = 30 * 60;
+
+/** Denní klíč v LOKÁLNÍM čase.
+ *  Dřív se používalo created_at.slice(0,10) = UTC den, takže návštěvy mezi
+ *  00:00 a 02:00 letního času padaly do předchozího dne. */
+export function dayKey(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // Supabase/PostgREST vrací max. 1000 řádků na jeden request (výchozí "max-rows").

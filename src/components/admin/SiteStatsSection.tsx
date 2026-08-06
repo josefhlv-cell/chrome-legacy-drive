@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import {
   Globe, MapPin, LogOut, Timer, Layers, MousePointerClick,
-  Smartphone, Tablet, Monitor, Clock, Users,
+  Smartphone, Tablet, Monitor, Clock, Users, UserPlus, Repeat, PhoneCall,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
-import { useAnalytics, computeStats, computeSiteInsights, formatDuration } from "@/hooks/useAnalytics";
+import {
+  useAnalytics, usePhoneClicks, computeStats, computeSiteInsights,
+  computeVisitorStats, computePhoneClickStats, formatDuration,
+} from "@/hooks/useAnalytics";
 
 const Card = ({ title, icon: Icon, children, right }: {
   title: string; icon?: any; children: React.ReactNode; right?: React.ReactNode;
@@ -41,15 +44,21 @@ const Bar100 = ({ value }: { value: number }) => (
 
 const RANGES = [7, 30, 90] as const;
 
+const shortDay = (d: string) => d.slice(8, 10) + "." + d.slice(5, 7) + ".";
+
 export default function SiteStatsSection() {
   const [days, setDays] = useState<number>(30);
   const { data: views = [], isLoading } = useAnalytics(days);
+  const { data: phoneClicks = [] } = usePhoneClicks(days);
 
   const stats = useMemo(() => computeStats(views), [views]);
   const insights = useMemo(() => computeSiteInsights(views), [views]);
+  const visitorStats = useMemo(() => computeVisitorStats(views), [views]);
+  const phoneStats = useMemo(() => computePhoneClickStats(phoneClicks, views), [phoneClicks, views]);
 
   const hourly = stats?.hourlyViews ?? [];
   const peakHour = hourly.reduce((best, h) => (h.count > best.count ? h : best), { hour: 0, count: 0 });
+
 
   return (
     <div className="space-y-4">

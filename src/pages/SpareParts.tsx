@@ -9,6 +9,7 @@ import moparAsset from "@/assets/dily/mopar.png.asset.json";
 import vinAsset from "@/assets/dily/vin.jpg.asset.json";
 import doruceniAsset from "@/assets/dily/doruceni.jpg.asset.json";
 import aftermarketAsset from "@/assets/dily/aftermarket.jpg.asset.json";
+import { trackPhoneClick } from "@/lib/trackPhoneClick";
 
 const APP_URL = "https://chryslerpardubice.site/";
 
@@ -125,7 +126,7 @@ const SpareParts = () => {
           <p className="text-sm text-muted-foreground mb-3">
             Zavolejte nám a náš tým vám pomůže s identifikací a objednáním dílu.
           </p>
-          <a href="tel:+420603372911" className="text-primary font-bold text-lg hover:underline">
+          <a href="tel:+420603372911" onClick={() => trackPhoneClick("+420603372911", "spare-parts")} className="text-primary font-bold text-lg hover:underline">
             +420 603 372 911
           </a>
         </motion.div>

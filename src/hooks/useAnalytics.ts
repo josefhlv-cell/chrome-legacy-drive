@@ -4,6 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 interface PageView {
   id: string;
   session_id: string;
+  visitor_id?: string | null;
+  is_new_visitor?: boolean | null;
   path: string;
   referrer: string;
   entry_referrer?: string | null;
@@ -21,21 +23,53 @@ interface PageView {
 interface Lead {
   id: string;
   type: string;
+  email?: string | null;
+  phone?: string | null;
   created_at: string;
+}
+
+export interface PhoneClick {
+  id: string;
+  session_id: string;
+  visitor_id?: string | null;
+  is_new_visitor?: boolean | null;
+  phone: string;
+  path: string;
+  source: string;
+  created_at: string;
+}
+
+/** Strop doby na stránce (30 min) – stejný jako v usePageTracking.
+ *  Starší řádky v DB mohou mít nesmyslné hodnoty (karta otevřená přes noc),
+ *  proto je normalizujeme i při čtení. */
+const MAX_TIME_ON_PAGE = 30 * 60;
+
+/** Denní klíč v LOKÁLNÍM čase.
+ *  Dřív se používalo created_at.slice(0,10) = UTC den, takže návštěvy mezi
+ *  00:00 a 02:00 letního času padaly do předchozího dne. */
+export function dayKey(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
 // Supabase/PostgREST vrací max. 1000 řádků na jeden request (výchozí "max-rows").
 // Bez stránkování přes .range() se tak jakýkoli dotaz s víc než 1000 shodami
 // vždy tise ořízne na přesně 1000 – proto dashboard "zamrzl" na čísle 1 000.
-// Tahle funkce prochází výsledky po stránkách, dokud nedojdou všechna data.
-async function fetchAllRows<T>(
+//
+// OPRAVA (audit): řazení jen podle created_at není stabilní – u řádků se stejným
+// časem (a při zápisu nových řádků během stránkování) mohl PostgREST vrátit
+// stejný řádek dvakrát, nebo jeden vynechat. Nově řadíme created_at + id
+// (deterministicky) a navíc deduplikujeme podle id, takže se řádek nikdy
+// nespočítá dvakrát ani na hranici stránky.
+async function fetchAllRows<T extends { id: string }>(
   table: string,
   columns: string,
   since: string
 ): Promise<T[]> {
   const pageSize = 1000;
   let from = 0;
-  let all: T[] = [];
+  const byId = new Map<string, T>();
 
   while (true) {
     const { data, error } = await supabase
@@ -43,12 +77,13 @@ async function fetchAllRows<T>(
       .select(columns)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, from + pageSize - 1);
 
     if (error) throw error;
 
     const rows = (data || []) as T[];
-    all = all.concat(rows);
+    rows.forEach(r => byId.set(r.id, r));
 
     if (rows.length < pageSize) break; // poslední (neúplná) stránka -> konec
     from += pageSize;
@@ -57,16 +92,26 @@ async function fetchAllRows<T>(
     if (from > 200_000) break;
   }
 
-  return all;
+  return Array.from(byId.values());
+}
+
+function sinceIso(days: number): string {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  since.setHours(0, 0, 0, 0); // celé lokální dny, ať okno souhlasí s denním grafem
+  return since.toISOString();
 }
 
 export function useAnalytics(days: number = 30) {
   return useQuery({
     queryKey: ["analytics", days],
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      return fetchAllRows<PageView>("page_views", "*", since.toISOString());
+      const rows = await fetchAllRows<PageView>("page_views", "*", sinceIso(days));
+      // Normalizace: zastropovaná doba na stránce (staré řádky mají i 40 000 s)
+      return rows.map(r => ({
+        ...r,
+        time_on_page: Math.min(MAX_TIME_ON_PAGE, Math.max(0, r.time_on_page || 0)),
+      }));
     },
     staleTime: 60_000, // 1 min cache, ať se dashboard zbytečně nedotazuje při každém renderu
   });
@@ -75,23 +120,55 @@ export function useAnalytics(days: number = 30) {
 export function useLeadsAnalytics(days: number = 30) {
   return useQuery({
     queryKey: ["leads-analytics", days],
-    queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      return fetchAllRows<Lead>("leads", "id, type, created_at", since.toISOString());
-    },
+    queryFn: async () =>
+      fetchAllRows<Lead>("leads", "id, type, email, phone, created_at", sinceIso(days)),
     staleTime: 60_000,
   });
 }
 
+export function usePhoneClicks(days: number = 30) {
+  return useQuery({
+    queryKey: ["phone-clicks", days],
+    queryFn: async () =>
+      fetchAllRows<PhoneClick>(
+        "phone_clicks",
+        "id, session_id, visitor_id, is_new_visitor, phone, path, source, created_at",
+        sinceIso(days)
+      ),
+    staleTime: 60_000,
+  });
+}
+
+
+/**
+ * OPRAVY (audit):
+ * - Lead se při opakovaném odeslání formuláře (retry) počítal vícekrát.
+ *   Nově se stejný typ + stejný e-mail/telefon do 10 minut považuje za jeden lead.
+ * - Denní grupování používá lokální den (dayKey), ne UTC.
+ * - uniqueSessions i totalLeads se počítají ze stejného okna (obě data se
+ *   načítají přes sinceIso(days), takže jmenovatel a čitatel jsou souměřitelné).
+ */
 export function computeConversionStats(views: PageView[], leads: Lead[]) {
   const uniqueSessions = new Set(views.map(v => v.session_id)).size;
-  const totalLeads = leads.length;
+
+  const sorted = [...leads].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const lastSeen = new Map<string, number>();
+  const dedupedLeads = sorted.filter(l => {
+    const ident = (l.email || l.phone || l.id).toLowerCase().trim();
+    const key = `${l.type}|${ident}`;
+    const t = new Date(l.created_at).getTime();
+    const prev = lastSeen.get(key);
+    if (prev !== undefined && t - prev < 10 * 60 * 1000) return false;
+    lastSeen.set(key, t);
+    return true;
+  });
+
+  const totalLeads = dedupedLeads.length;
   const conversionRate = uniqueSessions > 0 ? ((totalLeads / uniqueSessions) * 100).toFixed(1) : "0";
 
   // Leads by type
   const byType = new Map<string, number>();
-  leads.forEach(l => {
+  dedupedLeads.forEach(l => {
     byType.set(l.type, (byType.get(l.type) || 0) + 1);
   });
   const leadsByType = Array.from(byType.entries())
@@ -101,13 +178,13 @@ export function computeConversionStats(views: PageView[], leads: Lead[]) {
   // Daily leads vs visits
   const dailyMap = new Map<string, { visits: number; leads: number }>();
   views.forEach(v => {
-    const day = v.created_at.slice(0, 10);
+    const day = dayKey(v.created_at);
     const entry = dailyMap.get(day) || { visits: 0, leads: 0 };
     entry.visits++;
     dailyMap.set(day, entry);
   });
-  leads.forEach(l => {
-    const day = l.created_at.slice(0, 10);
+  dedupedLeads.forEach(l => {
+    const day = dayKey(l.created_at);
     const entry = dailyMap.get(day) || { visits: 0, leads: 0 };
     entry.leads++;
     dailyMap.set(day, entry);
@@ -126,10 +203,13 @@ export function computeStats(views: PageView[]) {
   const totalViews = views.length;
   const avgTimeOnPage = Math.round(views.reduce((s, v) => s + v.time_on_page, 0) / views.length);
 
+  // OPRAVA (audit): bounce rate se počítá z unikátních session_id (sessions bez
+  // jediného řádku jmenovatel nezkreslují, protože je do mapy vůbec nedostaneme)
+  // a jmenovatel je chráněný proti dělení nulou.
   const sessionCounts = new Map<string, number>();
   views.forEach(v => sessionCounts.set(v.session_id, (sessionCounts.get(v.session_id) || 0) + 1));
   const bounceSessions = Array.from(sessionCounts.values()).filter(c => c === 1).length;
-  const bounceRate = Math.round((bounceSessions / uniqueSessions) * 100);
+  const bounceRate = Math.round((bounceSessions / Math.max(1, sessionCounts.size)) * 100);
 
   const pageViews = new Map<string, { views: number; totalTime: number; exits: number }>();
   views.forEach(v => {
@@ -158,7 +238,7 @@ export function computeStats(views: PageView[]) {
 
   const dailyMap = new Map<string, number>();
   views.forEach(v => {
-    const day = v.created_at.slice(0, 10);
+    const day = dayKey(v.created_at);
     dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
   });
   const dailyViews = Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date));
@@ -300,4 +380,98 @@ export function formatDuration(sec: number) {
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   return m > 0 ? `${m} m ${s} s` : `${s} s`;
+}
+
+/**
+ * Noví vs. vracející se zákazníci.
+ *
+ * Počítá se na úrovni visitor_id (localStorage), ne session_id – jedna osoba
+ * tak může mít víc návštěv a je vidět, kdo se skutečně vrací.
+ * Řádky bez visitor_id (starší data před zavedením identifikátoru) se ignorují,
+ * aby nezkreslovaly poměr.
+ */
+export function computeVisitorStats(views: PageView[]) {
+  const visitors = new Map<string, { newFlag: boolean; returnFlag: boolean; sessions: Set<string> }>();
+
+  views.forEach(v => {
+    const id = v.visitor_id;
+    if (!id) return;
+    const e = visitors.get(id) ?? { newFlag: false, returnFlag: false, sessions: new Set<string>() };
+    if (v.is_new_visitor) e.newFlag = true; else e.returnFlag = true;
+    e.sessions.add(v.session_id);
+    visitors.set(id, e);
+  });
+
+  let newVisitors = 0;
+  let returningVisitors = 0;
+  let repeated = 0;
+  visitors.forEach(e => {
+    if (e.newFlag) newVisitors++;
+    if (e.returnFlag) returningVisitors++;
+    if (e.returnFlag || e.sessions.size > 1) repeated++;
+  });
+
+  // Denní trend – lokální dny, každý visitor se v daném dni počítá jednou
+  const daily = new Map<string, { newSet: Set<string>; retSet: Set<string> }>();
+  views.forEach(v => {
+    if (!v.visitor_id) return;
+    const day = dayKey(v.created_at);
+    const e = daily.get(day) ?? { newSet: new Set<string>(), retSet: new Set<string>() };
+    (v.is_new_visitor ? e.newSet : e.retSet).add(v.visitor_id);
+    daily.set(day, e);
+  });
+
+  const newVisitorsTrend = Array.from(daily.entries())
+    .map(([date, e]) => ({ date, newCount: e.newSet.size, returningCount: e.retSet.size }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalVisitors = visitors.size;
+  const repeatRate = totalVisitors > 0 ? Math.round((repeated / totalVisitors) * 100) : 0;
+
+  return { newVisitors, returningVisitors, totalVisitors, repeatRate, newVisitorsTrend };
+}
+
+/**
+ * Prokliky na telefon.
+ *
+ * session_id má stejný formát i stejný zdroj (sessionStorage "analytics_session_id")
+ * jako u page_views, takže se prokliky dají párovat se zdrojem návštěvnosti.
+ * Zároveň se počítá rozpad na nové vs. vracející se zákazníky (podle visitor_id).
+ */
+export function computePhoneClickStats(clicks: PhoneClick[], views: PageView[] = []) {
+  const uniqueSessions = new Set(clicks.map(c => c.session_id)).size;
+  const uniqueVisitors = new Set(clicks.filter(c => c.visitor_id).map(c => c.visitor_id as string)).size;
+
+  const newVisitorClicks = clicks.filter(c => c.is_new_visitor).length;
+  const returningVisitorClicks = clicks.length - newVisitorClicks;
+
+  const byPhoneMap = new Map<string, number>();
+  const byPathMap = new Map<string, number>();
+  const dailyMap = new Map<string, number>();
+  clicks.forEach(c => {
+    byPhoneMap.set(c.phone, (byPhoneMap.get(c.phone) || 0) + 1);
+    byPathMap.set(c.path || "/", (byPathMap.get(c.path || "/") || 0) + 1);
+    const day = dayKey(c.created_at);
+    dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
+  });
+
+  // Podíl návštěv, které skončily prokliknutím telefonu (stejné časové okno)
+  const viewSessions = new Set(views.map(v => v.session_id));
+  const matchedSessions = new Set(clicks.map(c => c.session_id).filter(s => viewSessions.has(s))).size;
+  const callRate = viewSessions.size > 0
+    ? ((matchedSessions / viewSessions.size) * 100).toFixed(1)
+    : "0";
+
+  return {
+    totalClicks: clicks.length,
+    uniqueSessions,
+    uniqueVisitors,
+    newVisitorClicks,
+    returningVisitorClicks,
+    matchedSessions,
+    callRate,
+    byPhone: Array.from(byPhoneMap.entries()).map(([phone, count]) => ({ phone, count })).sort((a, b) => b.count - a.count),
+    byPath: Array.from(byPathMap.entries()).map(([path, count]) => ({ path, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+    daily: Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)),
+  };
 }

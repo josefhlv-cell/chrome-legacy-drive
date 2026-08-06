@@ -1,12 +1,15 @@
 import { useMemo, useState } from "react";
 import {
   Globe, MapPin, LogOut, Timer, Layers, MousePointerClick,
-  Smartphone, Tablet, Monitor, Clock, Users,
+  Smartphone, Tablet, Monitor, Clock, Users, UserPlus, Repeat, PhoneCall,
 } from "lucide-react";
 import {
-  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid,
+  BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
-import { useAnalytics, computeStats, computeSiteInsights, formatDuration } from "@/hooks/useAnalytics";
+import {
+  useAnalytics, usePhoneClicks, computeStats, computeSiteInsights,
+  computeVisitorStats, computePhoneClickStats, formatDuration,
+} from "@/hooks/useAnalytics";
 
 const Card = ({ title, icon: Icon, children, right }: {
   title: string; icon?: any; children: React.ReactNode; right?: React.ReactNode;
@@ -41,15 +44,21 @@ const Bar100 = ({ value }: { value: number }) => (
 
 const RANGES = [7, 30, 90] as const;
 
+const shortDay = (d: string) => d.slice(8, 10) + "." + d.slice(5, 7) + ".";
+
 export default function SiteStatsSection() {
   const [days, setDays] = useState<number>(30);
   const { data: views = [], isLoading } = useAnalytics(days);
+  const { data: phoneClicks = [] } = usePhoneClicks(days);
 
   const stats = useMemo(() => computeStats(views), [views]);
   const insights = useMemo(() => computeSiteInsights(views), [views]);
+  const visitorStats = useMemo(() => computeVisitorStats(views), [views]);
+  const phoneStats = useMemo(() => computePhoneClickStats(phoneClicks, views), [phoneClicks, views]);
 
   const hourly = stats?.hourlyViews ?? [];
   const peakHour = hourly.reduce((best, h) => (h.count > best.count ? h : best), { hour: 0, count: 0 });
+
 
   return (
     <div className="space-y-4">
@@ -82,6 +91,65 @@ export default function SiteStatsSection() {
         <Mini icon={Clock} label="Nejsilnější hodina" value={`${peakHour.hour}:00`}
           sub={`${peakHour.count} zobrazení`} />
       </div>
+
+      {/* Noví vs. vracející se */}
+      <Card title="Noví vs. vracející se zákazníci" icon={Repeat}
+        right={<span className="text-xs text-muted-foreground">Repeat rate <span className="text-primary font-semibold">{visitorStats.repeatRate}%</span></span>}>
+        <div className="grid grid-cols-2 gap-3 mb-4">
+          <Mini icon={UserPlus} label="Noví zákazníci" value={visitorStats.newVisitors.toLocaleString("cs-CZ")}
+            sub={`z ${visitorStats.totalVisitors.toLocaleString("cs-CZ")} návštěvníků`} />
+          <Mini icon={Repeat} label="Vracející se" value={visitorStats.returningVisitors.toLocaleString("cs-CZ")}
+            sub={`${visitorStats.repeatRate}% se vrátilo alespoň jednou`} />
+        </div>
+        <div className="h-56">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={visitorStats.newVisitorsTrend}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+              <XAxis dataKey="date" tickFormatter={shortDay} tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} allowDecimals={false} />
+              <Tooltip labelFormatter={(l) => shortDay(String(l))}
+                contentStyle={{ background: "hsl(var(--card))", border: "1px solid hsl(var(--border))", borderRadius: 8 }} />
+              <Legend wrapperStyle={{ fontSize: 11 }} />
+              <Bar dataKey="newCount" name="Noví" stackId="v" fill="hsl(var(--primary))" radius={[0, 0, 0, 0]} />
+              <Bar dataKey="returningCount" name="Vracející se" stackId="v" fill="hsl(var(--muted-foreground))" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        {visitorStats.totalVisitors === 0 && (
+          <p className="text-xs text-muted-foreground mt-2">Zatím žádná data — sbírá se od zavedení identifikátoru návštěvníka.</p>
+        )}
+      </Card>
+
+      {/* Prokliky na telefon */}
+      <Card title="Prokliky na telefon" icon={PhoneCall}
+        right={<span className="text-xs text-muted-foreground">{phoneStats.callRate}% návštěv volalo</span>}>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-4">
+          <Mini icon={PhoneCall} label="Prokliky celkem" value={phoneStats.totalClicks.toLocaleString("cs-CZ")}
+            sub={`${phoneStats.uniqueSessions} návštěv · ${phoneStats.uniqueVisitors} osob`} />
+          <Mini icon={UserPlus} label="Noví zákazníci" value={phoneStats.newVisitorClicks.toLocaleString("cs-CZ")} sub="prokliky nových" />
+          <Mini icon={Repeat} label="Vracející se" value={phoneStats.returningVisitorClicks.toLocaleString("cs-CZ")} sub="prokliky vracejících se" />
+          <Mini icon={MousePointerClick} label="Míra volání" value={`${phoneStats.callRate}%`} sub="z návštěv webu" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <ul className="divide-y divide-border">
+            {phoneStats.byPhone.map(p => (
+              <li key={p.phone} className="flex items-center justify-between py-2 text-xs gap-3">
+                <span className="truncate">{p.phone}</span>
+                <span className="shrink-0 tabular-nums text-primary font-medium">{p.count}</span>
+              </li>
+            ))}
+            {phoneStats.byPhone.length === 0 && <p className="text-sm text-muted-foreground">Zatím žádné prokliky.</p>}
+          </ul>
+          <ul className="divide-y divide-border">
+            {phoneStats.byPath.map(p => (
+              <li key={p.path} className="flex items-center justify-between py-2 text-xs gap-3">
+                <span className="truncate">{p.path}</span>
+                <span className="shrink-0 tabular-nums text-muted-foreground">{p.count}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </Card>
 
       {/* Sources */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">

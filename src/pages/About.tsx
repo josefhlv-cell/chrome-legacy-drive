@@ -10,6 +10,7 @@ import workshop1 from "@/assets/workshop-1.webp";
 import workshop2 from "@/assets/workshop-2.webp";
 import workshop3 from "@/assets/workshop-3.webp";
 import workshop4 from "@/assets/workshop-4.webp";
+import { trackPhoneClick } from "@/lib/trackPhoneClick";
 
 const reasons = [
   { icon: Search, title: "Specializace", text: "Chrysler není jen jedna z mnoha značek v našem portfoliu. Je to naše vášeň. Známe každý šroubek modelů Pacifica, Voyager i Grand Caravan." },
@@ -231,7 +232,7 @@ const AboutPage = () => {
                 <div className="glass-card p-6">
                   <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4">Kontakt</h3>
                   <div className="space-y-3">
-                    <a href="tel:+420603559767" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
+                    <a href="tel:+420603559767" onClick={() => trackPhoneClick("+420603559767", "about")} className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
                       <Phone className="w-4 h-4 text-primary" />
                       <div>
                         <p className="text-foreground font-medium">+420 603 559 767</p>

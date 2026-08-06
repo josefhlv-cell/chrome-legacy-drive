@@ -1,7 +1,7 @@
 {
   "version": "camera-v1",
   "readOnly": true,
-  "note": "Locked virtual camera of the master showroom. NEVER regenerate or edit — every vehicle composite must use exactly these values.",
+  "note": "Locked virtual camera of the master showroom. NEVER regenerate or edit \u2014 every vehicle composite must use exactly these values.",
   "canvas": {
     "width": 1920,
     "height": 1080,

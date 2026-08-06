@@ -1,8 +1,8 @@
 {
-  "version": "ground-v3",
+  "version": "ground-v4",
   "readOnly": true,
-  "note": "Ground plane of the master showroom background (background-v3.jpg). All vehicles align to this plane.",
-  "surface": "asphalt",
+  "note": "Ground plane of the master showroom background (background-v4.jpg). All vehicles align to this plane.",
+  "surface": "polished concrete",
   "tyre_contact_line_y": 1015,
   "tyre_contact_line_y_ratio": 0.94,
   "vehicle_anchor": {
@@ -14,7 +14,7 @@
     "min": 210,
     "max": 1710
   },
-  "wall_floor_seam_y": 640,
+  "wall_floor_seam_y": 713,
   "shadow": {
     "direction_deg": 96,
     "ambient_reach_ratio": 0.11,

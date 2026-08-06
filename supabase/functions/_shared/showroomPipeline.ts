@@ -33,7 +33,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v3.jpg`;
+  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v4.jpg`;
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
@@ -996,7 +996,8 @@ export async function runShowroom(
       lighting_version: LIGHTING_VERSION,
       generated_at: new Date().toISOString(),
       ai_model: aiModel,
-      ai_role: "segmentation-only",
+      cutout_source: aiModel === "remove.bg" ? "remove.bg" : "ai",
+      ai_role: aiModel === "remove.bg" ? "none" : "segmentation-only",
       validation_score: report.score,
     },
   });
@@ -1034,8 +1035,46 @@ const CUTOUT_MODELS = [
 
 type CutoutResult = { ok: boolean; dataUrl?: string; model?: string; error?: string };
 
+/**
+ * PRIMARY cutout source: remove.bg real segmentation (true alpha channel).
+ * Deterministic, no generative model touches the vehicle at all.
+ */
+async function requestCutoutRemoveBg(carDataUrl: string): Promise<CutoutResult> {
+  const apiKey = Deno.env.get("REMOVE_BG_API_KEY") ?? Deno.env.get("REMOVEBG_API_KEY") ?? "";
+  if (!apiKey) return { ok: false, error: "remove.bg: missing REMOVE_BG_API_KEY" };
+  try {
+    const { bytes, contentType } = dataUrlToBytes(carDataUrl);
+    const form = new FormData();
+    form.append("image_file", new Blob([bytes], { type: contentType || "image/jpeg" }), "car.jpg");
+    form.append("type", "car");
+    form.append("size", "auto");
+    form.append("format", "png");
+    const resp = await fetch("https://api.remove.bg/v1.0/removebg", {
+      method: "POST",
+      headers: { "X-Api-Key": apiKey },
+      body: form,
+    });
+    if (!resp.ok) {
+      const t = await resp.text();
+      return { ok: false, error: `remove.bg: ${resp.status} ${t.slice(0, 160)}` };
+    }
+    const buf = new Uint8Array(await resp.arrayBuffer());
+    if (buf.byteLength < 5_000) return { ok: false, error: "remove.bg: empty response" };
+    return { ok: true, dataUrl: toDataUrl(buf, "image/png"), model: "remove.bg" };
+  } catch (e: any) {
+    return { ok: false, error: `remove.bg: ${e?.message ?? e}` };
+  }
+}
+
 async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
   const errors: string[] = [];
+
+  // 1) Real segmentation first.
+  const rb = await requestCutoutRemoveBg(carDataUrl);
+  if (rb.ok) return rb;
+  errors.push(rb.error!);
+  console.warn("remove.bg cutout unavailable, falling back to AI segmentation:", rb.error);
+
   for (const model of CUTOUT_MODELS) {
     try {
       const isOpenAI = model.startsWith("openai/");

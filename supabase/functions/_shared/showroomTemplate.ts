@@ -5,10 +5,10 @@
 // ============================================================================
 
 export const CAMERA_VERSION = "camera-v1";
-export const BACKGROUND_VERSION = "background-v3";
-export const PLACEMENT_VERSION = "placement-v1";
-export const LIGHTING_VERSION = "lighting-v1";
-export const GROUND_VERSION = "ground-v3";
+export const BACKGROUND_VERSION = "background-v4";
+export const PLACEMENT_VERSION = "placement-v2";
+export const LIGHTING_VERSION = "lighting-v2";
+export const GROUND_VERSION = "ground-v4";
 
 export const CANVAS_W = 1920;
 export const CANVAS_H = 1080;
@@ -20,7 +20,7 @@ export const CAMERA = {
   pitch_deg: -1.8,
   yaw_deg: 0,
   roll_deg: 0,
-  horizon_y: 640,
+  horizon_y: 713,
   jpeg_quality: 94,
 } as const;
 
@@ -30,7 +30,7 @@ export const GROUND = {
   anchorX: 960,
   usableMinX: 210,
   usableMaxX: 1710,
-  wallFloorSeamY: 640,
+  wallFloorSeamY: 713,
   ambientReachRatio: 0.11,
   contactReachRatio: 0.022,
   ambientOpacity: 0.30,
@@ -40,10 +40,10 @@ export const GROUND = {
 
 /** Reserved wall artwork. A vehicle is never allowed to enter this zone. */
 export const LOGO_SAFE_ZONE = {
-  minX: 610,
-  maxX: 1450,
-  minY: 235,
-  maxY: 565,
+  minX: 1520,
+  maxX: 1900,
+  minY: 20,
+  maxY: 340,
   clearancePx: 18,
 } as const;
 

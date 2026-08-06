@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { Phone, Mail, MapPin } from "lucide-react";
+import { trackPhoneClick } from "@/lib/trackPhoneClick";
 
 const ContactCTA = () => (
   <section className="py-20 relative overflow-hidden" style={{
@@ -16,7 +17,7 @@ const ContactCTA = () => (
             Kontaktujte nás telefonicky nebo nám napište. Rádi vám poradíme s výběrem vozu, domluvíme prohlídku nebo naplánujeme servisní termín.
           </p>
           <div className="flex flex-wrap gap-4">
-            <a href="tel:+420603559767" className="chrome-button inline-flex items-center gap-2">
+            <a href="tel:+420603559767" onClick={() => trackPhoneClick("+420603559767", "contact-cta")} className="chrome-button inline-flex items-center gap-2">
               <Phone className="w-4 h-4" /> +420 603 559 767
             </a>
             <Link to="/kontakt" className="outline-button inline-flex items-center gap-2">

@@ -140,14 +140,35 @@ export function usePhoneClicks(days: number = 30) {
 }
 
 
+/**
+ * OPRAVY (audit):
+ * - Lead se při opakovaném odeslání formuláře (retry) počítal vícekrát.
+ *   Nově se stejný typ + stejný e-mail/telefon do 10 minut považuje za jeden lead.
+ * - Denní grupování používá lokální den (dayKey), ne UTC.
+ * - uniqueSessions i totalLeads se počítají ze stejného okna (obě data se
+ *   načítají přes sinceIso(days), takže jmenovatel a čitatel jsou souměřitelné).
+ */
 export function computeConversionStats(views: PageView[], leads: Lead[]) {
   const uniqueSessions = new Set(views.map(v => v.session_id)).size;
-  const totalLeads = leads.length;
+
+  const sorted = [...leads].sort((a, b) => a.created_at.localeCompare(b.created_at));
+  const lastSeen = new Map<string, number>();
+  const dedupedLeads = sorted.filter(l => {
+    const ident = (l.email || l.phone || l.id).toLowerCase().trim();
+    const key = `${l.type}|${ident}`;
+    const t = new Date(l.created_at).getTime();
+    const prev = lastSeen.get(key);
+    if (prev !== undefined && t - prev < 10 * 60 * 1000) return false;
+    lastSeen.set(key, t);
+    return true;
+  });
+
+  const totalLeads = dedupedLeads.length;
   const conversionRate = uniqueSessions > 0 ? ((totalLeads / uniqueSessions) * 100).toFixed(1) : "0";
 
   // Leads by type
   const byType = new Map<string, number>();
-  leads.forEach(l => {
+  dedupedLeads.forEach(l => {
     byType.set(l.type, (byType.get(l.type) || 0) + 1);
   });
   const leadsByType = Array.from(byType.entries())
@@ -157,13 +178,13 @@ export function computeConversionStats(views: PageView[], leads: Lead[]) {
   // Daily leads vs visits
   const dailyMap = new Map<string, { visits: number; leads: number }>();
   views.forEach(v => {
-    const day = v.created_at.slice(0, 10);
+    const day = dayKey(v.created_at);
     const entry = dailyMap.get(day) || { visits: 0, leads: 0 };
     entry.visits++;
     dailyMap.set(day, entry);
   });
-  leads.forEach(l => {
-    const day = l.created_at.slice(0, 10);
+  dedupedLeads.forEach(l => {
+    const day = dayKey(l.created_at);
     const entry = dailyMap.get(day) || { visits: 0, leads: 0 };
     entry.leads++;
     dailyMap.set(day, entry);

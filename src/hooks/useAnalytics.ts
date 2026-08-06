@@ -56,15 +56,20 @@ export function dayKey(iso: string): string {
 // Supabase/PostgREST vrací max. 1000 řádků na jeden request (výchozí "max-rows").
 // Bez stránkování přes .range() se tak jakýkoli dotaz s víc než 1000 shodami
 // vždy tise ořízne na přesně 1000 – proto dashboard "zamrzl" na čísle 1 000.
-// Tahle funkce prochází výsledky po stránkách, dokud nedojdou všechna data.
-async function fetchAllRows<T>(
+//
+// OPRAVA (audit): řazení jen podle created_at není stabilní – u řádků se stejným
+// časem (a při zápisu nových řádků během stránkování) mohl PostgREST vrátit
+// stejný řádek dvakrát, nebo jeden vynechat. Nově řadíme created_at + id
+// (deterministicky) a navíc deduplikujeme podle id, takže se řádek nikdy
+// nespočítá dvakrát ani na hranici stránky.
+async function fetchAllRows<T extends { id: string }>(
   table: string,
   columns: string,
   since: string
 ): Promise<T[]> {
   const pageSize = 1000;
   let from = 0;
-  let all: T[] = [];
+  const byId = new Map<string, T>();
 
   while (true) {
     const { data, error } = await supabase
@@ -72,12 +77,13 @@ async function fetchAllRows<T>(
       .select(columns)
       .gte("created_at", since)
       .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
       .range(from, from + pageSize - 1);
 
     if (error) throw error;
 
     const rows = (data || []) as T[];
-    all = all.concat(rows);
+    rows.forEach(r => byId.set(r.id, r));
 
     if (rows.length < pageSize) break; // poslední (neúplná) stránka -> konec
     from += pageSize;
@@ -86,16 +92,26 @@ async function fetchAllRows<T>(
     if (from > 200_000) break;
   }
 
-  return all;
+  return Array.from(byId.values());
+}
+
+function sinceIso(days: number): string {
+  const since = new Date();
+  since.setDate(since.getDate() - days);
+  since.setHours(0, 0, 0, 0); // celé lokální dny, ať okno souhlasí s denním grafem
+  return since.toISOString();
 }
 
 export function useAnalytics(days: number = 30) {
   return useQuery({
     queryKey: ["analytics", days],
     queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      return fetchAllRows<PageView>("page_views", "*", since.toISOString());
+      const rows = await fetchAllRows<PageView>("page_views", "*", sinceIso(days));
+      // Normalizace: zastropovaná doba na stránce (staré řádky mají i 40 000 s)
+      return rows.map(r => ({
+        ...r,
+        time_on_page: Math.min(MAX_TIME_ON_PAGE, Math.max(0, r.time_on_page || 0)),
+      }));
     },
     staleTime: 60_000, // 1 min cache, ať se dashboard zbytečně nedotazuje při každém renderu
   });
@@ -104,14 +120,25 @@ export function useAnalytics(days: number = 30) {
 export function useLeadsAnalytics(days: number = 30) {
   return useQuery({
     queryKey: ["leads-analytics", days],
-    queryFn: async () => {
-      const since = new Date();
-      since.setDate(since.getDate() - days);
-      return fetchAllRows<Lead>("leads", "id, type, created_at", since.toISOString());
-    },
+    queryFn: async () =>
+      fetchAllRows<Lead>("leads", "id, type, email, phone, created_at", sinceIso(days)),
     staleTime: 60_000,
   });
 }
+
+export function usePhoneClicks(days: number = 30) {
+  return useQuery({
+    queryKey: ["phone-clicks", days],
+    queryFn: async () =>
+      fetchAllRows<PhoneClick>(
+        "phone_clicks",
+        "id, session_id, visitor_id, is_new_visitor, phone, path, source, created_at",
+        sinceIso(days)
+      ),
+    staleTime: 60_000,
+  });
+}
+
 
 export function computeConversionStats(views: PageView[], leads: Lead[]) {
   const uniqueSessions = new Set(views.map(v => v.session_id)).size;

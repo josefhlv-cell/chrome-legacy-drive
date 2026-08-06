@@ -386,6 +386,7 @@ export type Database = {
           exit_page: boolean | null
           id: string
           is_bounce: boolean | null
+          is_new_visitor: boolean
           path: string
           referrer: string | null
           screen_height: number | null
@@ -395,6 +396,7 @@ export type Database = {
           utm_campaign: string | null
           utm_medium: string | null
           utm_source: string | null
+          visitor_id: string | null
         }
         Insert: {
           created_at?: string
@@ -402,6 +404,7 @@ export type Database = {
           exit_page?: boolean | null
           id?: string
           is_bounce?: boolean | null
+          is_new_visitor?: boolean
           path: string
           referrer?: string | null
           screen_height?: number | null
@@ -411,6 +414,7 @@ export type Database = {
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
+          visitor_id?: string | null
         }
         Update: {
           created_at?: string
@@ -418,6 +422,7 @@ export type Database = {
           exit_page?: boolean | null
           id?: string
           is_bounce?: boolean | null
+          is_new_visitor?: boolean
           path?: string
           referrer?: string | null
           screen_height?: number | null
@@ -427,6 +432,40 @@ export type Database = {
           utm_campaign?: string | null
           utm_medium?: string | null
           utm_source?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
+      phone_clicks: {
+        Row: {
+          created_at: string
+          id: string
+          is_new_visitor: boolean
+          path: string
+          phone: string
+          session_id: string
+          source: string
+          visitor_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_new_visitor?: boolean
+          path?: string
+          phone?: string
+          session_id: string
+          source?: string
+          visitor_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_new_visitor?: boolean
+          path?: string
+          phone?: string
+          session_id?: string
+          source?: string
+          visitor_id?: string | null
         }
         Relationships: []
       }

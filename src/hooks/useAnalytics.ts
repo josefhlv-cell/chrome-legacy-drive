@@ -203,10 +203,13 @@ export function computeStats(views: PageView[]) {
   const totalViews = views.length;
   const avgTimeOnPage = Math.round(views.reduce((s, v) => s + v.time_on_page, 0) / views.length);
 
+  // OPRAVA (audit): bounce rate se počítá z unikátních session_id (sessions bez
+  // jediného řádku jmenovatel nezkreslují, protože je do mapy vůbec nedostaneme)
+  // a jmenovatel je chráněný proti dělení nulou.
   const sessionCounts = new Map<string, number>();
   views.forEach(v => sessionCounts.set(v.session_id, (sessionCounts.get(v.session_id) || 0) + 1));
   const bounceSessions = Array.from(sessionCounts.values()).filter(c => c === 1).length;
-  const bounceRate = Math.round((bounceSessions / uniqueSessions) * 100);
+  const bounceRate = Math.round((bounceSessions / Math.max(1, sessionCounts.size)) * 100);
 
   const pageViews = new Map<string, { views: number; totalTime: number; exits: number }>();
   views.forEach(v => {

@@ -381,3 +381,97 @@ export function formatDuration(sec: number) {
   const s = sec % 60;
   return m > 0 ? `${m} m ${s} s` : `${s} s`;
 }
+
+/**
+ * Noví vs. vracející se zákazníci.
+ *
+ * Počítá se na úrovni visitor_id (localStorage), ne session_id – jedna osoba
+ * tak může mít víc návštěv a je vidět, kdo se skutečně vrací.
+ * Řádky bez visitor_id (starší data před zavedením identifikátoru) se ignorují,
+ * aby nezkreslovaly poměr.
+ */
+export function computeVisitorStats(views: PageView[]) {
+  const visitors = new Map<string, { newFlag: boolean; returnFlag: boolean; sessions: Set<string> }>();
+
+  views.forEach(v => {
+    const id = v.visitor_id;
+    if (!id) return;
+    const e = visitors.get(id) ?? { newFlag: false, returnFlag: false, sessions: new Set<string>() };
+    if (v.is_new_visitor) e.newFlag = true; else e.returnFlag = true;
+    e.sessions.add(v.session_id);
+    visitors.set(id, e);
+  });
+
+  let newVisitors = 0;
+  let returningVisitors = 0;
+  let repeated = 0;
+  visitors.forEach(e => {
+    if (e.newFlag) newVisitors++;
+    if (e.returnFlag) returningVisitors++;
+    if (e.returnFlag || e.sessions.size > 1) repeated++;
+  });
+
+  // Denní trend – lokální dny, každý visitor se v daném dni počítá jednou
+  const daily = new Map<string, { newSet: Set<string>; retSet: Set<string> }>();
+  views.forEach(v => {
+    if (!v.visitor_id) return;
+    const day = dayKey(v.created_at);
+    const e = daily.get(day) ?? { newSet: new Set<string>(), retSet: new Set<string>() };
+    (v.is_new_visitor ? e.newSet : e.retSet).add(v.visitor_id);
+    daily.set(day, e);
+  });
+
+  const newVisitorsTrend = Array.from(daily.entries())
+    .map(([date, e]) => ({ date, newCount: e.newSet.size, returningCount: e.retSet.size }))
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  const totalVisitors = visitors.size;
+  const repeatRate = totalVisitors > 0 ? Math.round((repeated / totalVisitors) * 100) : 0;
+
+  return { newVisitors, returningVisitors, totalVisitors, repeatRate, newVisitorsTrend };
+}
+
+/**
+ * Prokliky na telefon.
+ *
+ * session_id má stejný formát i stejný zdroj (sessionStorage "analytics_session_id")
+ * jako u page_views, takže se prokliky dají párovat se zdrojem návštěvnosti.
+ * Zároveň se počítá rozpad na nové vs. vracející se zákazníky (podle visitor_id).
+ */
+export function computePhoneClickStats(clicks: PhoneClick[], views: PageView[] = []) {
+  const uniqueSessions = new Set(clicks.map(c => c.session_id)).size;
+  const uniqueVisitors = new Set(clicks.filter(c => c.visitor_id).map(c => c.visitor_id as string)).size;
+
+  const newVisitorClicks = clicks.filter(c => c.is_new_visitor).length;
+  const returningVisitorClicks = clicks.length - newVisitorClicks;
+
+  const byPhoneMap = new Map<string, number>();
+  const byPathMap = new Map<string, number>();
+  const dailyMap = new Map<string, number>();
+  clicks.forEach(c => {
+    byPhoneMap.set(c.phone, (byPhoneMap.get(c.phone) || 0) + 1);
+    byPathMap.set(c.path || "/", (byPathMap.get(c.path || "/") || 0) + 1);
+    const day = dayKey(c.created_at);
+    dailyMap.set(day, (dailyMap.get(day) || 0) + 1);
+  });
+
+  // Podíl návštěv, které skončily prokliknutím telefonu (stejné časové okno)
+  const viewSessions = new Set(views.map(v => v.session_id));
+  const matchedSessions = new Set(clicks.map(c => c.session_id).filter(s => viewSessions.has(s))).size;
+  const callRate = viewSessions.size > 0
+    ? ((matchedSessions / viewSessions.size) * 100).toFixed(1)
+    : "0";
+
+  return {
+    totalClicks: clicks.length,
+    uniqueSessions,
+    uniqueVisitors,
+    newVisitorClicks,
+    returningVisitorClicks,
+    matchedSessions,
+    callRate,
+    byPhone: Array.from(byPhoneMap.entries()).map(([phone, count]) => ({ phone, count })).sort((a, b) => b.count - a.count),
+    byPath: Array.from(byPathMap.entries()).map(([path, count]) => ({ path, count })).sort((a, b) => b.count - a.count).slice(0, 10),
+    daily: Array.from(dailyMap.entries()).map(([date, count]) => ({ date, count })).sort((a, b) => a.date.localeCompare(b.date)),
+  };
+}

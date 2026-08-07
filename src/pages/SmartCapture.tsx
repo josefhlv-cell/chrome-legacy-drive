@@ -16,6 +16,8 @@ import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } fro
 import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
 import { CAPTURE_BG_URL, THUMB_PLACEMENT, composeThumbnail, frameToThumbnail } from "@/lib/smartCapture/thumbnail";
+import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
+
 
 
 interface AnalysisResult {

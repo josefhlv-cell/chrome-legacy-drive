@@ -698,8 +698,9 @@ export default function SmartCapture() {
                 className="absolute inset-0"
                 style={{
                   backgroundImage: `url(${CAPTURE_BG_URL})`,
-                  backgroundSize: "cover",
+                  backgroundSize: "contain",
                   backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
                   opacity: 0.5,
                 }}
               />
@@ -979,7 +980,7 @@ export default function SmartCapture() {
           <p className="text-white/60 text-sm mb-6">Štítek bývá ve dveřích řidiče, pod kapotou nebo na čelním skle.</p>
 
           <div className="relative aspect-video bg-white/5 rounded-2xl overflow-hidden mb-4 flex items-center justify-center">
-            {stream ? <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            {stream ? <video ref={videoRef} className="w-full h-full object-contain" playsInline muted />
               : <div className="text-white/40 text-sm">Kamera neaktivní — použijte galerii</div>}
             {vinScanning && <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
               <Loader2 className="animate-spin" />

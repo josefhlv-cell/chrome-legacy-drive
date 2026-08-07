@@ -120,6 +120,23 @@ export default function SmartCaptureSettingsTab() {
         </div>
       </div>
 
+      {/* Dealer Mode */}
+      <div className="rounded-xl border bg-card p-5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Camera size={18} className="text-blue-500" />
+            <div>
+              <div className="font-medium">Dealer Mode</div>
+              <p className="text-xs text-muted-foreground">
+                Udržuje každé vozidlo v identickém měřítku a kompozici.
+              </p>
+            </div>
+          </div>
+          <Switch checked={!!local.dealer_mode} onCheckedChange={(v) => setField("dealer_mode", v)} />
+        </div>
+      </div>
+
+
       {/* Features grid */}
       <div className="rounded-xl border bg-card p-5">
         <div className="flex items-center gap-2 mb-4">

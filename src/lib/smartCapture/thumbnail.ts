@@ -14,17 +14,42 @@ export const CAPTURE_BG_URL = captureBg.url;
 export const THUMB_W = 1600;
 export const THUMB_H = 900;
 
-/** Deterministická geometrie umístění vozidla na pozadí. */
+/**
+ * Deterministická geometrie umístění vozidla na pozadí.
+ * Měřítko sníženo o ~12 % (dříve 0.74 / 0.60) — vozidlo působilo příliš velké.
+ * Zarovnání kol, vodorovný střed, stín ani perspektiva se nemění.
+ */
 export const THUMB_PLACEMENT = {
   /** Podíl šířky plátna, kterou vozidlo zaplní. */
-  widthRatio: 0.74,
+  widthRatio: 0.65,
   /** Maximální podíl výšky plátna. */
-  maxHeightRatio: 0.60,
+  maxHeightRatio: 0.53,
   /** Kde leží kola (podíl výšky) — asfalt, ne zeď. */
   wheelLineRatio: 0.895,
   /** Vodorovný středový bod. */
   centerXRatio: 0.5,
 } as const;
+
+/**
+ * DEALER MODE — normalizace: každé vozidlo má IDENTICKÉ měřítko a kompozici.
+ * Výška vozidla je vždy stejná (nezávisle na jeho proporcích), takže spodní
+ * odsazení, střed i vertikální zarovnání jsou u všech fotek totožné.
+ * Žádné roztahování, žádná perspektivní deformace — pouze jednotné měřítko.
+ */
+export const DEALER_PLACEMENT = {
+  /** Fixní podíl výšky plátna, který vozidlo vždy zaujme. */
+  heightRatio: 0.46,
+  /** Bezpečnostní strop šířky (širokoúhlé vozy se nesmí dotknout okrajů). */
+  maxWidthRatio: 0.72,
+  wheelLineRatio: THUMB_PLACEMENT.wheelLineRatio,
+  centerXRatio: THUMB_PLACEMENT.centerXRatio,
+} as const;
+
+export interface ComposeOptions {
+  /** ON = jednotné měřítko a kompozice pro všechna vozidla. */
+  dealerMode?: boolean;
+}
+
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {

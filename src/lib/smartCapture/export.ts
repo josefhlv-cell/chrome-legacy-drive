@@ -1,5 +1,6 @@
-import JSZip from "jszip";
+// ⚡ JSZip se načítá až při exportu (lazy) — nezdržuje start Smart Capture.
 import { slugifyShot, type ShotType } from "./types";
+
 
 export interface ExportPhoto {
   shotType: ShotType;
@@ -120,7 +121,9 @@ export async function buildSessionZip(
   photos: ExportPhoto[],
   info: VehicleInfo,
 ): Promise<Blob> {
+  const { default: JSZip } = await import("jszip");
   const zip = new JSZip();
+
   const date = new Date().toISOString().slice(0, 10);
   const safeBrand = (info.brand || "Vozidlo").replace(/[^a-zA-Z0-9-]/g, "");
   const safeModel = (info.model || "Model").replace(/[^a-zA-Z0-9-]/g, "");

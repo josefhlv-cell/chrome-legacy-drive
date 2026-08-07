@@ -15,8 +15,13 @@ export const useSmartCaptureSettings = () => {
       if (error) throw error;
       return data;
     },
+    // ⚡ Nastavení se mění zřídka → cache, aby Smart Capture startoval okamžitě.
+    staleTime: 5 * 60_000,
+    gcTime: 30 * 60_000,
+    refetchOnWindowFocus: false,
   });
 };
+
 
 export const useUpdateSmartCaptureSettings = () => {
   const qc = useQueryClient();

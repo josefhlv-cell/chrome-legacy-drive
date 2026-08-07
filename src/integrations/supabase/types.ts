@@ -689,6 +689,7 @@ export type Database = {
           background_video_capture: string
           blur_detection: string
           blur_license_plate: string
+          dealer_mode: boolean
           export_folders: string
           generate_listing_versions: string
           generate_web_versions: string
@@ -723,6 +724,7 @@ export type Database = {
           background_video_capture?: string
           blur_detection?: string
           blur_license_plate?: string
+          dealer_mode?: boolean
           export_folders?: string
           generate_listing_versions?: string
           generate_web_versions?: string
@@ -757,6 +759,7 @@ export type Database = {
           background_video_capture?: string
           blur_detection?: string
           blur_license_plate?: string
+          dealer_mode?: boolean
           export_folders?: string
           generate_listing_versions?: string
           generate_web_versions?: string

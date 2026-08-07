@@ -16,6 +16,8 @@ import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } fro
 import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
 import { CAPTURE_BG_URL, THUMB_PLACEMENT, composeThumbnail, frameToThumbnail } from "@/lib/smartCapture/thumbnail";
+import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
+
 
 
 interface AnalysisResult {
@@ -104,6 +106,9 @@ export default function SmartCapture() {
   }, [settings]);
   const thumbOverlayEnabled = thumbBgMode !== "off";
   const thumbComposeEnabled = thumbBgMode === "on";
+  /** Dealer Mode — jednotné měřítko a kompozice u všech vozidel (default OFF). */
+  const dealerMode = useMemo(() => !!(settings as { dealer_mode?: boolean })?.dealer_mode, [settings]);
+
   const [thumbBusy, setThumbBusy] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbOverlayOn, setThumbOverlayOn] = useState(true);
@@ -158,26 +163,23 @@ export default function SmartCapture() {
 
   // Gesture-safe camera request — must be the FIRST await after the user click
   // on iOS Safari, otherwise the permission prompt is silently dropped.
+  // Nejširší zadní objektiv, plný senzor (4:3), zoom 1× — bez digitálního přiblížení.
+  const wideDeviceRef = useRef<string | null>(null);
   const requestCamera = useCallback(async (mode: "environment" | "user" = facingRef.current): Promise<MediaStream> => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("Tento prohlížeč nepodporuje přístup ke kameře.");
+    const stream = await openCamera(mode, mode === "environment" ? wideDeviceRef.current : null);
+    // Labely objektivů jsou dostupné až po přidělení oprávnění → doplň cache pro další start.
+    if (mode === "environment" && !wideDeviceRef.current) {
+      resetCameraCache();
+      void findWidestRearCamera().then((id) => { wideDeviceRef.current = id; });
     }
-    try {
-      return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
-    } catch (err) {
-      const name = (err as { name?: string })?.name ?? "";
-      if (name === "NotAllowedError" || name === "SecurityError")
-        throw new Error("Přístup ke kameře byl zamítnut. Povolte kameru v nastavení prohlížeče.");
-      if (name === "NotFoundError" || name === "OverconstrainedError")
-        throw new Error("Nebyla nalezena žádná kamera.");
-      if (name === "NotReadableError")
-        throw new Error("Kamera je obsazena jinou aplikací.");
-      throw new Error("Nepodařilo se aktivovat kameru.");
-    }
+    return stream;
   }, []);
+
+  // ⚡ Předehřátí: seznam objektivů zjistíme dopředu, aby start kamery byl okamžitý.
+  useEffect(() => {
+    void findWidestRearCamera().then((id) => { wideDeviceRef.current = id; });
+  }, []);
+
 
   // Start: switch UI immediately, create session in background, request camera
   // as the FIRST await (gesture-preserving on iOS).
@@ -275,7 +277,7 @@ export default function SmartCapture() {
         });
         if (error) throw error;
         const png = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "image/png" });
-        thumb = await composeThumbnail(png);
+        thumb = await composeThumbnail(png, { dealerMode });
       } catch (cutErr) {
         console.warn("[thumbnail] cutout failed, using raw frame", cutErr);
         thumb = await frameToThumbnail(frame);
@@ -681,7 +683,9 @@ export default function SmartCapture() {
           {/* Preview — never transformed by the gyroscope, only the OS rotates it */}
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
+            // object-contain — zachová celé zorné pole objektivu (žádné přiblížení/ořez)
+            className="absolute inset-0 w-full h-full object-contain"
+
             style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
             playsInline muted autoPlay
           />
@@ -694,8 +698,9 @@ export default function SmartCapture() {
                 className="absolute inset-0"
                 style={{
                   backgroundImage: `url(${CAPTURE_BG_URL})`,
-                  backgroundSize: "cover",
+                  backgroundSize: "contain",
                   backgroundPosition: "center",
+                  backgroundRepeat: "no-repeat",
                   opacity: 0.5,
                 }}
               />
@@ -975,7 +980,7 @@ export default function SmartCapture() {
           <p className="text-white/60 text-sm mb-6">Štítek bývá ve dveřích řidiče, pod kapotou nebo na čelním skle.</p>
 
           <div className="relative aspect-video bg-white/5 rounded-2xl overflow-hidden mb-4 flex items-center justify-center">
-            {stream ? <video ref={videoRef} className="w-full h-full object-cover" playsInline muted />
+            {stream ? <video ref={videoRef} className="w-full h-full object-contain" playsInline muted />
               : <div className="text-white/40 text-sm">Kamera neaktivní — použijte galerii</div>}
             {vinScanning && <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
               <Loader2 className="animate-spin" />

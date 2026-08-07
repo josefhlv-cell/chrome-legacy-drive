@@ -160,26 +160,23 @@ export default function SmartCapture() {
 
   // Gesture-safe camera request — must be the FIRST await after the user click
   // on iOS Safari, otherwise the permission prompt is silently dropped.
+  // Nejširší zadní objektiv, plný senzor (4:3), zoom 1× — bez digitálního přiblížení.
+  const wideDeviceRef = useRef<string | null>(null);
   const requestCamera = useCallback(async (mode: "environment" | "user" = facingRef.current): Promise<MediaStream> => {
-    if (!navigator.mediaDevices?.getUserMedia) {
-      throw new Error("Tento prohlížeč nepodporuje přístup ke kameře.");
+    const stream = await openCamera(mode, mode === "environment" ? wideDeviceRef.current : null);
+    // Labely objektivů jsou dostupné až po přidělení oprávnění → doplň cache pro další start.
+    if (mode === "environment" && !wideDeviceRef.current) {
+      resetCameraCache();
+      void findWidestRearCamera().then((id) => { wideDeviceRef.current = id; });
     }
-    try {
-      return await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: { ideal: mode }, width: { ideal: 1920 }, height: { ideal: 1080 } },
-        audio: false,
-      });
-    } catch (err) {
-      const name = (err as { name?: string })?.name ?? "";
-      if (name === "NotAllowedError" || name === "SecurityError")
-        throw new Error("Přístup ke kameře byl zamítnut. Povolte kameru v nastavení prohlížeče.");
-      if (name === "NotFoundError" || name === "OverconstrainedError")
-        throw new Error("Nebyla nalezena žádná kamera.");
-      if (name === "NotReadableError")
-        throw new Error("Kamera je obsazena jinou aplikací.");
-      throw new Error("Nepodařilo se aktivovat kameru.");
-    }
+    return stream;
   }, []);
+
+  // ⚡ Předehřátí: seznam objektivů zjistíme dopředu, aby start kamery byl okamžitý.
+  useEffect(() => {
+    void findWidestRearCamera().then((id) => { wideDeviceRef.current = id; });
+  }, []);
+
 
   // Start: switch UI immediately, create session in background, request camera
   // as the FIRST await (gesture-preserving on iOS).

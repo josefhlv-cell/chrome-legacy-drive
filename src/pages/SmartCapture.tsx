@@ -683,7 +683,9 @@ export default function SmartCapture() {
           {/* Preview — never transformed by the gyroscope, only the OS rotates it */}
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
+            // object-contain — zachová celé zorné pole objektivu (žádné přiblížení/ořez)
+            className="absolute inset-0 w-full h-full object-contain"
+
             style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
             playsInline muted autoPlay
           />

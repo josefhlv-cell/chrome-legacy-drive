@@ -277,7 +277,7 @@ export default function SmartCapture() {
         });
         if (error) throw error;
         const png = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "image/png" });
-        thumb = await composeThumbnail(png);
+        thumb = await composeThumbnail(png, { dealerMode });
       } catch (cutErr) {
         console.warn("[thumbnail] cutout failed, using raw frame", cutErr);
         thumb = await frameToThumbnail(frame);

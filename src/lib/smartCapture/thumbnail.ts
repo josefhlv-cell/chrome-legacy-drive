@@ -93,26 +93,43 @@ const canvasToJpeg = (canvas: HTMLCanvasElement, quality: number): Promise<Blob>
 
 /**
  * Složí miniaturu: pozadí (fixní asset) + výřez vozidla (PNG s alfou),
- * včetně kontaktního stínu. Pokud výřez není k dispozici, vrátí null.
+ * včetně kontaktního stínu.
+ * V Dealer Mode je měřítko i kompozice u všech vozidel identická.
  */
-export const composeThumbnail = async (cutoutPng: Blob): Promise<Blob> => {
+export const composeThumbnail = async (cutoutPng: Blob, opts: ComposeOptions = {}): Promise<Blob> => {
   const [bg, cutRaw] = await Promise.all([loadImage(CAPTURE_BG_URL), blobToImage(cutoutPng)]);
   const trimmed = trimAlpha(cutRaw);
+  const aspect = trimmed.w / trimmed.h;
 
   const canvas = document.createElement("canvas");
   canvas.width = THUMB_W; canvas.height = THUMB_H;
   const ctx = canvas.getContext("2d")!;
   ctx.drawImage(bg, 0, 0, THUMB_W, THUMB_H);
 
-  const p = THUMB_PLACEMENT;
-  let targetW = THUMB_W * p.widthRatio;
-  let targetH = targetW * (trimmed.h / trimmed.w);
-  const maxH = THUMB_H * p.maxHeightRatio;
-  if (targetH > maxH) { targetH = maxH; targetW = targetH * (trimmed.w / trimmed.h); }
+  let targetW: number, targetH: number, baseline: number, centerX: number;
 
-  const baseline = THUMB_H * p.wheelLineRatio;
-  const dx = THUMB_W * p.centerXRatio - targetW / 2;
+  if (opts.dealerMode) {
+    // Jednotná výška → jednotné měřítko, odsazení i vertikální zarovnání.
+    const d = DEALER_PLACEMENT;
+    targetH = THUMB_H * d.heightRatio;
+    targetW = targetH * aspect;
+    const maxW = THUMB_W * d.maxWidthRatio;
+    if (targetW > maxW) { targetW = maxW; targetH = targetW / aspect; }
+    baseline = THUMB_H * d.wheelLineRatio;
+    centerX = THUMB_W * d.centerXRatio;
+  } else {
+    const p = THUMB_PLACEMENT;
+    targetW = THUMB_W * p.widthRatio;
+    targetH = targetW / aspect;
+    const maxH = THUMB_H * p.maxHeightRatio;
+    if (targetH > maxH) { targetH = maxH; targetW = targetH * aspect; }
+    baseline = THUMB_H * p.wheelLineRatio;
+    centerX = THUMB_W * p.centerXRatio;
+  }
+
+  const dx = centerX - targetW / 2;
   const dy = baseline - targetH;
+
 
   // Kontaktní stín pod koly — elipsa, měkký přechod, žádné AI.
   const shadowH = targetH * 0.10;

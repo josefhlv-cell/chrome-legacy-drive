@@ -1,0 +1,1 @@
+UPDATE public.smart_capture_settings SET dealer_mode = false WHERE singleton = true;

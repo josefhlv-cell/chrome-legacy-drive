@@ -106,6 +106,9 @@ export default function SmartCapture() {
   }, [settings]);
   const thumbOverlayEnabled = thumbBgMode !== "off";
   const thumbComposeEnabled = thumbBgMode === "on";
+  /** Dealer Mode — jednotné měřítko a kompozice u všech vozidel (default OFF). */
+  const dealerMode = useMemo(() => !!(settings as { dealer_mode?: boolean })?.dealer_mode, [settings]);
+
   const [thumbBusy, setThumbBusy] = useState(false);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbOverlayOn, setThumbOverlayOn] = useState(true);

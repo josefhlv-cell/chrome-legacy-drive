@@ -139,20 +139,23 @@ export default function SmartCapture() {
   }, []);
   const landscapeMode = isLandscape && landscapeEnabled;
 
-  /**
-   * Viditelná plocha obrazu: stream se vždy vejde CELÝ (object-contain), takže
-   * nikdy nevzniká digitální zoom ani nechtěný ořez. Overlaye (Dealer rámeček,
-   * mřížka) se kotví přesně na tuto plochu, ne na celý displej.
-   */
-  const frameBox = useMemo(() => {
-    const vw = viewport.w || 1, vh = viewport.h || 1;
-    const ar = videoAspect ?? vw / vh;
-    const fitH = vw / ar <= vh;
-    const w = fitH ? vw : vh * ar;
-    const h = fitH ? vw / ar : vh;
-    return { left: (vw - w) / 2, top: (vh - h) / 2, width: w, height: h };
-  }, [viewport, videoAspect]);
+/**
+ * Camera viewport zabírá celý dostupný displej.
+ * Live preview zachovává poměr stran kamery bez deformace.
+ * Dealer overlay je ukotvený na celý viewport.
+ */
 
+  const frameBox = useMemo(() => {
+  const vw = viewport.w || 1;
+  const vh = viewport.h || 1;
+
+  return {
+    left: 0,
+    top: 0,
+    width: vw,
+    height: vh,
+  };
+}, [viewport]);
   const [voiceActive, setVoiceActive] = useState(false);
   const [voiceUnsupported, setVoiceUnsupported] = useState(false);
   const [dictating, setDictating] = useState(false);

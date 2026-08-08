@@ -16,6 +16,7 @@ import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } fro
 import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
 import { CAPTURE_BG_URL, THUMB_PLACEMENT, composeThumbnail, frameToThumbnail } from "@/lib/smartCapture/thumbnail";
+import { guideForShot } from "@/lib/smartCapture/dealerGuide";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
 
 
@@ -59,6 +60,11 @@ export default function SmartCapture() {
   const [busy, setBusy] = useState(false);
   const [queueCount, setQueueCount] = useState(0);   // ⚡ kolik fotek se zpracovává na pozadí
   const [shutterFlash, setShutterFlash] = useState(false);
+  /** Právě pořízený snímek — čeká na „Použít fotografii“ / „Vyfotit znovu“.
+   *  Kamera přitom BĚŽÍ dál (žádná reinicializace MediaStreamu). */
+  const [pending, setPending] = useState<{ blob: Blob; url: string; stepIdx: number } | null>(null);
+  /** Skutečný poměr stran streamu — zjištěn z videoWidth/videoHeight, ne z CSS. */
+  const [videoAspect, setVideoAspect] = useState<number | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
   const [vinScanning, setVinScanning] = useState(false);
@@ -113,19 +119,40 @@ export default function SmartCapture() {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbOverlayOn, setThumbOverlayOn] = useState(true);
 
-  const [isLandscape, setIsLandscape] = useState(
-    typeof window !== "undefined" ? window.innerWidth > window.innerHeight : false
-  );
+  /** Skutečné rozměry viewportu (ne CSS odhad) — přepočítají se i po otočení. */
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== "undefined" ? window.innerWidth : 0,
+    h: typeof window !== "undefined" ? window.innerHeight : 0,
+  }));
+  const isLandscape = viewport.w > viewport.h;
   useEffect(() => {
-    const onResize = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
+    const so = (window.screen as unknown as { orientation?: EventTarget })?.orientation;
+    so?.addEventListener?.("change", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
+      so?.removeEventListener?.("change", onResize);
     };
   }, []);
   const landscapeMode = isLandscape && landscapeEnabled;
+
+  /**
+   * Viditelná plocha obrazu: stream se vždy vejde CELÝ (object-contain), takže
+   * nikdy nevzniká digitální zoom ani nechtěný ořez. Overlaye (Dealer rámeček,
+   * mřížka) se kotví přesně na tuto plochu, ne na celý displej.
+   */
+  const frameBox = useMemo(() => {
+    const vw = viewport.w || 1, vh = viewport.h || 1;
+    const ar = videoAspect ?? vw / vh;
+    const fitH = vw / ar <= vh;
+    const w = fitH ? vw : vh * ar;
+    const h = fitH ? vw / ar : vh;
+    return { left: (vw - w) / 2, top: (vh - h) / 2, width: w, height: h };
+  }, [viewport, videoAspect]);
+
   const [voiceActive, setVoiceActive] = useState(false);
   const [voiceUnsupported, setVoiceUnsupported] = useState(false);
   const [dictating, setDictating] = useState(false);
@@ -309,26 +336,40 @@ export default function SmartCapture() {
   };
 
   const handleShot = async () => {
-    if (!sessionId || busy || switching || shootingRef.current) return;
+    if (!sessionId || busy || switching || pending || shootingRef.current) return;
     shootingRef.current = true;
     try {
-      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
-      //    pak ihned advance + processing/upload na pozadí.
+      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms).
       const blob = await captureFromVideo();
       if (!blob) { toast({ title: "Nelze pořídit snímek", description: "Kamera ještě není připravená, zkuste to znovu.", variant: "destructive" }); return; }
-      // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
-      const stepAtShot = currentStepIdx;
-      if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
-      // shutter feedback
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
-      void processAndUpload(blob, stepAtShot);
-      // První záběr → miniatura na přednastaveném pozadí (na pozadí, neblokuje)
-      if (stepAtShot === 0 && thumbComposeEnabled && !thumbBusy) void buildThumbnail(blob, sessionId);
+      // Kontrola snímku — teprve „Použít fotografii“ ho uloží.
+      setPending({ blob, url: URL.createObjectURL(blob), stepIdx: currentStepIdx });
     } finally {
-      setTimeout(() => { shootingRef.current = false; }, 250);
+      setTimeout(() => { shootingRef.current = false; }, 200);
     }
   };
+
+  /** „Použít fotografii“ — upload běží na pozadí, uživatel pokračuje dál. */
+  const acceptPending = () => {
+    if (!pending || !sessionId) return;
+    const { blob, url, stepIdx } = pending;
+    setPending(null);
+    URL.revokeObjectURL(url);
+    if (stepIdx < totalSteps - 1) setCurrentStepIdx(stepIdx + 1);
+    void processAndUpload(blob, stepIdx);
+    if (stepIdx === 0 && thumbComposeEnabled && !thumbBusy) void buildThumbnail(blob, sessionId);
+  };
+
+  /** „Vyfotit znovu“ — snímek se zahodí, kamera zůstává připravená. */
+  const retakePending = () => {
+    setPending((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+  };
+
+  // Cleanup posledního náhledu při odchodu z obrazovky (žádné visící Blob URL).
+  useEffect(() => () => { setPending((p) => { if (p) URL.revokeObjectURL(p.url); return null; }); }, []);
+
 
 
 
@@ -448,10 +489,13 @@ export default function SmartCapture() {
       return;
     }
     switch (cmd) {
-      case "shot": void handleShot(); break;
+      // Při kontrole snímku plní hlas roli tlačítek Použít / Vyfotit znovu.
+      case "shot": if (pending) acceptPending(); else void handleShot(); break;
       case "next": setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1)); break;
       case "prev": setCurrentStepIdx((i) => Math.max(0, i - 1)); break;
       case "retake": {
+        if (pending) { retakePending(); break; }
+
         const last = photos[photos.length - 1] as { id: string } | undefined;
         if (last && sessionId) {
           deletePhoto.mutate({ id: last.id, sessionId });
@@ -463,7 +507,7 @@ export default function SmartCapture() {
       case "done": finishToReview(); break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, photos, sessionId, totalSteps]);
+  }, [phase, photos, sessionId, totalSteps, pending]);
 
   // Init voice controller once
   useEffect(() => {
@@ -680,15 +724,49 @@ export default function SmartCapture() {
       {/* Capturing — 100% full-screen native-style camera */}
       {phase === "capturing" && (
         <div className="absolute inset-0 bg-black overflow-hidden">
-          {/* Preview — never transformed by the gyroscope, only the OS rotates it */}
+          {/* Preview — celý displej, plné zorné pole objektivu.
+              object-contain = žádný digitální zoom, žádný ořez, žádná deformace.
+              Skutečný poměr stran čteme z videoWidth/videoHeight, ne z CSS. */}
           <video
             ref={videoRef}
-            // object-contain — zachová celé zorné pole objektivu (žádné přiblížení/ořez)
             className="absolute inset-0 w-full h-full object-contain"
-
             style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              if (v.videoWidth && v.videoHeight) setVideoAspect(v.videoWidth / v.videoHeight);
+            }}
             playsInline muted autoPlay
           />
+
+          {/* DEALER MODE — průhledné vodítko pro vůz (pouze overlay, nikdy neovlivní snímek) */}
+          {dealerMode && stream && !cameraError && !pending && (() => {
+            const g = guideForShot(currentStep?.type, currentStep?.category);
+            const gw = frameBox.width * g.width;
+            const gh = frameBox.height * g.height;
+            const gl = frameBox.left + frameBox.width * g.centerX - gw / 2;
+            const gt = frameBox.top + frameBox.height * g.centerY - gh / 2;
+            return (
+              <div className="pointer-events-none absolute inset-0 z-20">
+                <div
+                  className="absolute rounded-xl ring-2 ring-amber-300/70"
+                  style={{ left: gl, top: gt, width: gw, height: gh, boxShadow: "0 0 0 9999px rgba(0,0,0,0.18)" }}
+                >
+                  {/* Rohové značky pro rychlé zaměření */}
+                  <span className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-amber-200 rounded-tl-xl" />
+                  <span className="absolute -top-px -right-px w-6 h-6 border-t-2 border-r-2 border-amber-200 rounded-tr-xl" />
+                  <span className="absolute -bottom-px -left-px w-6 h-6 border-b-2 border-l-2 border-amber-200 rounded-bl-xl" />
+                  <span className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-amber-200 rounded-br-xl" />
+                </div>
+                <div
+                  className="absolute text-[11px] text-amber-100 bg-black/50 backdrop-blur px-2.5 py-1 rounded-full whitespace-nowrap max-w-[90vw] truncate"
+                  style={{ left: frameBox.left + frameBox.width / 2, top: gt + gh + 8, transform: "translateX(-50%)" }}
+                >
+                  {Math.abs(horizonAngle) > 4 ? "Narovnejte telefon" : g.hint}
+                </div>
+              </div>
+            );
+          })()}
+
 
           {/* Přednastavené pozadí pro MINIATURU — vidíte ho už při focení
               prvního záběru a vozidlo do něj „zaparkujete". */}
@@ -772,9 +850,15 @@ export default function SmartCapture() {
                   <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
                 </span>
               )}
+              {dealerMode && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 backdrop-blur-xl ring-1 ring-amber-300/40 text-[10px] text-amber-100">
+                  <Shield size={11} /> dealer
+                </span>
+              )}
               <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 text-[10px] tabular-nums text-white/80">
                 {currentStepIdx + 1} / {totalSteps}
               </span>
+
             </div>
 
             <button onClick={finishToReview} disabled={photos.length === 0}
@@ -874,16 +958,22 @@ export default function SmartCapture() {
                 </button>
               </div>
 
-              {/* RIGHT column — ONLY the shutter, nothing else can steal the tap */}
-              <div className="absolute right-0 inset-y-0 w-28 flex items-center justify-center pointer-events-none z-40"
-                style={{ paddingRight: "env(safe-area-inset-right)" }}>
-                <button onClick={handleShot} disabled={!stream || switching}
+              {/* RIGHT column — POUZE spoušť; nic jiného tap nesebere.
+                  onPointerUp + onClick (guardované shootingRef) = spolehlivé i v iOS landscape,
+                  kde se click u pravého okraje občas zahodí. */}
+              <div className="absolute right-0 inset-y-0 w-28 flex items-center justify-center pointer-events-none z-50"
+                style={{ paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}>
+                <button
+                  onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
+                  onClick={handleShot}
+                  disabled={!stream || switching || !!pending}
                   style={{ touchAction: "manipulation" }}
-                  className="pointer-events-auto relative w-[74px] h-[74px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
-                  title="Vyfotit">
+                  className="pointer-events-auto relative w-[78px] h-[78px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
+                  title="Vyfotit" aria-label="Vyfotit">
                   <span className="absolute inset-2 rounded-full bg-white" />
                 </button>
               </div>
+
 
 
               {/* BOTTOM filmstrip */}
@@ -930,37 +1020,75 @@ export default function SmartCapture() {
 
               <Progress value={((currentStepIdx + 1) / totalSteps) * 100} className="h-1 mb-4 bg-white/10" />
 
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <button onClick={() => fileInputRef.current?.click()}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="Z galerie">
-                    <ImageIcon size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="Z galerie" aria-label="Z galerie">
+                    <ImageIcon size={19} />
                   </button>
                   <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 transition"
-                    title="Předchozí">
-                    <ChevronLeft size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 transition"
+                    title="Předchozí" aria-label="Předchozí">
+                    <ChevronLeft size={19} />
                   </button>
                 </div>
 
-                <button onClick={handleShot} disabled={!stream}
-                  className="relative w-20 h-20 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
+                <button
+                  onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
+                  onClick={handleShot}
+                  disabled={!stream || switching || !!pending}
+                  style={{ touchAction: "manipulation" }}
+                  className="relative w-20 h-20 shrink-0 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
+                  title="Vyfotit" aria-label="Vyfotit">
                   <span className="absolute inset-2 rounded-full bg-white" />
                 </button>
 
                 <div className="flex items-center gap-2">
                   <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="Přeskočit">
-                    <ChevronRight size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="Přeskočit" aria-label="Přeskočit">
+                    <ChevronRight size={19} />
+                  </button>
+                  <button onClick={switchCamera} disabled={switching}
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-40 transition"
+                    title="Přepnout kameru" aria-label="Přepnout kameru">
+                    {switching ? <Loader2 size={18} className="animate-spin" /> : <SwitchCamera size={18} />}
                   </button>
                   <button onClick={() => setPhase("vin")}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="VIN scan">
-                    <ScanLine size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="VIN scan" aria-label="VIN scan">
+                    <ScanLine size={19} />
                   </button>
                 </div>
+              </div>
+            </div>
+          )}
+
+
+          {/* KONTROLA SNÍMKU — kamera běží dál, žádná reinicializace streamu */}
+          {pending && (
+            <div className="absolute inset-0 z-[60] bg-black/95 flex flex-col">
+              <img src={pending.url} alt="Náhled pořízené fotografie"
+                className="absolute inset-0 w-full h-full object-contain" />
+              <div
+                className={`absolute z-10 ${landscapeMode ? "right-0 inset-y-0 w-40 flex-col justify-center" : "bottom-0 inset-x-0 flex-row"} flex items-center gap-3 p-4 bg-black/50 backdrop-blur-xl`}
+                style={{
+                  paddingBottom: landscapeMode ? undefined : "max(1.25rem, env(safe-area-inset-bottom))",
+                  paddingRight: "max(1rem, env(safe-area-inset-right))",
+                  paddingLeft: "max(1rem, env(safe-area-inset-left))",
+                }}
+              >
+                <button onPointerUp={(e) => { e.preventDefault(); retakePending(); }} onClick={retakePending}
+                  style={{ touchAction: "manipulation" }}
+                  className="flex-1 w-full min-h-[52px] rounded-2xl bg-white/10 ring-1 ring-white/25 text-sm font-medium flex items-center justify-center gap-2 active:scale-95 transition">
+                  <RotateCcw size={17} /> Vyfotit znovu
+                </button>
+                <button onPointerUp={(e) => { e.preventDefault(); acceptPending(); }} onClick={acceptPending}
+                  style={{ touchAction: "manipulation" }}
+                  className="flex-1 w-full min-h-[52px] rounded-2xl bg-white text-black text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition">
+                  <Check size={17} /> Použít fotografii
+                </button>
               </div>
             </div>
           )}
@@ -969,6 +1097,7 @@ export default function SmartCapture() {
           {shutterFlash && (
             <div className="absolute inset-0 bg-white pointer-events-none animate-in fade-in duration-75" style={{ animationDirection: "alternate" }} />
           )}
+
         </div>
       )}
 

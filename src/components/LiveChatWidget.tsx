@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import { Mail, X, Send, Loader2, CheckCircle2 } from "lucide-react";
 import { useCreateLead } from "@/hooks/useLeads";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
@@ -11,6 +12,8 @@ import { toast } from "@/hooks/use-toast";
  */
 const LiveChatWidget = () => {
   const enabled = useFeatureFlag("feature_live_chat_enabled");
+  // Zákaznický widget nemá co dělat v administraci — překrýval spoušť Smart Capture.
+  const { pathname } = useLocation();
   const [open, setOpen] = useState(false);
   const [sent, setSent] = useState(false);
   const [name, setName] = useState("");
@@ -18,7 +21,7 @@ const LiveChatWidget = () => {
   const [message, setMessage] = useState("");
   const createLead = useCreateLead();
 
-  if (!enabled) return null;
+  if (!enabled || pathname.startsWith("/admin")) return null;
 
   const looksLikeEmail = contact.includes("@");
 

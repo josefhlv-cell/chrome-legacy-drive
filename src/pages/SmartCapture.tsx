@@ -1057,10 +1057,38 @@ export default function SmartCapture() {
           )}
 
 
+          {/* KONTROLA SNÍMKU — kamera běží dál, žádná reinicializace streamu */}
+          {pending && (
+            <div className="absolute inset-0 z-[60] bg-black/95 flex flex-col">
+              <img src={pending.url} alt="Náhled pořízené fotografie"
+                className="absolute inset-0 w-full h-full object-contain" />
+              <div
+                className={`absolute z-10 ${landscapeMode ? "right-0 inset-y-0 w-40 flex-col justify-center" : "bottom-0 inset-x-0 flex-row"} flex items-center gap-3 p-4 bg-black/50 backdrop-blur-xl`}
+                style={{
+                  paddingBottom: landscapeMode ? undefined : "max(1.25rem, env(safe-area-inset-bottom))",
+                  paddingRight: "max(1rem, env(safe-area-inset-right))",
+                  paddingLeft: "max(1rem, env(safe-area-inset-left))",
+                }}
+              >
+                <button onPointerUp={(e) => { e.preventDefault(); retakePending(); }} onClick={retakePending}
+                  style={{ touchAction: "manipulation" }}
+                  className="flex-1 w-full min-h-[52px] rounded-2xl bg-white/10 ring-1 ring-white/25 text-sm font-medium flex items-center justify-center gap-2 active:scale-95 transition">
+                  <RotateCcw size={17} /> Vyfotit znovu
+                </button>
+                <button onPointerUp={(e) => { e.preventDefault(); acceptPending(); }} onClick={acceptPending}
+                  style={{ touchAction: "manipulation" }}
+                  className="flex-1 w-full min-h-[52px] rounded-2xl bg-white text-black text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition">
+                  <Check size={17} /> Použít fotografii
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* ⚡ Shutter flash */}
           {shutterFlash && (
             <div className="absolute inset-0 bg-white pointer-events-none animate-in fade-in duration-75" style={{ animationDirection: "alternate" }} />
           )}
+
         </div>
       )}
 

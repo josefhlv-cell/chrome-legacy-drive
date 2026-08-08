@@ -968,7 +968,6 @@ export default function SmartCapture() {
                 style={{ paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}>
                 <button
                   onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
-                  onClick={handleShot}
                   disabled={!stream || switching || !!pending}
                   style={{ touchAction: "manipulation" }}
                   className="pointer-events-auto relative w-[78px] h-[78px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
@@ -1039,7 +1038,6 @@ export default function SmartCapture() {
 
                 <button
                   onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
-                  onClick={handleShot}
                   disabled={!stream || switching || !!pending}
                   style={{ touchAction: "manipulation" }}
                   className="relative w-20 h-20 shrink-0 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"

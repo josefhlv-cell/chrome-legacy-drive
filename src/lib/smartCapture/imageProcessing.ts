@@ -16,11 +16,12 @@ const DEFAULTS: Required<ProcessOptions> = {
   brightness: 0,
   contrast: 8,
   saturation: 6,
-  sharpen: false,        // ⚡ vypnutý sharpen — drahá 3x3 konvoluce, dvojnásobné zrychlení
-  autoExposure: false,   // ⚡ vypnuté auto-expo — getImageData je drahý
-  maxWidth: 1920,        // ⚡ menší rozlišení = rychlejší upload i processing
-  quality: 0.85,
+  sharpen: false,        // drahá 3x3 konvoluce — vypnuto kvůli rychlosti
+  autoExposure: false,   // getImageData je drahý — vypnuto kvůli rychlosti
+  maxWidth: 3200,        // vysoké rozlišení pro web, showroom i A4 tisk
+  quality: 0.92,         // nízká komprese — bez viditelných artefaktů
 };
+
 
 export async function loadImageBitmap(file: File | Blob): Promise<ImageBitmap> {
   return await createImageBitmap(file);

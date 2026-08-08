@@ -14,14 +14,19 @@ export type Facing = "environment" | "user";
 
 let cachedWideDeviceId: string | null | undefined;
 
-/** Skóre „šířky“ objektivu podle názvu zařízení (heuristika, funguje na iOS i Androidu). */
+/**
+ * Skóre objektivu podle názvu zařízení (heuristika, funguje na iOS i Androidu).
+ * Priorita: STANDARDNÍ hlavní širokoúhlý objektiv (žádné přiblížení a zároveň
+ * bez ultra-wide deformace) → ultra-wide → neznámé → teleobjektiv nikdy.
+ */
 const lensScore = (label: string): number => {
   const l = label.toLowerCase();
-  if (/ultra|ultrawide|ultra wide|ultra-wide|0[.,]5/.test(l)) return 3;
-  if (/wide|širok|sirok/.test(l) && !/tele/.test(l)) return 2;
   if (/tele|zoom|2x|3x|5x/.test(l)) return 0;
+  if (/ultra|ultrawide|ultra wide|ultra-wide|0[.,]5/.test(l)) return 2;
+  if (/wide|širok|sirok|main|hlavn/.test(l)) return 4;
   return 1;
 };
+
 
 /**
  * Najde deviceId nejširšího zadního objektivu. Vrací null, pokud nelze určit

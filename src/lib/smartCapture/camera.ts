@@ -74,15 +74,16 @@ export const openCamera = async (
     throw new Error("Tento prohlížeč nepodporuje přístup ke kameře.");
   }
 
-  // Plný senzor 4:3, bez dokropování, zoom 1×.
+  // Plný senzor 4:3, nativní rozlišení, bez dokropování, zoom 1×.
   const base: MediaTrackConstraints = {
-    width: { ideal: 2048 },
-    height: { ideal: 1536 },
+    width: { ideal: 4032 },
+    height: { ideal: 3024 },
     aspectRatio: { ideal: 4 / 3 },
     // @ts-expect-error — resizeMode/zoom nejsou v lib.dom typech všech verzí
     resizeMode: "none",
     zoom: 1,
   };
+
 
   const attempts: MediaTrackConstraints[] = [];
   if (facing === "environment" && deviceId) {

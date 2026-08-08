@@ -949,16 +949,22 @@ export default function SmartCapture() {
                 </button>
               </div>
 
-              {/* RIGHT column — ONLY the shutter, nothing else can steal the tap */}
-              <div className="absolute right-0 inset-y-0 w-28 flex items-center justify-center pointer-events-none z-40"
-                style={{ paddingRight: "env(safe-area-inset-right)" }}>
-                <button onClick={handleShot} disabled={!stream || switching}
+              {/* RIGHT column — POUZE spoušť; nic jiného tap nesebere.
+                  onPointerUp + onClick (guardované shootingRef) = spolehlivé i v iOS landscape,
+                  kde se click u pravého okraje občas zahodí. */}
+              <div className="absolute right-0 inset-y-0 w-28 flex items-center justify-center pointer-events-none z-50"
+                style={{ paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}>
+                <button
+                  onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
+                  onClick={handleShot}
+                  disabled={!stream || switching || !!pending}
                   style={{ touchAction: "manipulation" }}
-                  className="pointer-events-auto relative w-[74px] h-[74px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
-                  title="Vyfotit">
+                  className="pointer-events-auto relative w-[78px] h-[78px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
+                  title="Vyfotit" aria-label="Vyfotit">
                   <span className="absolute inset-2 rounded-full bg-white" />
                 </button>
               </div>
+
 
 
               {/* BOTTOM filmstrip */}

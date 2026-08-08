@@ -1011,40 +1011,51 @@ export default function SmartCapture() {
 
               <Progress value={((currentStepIdx + 1) / totalSteps) * 100} className="h-1 mb-4 bg-white/10" />
 
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <button onClick={() => fileInputRef.current?.click()}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="Z galerie">
-                    <ImageIcon size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="Z galerie" aria-label="Z galerie">
+                    <ImageIcon size={19} />
                   </button>
                   <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 transition"
-                    title="Předchozí">
-                    <ChevronLeft size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 transition"
+                    title="Předchozí" aria-label="Předchozí">
+                    <ChevronLeft size={19} />
                   </button>
                 </div>
 
-                <button onClick={handleShot} disabled={!stream}
-                  className="relative w-20 h-20 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]">
+                <button
+                  onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
+                  onClick={handleShot}
+                  disabled={!stream || switching || !!pending}
+                  style={{ touchAction: "manipulation" }}
+                  className="relative w-20 h-20 shrink-0 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
+                  title="Vyfotit" aria-label="Vyfotit">
                   <span className="absolute inset-2 rounded-full bg-white" />
                 </button>
 
                 <div className="flex items-center gap-2">
                   <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="Přeskočit">
-                    <ChevronRight size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="Přeskočit" aria-label="Přeskočit">
+                    <ChevronRight size={19} />
+                  </button>
+                  <button onClick={switchCamera} disabled={switching}
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-40 transition"
+                    title="Přepnout kameru" aria-label="Přepnout kameru">
+                    {switching ? <Loader2 size={18} className="animate-spin" /> : <SwitchCamera size={18} />}
                   </button>
                   <button onClick={() => setPhase("vin")}
-                    className="w-12 h-12 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="VIN scan">
-                    <ScanLine size={20} />
+                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
+                    title="VIN scan" aria-label="VIN scan">
+                    <ScanLine size={19} />
                   </button>
                 </div>
               </div>
             </div>
           )}
+
 
           {/* ⚡ Shutter flash */}
           {shutterFlash && (

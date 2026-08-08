@@ -489,10 +489,13 @@ export default function SmartCapture() {
       return;
     }
     switch (cmd) {
-      case "shot": void handleShot(); break;
+      // Při kontrole snímku plní hlas roli tlačítek Použít / Vyfotit znovu.
+      case "shot": if (pending) acceptPending(); else void handleShot(); break;
       case "next": setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1)); break;
       case "prev": setCurrentStepIdx((i) => Math.max(0, i - 1)); break;
       case "retake": {
+        if (pending) { retakePending(); break; }
+
         const last = photos[photos.length - 1] as { id: string } | undefined;
         if (last && sessionId) {
           deletePhoto.mutate({ id: last.id, sessionId });

@@ -507,7 +507,7 @@ export default function SmartCapture() {
       case "done": finishToReview(); break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, photos, sessionId, totalSteps]);
+  }, [phase, photos, sessionId, totalSteps, pending]);
 
   // Init voice controller once
   useEffect(() => {

@@ -732,7 +732,7 @@ export default function SmartCapture() {
               Skutečný poměr stran čteme z videoWidth/videoHeight, ne z CSS. */}
           <video
             ref={videoRef}
-            className="absolute inset-0 w-full h-full object-contain"
+            className="absolute inset-0 w-full h-full object-cover"
             style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
             onLoadedMetadata={(e) => {
               const v = e.currentTarget;

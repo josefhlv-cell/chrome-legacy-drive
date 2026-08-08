@@ -315,26 +315,40 @@ export default function SmartCapture() {
   };
 
   const handleShot = async () => {
-    if (!sessionId || busy || switching || shootingRef.current) return;
+    if (!sessionId || busy || switching || pending || shootingRef.current) return;
     shootingRef.current = true;
     try {
-      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms),
-      //    pak ihned advance + processing/upload na pozadí.
+      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms).
       const blob = await captureFromVideo();
       if (!blob) { toast({ title: "Nelze pořídit snímek", description: "Kamera ještě není připravená, zkuste to znovu.", variant: "destructive" }); return; }
-      // ⚡ Okamžitě posuň krok — uživatel může fotit dál, nečeká na upload
-      const stepAtShot = currentStepIdx;
-      if (currentStepIdx < totalSteps - 1) setCurrentStepIdx((i) => i + 1);
-      // shutter feedback
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
-      void processAndUpload(blob, stepAtShot);
-      // První záběr → miniatura na přednastaveném pozadí (na pozadí, neblokuje)
-      if (stepAtShot === 0 && thumbComposeEnabled && !thumbBusy) void buildThumbnail(blob, sessionId);
+      // Kontrola snímku — teprve „Použít fotografii“ ho uloží.
+      setPending({ blob, url: URL.createObjectURL(blob), stepIdx: currentStepIdx });
     } finally {
-      setTimeout(() => { shootingRef.current = false; }, 250);
+      setTimeout(() => { shootingRef.current = false; }, 200);
     }
   };
+
+  /** „Použít fotografii“ — upload běží na pozadí, uživatel pokračuje dál. */
+  const acceptPending = () => {
+    if (!pending || !sessionId) return;
+    const { blob, url, stepIdx } = pending;
+    setPending(null);
+    URL.revokeObjectURL(url);
+    if (stepIdx < totalSteps - 1) setCurrentStepIdx(stepIdx + 1);
+    void processAndUpload(blob, stepIdx);
+    if (stepIdx === 0 && thumbComposeEnabled && !thumbBusy) void buildThumbnail(blob, sessionId);
+  };
+
+  /** „Vyfotit znovu“ — snímek se zahodí, kamera zůstává připravená. */
+  const retakePending = () => {
+    setPending((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+  };
+
+  // Cleanup posledního náhledu při odchodu z obrazovky (žádné visící Blob URL).
+  useEffect(() => () => { setPending((p) => { if (p) URL.revokeObjectURL(p.url); return null; }); }, []);
+
 
 
 

@@ -850,9 +850,15 @@ export default function SmartCapture() {
                   <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
                 </span>
               )}
+              {dealerMode && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 backdrop-blur-xl ring-1 ring-amber-300/40 text-[10px] text-amber-100">
+                  <Shield size={11} /> dealer
+                </span>
+              )}
               <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 text-[10px] tabular-nums text-white/80">
                 {currentStepIdx + 1} / {totalSteps}
               </span>
+
             </div>
 
             <button onClick={finishToReview} disabled={photos.length === 0}

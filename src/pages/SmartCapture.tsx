@@ -119,19 +119,40 @@ export default function SmartCapture() {
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const [thumbOverlayOn, setThumbOverlayOn] = useState(true);
 
-  const [isLandscape, setIsLandscape] = useState(
-    typeof window !== "undefined" ? window.innerWidth > window.innerHeight : false
-  );
+  /** Skutečné rozměry viewportu (ne CSS odhad) — přepočítají se i po otočení. */
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== "undefined" ? window.innerWidth : 0,
+    h: typeof window !== "undefined" ? window.innerHeight : 0,
+  }));
+  const isLandscape = viewport.w > viewport.h;
   useEffect(() => {
-    const onResize = () => setIsLandscape(window.innerWidth > window.innerHeight);
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
     window.addEventListener("resize", onResize);
     window.addEventListener("orientationchange", onResize);
+    const so = (window.screen as unknown as { orientation?: EventTarget })?.orientation;
+    so?.addEventListener?.("change", onResize);
     return () => {
       window.removeEventListener("resize", onResize);
       window.removeEventListener("orientationchange", onResize);
+      so?.removeEventListener?.("change", onResize);
     };
   }, []);
   const landscapeMode = isLandscape && landscapeEnabled;
+
+  /**
+   * Viditelná plocha obrazu: stream se vždy vejde CELÝ (object-contain), takže
+   * nikdy nevzniká digitální zoom ani nechtěný ořez. Overlaye (Dealer rámeček,
+   * mřížka) se kotví přesně na tuto plochu, ne na celý displej.
+   */
+  const frameBox = useMemo(() => {
+    const vw = viewport.w || 1, vh = viewport.h || 1;
+    const ar = videoAspect ?? vw / vh;
+    const fitH = vw / ar <= vh;
+    const w = fitH ? vw : vh * ar;
+    const h = fitH ? vw / ar : vh;
+    return { left: (vw - w) / 2, top: (vh - h) / 2, width: w, height: h };
+  }, [viewport, videoAspect]);
+
   const [voiceActive, setVoiceActive] = useState(false);
   const [voiceUnsupported, setVoiceUnsupported] = useState(false);
   const [dictating, setDictating] = useState(false);

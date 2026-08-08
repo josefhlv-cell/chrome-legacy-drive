@@ -60,6 +60,11 @@ export default function SmartCapture() {
   const [busy, setBusy] = useState(false);
   const [queueCount, setQueueCount] = useState(0);   // ⚡ kolik fotek se zpracovává na pozadí
   const [shutterFlash, setShutterFlash] = useState(false);
+  /** Právě pořízený snímek — čeká na „Použít fotografii“ / „Vyfotit znovu“.
+   *  Kamera přitom BĚŽÍ dál (žádná reinicializace MediaStreamu). */
+  const [pending, setPending] = useState<{ blob: Blob; url: string; stepIdx: number } | null>(null);
+  /** Skutečný poměr stran streamu — zjištěn z videoWidth/videoHeight, ne z CSS. */
+  const [videoAspect, setVideoAspect] = useState<number | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
   const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
   const [vinScanning, setVinScanning] = useState(false);

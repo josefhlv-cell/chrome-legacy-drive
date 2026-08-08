@@ -636,7 +636,7 @@ export default function SmartCapture() {
        je `fixed inset-0` samo o sobě nespolehlivé — obsah se schovával pod lištu. */
     <div
       className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden"
-      style={{ height: "100dvh", width: "100dvw" }}
+      style={{ height: "100dvh", width: "100vw", minHeight: "100dvh" }}
     >
       {/* Header — hidden while capturing (full-screen camera) */}
       {phase !== "capturing" && (

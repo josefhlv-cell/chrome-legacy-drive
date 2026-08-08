@@ -721,15 +721,49 @@ export default function SmartCapture() {
       {/* Capturing — 100% full-screen native-style camera */}
       {phase === "capturing" && (
         <div className="absolute inset-0 bg-black overflow-hidden">
-          {/* Preview — never transformed by the gyroscope, only the OS rotates it */}
+          {/* Preview — celý displej, plné zorné pole objektivu.
+              object-contain = žádný digitální zoom, žádný ořez, žádná deformace.
+              Skutečný poměr stran čteme z videoWidth/videoHeight, ne z CSS. */}
           <video
             ref={videoRef}
-            // object-contain — zachová celé zorné pole objektivu (žádné přiblížení/ořez)
             className="absolute inset-0 w-full h-full object-contain"
-
             style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
+            onLoadedMetadata={(e) => {
+              const v = e.currentTarget;
+              if (v.videoWidth && v.videoHeight) setVideoAspect(v.videoWidth / v.videoHeight);
+            }}
             playsInline muted autoPlay
           />
+
+          {/* DEALER MODE — průhledné vodítko pro vůz (pouze overlay, nikdy neovlivní snímek) */}
+          {dealerMode && stream && !cameraError && !pending && (() => {
+            const g = guideForShot(currentStep?.type, currentStep?.category);
+            const gw = frameBox.width * g.width;
+            const gh = frameBox.height * g.height;
+            const gl = frameBox.left + frameBox.width * g.centerX - gw / 2;
+            const gt = frameBox.top + frameBox.height * g.centerY - gh / 2;
+            return (
+              <div className="pointer-events-none absolute inset-0 z-20">
+                <div
+                  className="absolute rounded-xl ring-2 ring-amber-300/70"
+                  style={{ left: gl, top: gt, width: gw, height: gh, boxShadow: "0 0 0 9999px rgba(0,0,0,0.18)" }}
+                >
+                  {/* Rohové značky pro rychlé zaměření */}
+                  <span className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-amber-200 rounded-tl-xl" />
+                  <span className="absolute -top-px -right-px w-6 h-6 border-t-2 border-r-2 border-amber-200 rounded-tr-xl" />
+                  <span className="absolute -bottom-px -left-px w-6 h-6 border-b-2 border-l-2 border-amber-200 rounded-bl-xl" />
+                  <span className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-amber-200 rounded-br-xl" />
+                </div>
+                <div
+                  className="absolute text-[11px] text-amber-100 bg-black/50 backdrop-blur px-2.5 py-1 rounded-full whitespace-nowrap max-w-[90vw] truncate"
+                  style={{ left: frameBox.left + frameBox.width / 2, top: gt + gh + 8, transform: "translateX(-50%)" }}
+                >
+                  {Math.abs(horizonAngle) > 4 ? "Narovnejte telefon" : g.hint}
+                </div>
+              </div>
+            );
+          })()}
+
 
           {/* Přednastavené pozadí pro MINIATURU — vidíte ho už při focení
               prvního záběru a vozidlo do něj „zaparkujete". */}

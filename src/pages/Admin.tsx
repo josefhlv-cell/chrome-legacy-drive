@@ -1515,6 +1515,7 @@ const ContactsTab = () => {
           { key: "feature_watchdog_enabled", label: "Hlídací pes", hint: "Formulář na /vozidla a e-maily o nových vozech" },
           { key: "feature_live_chat_enabled", label: "Živý chat", hint: "Plovoucí obálka vpravo dole na celém webu" },
           { key: "feature_vehicle_compare_enabled", label: "Porovnání vozů", hint: "Zaškrtávátko na kartách a stránka /porovnani-vozidel" },
+          { key: "feature_pacifica_tour_enabled", label: "Virtuální prohlídka Pacifica", hint: "Interaktivní prezentace Chrysler Pacifica na hlavní stránce a samostatné stránce." },
         ].map((f) => {
           const enabled = contacts?.[f.key] !== "false";
           return (

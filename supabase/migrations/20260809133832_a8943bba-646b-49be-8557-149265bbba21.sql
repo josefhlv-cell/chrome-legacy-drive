@@ -1,0 +1,1 @@
+INSERT INTO public.site_contacts (key, value) VALUES ('feature_pacifica_tour_enabled', 'true') ON CONFLICT (key) DO NOTHING;

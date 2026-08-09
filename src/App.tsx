@@ -29,6 +29,7 @@ const SmartCapture = lazy(() => import("./pages/SmartCapture.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CompareVehicles = lazy(() => import("./pages/CompareVehicles.tsx"));
+const PacificaTour = lazy(() => import("./pages/PacificaTour.tsx"));
 // AppBanner moved into Index page only — used to mount globally on every route.
 
 const queryClient = new QueryClient();
@@ -74,6 +75,7 @@ const App = () => (
               <Route path="*" element={<NotFound />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/porovnani-vozidel" element={<CompareVehicles />} />
+              <Route path="/pacifica-prohlidka" element={<PacificaTour />} />
             </Routes>
           </Suspense>
           <LiveChatWidget />

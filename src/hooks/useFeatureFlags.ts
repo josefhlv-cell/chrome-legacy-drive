@@ -3,7 +3,8 @@ import { useSiteContacts } from "@/hooks/useAdminContent";
 export type FeatureKey =
   | "feature_watchdog_enabled"
   | "feature_live_chat_enabled"
-  | "feature_vehicle_compare_enabled";
+  | "feature_vehicle_compare_enabled"
+  | "feature_pacifica_tour_enabled";
 
 /**
  * Feature switches live as rows in `site_contacts` (key/value) so the admin can

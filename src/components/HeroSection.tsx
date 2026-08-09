@@ -60,13 +60,24 @@ const HeroSection = () => {
             </p>
           </blockquote>
           <img src={logoPardubice} alt="Chrysler - Dodge Pardubice" className="h-12 md:h-16 w-auto mb-8 drop-shadow-lg" width={179} height={200} fetchPriority="high" decoding="async" loading="eager" />
-          <div className="flex flex-wrap gap-4">
-            <Link to="/vozidla" className="chrome-button inline-block text-center">
-              Zobrazit vozidla
-            </Link>
-            <Link to="/servis" className="outline-button inline-block text-center">
-              Servis
-            </Link>
+          <div className="flex flex-col items-start gap-4">
+            <div className="flex flex-wrap gap-4">
+              <Link to="/vozidla" className="chrome-button inline-block text-center">
+                Zobrazit vozidla
+              </Link>
+              <Link to="/servis" className="outline-button inline-block text-center">
+                Servis
+              </Link>
+            </div>
+            {tourEnabled && (
+              <Link
+                to="/pacifica-prohlidka"
+                className="outline-button inline-flex items-center justify-center gap-2 text-center w-full sm:w-auto"
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-primary" aria-hidden="true" />
+                Virtuální prohlídka Pacifica
+              </Link>
+            )}
           </div>
         </div>
       </div>

@@ -19,6 +19,8 @@ import { useSiteContacts } from "@/hooks/useAdminContent";
  * /07_zavazadlovy_prostor.jpg
  * /08_posuvne_dvere.jpg
  * /09_design_a_detaily.jpg
+ * /10_motor_a_prevodovka.jpg
+ * /11_pacifica_hybrid.jpg
  *
  * Informace jsou formulovány jako obecný popis Chrysler Pacifica.
  * Funkce závislé na konkrétní verzi nebo výbavě jsou vždy označeny.
@@ -42,7 +44,7 @@ const STOPS: Stop[] = [
     image: "/01_predni_cast.jpg",
     alt: "Chrysler Pacifica – přední část vozu",
     text:
-      "Chrysler Pacifica je prostorný rodinný minivan se třemi řadami sedadel. Přední část kombinuje výrazný design s LED osvětlením a charakteristickými proporcemi moderní Pacificy. Konkrétní provedení přední části, světlometů, masky a dalších designových prvků se může lišit podle modelu a výbavy.",
+      "Chrysler Pacifica je prostorný rodinný minivan se třemi řadami sedadel. Přední část kombinuje výrazný design s LED osvětlením a charakteristickými proporcemi moderní Pacificy. Konkrétní provedení přední části, světlometů, masky a dalších designových prvků se může lišit podle verze a výbavy.",
     bullets: [
       "LED přední světlomety — dle výbavy",
       "LED denní svícení — dle výbavy",
@@ -145,13 +147,13 @@ const STOPS: Stop[] = [
     image: "/07_zavazadlovy_prostor.jpg",
     alt: "Chrysler Pacifica – zavazadlový prostor",
     text:
-      "Pacifica je navržena tak, aby zvládla přepravu cestujících i velkého množství nákladu. Po sklopení zadních sedadel vzniká rozsáhlý nákladový prostor. Chrysler uvádí maximální nákladový objem až 140,5 cu ft, tedy přibližně 3 980 litrů.",
+      "Pacifica je navržena tak, aby zvládla přepravu cestujících i velkého množství nákladu. Systém Stow ’n Go umožňuje u kompatibilních konfigurací sklopit zadní sedadla přímo do podlahy bez jejich vyjímání. Přechod z plně obsazeného rodinného vozu na velký nákladový prostor je tak rychlý a praktický.",
     bullets: [
       "Maximální nákladový objem až 140,5 cu ft (cca 3 980 l)",
-      "Stow ’n Go umožňuje sklopení sedadel do podlahy — dle verze",
+      "Sedadla se sklápějí přímo do podlahy — dle verze",
+      "Bez nutnosti vyjímat sedadla z vozu",
       "Velký prostor pro zavazadla i objemnější předměty",
       "Praktické úložné prostory v podlaze — dle konfigurace",
-      "Až 243 různých konfigurací interiéru — dle výbavy",
     ],
   },
 
@@ -193,6 +195,46 @@ const STOPS: Stop[] = [
       "LaneSense s funkcí udržování v jízdním pruhu — dle výbavy",
       "Blind Spot Monitoring — dle výbavy",
       "ParkSense a zadní kamera — dle výbavy",
+    ],
+  },
+
+  {
+    id: "motor-a-prevodovka",
+    label: "Motor",
+    title: "3.6 Pentastar V6 a devítistupňová převodovka",
+    image: "/10_motor_a_prevodovka.jpg",
+    alt: "Chrysler Pacifica – motor 3.6 Pentastar V6",
+    text:
+      "Srdcem klasické Pacificy je atmosférický šestiválec 3.6 Pentastar V6. Chrysler u této kombinace uvádí výkon 287 koní a točivý moment 262 lb-ft, tedy přibližně 356 Nm. Motor je spojen s devítistupňovou automatickou převodovkou TorqueFlite. Výsledkem je kombinace dostatečného výkonu pro plně obsazený vůz, plynulé jízdy a rozumné spotřeby vzhledem k velikosti a hmotnosti vozu.",
+    bullets: [
+      "3.6 Pentastar V6",
+      "Výkon 287 hp / přibližně 214 kW",
+      "Točivý moment 262 lb-ft / přibližně 356 Nm",
+      "9stupňová automatická převodovka TorqueFlite",
+      "Plynulý průběh výkonu vhodný pro dálniční i rodinný provoz",
+      "FWD: oficiálně až 22 mpg kombinovaně — dle konkrétní verze",
+      "AWD: oficiálně až 20 mpg kombinovaně — dle konkrétní verze",
+      "Osvědčená konstrukce Pentastar V6 používaná napříč modely Chrysler, Dodge, Jeep a RAM",
+    ],
+  },
+
+  {
+    id: "hybrid",
+    label: "Hybrid",
+    title: "Pacifica Plug-in Hybrid",
+    image: "/11_pacifica_hybrid.jpg",
+    alt: "Chrysler Pacifica Plug-in Hybrid – motorový prostor",
+    text:
+      "Plug-in Hybrid spojuje 3.6litrový V6 s elektrickým pohonem a vysokonapěťovou lithium-iontovou baterií. Smyslem tohoto řešení není pouze maximální výkon, ale především možnost využívat elektřinu pro každodenní kratší trasy a spalovací motor pro delší cesty. Při zpomalování systém zároveň využívá rekuperační brzdění k získávání části energie zpět do baterie.",
+    bullets: [
+      "3.6litrový V6 v kombinaci s elektrickým pohonem",
+      "Systémový výkon až 260 hp",
+      "Plug-in nabíjení z externího zdroje",
+      "Až 32 mil / přibližně 51 km čistě elektrického dojezdu dle údajů Chrysleru",
+      "Až 82 MPGe podle americké metodiky EPA",
+      "Rekuperační brzdění pomáhá vracet energii zpět do baterie",
+      "Po vyčerpání elektrického dojezdu vůz pokračuje na benzinový pohon",
+      "Výhoda především pro řidiče, kteří pravidelně nabíjejí a jezdí kratší každodenní trasy",
     ],
   },
 ];
@@ -356,10 +398,12 @@ const PacificaTour = () => {
         </div>
 
         <p className="mt-8 text-xs text-muted-foreground font-montserrat">
-          Uvedené informace jsou obecným popisem Chrysler Pacifica. Konkrétní
-          výbava, konfigurace sedadel, pohon, technologie a asistenční systémy
-          se mohou lišit podle verze a výbavy konkrétního vozu. Konkrétní
-          parametry vždy ověříme podle VIN.
+          Uvedené informace jsou obecným popisem Chrysler Pacifica.
+          Konkrétní výbava, konfigurace sedadel, pohon, technologie a
+          asistenční systémy se mohou lišit podle verze a výbavy konkrétního
+          vozu. Technické údaje a spotřeba se mohou lišit podle trhu,
+          konfigurace, pohonu a metodiky měření. Konkrétní parametry vždy
+          ověříme podle VIN.
         </p>
       </main>
     </div>

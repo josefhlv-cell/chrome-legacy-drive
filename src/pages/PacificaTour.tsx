@@ -43,11 +43,12 @@ const STOPS: Stop[] = [
     title: "Přední část a design",
     image: imgFront,
     alt: "Ilustrační vizualizace přední části prostorného MPV v showroomu",
-    text: "Pacifica je plnohodnotné rodinné MPV s pěti dveřmi, třemi řadami sedadel a nízkou nástupní výškou. Karoserie je navržená tak, aby při maximálním vnitřním prostoru zůstala co nejvíc aerodynamická.",
+    text: "Pacifica je plnohodnotné rodinné MPV s pěti dveřmi a třemi řadami sedadel. Přední masce dominuje prosvětlený znak Chrysler s okřídleným logem, který je součástí LED světelné signatury napříč celou přídí. Světelná animace při odemčení a zamčení i konkrétní provedení masky se liší podle verze.",
     bullets: [
-      "Sedmimístné uspořádání ve třech řadách",
-      "LED světlomety a chromové detaily dle výbavy",
-      "Nízká nástupní výška pro děti i starší pasažéry",
+      "Prosvětlený okřídlený znak Chrysler v přední masce — dle výbavy",
+      "LED světlomety, denní svícení i LED zadní světla",
+      "Světelná animace při příchodu a odchodu — dle výbavy",
+      "Sedmimístné uspořádání ve třech řadách; osm míst dle verze",
     ],
   },
   {
@@ -56,11 +57,12 @@ const STOPS: Stop[] = [
     title: "Zavazadlový prostor a páté dveře",
     image: imgCargo,
     alt: "Ilustrační vizualizace otevřeného zavazadlového prostoru MPV",
-    text: "Za třetí řadou zůstává hluboká vana pro běžný nákup i kufry. Po složení třetí řady do podlahy vznikne rovná ložná plocha bez prahů a hran.",
+    text: "Za třetí řadou zůstává hluboká vana pro nákup i kufry. Po složení sedadel do podlahy vznikne rovná ložná plocha — Chrysler uvádí celkový objem až 140,5 cu ft (přibližně 3 980 litrů). Elektricky ovládané páté dveře mají nastavitelnou výšku otevření, takže se dají přizpůsobit nízké garáži nebo přístřešku.",
     bullets: [
-      "Hluboká vana za třetí řadou i při plném obsazení",
       "Rovná ložná plocha po složení sedadel do podlahy",
-      "Elektricky ovládané páté dveře dle výbavy",
+      "Celkový objem až 140,5 cu ft (cca 3 980 l) dle oficiálních údajů",
+      "Elektrické páté dveře s nastavitelnou výškou otevření",
+      "Hluboká vana za třetí řadou i při plném obsazení",
     ],
   },
   {
@@ -69,11 +71,12 @@ const STOPS: Stop[] = [
     title: "Posuvné boční dveře",
     image: imgSide,
     alt: "Ilustrační vizualizace MPV s otevřenými posuvnými bočními dveřmi",
-    text: "Posuvné dveře na obou stranách otevřou široký vstup do druhé i třetí řady. V úzkém parkovacím místě se nemusí nic vyklápět do strany, což usnadní usazení dětské sedačky.",
+    text: "Posuvné dveře na obou stranách otevřou široký vstup do druhé i třetí řady. Elektrické ovládání je součástí vozu už od základní verze, bezdotykové otevírání pohybem nohy pod vozem je pak otázkou výbavy. V úzkém parkovacím místě se nemusí nic vyklápět do strany.",
     bullets: [
-      "Široký vstup do druhé i třetí řady",
-      "Elektrické ovládání posuvných dveří dle výbavy",
-      "Vhodné pro parkování v úzkých garážích",
+      "Elektricky ovládané posuvné dveře na obou stranách",
+      "Bezdotykové otevírání pohybem nohy pod vozem — dle výbavy",
+      "Široký a bezpečný vstup do druhé i třetí řady",
+      "Vhodné pro úzké garáže a parkovací místa",
     ],
   },
   {
@@ -82,11 +85,12 @@ const STOPS: Stop[] = [
     title: "Místo řidiče",
     image: imgDriver,
     alt: "Ilustrační vizualizace interiéru u místa řidiče",
-    text: "Pracoviště řidiče je postavené na vysokém posedu a dobrém rozhledu. Ovládání klimatizace i hlavních funkcí zůstává na fyzických prvcích, volič převodovky je řešený otočným ovladačem na středovém panelu.",
+    text: "Pracoviště řidiče kombinuje digitální přístrojový štít, dotykový displej Uconnect na středu palubní desky a ovládací prvky na volantu. Provedení palubní desky, materiály a dekory se liší podle verze — u nejvyšších stupňů výbavy jde o kombinaci kůže a tmavých platinových dekorů.",
     bullets: [
-      "Vysoký posed a přehled o provozu",
-      "Otočný volič automatické převodovky",
-      "Vyhřívání volantu a sedadel dle výbavy",
+      "Digitální přístrojový štít",
+      "Dotykový displej Uconnect na středu palubní desky",
+      "Ovládání hlavních funkcí na volantu",
+      "Materiály a dekory interiéru — dle výbavy",
     ],
   },
   {
@@ -95,11 +99,12 @@ const STOPS: Stop[] = [
     title: "Druhá řada",
     image: imgRow2,
     alt: "Ilustrační vizualizace druhé řady sedadel v MPV",
-    text: "Druhou řadu tvoří dvě samostatná sedadla s průchodem mezi nimi. Sedadla jdou posouvat a sklápět, takže se dá volit mezi větším prostorem pro nohy ve druhé a ve třetí řadě.",
+    text: "Druhou řadu tvoří samostatná sedadla s průchodem doprostřed. Funkce Easy Tilt umožní naklonit sedadlo dopředu a pustit cestující do třetí řady. Pacifica je podle Chrysleru jediné MPV, které nabízí pohon všech kol v kombinaci se systémem Stow ’n Go ve druhé řadě — dostupnost pohonu 4x4 je vázaná na konkrétní verzi.",
     bullets: [
-      "Dvě samostatná sedadla s průchodem doprostřed",
-      "Podélné posouvání pro přístup do třetí řady",
-      "Kotvicí body pro dětské sedačky",
+      "Samostatná sedadla s průchodem do třetí řady",
+      "Easy Tilt — naklonění sedadla pro snadný přístup vzadu",
+      "Osmimístné uspořádání s lavicí ve druhé řadě — dle verze",
+      "Pohon všech kol i se Stow ’n Go ve druhé řadě — dle verze",
     ],
   },
   {
@@ -108,11 +113,11 @@ const STOPS: Stop[] = [
     title: "Třetí řada",
     image: imgRow3,
     alt: "Ilustrační vizualizace třetí řady sedadel v MPV",
-    text: "Třetí řada je plnohodnotná dvoumístná lavice se samostatnými pásy a opěrkami hlavy. Není to nouzové řešení jen pro krátkou cestu ve městě.",
+    text: "Třetí řada je plnohodnotná — se samostatnými pásy a opěrkami hlavy. Sedadla se sklápějí přímo do podlahy vozu, takže se nemusí vyjímat ani nikam odkládat.",
     bullets: [
-      "Dvě plnohodnotná místa s vlastními pásy",
+      "Plnohodnotná místa s vlastními pásy a opěrkami hlavy",
+      "Sklopná do podlahy bez demontáže sedadel",
       "Vlastní okna a odkládací prostory",
-      "Sklopná do podlahy — bez demontáže",
     ],
   },
   {
@@ -121,12 +126,12 @@ const STOPS: Stop[] = [
     title: "Variabilita interiéru a Stow ’n Go",
     image: imgFlex,
     alt: "Ilustrační vizualizace interiéru MPV se sedadly složenými do podlahy",
-    text: "Systém Stow ’n Go sklápí sedadla přímo do podlahy vozu, takže se nic nemusí vynášet a nikde nezůstane překážka. Pozor na rozdíl mezi verzemi: u spalovacích verzí lze do podlahy sklopit druhou i třetí řadu, u plug-in hybridní verze je Stow ’n Go pro druhou řadu k dispozici pouze u třetí řady — druhá řada se vyjímá nebo sklápí jinak, protože prostor pod podlahou zabírá trakční baterie.",
+    text: "Systém Stow ’n Go sklápí sedadla druhé i třetí řady přímo do podlahy vozu — z auta pro sedm lidí se tak během chvíle stane dodávka s rovnou ložnou plochou. Chrysler tento systém uvádí jako výsadu své třídy; jeho konkrétní rozsah je vázaný na verzi a výbavu vozu, proto ho u každého vozu potvrzujeme individuálně.",
     bullets: [
       "Sedadla se sklápějí do podlahy, nikoli na podlahu",
-      "Spalovací verze: druhá i třetí řada do podlahy",
-      "Plug-in hybrid: do podlahy se sklápí třetí řada",
-      "Konkrétní řešení vždy dle verze a výbavy",
+      "Druhá i třetí řada — dle verze a výbavy vozu",
+      "Rovná ložná plocha bez prahů a překážek",
+      "Prostor pod podlahou lze využít i pro odkládání věcí",
     ],
   },
   {
@@ -135,12 +140,13 @@ const STOPS: Stop[] = [
     title: "Infotainment a technologie",
     image: imgTech,
     alt: "Ilustrační vizualizace středového panelu s dotykovým displejem",
-    text: "Multimédia Uconnect běží na dotykovém displeji uprostřed palubní desky a podporují propojení s telefonem přes Apple CarPlay a Android Auto. Rozsah funkcí — velikost displeje, bezdrátové propojení, navigace, zvukový systém nebo obrazovky pro zadní pasažéry — se liší podle verze a výbavy.",
+    text: "Multimédia Uconnect 5 běží na 10,1" dotykovém displeji, zvládnou až pět uživatelských profilů a bezdrátové připojení Apple CarPlay i propojení s Android Auto. K dispozici je také kamera FamCAM mířící na cestující ve druhé a třetí řadě, obrazovky pro zadní pasažéry nebo prémiový zvuk — vždy podle výbavy.",
     bullets: [
-      "Uconnect s dotykovým displejem",
-      "Apple CarPlay a Android Auto",
-      "Navigace, prémiový zvuk a obrazovky vzadu dle výbavy",
-      "USB porty pro druhou i třetí řadu dle výbavy",
+      "Uconnect 5 s 10,1" dotykovým displejem a profily uživatelů",
+      "Bezdrátový Apple CarPlay a Android Auto",
+      "FamCAM — kamera na cestující vzadu s nočním režimem, dle výbavy",
+      "10" obrazovky vzadu s Amazon Fire TV — dle výbavy",
+      "Prémiový zvuk Harman Kardon (19 reproduktorů) — dle výbavy",
     ],
   },
   {
@@ -149,15 +155,18 @@ const STOPS: Stop[] = [
     title: "Bezpečnost a komfort",
     image: imgSafety,
     alt: "Ilustrační vizualizace MPV za soumraku na mokré vozovce",
-    text: "Pacifica je koncipovaná jako rodinné auto na dlouhé přejezdy — s asistenčními systémy a komfortní výbavou, jejíž konkrétní složení se odvíjí od verze. Přesnou výbavu konkrétního vozu vám vždy potvrdíme podle VIN.",
+    text: "Pacifica je koncipovaná jako rodinné auto na dlouhé přejezdy a nabízí širokou sadu asistenčních systémů. Jejich konkrétní složení se odvíjí od verze a výbavy vozu — u každého konkrétního vozu vám je potvrdíme podle VIN.",
     bullets: [
-      "Zpětná kamera a parkovací asistence dle výbavy",
-      "Asistenty jízdy (např. sledování mrtvého úhlu) dle výbavy",
-      "Tříbodové pásy a opěrky hlavy pro všechna místa",
-      "Přesnou výbavu ověříme podle VIN daného vozu",
+      "Varování před kolizí s aktivním brzděním, i do úplného zastavení — dle výbavy",
+      "Adaptivní cruise control se zastavením a rozjezdem — dle výbavy",
+      "Automatické brzdění při detekci chodce — dle výbavy",
+      "LaneSense — hlídání jízdních pruhů s asistentem udržení — dle výbavy",
+      "Sledování mrtvého úhlu a varování při vyjíždění z parkování — dle výbavy",
+      "ParkSense — parkovací asistent a zpětná kamera s ostřikovačem — dle výbavy",
     ],
   },
 ];
+
 
 const PacificaTour = () => {
   const navigate = useNavigate();

@@ -1,5 +1,6 @@
 import { Link } from "react-router-dom";
 import { useEffect, useState } from "react";
+import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import logoPardubice from "@/assets/logo-pardubice.webp";
 
 // Stable public path is REQUIRED so the <link rel="preload"> in index.html
@@ -9,6 +10,9 @@ const heroImage = "/hero-chrysler.webp";
 
 const HeroSection = () => {
   const [visible, setVisible] = useState(false);
+  // Returns false while the setting is still loading, so the button never flashes
+  // before we know whether the feature is on.
+  const tourEnabled = useFeatureFlag("feature_pacifica_tour_enabled");
 
   useEffect(() => {
     // Trigger CSS animation after mount

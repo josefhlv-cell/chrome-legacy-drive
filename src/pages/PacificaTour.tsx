@@ -64,8 +64,8 @@ const SCENES: Scene[] = [
       {
         id: "motor",
         label: "Motor",
-        x: 50,
-        y: 40,
+        x: 22,
+        y: 74,
         detail: {
           id: "motor",
           title: "Motorový prostor",
@@ -106,8 +106,8 @@ const SCENES: Scene[] = [
       {
         id: "svetla",
         label: "Světlomety",
-        x: 21,
-        y: 46,
+        x: 26,
+        y: 55,
         detail: {
           id: "svetla",
           title: "Přední část a design",
@@ -125,8 +125,8 @@ const SCENES: Scene[] = [
       {
         id: "na-bok",
         label: "Posuvné dveře",
-        x: 78,
-        y: 62,
+        x: 80,
+        y: 40,
         goToScene: 1,
       },
     ],

@@ -64,8 +64,8 @@ const SCENES: Scene[] = [
       {
         id: "motor",
         label: "Motor",
-        x: 22,
-        y: 74,
+        x: 26,
+        y: 60,
         detail: {
           id: "motor",
           title: "Motorový prostor",
@@ -106,8 +106,8 @@ const SCENES: Scene[] = [
       {
         id: "svetla",
         label: "Světlomety",
-        x: 26,
-        y: 55,
+        x: 45,
+        y: 76,
         detail: {
           id: "svetla",
           title: "Přední část a design",
@@ -125,8 +125,8 @@ const SCENES: Scene[] = [
       {
         id: "na-bok",
         label: "Posuvné dveře",
-        x: 80,
-        y: 40,
+        x: 84,
+        y: 50,
         goToScene: 1,
       },
     ],
@@ -141,8 +141,8 @@ const SCENES: Scene[] = [
       {
         id: "posuvne-dvere",
         label: "Posuvné dveře",
-        x: 55,
-        y: 52,
+        x: 52,
+        y: 62,
         detail: {
           id: "posuvne-dvere",
           title: "Elektricky ovládané posuvné dveře",
@@ -160,8 +160,8 @@ const SCENES: Scene[] = [
       {
         id: "klic",
         label: "Vstoupit do interiéru",
-        x: 30,
-        y: 56,
+        x: 24,
+        y: 64,
         variant: "key",
         goToScene: 2,
       },
@@ -177,8 +177,8 @@ const SCENES: Scene[] = [
       {
         id: "startovani",
         label: "Startování",
-        x: 34,
-        y: 58,
+        x: 22,
+        y: 48,
         detail: {
           id: "startovani",
           title: "Startování a místo řidiče",
@@ -197,8 +197,8 @@ const SCENES: Scene[] = [
       {
         id: "do-druhe-rady",
         label: "Druhá řada",
-        x: 76,
-        y: 40,
+        x: 90,
+        y: 52,
         goToScene: 3,
       },
     ],
@@ -213,8 +213,8 @@ const SCENES: Scene[] = [
       {
         id: "druha-rada-detail",
         label: "Sedadla druhé řady",
-        x: 42,
-        y: 55,
+        x: 46,
+        y: 50,
         detail: {
           id: "druha-rada-detail",
           title: "Druhá řada",
@@ -232,8 +232,8 @@ const SCENES: Scene[] = [
       {
         id: "do-treti-rady",
         label: "Třetí řada",
-        x: 78,
-        y: 38,
+        x: 86,
+        y: 42,
         goToScene: 4,
       },
     ],
@@ -248,8 +248,8 @@ const SCENES: Scene[] = [
       {
         id: "treti-rada-detail",
         label: "Třetí řada",
-        x: 45,
-        y: 56,
+        x: 48,
+        y: 50,
         detail: {
           id: "treti-rada-detail",
           title: "Plnohodnotná třetí řada",
@@ -267,8 +267,8 @@ const SCENES: Scene[] = [
       {
         id: "dozadu",
         label: "Zadní část",
-        x: 80,
-        y: 40,
+        x: 88,
+        y: 62,
         goToScene: 5,
       },
     ],
@@ -283,8 +283,8 @@ const SCENES: Scene[] = [
       {
         id: "stow-n-go",
         label: "Stow ’n Go",
-        x: 44,
-        y: 58,
+        x: 48,
+        y: 66,
         detail: {
           id: "stow-n-go",
           title: "Zavazadlový prostor a Stow ’n Go",
@@ -302,8 +302,8 @@ const SCENES: Scene[] = [
       {
         id: "pate-dvere",
         label: "Páté dveře",
-        x: 72,
-        y: 24,
+        x: 90,
+        y: 30,
         detail: {
           id: "pate-dvere",
           title: "Páté dveře",

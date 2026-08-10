@@ -374,17 +374,63 @@ const PacificaTour = () => {
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden select-none">
-      {/* Scéna */}
-      <img
-        key={scene.id}
-        src={scene.image}
-        alt={scene.alt}
-        className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
-        loading={sceneIndex === 0 ? "eager" : "lazy"}
-        decoding="async"
-      />
+      {/* Scéna – celá fotografie je vždy vidět (žádné oříznutí) */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="relative"
+          style={{
+            width: "min(100vw, calc((100vh - 0px) * 512 / 245))",
+            aspectRatio: "512 / 245",
+            maxHeight: "100vh",
+          }}
+        >
+          <img
+            key={scene.id}
+            src={scene.image}
+            alt={scene.alt}
+            className="absolute inset-0 w-full h-full object-contain animate-in fade-in duration-700"
+            loading={sceneIndex === 0 ? "eager" : "lazy"}
+            decoding="async"
+          />
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/10 to-black/80 pointer-events-none" />
+          {/* Hotspoty – umístěné přímo na fotografii */}
+          {!detail && !finished &&
+            scene.hotspots.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => openHotspot(h)}
+                style={{ left: `${h.x}%`, top: `${h.y}%` }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5 animate-in fade-in duration-700"
+              >
+                {h.variant === "key" ? (
+                  <span className="relative block">
+                    <span className="absolute inset-0 -m-3 rounded-full bg-primary/30 blur-xl animate-pulse" />
+                    <img
+                      src={keyFob}
+                      alt="Klíč Chrysler"
+                      width={768}
+                      height={1024}
+                      loading="lazy"
+                      className="relative w-9 md:w-12 h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] animate-pulse"
+                    />
+                  </span>
+                ) : (
+                  <span className="relative flex items-center justify-center w-6 h-6">
+                    <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
+                    <span className="relative w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_18px_hsl(var(--primary))]" />
+                  </span>
+                )}
+
+                <span className="px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md border border-white/15 text-[10px] md:text-[11px] tracking-wide text-white whitespace-nowrap">
+                  {h.label}
+                </span>
+              </button>
+            ))}
+        </div>
+      </div>
+
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
 
       {/* Minimální horní lišta */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 z-20">
@@ -407,40 +453,6 @@ const PacificaTour = () => {
         </button>
       </div>
 
-      {/* Hotspoty */}
-      {!detail && !finished &&
-        scene.hotspots.map((h) => (
-          <button
-            key={h.id}
-            type="button"
-            onClick={() => openHotspot(h)}
-            style={{ left: `${h.x}%`, top: `${h.y}%` }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2 animate-in fade-in duration-700"
-          >
-            {h.variant === "key" ? (
-              <span className="relative block">
-                <span className="absolute inset-0 -m-3 rounded-full bg-primary/30 blur-xl animate-pulse" />
-                <img
-                  src={keyFob}
-                  alt="Klíč Chrysler"
-                  width={768}
-                  height={1024}
-                  loading="lazy"
-                  className="relative w-10 md:w-12 h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] animate-pulse"
-                />
-              </span>
-            ) : (
-              <span className="relative flex items-center justify-center w-6 h-6">
-                <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
-                <span className="relative w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_18px_hsl(var(--primary))]" />
-              </span>
-            )}
-
-            <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[11px] tracking-wide text-white whitespace-nowrap">
-              {h.label}
-            </span>
-          </button>
-        ))}
 
       {/* Spodní ovládání */}
       {!detail && !finished && (

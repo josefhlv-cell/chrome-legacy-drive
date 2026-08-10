@@ -21,7 +21,7 @@ const LiveChatWidget = () => {
   const [message, setMessage] = useState("");
   const createLead = useCreateLead();
 
-  if (!enabled || pathname.startsWith("/admin")) return null;
+  if (!enabled || pathname.startsWith("/admin") || pathname.startsWith("/pacifica-prohlidka")) return null;
 
   const looksLikeEmail = contact.includes("@");
 

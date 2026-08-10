@@ -1,249 +1,323 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, Home, Loader2 } from "lucide-react";
-import Navbar from "@/components/Navbar";
+import { useNavigate } from "react-router-dom";
+import { ArrowLeft, ArrowRight, Loader2, X } from "lucide-react";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import { useSiteContacts } from "@/hooks/useAdminContent";
+import keyFob from "@/assets/pacifica-key.png";
 
 /**
- * Interaktivní virtuální prohlídka Chrysler Pacifica.
+ * Interaktivní prohlídka Chrysler Pacifica.
  *
- * Fotografie jsou uloženy přímo ve složce /public:
+ * UX: každá scéna = jedna celoobrazovková fotografie vozu.
+ * Text se NIKDY nezobrazuje před kliknutím — pouze malé pulzující hotspoty.
+ * Po kliknutí se otevře detail (fotografie + krátká informace).
  *
- * /01_predni_cast.jpg
- * /02_zadni_cast.jpg
- * /03_bocni_pohled.jpg
- * /04_kokpit_a_technologie.jpg
- * /05_2_rada_sedadel.jpg
- * /06_3_rada_sedadel.jpg
- * /07_zavazadlovy_prostor.jpg
- * /08_posuvne_dvere.jpg
- * /09_design_a_detaily.jpg
- * /10_motor_a_prevodovka.jpg
- * /11_pacifica_hybrid.jpg
- *
- * Informace jsou formulovány jako obecný popis Chrysler Pacifica.
- * Funkce závislé na konkrétní verzi nebo výbavě jsou vždy označeny.
- *
- * Jednotky jsou uváděny v evropském formátu:
- * - výkon: kW
- * - točivý moment: Nm
- * - objem: l
- * - vzdálenost: km
- * - spotřeba: l/100 km
- * - objem zavazadlového prostoru: l
- * - rozměry displeje: cm
+ * Fotografie leží v /public a jsou stále stejný konkrétní vůz.
+ * Údaje závislé na výbavě jsou vždy označené "dle výbavy".
  */
 
-type Stop = {
+type Detail = {
   id: string;
-  label: string;
   title: string;
   image: string;
   alt: string;
   text: string;
   bullets: string[];
+  /** Přepínač Standard / Hybrid — pouze u motoru. */
+  variants?: {
+    label: string;
+    image: string;
+    alt: string;
+    text: string;
+    bullets: string[];
+  }[];
 };
 
-const STOPS: Stop[] = [
-  {
-    id: "exterier",
-    label: "Přední část",
-    title: "Přední část a design",
-    image: "/01_predni_cast.jpg",
-    alt: "Chrysler Pacifica – přední část vozu",
-    text:
-      "Chrysler Pacifica je prostorný rodinný minivan se třemi řadami sedadel. Přední část kombinuje výrazný design s LED osvětlením a charakteristickými proporcemi moderní Pacificy. Konkrétní provedení přední části, světlometů, masky a dalších designových prvků se může lišit podle verze a výbavy.",
-    bullets: [
-      "LED přední světlomety — dle výbavy",
-      "LED denní svícení — dle výbavy",
-      "LED zadní světla",
-      "Design přední části a masky se liší podle verze",
-      "K dispozici jsou různé designy kol a další prvky vzhledu — dle výbavy",
-    ],
-  },
+type Hotspot = {
+  id: string;
+  label: string;
+  /** pozice v % scény */
+  x: number;
+  y: number;
+  /** otevře detail, nebo posune prohlídku na další scénu */
+  detail?: Detail;
+  goToScene?: number;
+  /** vizuál klíče místo tečky */
+  variant?: "dot" | "key";
+};
 
+type Scene = {
+  id: string;
+  name: string;
+  image: string;
+  alt: string;
+  hotspots: Hotspot[];
+};
+
+const SCENES: Scene[] = [
   {
-    id: "zadni-cast",
-    label: "Zadní část",
-    title: "Zadní část a praktické řešení",
-    image: "/02_zadni_cast.jpg",
-    alt: "Chrysler Pacifica – zadní část vozu",
-    text:
-      "Zadní část Pacificy je navržená především s ohledem na praktičnost. Kombinuje velké páté dveře, nízkou nakládací hranu a snadný přístup k zavazadlovému prostoru. Elektricky ovládané páté dveře a bezdotykové ovládání jsou dostupné podle konkrétní výbavy.",
-    bullets: [
-      "Elektricky ovládané páté dveře — dle výbavy",
-      "Bezdotykové otevření pátých dveří — dle výbavy",
-      "Velký a dobře přístupný zavazadlový prostor",
-      "LED zadní světla",
-      "Praktické řešení pro každodenní přepravu rodiny i nákladu",
+    id: "predni-cast",
+    name: "Přední část",
+    image: "/01_predni_cast.jpg",
+    alt: "Chrysler Pacifica – pohled zepředu",
+    hotspots: [
+      {
+        id: "motor",
+        label: "Motor",
+        x: 50,
+        y: 40,
+        detail: {
+          id: "motor",
+          title: "Motorový prostor",
+          image: "/10_motor_a_prevodovka.jpg",
+          alt: "Chrysler Pacifica – motor 3.6 Pentastar V6",
+          text: "Pacifica je nabízena ve dvou odlišných pohonech. Vyberte verzi.",
+          bullets: [],
+          variants: [
+            {
+              label: "Standard",
+              image: "/10_motor_a_prevodovka.jpg",
+              alt: "Chrysler Pacifica – motor 3.6 Pentastar V6",
+              text:
+                "Atmosférický šestiválec 3.6 Pentastar V6 s devítistupňovou automatickou převodovkou TorqueFlite. Plynulý výkon i s plně obsazeným vozem.",
+              bullets: [
+                "3.6 Pentastar V6",
+                "Výkon přibližně 214 kW",
+                "Točivý moment přibližně 356 Nm",
+                "9stupňová automatická převodovka TorqueFlite",
+              ],
+            },
+            {
+              label: "Hybrid",
+              image: "/11_pacifica_hybrid.jpg",
+              alt: "Chrysler Pacifica Plug-in Hybrid – motorový prostor",
+              text:
+                "Plug-in Hybrid spojuje 3.6litrový V6 s elektrickým pohonem a vysokonapěťovou baterií. Krátké denní trasy lze jezdit elektricky, delší na benzin.",
+              bullets: [
+                "Systémový výkon až 194 kW",
+                "Až 51 km elektrického dojezdu dle údajů Chrysleru",
+                "Nabíjení z externího zdroje",
+                "Rekuperační brzdění",
+              ],
+            },
+          ],
+        },
+      },
+      {
+        id: "svetla",
+        label: "Světlomety",
+        x: 21,
+        y: 46,
+        detail: {
+          id: "svetla",
+          title: "Přední část a design",
+          image: "/09_design_a_detaily.jpg",
+          alt: "Chrysler Pacifica – designové detaily",
+          text:
+            "Výrazná přední část s LED osvětlením. Konkrétní provedení světlometů, masky a kol se liší podle verze.",
+          bullets: [
+            "LED světlomety — dle výbavy",
+            "LED denní svícení — dle výbavy",
+            "Různé designy kol — dle výbavy",
+          ],
+        },
+      },
+      {
+        id: "na-bok",
+        label: "Posuvné dveře",
+        x: 78,
+        y: 62,
+        goToScene: 1,
+      },
     ],
   },
 
   {
     id: "bocni-cast",
-    label: "Boční část",
-    title: "Boční část a posuvné dveře",
+    name: "Boční část",
     image: "/03_bocni_pohled.jpg",
     alt: "Chrysler Pacifica – boční pohled",
-    text:
-      "Jednou z hlavních předností Pacificy jsou elektricky ovládané posuvné boční dveře. Díky jejich konstrukci není při nastupování potřeba prostor vedle vozu jako u klasických dveří. To je praktické především na úzkých parkovacích místech nebo při nastupování dětí.",
-    bullets: [
-      "Elektricky ovládané posuvné boční dveře",
-      "Posuvné dveře na obou stranách vozu",
-      "Hands-free otevření pohybem nohy — dle výbavy",
-      "Snadný přístup ke druhé i třetí řadě",
-      "Praktické řešení pro úzká parkovací místa",
+    hotspots: [
+      {
+        id: "posuvne-dvere",
+        label: "Posuvné dveře",
+        x: 55,
+        y: 52,
+        detail: {
+          id: "posuvne-dvere",
+          title: "Elektricky ovládané posuvné dveře",
+          image: "/08_posuvne_dvere.jpg",
+          alt: "Chrysler Pacifica – posuvné boční dveře",
+          text:
+            "Posuvné dveře na obou stranách vozu nepotřebují prostor vedle auta. Praktické na úzkých parkovacích místech i při nastupování dětí.",
+          bullets: [
+            "Elektricky ovládané posuvné dveře",
+            "Hands-free otevření pohybem nohy — dle výbavy",
+            "Široký vstup do druhé i třetí řady",
+          ],
+        },
+      },
+      {
+        id: "klic",
+        label: "Vstoupit do interiéru",
+        x: 30,
+        y: 56,
+        variant: "key",
+        goToScene: 2,
+      },
     ],
   },
 
   {
     id: "misto-ridice",
-    label: "Místo řidiče",
-    title: "Kokpit a místo řidiče",
+    name: "Místo řidiče",
     image: "/04_kokpit_a_technologie.jpg",
-    alt: "Chrysler Pacifica – kokpit a místo řidiče",
-    text:
-      "Kokpit Pacificy kombinuje digitální přístrojový panel, multifunkční volant a centrální dotykový displej systému Uconnect 5. Rozložení ovládacích prvků je navrženo tak, aby měl řidič důležité funkce snadno dostupné během jízdy.",
-    bullets: [
-      "Digitální přístrojový panel",
-      "Multifunkční volant",
-      "Uconnect 5 s 25,7 cm dotykovým displejem",
-      "Uživatelské profily — až 5 profilů",
-      "Bezdrátové Apple CarPlay — dle výbavy",
-      "Android Auto — dle výbavy",
+    alt: "Chrysler Pacifica – místo řidiče",
+    hotspots: [
+      {
+        id: "startovani",
+        label: "Startování",
+        x: 34,
+        y: 58,
+        detail: {
+          id: "startovani",
+          title: "Startování a místo řidiče",
+          image: "/04_kokpit_a_technologie.jpg",
+          alt: "Chrysler Pacifica – kokpit",
+          text:
+            "Digitální přístrojový panel, multifunkční volant a centrální dotykový displej Uconnect 5. Bezklíčové startování je k dispozici dle výbavy.",
+          bullets: [
+            "Digitální přístrojový panel",
+            "Uconnect 5 s 25,7 cm dotykovým displejem",
+            "Až 5 uživatelských profilů",
+            "Bezdrátové Apple CarPlay a Android Auto — dle výbavy",
+          ],
+        },
+      },
+      {
+        id: "do-druhe-rady",
+        label: "Druhá řada",
+        x: 76,
+        y: 40,
+        goToScene: 3,
+      },
     ],
   },
 
   {
     id: "druha-rada",
-    label: "Druhá řada",
-    title: "Druhá řada sedadel",
+    name: "Druhá řada",
     image: "/05_2_rada_sedadel.jpg",
     alt: "Chrysler Pacifica – druhá řada sedadel",
-    text:
-      "Druhá řada je navržena s důrazem na pohodlí i snadný přístup do třetí řady. Pacifica nabízí různé konfigurace druhé řady podle konkrétní verze. U vybraných provedení je k dispozici systém Stow ’n Go, který umožňuje složit sedadla přímo do podlahy.",
-    bullets: [
-      "Samostatná sedadla ve druhé řadě — dle verze",
-      "Lavice ve druhé řadě — dle verze",
-      "Easy Tilt pro snadnější přístup do třetí řady",
-      "Stow ’n Go ve druhé řadě — dle konkrétní verze",
-      "Možnost konfigurace až pro 8 cestujících — dle verze",
+    hotspots: [
+      {
+        id: "druha-rada-detail",
+        label: "Sedadla druhé řady",
+        x: 42,
+        y: 55,
+        detail: {
+          id: "druha-rada-detail",
+          title: "Druhá řada",
+          image: "/05_2_rada_sedadel.jpg",
+          alt: "Chrysler Pacifica – druhá řada",
+          text:
+            "Druhá řada je řešená s ohledem na pohodlí i snadný přístup dozadu. Konfigurace se liší podle verze vozu.",
+          bullets: [
+            "Samostatná sedadla nebo lavice — dle verze",
+            "Easy Tilt pro přístup do třetí řady",
+            "Stow ’n Go ve druhé řadě — dle konkrétní verze",
+          ],
+        },
+      },
+      {
+        id: "do-treti-rady",
+        label: "Třetí řada",
+        x: 78,
+        y: 38,
+        goToScene: 4,
+      },
     ],
   },
 
   {
     id: "treti-rada",
-    label: "Třetí řada",
-    title: "Třetí řada sedadel",
+    name: "Třetí řada",
     image: "/06_3_rada_sedadel.jpg",
     alt: "Chrysler Pacifica – třetí řada sedadel",
-    text:
-      "Třetí řada je plnohodnotnou součástí interiéru Pacificy. Sedadla lze podle konkrétní konfigurace sklopit do podlahy pomocí systému Stow ’n Go, což výrazně zjednodušuje přechod mezi přepravou cestujících a nákladu.",
-    bullets: [
-      "Plnohodnotná třetí řada",
-      "Vlastní bezpečnostní pásy a opěrky hlavy",
-      "Sklápění třetí řady do podlahy pomocí Stow ’n Go",
-      "Snadný přístup přes posuvné boční dveře",
-      "Praktické řešení pro rodinné cestování",
+    hotspots: [
+      {
+        id: "treti-rada-detail",
+        label: "Třetí řada",
+        x: 45,
+        y: 56,
+        detail: {
+          id: "treti-rada-detail",
+          title: "Plnohodnotná třetí řada",
+          image: "/06_3_rada_sedadel.jpg",
+          alt: "Chrysler Pacifica – třetí řada",
+          text:
+            "Třetí řada má vlastní bezpečnostní pásy i opěrky hlavy. Sedadla lze sklopit do podlahy systémem Stow ’n Go.",
+          bullets: [
+            "Vlastní pásy a opěrky hlavy",
+            "Sklápění do podlahy — Stow ’n Go",
+            "Přístup přes posuvné boční dveře",
+          ],
+        },
+      },
+      {
+        id: "dozadu",
+        label: "Zadní část",
+        x: 80,
+        y: 40,
+        goToScene: 5,
+      },
     ],
   },
 
   {
-    id: "zavazadlovy-prostor",
-    label: "Zavazadlový prostor",
-    title: "Zavazadlový prostor a Stow ’n Go",
+    id: "zadni-cast",
+    name: "Zadní část",
     image: "/07_zavazadlovy_prostor.jpg",
     alt: "Chrysler Pacifica – zavazadlový prostor",
-    text:
-      "Pacifica je navržena tak, aby zvládla přepravu cestujících i velkého množství nákladu. Systém Stow ’n Go umožňuje u kompatibilních konfigurací sklopit zadní sedadla přímo do podlahy bez jejich vyjímání. Přechod z plně obsazeného rodinného vozu na velký nákladový prostor je tak rychlý a praktický.",
-    bullets: [
-      "Maximální nákladový objem až 3 980 l",
-      "Sedadla se sklápějí přímo do podlahy — dle verze",
-      "Bez nutnosti vyjímat sedadla z vozu",
-      "Velký prostor pro zavazadla i objemnější předměty",
-      "Praktické úložné prostory v podlaze — dle konfigurace",
-    ],
-  },
-
-  {
-    id: "posuvne-dvere",
-    label: "Posuvné dveře",
-    title: "Snadný přístup do interiéru",
-    image: "/08_posuvne_dvere.jpg",
-    alt: "Chrysler Pacifica – posuvné boční dveře",
-    text:
-      "Posuvné boční dveře patří mezi nejpraktičtější prvky Pacificy. Elektrické ovládání usnadňuje nastupování cestujících i nakládání věcí. U vybraných verzí lze dveře otevřít také bez použití rukou jednoduchým pohybem nohy pod vozem.",
-    bullets: [
-      "Elektricky ovládané posuvné dveře",
-      "Hands-free ovládání — dle výbavy",
-      "Široký vstup do druhé i třetí řady",
-      "Snadné nastupování dětí i dospělých",
-      "Výhodné řešení při parkování v těsném prostoru",
-    ],
-  },
-
-  {
-    id: "technologie",
-    label: "Technologie",
-    title: "Technologie, komfort a bezpečnost",
-    image: "/09_design_a_detaily.jpg",
-    alt: "Chrysler Pacifica – designové a technologické detaily",
-    text:
-      "Pacifica nabízí rozsáhlou výbavu zaměřenou na komfort, konektivitu a bezpečnost. Uconnect 5 využívá 25,7 cm displej a podporuje až pět uživatelských profilů. Pro cestující vzadu může být k dispozici FamCAM, zadní obrazovky s Amazon Fire TV nebo prémiový audiosystém Harman Kardon.",
-    bullets: [
-      "Uconnect 5 s 25,7 cm dotykovým displejem",
-      "Až 5 uživatelských profilů",
-      "Bezdrátové Apple CarPlay — dle výbavy",
-      "Android Auto — dle výbavy",
-      "FamCAM s denním a nočním režimem — dle výbavy",
-      "Dvě 25,4 cm zadní obrazovky s Amazon Fire TV — dle výbavy",
-      "Harman Kardon Premium Audio s 19 reproduktory — dle výbavy",
-      "Adaptivní tempomat se Stop & Go — dle výbavy",
-      "Forward Collision Warning s aktivním brzděním",
-      "LaneSense s funkcí udržování v jízdním pruhu — dle výbavy",
-      "Blind Spot Monitoring — dle výbavy",
-      "ParkSense a zadní kamera — dle výbavy",
-    ],
-  },
-
-  {
-    id: "motor-a-prevodovka",
-    label: "Motor",
-    title: "3.6 Pentastar V6 a devítistupňová převodovka",
-    image: "/10_motor_a_prevodovka.jpg",
-    alt: "Chrysler Pacifica – motor 3.6 Pentastar V6",
-    text:
-      "Srdcem klasické Pacificy je atmosférický šestiválec 3.6 Pentastar V6. Chrysler u této kombinace uvádí výkon přibližně 214 kW a točivý moment přibližně 356 Nm. Motor je spojen s devítistupňovou automatickou převodovkou TorqueFlite. Výsledkem je kombinace dostatečného výkonu pro plně obsazený vůz, plynulé jízdy a rozumné spotřeby vzhledem k velikosti a hmotnosti vozu.",
-    bullets: [
-      "3.6 Pentastar V6",
-      "Výkon přibližně 214 kW",
-      "Točivý moment přibližně 356 Nm",
-      "9stupňová automatická převodovka TorqueFlite",
-      "Plynulý průběh výkonu vhodný pro dálniční i rodinný provoz",
-      "Spotřeba FWD: až cca 10,7 l/100 km kombinovaně — dle konkrétní verze. Z našich zkuseností se dostanete pod tyto hodnoty",
-      "Spotřeba AWD: až cca 11,8 l/100 km kombinovaně — dle konkrétní verze. Z našich zkuseností se dostanete pod tyto hodnoty",
-      "Osvědčená konstrukce Pentastar V6 používaná napříč modely Chrysler, Dodge, Jeep a RAM",
-    ],
-  },
-
-  {
-    id: "hybrid",
-    label: "Hybrid",
-    title: "Pacifica Plug-in Hybrid",
-    image: "/11_pacifica_hybrid.jpg",
-    alt: "Chrysler Pacifica Plug-in Hybrid – motorový prostor",
-    text:
-      "Plug-in Hybrid spojuje 3.6litrový V6 s elektrickým pohonem a vysokonapěťovou lithium-iontovou baterií. Smyslem tohoto řešení není pouze maximální výkon, ale především možnost využívat elektřinu pro každodenní kratší trasy a spalovací motor pro delší cesty. Při zpomalování systém zároveň využívá rekuperační brzdění k získávání části energie zpět do baterie.",
-    bullets: [
-      "3.6litrový V6 v kombinaci s elektrickým pohonem",
-      "Systémový výkon až 194 kW",
-      "Plug-in nabíjení z externího zdroje",
-      "Až 51 km čistě elektrického dojezdu dle údajů Chrysleru",
-      "Energetická spotřeba odpovídá přibližně 2,9 l/100 km při přepočtu americké metodiky MPGe — nejde o běžnou spotřebu benzínu",
-      "Rekuperační brzdění pomáhá vracet energii zpět do baterie",
-      "Po vyčerpání elektrického dojezdu vůz pokračuje na benzinový pohon",
-      "Výhoda především pro řidiče, kteří pravidelně nabíjejí a jezdí kratší každodenní trasy",
+    hotspots: [
+      {
+        id: "stow-n-go",
+        label: "Stow ’n Go",
+        x: 44,
+        y: 58,
+        detail: {
+          id: "stow-n-go",
+          title: "Zavazadlový prostor a Stow ’n Go",
+          image: "/07_zavazadlovy_prostor.jpg",
+          alt: "Chrysler Pacifica – zavazadlový prostor",
+          text:
+            "Sedadla se u kompatibilních konfigurací sklápějí přímo do podlahy, bez vyjímání z vozu. Přechod z rodinného vozu na dodávku je otázkou chvilky.",
+          bullets: [
+            "Maximální nákladový objem až 3 980 l",
+            "Sklápění sedadel do podlahy — dle verze",
+            "Úložné prostory v podlaze — dle konfigurace",
+          ],
+        },
+      },
+      {
+        id: "pate-dvere",
+        label: "Páté dveře",
+        x: 72,
+        y: 24,
+        detail: {
+          id: "pate-dvere",
+          title: "Páté dveře",
+          image: "/02_zadni_cast.jpg",
+          alt: "Chrysler Pacifica – zadní část vozu",
+          text:
+            "Velká páté dveře s nízkou nakládací hranou. Elektrické ovládání i bezdotykové otevření jsou k dispozici dle výbavy.",
+          bullets: [
+            "Elektricky ovládané páté dveře — dle výbavy",
+            "Bezdotykové otevření — dle výbavy",
+            "Nízká nakládací hrana",
+          ],
+        },
+      },
     ],
   },
 ];
@@ -252,21 +326,23 @@ const PacificaTour = () => {
   const navigate = useNavigate();
   const { isLoading } = useSiteContacts();
   const enabled = useFeatureFlag("feature_pacifica_tour_enabled");
-  const [index, setIndex] = useState(0);
 
-  // Vypnutá funkce = i přímý odkaz na stránku je nedostupný.
+  const [sceneIndex, setSceneIndex] = useState(0);
+  const [detail, setDetail] = useState<Detail | null>(null);
+  const [variant, setVariant] = useState(0);
+  const [finished, setFinished] = useState(false);
+  const [locking, setLocking] = useState(false);
+
   useEffect(() => {
-    if (!isLoading && !enabled) {
-      navigate("/", { replace: true });
-    }
+    if (!isLoading && !enabled) navigate("/", { replace: true });
   }, [isLoading, enabled, navigate]);
 
-  const stop = useMemo(() => STOPS[index], [index]);
-
   useEffect(() => {
-    document.title =
-      "Virtuální prohlídka Chrysler Pacifica | Chrysler Pardubice";
+    document.title = "Virtuální prohlídka Chrysler Pacifica | Chrysler Pardubice";
   }, []);
+
+  const scene = useMemo(() => SCENES[sceneIndex], [sceneIndex]);
+  const isLast = sceneIndex === SCENES.length - 1;
 
   if (isLoading || !enabled) {
     return (
@@ -276,145 +352,276 @@ const PacificaTour = () => {
     );
   }
 
-  const prev = () =>
-    setIndex((i) => (i === 0 ? STOPS.length - 1 : i - 1));
+  const openHotspot = (h: Hotspot) => {
+    if (h.detail) {
+      setVariant(0);
+      setDetail(h.detail);
+      return;
+    }
+    if (typeof h.goToScene === "number") setSceneIndex(h.goToScene);
+  };
 
-  const next = () =>
-    setIndex((i) => (i === STOPS.length - 1 ? 0 : i + 1));
+  const active = detail?.variants?.[variant];
+  const detailImage = active?.image ?? detail?.image;
+  const detailAlt = active?.alt ?? detail?.alt;
+  const detailText = active?.text ?? detail?.text;
+  const detailBullets = active?.bullets ?? detail?.bullets ?? [];
+
+  const lock = () => {
+    setLocking(true);
+    window.setTimeout(() => navigate("/"), 1800);
+  };
 
   return (
-    <div className="min-h-screen bg-background overflow-x-hidden">
-      <Navbar />
+    <div className="fixed inset-0 bg-black overflow-hidden select-none">
+      {/* Scéna */}
+      <img
+        key={scene.id}
+        src={scene.image}
+        alt={scene.alt}
+        className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
+        loading={sceneIndex === 0 ? "eager" : "lazy"}
+        decoding="async"
+      />
 
-      <main className="container mx-auto px-4 pt-24 pb-16 max-w-5xl">
-        <header className="mb-6">
-          <p className="text-xs uppercase tracking-[0.2em] text-primary mb-2">
-            Virtuální prohlídka
+      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/10 to-black/80 pointer-events-none" />
+
+      {/* Minimální horní lišta */}
+      <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 z-20">
+        <div>
+          <p className="text-[10px] uppercase tracking-[0.3em] text-primary">
+            Prohlídka
           </p>
-
-          <h1 className="text-3xl md:text-5xl font-serif italic font-black text-foreground">
+          <h1 className="text-sm md:text-base font-serif italic text-white/95">
             Chrysler Pacifica
           </h1>
-
-          <p className="mt-3 text-sm md:text-base text-muted-foreground max-w-2xl font-montserrat">
-            Projděte si Chrysler Pacifica po jednotlivých zastaveních.
-            Výbava a konkrétní technické řešení se mohou lišit podle verze
-            vozu — u položek závislých na výbavě to vždy uvádíme.
-          </p>
-        </header>
-
-        {/* Navigace zastavení */}
-        <nav
-          aria-label="Zastavení prohlídky"
-          className="flex gap-2 overflow-x-auto pb-3 -mx-1 px-1"
-        >
-          {STOPS.map((s, i) => (
-            <button
-              key={s.id}
-              type="button"
-              onClick={() => setIndex(i)}
-              aria-current={i === index}
-              className={`shrink-0 px-4 py-2 rounded-full text-xs md:text-sm border transition-colors ${
-                i === index
-                  ? "border-primary bg-primary/15 text-foreground font-semibold"
-                  : "border-border text-muted-foreground hover:text-foreground hover:border-primary/50"
-              }`}
-            >
-              {s.label}
-            </button>
-          ))}
-        </nav>
-
-        {/* Zastavení */}
-        <article className="mt-4 rounded-xl border border-border bg-card overflow-hidden">
-          <div className="relative aspect-[16/9] bg-secondary/40">
-            <img
-              key={stop.id}
-              src={stop.image}
-              alt={stop.alt}
-              width={1280}
-              height={720}
-              loading="lazy"
-              decoding="async"
-              className="w-full h-full object-cover animate-in fade-in duration-500"
-            />
-
-            <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-background/80 via-transparent to-transparent" />
-
-            <span className="absolute bottom-3 right-3 text-[10px] uppercase tracking-wider text-muted-foreground bg-background/70 px-2 py-1 rounded">
-              Fotografie vozu
-            </span>
-          </div>
-
-          <div className="p-5 md:p-8">
-            <p className="text-xs text-muted-foreground mb-2">
-              Zastavení {index + 1} z {STOPS.length}
-            </p>
-
-            <h2 className="text-xl md:text-3xl font-serif font-bold text-foreground mb-3">
-              {stop.title}
-            </h2>
-
-            <p className="text-sm md:text-base text-muted-foreground leading-relaxed font-montserrat">
-              {stop.text}
-            </p>
-
-            <ul className="mt-5 space-y-2">
-              {stop.bullets.map((bullet) => (
-                <li
-                  key={bullet}
-                  className="flex gap-3 text-sm text-foreground/90 font-montserrat"
-                >
-                  <span
-                    className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0"
-                    aria-hidden="true"
-                  />
-
-                  <span>{bullet}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        </article>
-
-        {/* Ovládání */}
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          <button
-            type="button"
-            onClick={prev}
-            className="outline-button inline-flex items-center justify-center gap-2"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Zpět
-          </button>
-
-          <button
-            type="button"
-            onClick={next}
-            className="chrome-button inline-flex items-center justify-center gap-2"
-          >
-            Další
-            <ArrowRight className="w-4 h-4" />
-          </button>
-
-          <Link
-            to="/"
-            className="outline-button inline-flex items-center justify-center gap-2 sm:ml-auto"
-          >
-            <Home className="w-4 h-4" />
-            Zavřít prohlídku
-          </Link>
         </div>
 
-        <p className="mt-8 text-xs text-muted-foreground font-montserrat">
-          Uvedené informace jsou obecným popisem Chrysler Pacifica.
-          Konkrétní výbava, konfigurace sedadel, pohon, technologie a
-          asistenční systémy se mohou lišit podle verze a výbavy konkrétního
-          vozu. Technické údaje a spotřeba se mohou lišit podle trhu,
-          konfigurace, pohonu a metodiky měření. Konkrétní parametry vždy
-          ověříme podle VIN.
-        </p>
-      </main>
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          aria-label="Zavřít prohlídku"
+          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/90 active:scale-95 transition"
+        >
+          <X className="w-5 h-5" />
+        </button>
+      </div>
+
+      {/* Hotspoty */}
+      {!detail && !finished &&
+        scene.hotspots.map((h) => (
+          <button
+            key={h.id}
+            type="button"
+            onClick={() => openHotspot(h)}
+            style={{ left: `${h.x}%`, top: `${h.y}%` }}
+            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2 animate-in fade-in duration-700"
+          >
+            {h.variant === "key" ? (
+              <span className="relative block">
+                <span className="absolute inset-0 -m-3 rounded-full bg-primary/30 blur-xl animate-pulse" />
+                <img
+                  src={keyFob}
+                  alt="Klíč Chrysler"
+                  width={768}
+                  height={1024}
+                  loading="lazy"
+                  className="relative w-10 md:w-12 h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] animate-pulse"
+                />
+              </span>
+            ) : (
+              <span className="relative flex items-center justify-center w-6 h-6">
+                <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
+                <span className="relative w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_18px_hsl(var(--primary))]" />
+              </span>
+            )}
+
+            <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[11px] tracking-wide text-white whitespace-nowrap">
+              {h.label}
+            </span>
+          </button>
+        ))}
+
+      {/* Spodní ovládání */}
+      {!detail && !finished && (
+        <div className="absolute bottom-0 left-0 right-0 z-20 px-4 pb-[max(1rem,env(safe-area-inset-bottom))] flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setSceneIndex((i) => Math.max(0, i - 1))}
+            disabled={sceneIndex === 0}
+            aria-label="Předchozí scéna"
+            className="w-11 h-11 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white disabled:opacity-30 active:scale-95 transition"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+
+          <div className="flex-1 flex items-center gap-1.5 justify-center">
+            {SCENES.map((s, i) => (
+              <span
+                key={s.id}
+                className={`h-1 rounded-full transition-all ${
+                  i === sceneIndex ? "w-7 bg-primary" : "w-3 bg-white/30"
+                }`}
+              />
+            ))}
+          </div>
+
+          {isLast ? (
+            <button
+              type="button"
+              onClick={() => setFinished(true)}
+              className="h-11 px-5 rounded-full bg-primary text-primary-foreground text-sm font-semibold active:scale-95 transition"
+            >
+              Dokončit
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSceneIndex((i) => i + 1)}
+              aria-label="Další scéna"
+              className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition"
+            >
+              <ArrowRight className="w-5 h-5" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* Detail po kliknutí */}
+      {detail && (
+        <div className="absolute inset-0 z-30 bg-black/70 backdrop-blur-sm flex items-end md:items-center md:justify-center animate-in fade-in duration-300">
+          <div className="w-full md:max-w-2xl bg-card/95 border-t md:border border-white/10 md:rounded-2xl overflow-hidden animate-in slide-in-from-bottom duration-500 max-h-[92vh] overflow-y-auto">
+            <div className="relative aspect-[16/10]">
+              <img
+                src={detailImage}
+                alt={detailAlt ?? ""}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                decoding="async"
+              />
+
+              <button
+                type="button"
+                onClick={() => setDetail(null)}
+                aria-label="Zavřít detail"
+                className="absolute top-3 right-3 w-10 h-10 rounded-full bg-black/60 backdrop-blur-md border border-white/20 flex items-center justify-center text-white active:scale-95"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div className="p-5 md:p-7">
+              <h2 className="text-lg md:text-2xl font-serif font-bold text-foreground mb-2">
+                {detail.title}
+              </h2>
+
+              {detail.variants && (
+                <div className="flex gap-2 mb-4">
+                  {detail.variants.map((v, i) => (
+                    <button
+                      key={v.label}
+                      type="button"
+                      onClick={() => setVariant(i)}
+                      className={`px-4 py-1.5 rounded-full text-xs uppercase tracking-wider border transition-colors ${
+                        i === variant
+                          ? "border-primary bg-primary/15 text-foreground font-semibold"
+                          : "border-border text-muted-foreground"
+                      }`}
+                    >
+                      {v.label}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
+                {detailText}
+              </p>
+
+              <ul className="mt-4 space-y-2">
+                {detailBullets.map((b) => (
+                  <li
+                    key={b}
+                    className="flex gap-3 text-sm text-foreground/90 font-montserrat"
+                  >
+                    <span
+                      className="mt-2 w-1.5 h-1.5 rounded-full bg-primary shrink-0"
+                      aria-hidden="true"
+                    />
+                    <span>{b}</span>
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-6 flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setDetail(null)}
+                  className="outline-button flex-1"
+                >
+                  Zpět ke scéně
+                </button>
+
+                {!isLast && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDetail(null);
+                      setSceneIndex((i) => Math.min(SCENES.length - 1, i + 1));
+                    }}
+                    className="chrome-button flex-1"
+                  >
+                    Pokračovat
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Konec prohlídky – zamknutí vozu */}
+      {finished && (
+        <div className="absolute inset-0 z-40 bg-black/85 backdrop-blur-md flex flex-col items-center justify-center px-6 text-center animate-in fade-in duration-500">
+          {locking && (
+            <div className="absolute inset-0 bg-primary/25 animate-pulse pointer-events-none" />
+          )}
+
+          <button
+            type="button"
+            onClick={lock}
+            disabled={locking}
+            className="relative"
+            aria-label="Zamknout vůz a dokončit prohlídku"
+          >
+            <span className="absolute inset-0 -m-6 rounded-full bg-primary/25 blur-2xl animate-pulse" />
+            <img
+              src={keyFob}
+              alt="Klíč Chrysler"
+              width={768}
+              height={1024}
+              loading="lazy"
+              className={`relative w-24 h-auto drop-shadow-[0_20px_50px_rgba(0,0,0,0.8)] transition-transform ${
+                locking ? "scale-90" : "animate-pulse"
+              }`}
+            />
+          </button>
+
+          <p className="mt-8 text-white text-lg font-serif italic">
+            {locking ? "Prohlídka dokončena" : "Zamknout vůz"}
+          </p>
+
+          {!locking && (
+            <button
+              type="button"
+              onClick={() => setFinished(false)}
+              className="mt-6 text-xs uppercase tracking-[0.2em] text-white/60"
+            >
+              Zpět do prohlídky
+            </button>
+          )}
+        </div>
+      )}
     </div>
   );
 };

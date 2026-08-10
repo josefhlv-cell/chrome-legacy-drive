@@ -64,8 +64,8 @@ const SCENES: Scene[] = [
       {
         id: "motor",
         label: "Motor",
-        x: 22,
-        y: 74,
+        x: 26,
+        y: 60,
         detail: {
           id: "motor",
           title: "Motorový prostor",
@@ -106,8 +106,8 @@ const SCENES: Scene[] = [
       {
         id: "svetla",
         label: "Světlomety",
-        x: 26,
-        y: 55,
+        x: 45,
+        y: 76,
         detail: {
           id: "svetla",
           title: "Přední část a design",
@@ -125,8 +125,8 @@ const SCENES: Scene[] = [
       {
         id: "na-bok",
         label: "Posuvné dveře",
-        x: 80,
-        y: 40,
+        x: 84,
+        y: 50,
         goToScene: 1,
       },
     ],
@@ -141,8 +141,8 @@ const SCENES: Scene[] = [
       {
         id: "posuvne-dvere",
         label: "Posuvné dveře",
-        x: 55,
-        y: 52,
+        x: 52,
+        y: 62,
         detail: {
           id: "posuvne-dvere",
           title: "Elektricky ovládané posuvné dveře",
@@ -160,8 +160,8 @@ const SCENES: Scene[] = [
       {
         id: "klic",
         label: "Vstoupit do interiéru",
-        x: 30,
-        y: 56,
+        x: 24,
+        y: 64,
         variant: "key",
         goToScene: 2,
       },
@@ -177,8 +177,8 @@ const SCENES: Scene[] = [
       {
         id: "startovani",
         label: "Startování",
-        x: 34,
-        y: 58,
+        x: 22,
+        y: 48,
         detail: {
           id: "startovani",
           title: "Startování a místo řidiče",
@@ -197,8 +197,8 @@ const SCENES: Scene[] = [
       {
         id: "do-druhe-rady",
         label: "Druhá řada",
-        x: 76,
-        y: 40,
+        x: 90,
+        y: 52,
         goToScene: 3,
       },
     ],
@@ -213,8 +213,8 @@ const SCENES: Scene[] = [
       {
         id: "druha-rada-detail",
         label: "Sedadla druhé řady",
-        x: 42,
-        y: 55,
+        x: 46,
+        y: 50,
         detail: {
           id: "druha-rada-detail",
           title: "Druhá řada",
@@ -232,8 +232,8 @@ const SCENES: Scene[] = [
       {
         id: "do-treti-rady",
         label: "Třetí řada",
-        x: 78,
-        y: 38,
+        x: 86,
+        y: 42,
         goToScene: 4,
       },
     ],
@@ -248,8 +248,8 @@ const SCENES: Scene[] = [
       {
         id: "treti-rada-detail",
         label: "Třetí řada",
-        x: 45,
-        y: 56,
+        x: 48,
+        y: 50,
         detail: {
           id: "treti-rada-detail",
           title: "Plnohodnotná třetí řada",
@@ -267,8 +267,8 @@ const SCENES: Scene[] = [
       {
         id: "dozadu",
         label: "Zadní část",
-        x: 80,
-        y: 40,
+        x: 88,
+        y: 62,
         goToScene: 5,
       },
     ],
@@ -283,8 +283,8 @@ const SCENES: Scene[] = [
       {
         id: "stow-n-go",
         label: "Stow ’n Go",
-        x: 44,
-        y: 58,
+        x: 48,
+        y: 66,
         detail: {
           id: "stow-n-go",
           title: "Zavazadlový prostor a Stow ’n Go",
@@ -302,8 +302,8 @@ const SCENES: Scene[] = [
       {
         id: "pate-dvere",
         label: "Páté dveře",
-        x: 72,
-        y: 24,
+        x: 90,
+        y: 30,
         detail: {
           id: "pate-dvere",
           title: "Páté dveře",
@@ -374,17 +374,63 @@ const PacificaTour = () => {
 
   return (
     <div className="fixed inset-0 bg-black overflow-hidden select-none">
-      {/* Scéna */}
-      <img
-        key={scene.id}
-        src={scene.image}
-        alt={scene.alt}
-        className="absolute inset-0 w-full h-full object-cover animate-in fade-in duration-700"
-        loading={sceneIndex === 0 ? "eager" : "lazy"}
-        decoding="async"
-      />
+      {/* Scéna – celá fotografie je vždy vidět (žádné oříznutí) */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div
+          className="relative"
+          style={{
+            width: "min(100vw, calc((100vh - 0px) * 512 / 245))",
+            aspectRatio: "512 / 245",
+            maxHeight: "100vh",
+          }}
+        >
+          <img
+            key={scene.id}
+            src={scene.image}
+            alt={scene.alt}
+            className="absolute inset-0 w-full h-full object-contain animate-in fade-in duration-700"
+            loading={sceneIndex === 0 ? "eager" : "lazy"}
+            decoding="async"
+          />
 
-      <div className="absolute inset-0 bg-gradient-to-b from-black/70 via-black/10 to-black/80 pointer-events-none" />
+          {/* Hotspoty – umístěné přímo na fotografii */}
+          {!detail && !finished &&
+            scene.hotspots.map((h) => (
+              <button
+                key={h.id}
+                type="button"
+                onClick={() => openHotspot(h)}
+                style={{ left: `${h.x}%`, top: `${h.y}%` }}
+                className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-1.5 animate-in fade-in duration-700"
+              >
+                {h.variant === "key" ? (
+                  <span className="relative block">
+                    <span className="absolute inset-0 -m-3 rounded-full bg-primary/30 blur-xl animate-pulse" />
+                    <img
+                      src={keyFob}
+                      alt="Klíč Chrysler"
+                      width={768}
+                      height={1024}
+                      loading="lazy"
+                      className="relative w-9 md:w-12 h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] animate-pulse"
+                    />
+                  </span>
+                ) : (
+                  <span className="relative flex items-center justify-center w-6 h-6">
+                    <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
+                    <span className="relative w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_18px_hsl(var(--primary))]" />
+                  </span>
+                )}
+
+                <span className="px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md border border-white/15 text-[10px] md:text-[11px] tracking-wide text-white whitespace-nowrap">
+                  {h.label}
+                </span>
+              </button>
+            ))}
+        </div>
+      </div>
+
+      <div className="absolute inset-0 bg-gradient-to-b from-black/60 via-transparent to-black/70 pointer-events-none" />
 
       {/* Minimální horní lišta */}
       <div className="absolute top-0 left-0 right-0 flex items-center justify-between px-4 pt-[max(1rem,env(safe-area-inset-top))] pb-3 z-20">
@@ -407,40 +453,6 @@ const PacificaTour = () => {
         </button>
       </div>
 
-      {/* Hotspoty */}
-      {!detail && !finished &&
-        scene.hotspots.map((h) => (
-          <button
-            key={h.id}
-            type="button"
-            onClick={() => openHotspot(h)}
-            style={{ left: `${h.x}%`, top: `${h.y}%` }}
-            className="absolute -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-2 animate-in fade-in duration-700"
-          >
-            {h.variant === "key" ? (
-              <span className="relative block">
-                <span className="absolute inset-0 -m-3 rounded-full bg-primary/30 blur-xl animate-pulse" />
-                <img
-                  src={keyFob}
-                  alt="Klíč Chrysler"
-                  width={768}
-                  height={1024}
-                  loading="lazy"
-                  className="relative w-10 md:w-12 h-auto drop-shadow-[0_10px_30px_rgba(0,0,0,0.7)] animate-pulse"
-                />
-              </span>
-            ) : (
-              <span className="relative flex items-center justify-center w-6 h-6">
-                <span className="absolute inset-0 rounded-full bg-primary/50 animate-ping" />
-                <span className="relative w-2.5 h-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_18px_hsl(var(--primary))]" />
-              </span>
-            )}
-
-            <span className="px-2.5 py-1 rounded-full bg-black/55 backdrop-blur-md border border-white/15 text-[11px] tracking-wide text-white whitespace-nowrap">
-              {h.label}
-            </span>
-          </button>
-        ))}
 
       {/* Spodní ovládání */}
       {!detail && !finished && (

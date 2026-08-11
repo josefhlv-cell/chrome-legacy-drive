@@ -16,14 +16,16 @@ import LoadingOverlay from "./ui/LoadingOverlay";
 const Loader = () => {
   const { progress, active } = useProgress();
   const [done, setDone] = useState(false);
+  // Procedurální model nemusí načítat žádné externí soubory → `progress` může
+  // zůstat na 0. Overlay proto uvolníme vždy, když už nic není ve frontě.
   useEffect(() => {
-    if (!active && progress >= 100) {
-      const t = window.setTimeout(() => setDone(true), 350);
-      return () => window.clearTimeout(t);
-    }
+    if (active) return;
+    const t = window.setTimeout(() => setDone(true), 600);
+    return () => window.clearTimeout(t);
   }, [active, progress]);
   if (done) return null;
-  return <LoadingOverlay progress={progress} />;
+  return <LoadingOverlay progress={active ? progress : 100} />;
+
 };
 
 /**

@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { motion, AnimatePresence, type PanInfo } from "framer-motion";
 import { ChevronLeft, ChevronRight, Loader2, X, ZoomIn, ZoomOut } from "lucide-react";
 import logoPardubice from "@/assets/logo-pardubice.webp";
-import { optimizeImage } from "@/lib/imageOptimizer";
 
 interface VehicleGalleryProps {
   images: string[];
@@ -22,6 +21,10 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [hiResLoaded, setHiResLoaded] = useState(false);
   const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
+
+  // Use the original public image_url directly. This avoids a render-endpoint
+  // failure preventing navigation through an otherwise valid gallery.
+  const getImageSrc = (url: string) => url;
 
   // Reset zoom when image changes or lightbox opens/closes
   useEffect(() => {
@@ -52,7 +55,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
         <AnimatePresence mode="wait">
           <motion.img
             key={selectedIndex}
-            src={optimizeImage(images[selectedIndex], "detail")}
+            src={getImageSrc(images[selectedIndex])}
             alt={`${vehicleName} - foto ${selectedIndex + 1}`}
             className="absolute inset-0 h-full w-full object-cover object-center touch-pan-y bg-muted/30"
             decoding="async"
@@ -119,7 +122,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
               }`}
             >
               <img
-                src={optimizeImage(img, "thumb")}
+                src={getImageSrc(img)}
                 alt={`${vehicleName} thumbnail ${i + 1}`}
                 className="h-12 w-16 bg-muted/40 object-cover object-center"
                 loading="lazy"
@@ -232,7 +235,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
               {/* Intermediate placeholder: 1280px WebP shows instantly while 7.5MB original loads behind it */}
               {!hiResLoaded && (
                 <img
-                  src={optimizeImage(images[selectedIndex], "detail")}
+                  src={getImageSrc(images[selectedIndex])}
                   alt=""
                   aria-hidden="true"
                   className="absolute max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none pointer-events-none"
@@ -246,7 +249,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
                 initial={{ opacity: 0 }}
                 animate={{ opacity: hiResLoaded ? 1 : 0 }}
                 exit={{ opacity: 0 }}
-                src={optimizeImage(images[selectedIndex], "hero")}
+                src={getImageSrc(images[selectedIndex])}
                 alt={`${vehicleName} - foto ${selectedIndex + 1}`}
                 className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg select-none"
                 style={{

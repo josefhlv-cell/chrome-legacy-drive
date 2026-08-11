@@ -62,8 +62,9 @@ const Wheel = ({ position }: { position: [number, number, number] }) => {
 
 type Props = { lights: boolean; bodyColor?: string };
 
-export const ProceduralPacifica = ({ lights, bodyColor = "#1b2b45" }: Props) => {
+export const ProceduralPacifica = ({ lights, bodyColor = "#7d8794" }: Props) => {
   const m = useMaterials(bodyColor);
+
 
   const lamp = useMemo(
     () =>

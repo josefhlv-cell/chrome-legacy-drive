@@ -1,5 +1,4 @@
 import type { ShowroomImageLike } from "@/lib/showroomImage";
-import { getPublicVehicleImageUrl } from "@/lib/showroomImage";
 
 export const dedupeImageUrls = (urls: Array<string | null | undefined>) =>
   Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
@@ -19,6 +18,10 @@ type VehicleLike = {
 
 /**
  * Single source of truth for "the one photo that represents a vehicle".
+ *
+ * IMPORTANT: the public catalogue uses the ORIGINAL vehicle image_url.
+ * Do not substitute showroom_url here; showroom composites can contain
+ * unrelated visual layers and are intended for the admin showroom workflow.
  * Main image first, then lowest sort_order, then the flat `image_url` column.
  * Returns "" when nothing usable exists so callers can fall back to the placeholder.
  */
@@ -31,7 +34,7 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
 
   const candidates = dedupeImageUrls([
     vehicle.thumbnail_url,
-    ...sorted.map((img) => getPublicVehicleImageUrl(img)),
+    ...sorted.map((img) => img.image_url),
     vehicle.image_url,
   ]).filter(isUsableImageUrl);
 

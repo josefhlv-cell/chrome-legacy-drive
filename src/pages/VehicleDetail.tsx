@@ -31,7 +31,7 @@ import {
 } from "@/data/vehicles";
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
-import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
+import { dedupeImageUrls, isUsableImageUrl } from "@/lib/vehicleImageSelection";
 import { useVehicleStructuredData } from "@/lib/vehicleStructuredData";
 import { useCompare } from "@/contexts/CompareContext";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
@@ -105,19 +105,13 @@ const VehicleDetail = () => {
    * We intentionally do NOT use getPublicVehicleImageUrl() here.
    */
   const galleryUrls = useMemo(() => {
-    // Legacy server URLs are no longer usable.
-    const isUsable = (
-      url: string | null | undefined
-    ): url is string =>
-      !!url && !url.includes("chrysler-pardubice.cz");
-
     // Prefer images from vehicle_images.
     // useVehicleImages already sorts main image first.
     if (vehicleImages && vehicleImages.length > 0) {
       const fromGallery = dedupeImageUrls(
         vehicleImages
           .map((img) => img.image_url)
-          .filter(isUsable)
+          .filter(isUsableImageUrl)
       );
 
       if (fromGallery.length > 0) {
@@ -126,7 +120,7 @@ const VehicleDetail = () => {
     }
 
     // Fallback to vehicles.image_url.
-    if (isUsable(vehicle?.image_url)) {
+    if (isUsableImageUrl(vehicle?.image_url)) {
       return [vehicle.image_url];
     }
 

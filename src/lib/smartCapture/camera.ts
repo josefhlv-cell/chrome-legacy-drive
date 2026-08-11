@@ -185,9 +185,8 @@ export const openCamera = async (
     // ve všech verzích lib.dom typů.
     resizeMode: "none",
 
-    // @ts-expect-error — zoom není dostupný
-    // ve všech verzích lib.dom typů.
     zoom: 1,
+
   };
 
   const attempts: MediaTrackConstraints[] = [];
@@ -308,13 +307,10 @@ export const ensureNoZoom = async (
       typeof caps.zoom.min === "number"
     ) {
       await track.applyConstraints({
-        // @ts-expect-error — zoom není ve všech verzích typů.
-        advanced: [
-          {
-            zoom: caps.zoom.min,
-          },
-        ],
-      });
+        advanced: [{ zoom: caps.zoom.min } as unknown as MediaTrackConstraintSet],
+      } as MediaTrackConstraints);
+
+
     }
   } catch {
     // Zařízení zoom nepodporuje nebo constraint odmítlo.

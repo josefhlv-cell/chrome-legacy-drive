@@ -6,7 +6,7 @@ import {
   ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
   Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink,
   BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer,
-  Sparkles, Wand2, Inbox
+  Sparkles, Wand2, Inbox, ChevronUp, ChevronDown
 } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Progress } from "@/components/ui/progress";
@@ -17,7 +17,7 @@ import { formatPrice, statusLabels } from "@/data/vehicles";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { useToast } from "@/hooks/use-toast";
-import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage, useReorderVehicleImage } from "@/hooks/useVehicleImages";
+import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage, useReorderVehicleImage, useMoveVehicleImage } from "@/hooks/useVehicleImages";
 import {
   useSiteContacts, useUpdateContact,
   useTickerItems, useCreateTickerItem, useUpdateTickerItem, useDeleteTickerItem,
@@ -1689,65 +1689,211 @@ const ToggleItem = ({ icon, label, checked, onChange }: { icon: React.ReactNode;
 const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicleId: string; onDeleteImage: (id: string) => void; onSetMain: (id: string, url: string) => void }) => {
   const { data: images, isLoading } = useVehicleImages(vehicleId);
   const reorder = useReorderVehicleImage();
+  const move = useMoveVehicleImage();
+  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [dragOverId, setDragOverId] = useState<string | null>(null);
+  const dragIdRef = useRef<string | null>(null);
 
   if (isLoading) return <p className="text-xs text-muted-foreground mt-2">Načítání...</p>;
   if (!images || images.length === 0) return <p className="text-xs text-muted-foreground mt-2">Žádné fotky.</p>;
 
-  // Non-main photos are the only ones that can be reordered (main stays first).
+  // Hlavní fotka je vždy zamčená na prvním místě. Ostatní lze přesouvat libovolně.
   const nonMain = images.filter((i: any) => !i.is_main);
   const firstNonMainId = nonMain[0]?.id;
   const lastNonMainId = nonMain[nonMain.length - 1]?.id;
-  const busy = reorder.isPending;
+  const busy = reorder.isPending || move.isPending;
+
+  const finishDrag = (targetId: string | null) => {
+    const sourceId = dragIdRef.current;
+    dragIdRef.current = null;
+    setDraggedId(null);
+    setDragOverId(null);
+
+    if (!sourceId || !targetId || sourceId === targetId || busy) return;
+
+    const source = images.find((i: any) => i.id === sourceId);
+    const target = images.find((i: any) => i.id === targetId);
+    if (source && target && !source.is_main && !target.is_main) {
+      move.mutate({ id: sourceId, vehicleId, targetId });
+    }
+  };
+
+  const updateDragTarget = (clientX: number, clientY: number) => {
+    const sourceId = dragIdRef.current;
+    if (!sourceId) return;
+
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const card = el?.closest<HTMLElement>('[data-gallery-id]');
+    const targetId = card?.dataset.galleryId ?? null;
+
+    if (!targetId || targetId === sourceId) {
+      setDragOverId(null);
+      return;
+    }
+
+    const target = images.find((i: any) => i.id === targetId);
+    if (target && !target.is_main) setDragOverId(targetId);
+    else setDragOverId(null);
+  };
+
+  const getTargetIdAtPoint = (clientX: number, clientY: number) => {
+    const sourceId = dragIdRef.current;
+    if (!sourceId) return null;
+
+    const el = document.elementFromPoint(clientX, clientY) as HTMLElement | null;
+    const card = el?.closest<HTMLElement>('[data-gallery-id]');
+    const targetId = card?.dataset.galleryId ?? null;
+    if (!targetId || targetId === sourceId) return null;
+
+    const target = images.find((i: any) => i.id === targetId);
+    return target && !target.is_main ? targetId : null;
+  };
+
+  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, id: string, isMain: boolean) => {
+    if (isMain || busy) return;
+    if ((e.target as HTMLElement).closest('button')) return;
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+    e.preventDefault();
+    dragIdRef.current = id;
+    setDraggedId(id);
+    setDragOverId(id);
+
+    const onMove = (ev: PointerEvent) => {
+      if (!dragIdRef.current) return;
+      const targetId = getTargetIdAtPoint(ev.clientX, ev.clientY);
+      setDragOverId(targetId);
+    };
+
+    const onUp = (ev: PointerEvent) => {
+      const targetId = getTargetIdAtPoint(ev.clientX, ev.clientY);
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      finishDrag(targetId);
+    };
+
+    const onCancel = () => {
+      window.removeEventListener('pointermove', onMove);
+      window.removeEventListener('pointerup', onUp);
+      window.removeEventListener('pointercancel', onCancel);
+      finishDrag(null);
+    };
+
+    window.addEventListener('pointermove', onMove, { passive: false });
+    window.addEventListener('pointerup', onUp, { once: true });
+    window.addEventListener('pointercancel', onCancel, { once: true });
+  };
 
   return (
     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2">
-      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">
-        Galerie ({images.length}) <span className="text-muted-foreground font-normal normal-case">— šipkami změníte pořadí</span>
-      </p>
-      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-        {images.map((img: any) => {
-          const isMain = img.is_main;
+      <div className="flex items-center justify-between gap-2 mb-2">
+        <p className="text-xs font-semibold text-foreground uppercase tracking-wider">
+          Galerie ({images.length})
+        </p>
+        <span className="text-[10px] text-muted-foreground normal-case">
+          Přetáhněte fotku myší nebo prstem na požadované místo
+        </span>
+      </div>
+
+      <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 lg:grid-cols-8 gap-2">
+        {images.map((img: any, index: number) => {
+          const isMain = !!img.is_main;
           const disableUp = isMain || img.id === firstNonMainId;
           const disableDown = isMain || img.id === lastNonMainId;
+          const isDragging = draggedId === img.id;
+          const isDropTarget = dragOverId === img.id && draggedId !== img.id;
+
           return (
-            <div key={img.id} className={`relative group rounded-md overflow-hidden border-2 ${isMain ? "border-primary" : "border-border"}`}>
-              <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-16 object-cover" loading="lazy" decoding="async" />
-              {isMain && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-30 pointer-events-none">HLAVNÍ</div>}
-              {/* Hover/tap overlay — pointer-events-none so it never blocks the arrow/main/delete buttons */}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" />
-              {/* Action buttons: always visible on touch devices, layered above the overlay */}
-              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 p-1 z-20">
+            <div
+              key={img.id}
+              data-gallery-id={img.id}
+              onPointerDown={(e) => handlePointerDown(e, img.id, isMain)}
+              className={`relative group rounded-md overflow-hidden border-2 select-none touch-none transition-all duration-150 ${
+                isMain ? 'border-primary' : 'border-border'
+              } ${
+                isDragging ? 'opacity-40 scale-95 ring-2 ring-primary z-30' : ''
+              } ${
+                isDropTarget ? 'border-primary ring-2 ring-primary scale-[1.04] z-20' : ''
+              }`}
+              title={isMain ? 'Hlavní fotka je uzamčená' : 'Přetáhněte fotku na jiné místo'}
+            >
+              <img
+                src={optimizeImage(img.image_url, 'thumb')}
+                alt=""
+                className="w-full h-20 sm:h-24 object-cover pointer-events-none"
+                loading="lazy"
+                decoding="async"
+                draggable={false}
+              />
+
+              <div className="absolute top-0 left-0 right-0 flex items-center justify-between z-30 pointer-events-none">
+                {isMain ? (
+                  <span className="bg-primary text-primary-foreground text-[8px] px-1.5 py-0.5 font-bold">
+                    HLAVNÍ
+                  </span>
+                ) : (
+                  <span className="bg-black/65 text-white text-[9px] px-1.5 py-0.5 font-semibold">
+                    {index}
+                  </span>
+                )}
+              </div>
+
+              {!isMain && (
+                <div className="absolute top-0 right-0 flex z-40">
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => !disableUp && !busy && reorder.mutate({ id: img.id, vehicleId, direction: 'up' })}
+                    disabled={disableUp || busy}
+                    title="Posunout o jednu pozici nahoru"
+                    aria-label="Posunout fotku nahoru"
+                    className="bg-black/75 text-white w-7 h-7 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronUp className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={() => !disableDown && !busy && reorder.mutate({ id: img.id, vehicleId, direction: 'down' })}
+                    disabled={disableDown || busy}
+                    title="Posunout o jednu pozici dolů"
+                    aria-label="Posunout fotku dolů"
+                    className="bg-black/75 text-white w-7 h-7 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
+                  >
+                    <ChevronDown className="w-4 h-4" />
+                  </button>
+                </div>
+              )}
+
+              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 p-1 z-40">
                 {!isMain && (
                   <button
                     type="button"
+                    onPointerDown={(e) => e.stopPropagation()}
                     onClick={() => onSetMain(img.id, img.image_url)}
-                    className="text-[10px] text-white bg-primary/90 hover:bg-primary px-1.5 py-0.5 rounded leading-none"
+                    className="text-[10px] text-white bg-primary/90 hover:bg-primary px-1.5 py-1 rounded leading-none"
                     title="Nastavit jako hlavní"
-                  >★</button>
+                  >
+                    ★
+                  </button>
                 )}
                 <button
                   type="button"
+                  onPointerDown={(e) => e.stopPropagation()}
                   onClick={() => onDeleteImage(img.id)}
-                  className="text-[10px] text-white bg-destructive/90 hover:bg-destructive px-1.5 py-0.5 rounded leading-none"
+                  className="text-[10px] text-white bg-destructive/90 hover:bg-destructive px-1.5 py-1 rounded leading-none"
                   title="Smazat"
-                >✕</button>
+                >
+                  ✕
+                </button>
               </div>
-              {!isMain && (
-                <div className="absolute top-0 right-0 flex flex-row z-20">
-                  <button
-                    type="button"
-                    onClick={() => !disableUp && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "up" })}
-                    disabled={disableUp || busy}
-                    title="Posunout blíže k první fotce"
-                    className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  >◀</button>
-                  <button
-                    type="button"
-                    onClick={() => !disableDown && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "down" })}
-                    disabled={disableDown || busy}
-                    title="Posunout blíže ke konci"
-                    className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  >▶</button>
+
+              {isDropTarget && (
+                <div className="absolute inset-0 border-2 border-primary bg-primary/10 pointer-events-none z-20 flex items-center justify-center">
+                  <span className="bg-primary text-primary-foreground text-[9px] font-bold px-2 py-1 rounded">
+                    SEM PUSTIT
+                  </span>
                 </div>
               )}
             </div>

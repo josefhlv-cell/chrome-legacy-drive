@@ -77,7 +77,7 @@ export const PacificaShowroom = () => {
   useEffect(() => {
     const compute = () => {
       const a = window.innerWidth / Math.max(1, window.innerHeight);
-      setFit(a < 0.75 ? 1.62 : a < 1 ? 1.42 : a < 1.35 ? 1.16 : 1);
+      setFit(a < 0.75 ? 1.85 : a < 1 ? 1.55 : a < 1.35 ? 1.16 : 1);
     };
     compute();
     window.addEventListener("resize", compute);

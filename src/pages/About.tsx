@@ -1,294 +1,280 @@
-import { useState, useRef, useMemo } from "react";
-import { motion } from "framer-motion";
-import {
-  Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,
-  Plus, Trash2, Edit, Save, X, LogIn, LogOut, QrCode, Download,
-  ImagePlus, Images, RefreshCw, Phone, Mail, MapPin, Clock,
-  Type, Camera, Car, ShoppingBag, Loader2, Upload, ExternalLink,
-  BarChart3, Monitor, Smartphone, Tablet, TrendingUp, TrendingDown, Users, Timer,
-  Sparkles, Wand2, Inbox
-} from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Progress } from "@/components/ui/progress";
-import { QRCodeSVG } from "qrcode.react";
-import { useAuth } from "@/hooks/useAuth";
-import { useVehicles, useCreateVehicle, useUpdateVehicle, useDeleteVehicle, type DbVehicle } from "@/hooks/useVehicles";
-import { formatPrice, statusLabels } from "@/data/vehicles";
+import { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion";
+import { CheckCircle, Search, Shield, Wrench, Star, Quote, MapPin, Clock, Users, Phone, Mail, Camera, X } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
-import { useToast } from "@/hooks/use-toast";
-import { useVehicleImages, useAddVehicleImage, useDeleteVehicleImage, useSetMainImage, useReorderVehicleImage, useMoveVehicleImage } from "@/hooks/useVehicleImages";
-import {
-  useSiteContacts, useUpdateContact,
-  useTickerItems, useCreateTickerItem, useUpdateTickerItem, useDeleteTickerItem,
-  useFacilityPhotos, useAddFacilityPhoto, useDeleteFacilityPhoto,
-  useScrapeLog,
-} from "@/hooks/useAdminContent";
-import type { TablesInsert, TablesUpdate } from "@/integrations/supabase/types";
-import { supabase } from "@/integrations/supabase/client";
-import logoPardubice from "@/assets/logo-pardubice.webp";
-import { useAnalytics as useAnalyticsData, useLeadsAnalytics, computeStats as computeAnalyticsStats, computeConversionStats } from "@/hooks/useAnalytics";
-import { optimizeImage } from "@/lib/imageOptimizer";
-import QuickExportButton from "@/components/admin/QuickExportButton";
-import AIDescriptionChat from "@/components/admin/AIDescriptionChat";
-import VinDecodePreview from "@/components/admin/VinDecodePreview";
-import PrintFlyerDialog from "@/components/admin/PrintFlyerDialog";
-import { Printer } from "lucide-react";
-import AdminSurprise from "@/components/AdminSurprise";
-import LeadsTab from "@/components/admin/LeadsTab";
-import AdminDailyReport from "@/components/admin/AdminDailyReport";
-import BannerManagerTab from "@/components/admin/BannerManagerTab";
-import DashboardTab from "@/components/admin/DashboardTab";
-import TipCarsFields from "@/components/admin/TipCarsFields";
-import TipCarsTab from "@/components/admin/TipCarsTab";
-import RevertButton from "@/components/admin/RevertButton";
-import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab";
-import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
-import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
-import ShowroomTab from "@/components/admin/ShowroomTab";
-import HitSongsTab from "@/components/admin/HitSongsTab";
-import { MaraProvider, useMara } from "@/components/admin/MaraAssistant";
-import SmartPriceCheck from "@/components/admin/SmartPriceCheck";
-import { Megaphone, LayoutDashboard, Send, Music } from "lucide-react";
-import { useEffect as useEffectAdmin } from "react";
+import { useFacilityPhotos } from "@/hooks/useAdminContent";
+import CardBg from "@/components/CardBg";
+import chdpChromeAsset from "@/assets/chdp-chrome-blue.jpg.asset.json";
+import workshop1 from "@/assets/workshop-1.webp";
+import workshop2 from "@/assets/workshop-2.webp";
+import workshop3 from "@/assets/workshop-3.webp";
+import workshop4 from "@/assets/workshop-4.webp";
+import { trackPhoneClick } from "@/lib/trackPhoneClick";
 
-type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
-type AdminTab = "dashboard" | "vehicles" | "scrape" | "leads" | "contacts" | "ticker" | "facility" | "analytics" | "banners" | "tipcars" | "smart-capture" | "showroom" | "hits";
-
-const statusStylesMap: Record<VehicleStatus, string> = {
-  skladem: "status-skladem",
-  "na-ceste": "status-na-ceste",
-  rezervovano: "status-rezervovano",
-  prodano: "status-prodano",
-};
-
-const emptyVehicle: TablesInsert<"vehicles"> = {
-  name: "", year: new Date().getFullYear(), price_with_vat: 0, mileage: 0, vin: "",
-  fuel: "Benzín", image_url: "", status: "skladem", show_vat: false,
-  carfax_enabled: false, carfax_url: "", lpg_enabled: false, lpg_description: "",
-  video_enabled: false, video_id: "", warranty_enabled: true,
-  engine: "", transmission: "", power: "", color: "", description: "",
-  inventory_number: "",
-  // TipCars defaults — používají se při vkládání nového vozu
-  tipcars_export_enabled: true,
- tipcars_karoserie_kod: "c",
- tipcars_karoserie_popis: "MPV",
-  tipcars_pocet_mist: 7,
-  tipcars_pocet_dveri: 5,
-  tipcars_emisni_norma: "Euro 5",
-  tipcars_pohon: "FWD",
-  tipcars_klimatizace: "auto",
-  tipcars_airbagy: 8,
-  tipcars_prvni_majitel: true,
-  tipcars_servisni_knizka: true,
-  tipcars_nebourane: false,
-  tipcars_garantovany_najezd: true,
-  showroom_mode: "off",
-} as TablesInsert<"vehicles">;
-
-type AdminSort = "price-desc" | "price-asc" | "year" | "newest";
-const adminSortOptions: { value: AdminSort; label: string }[] = [
-  { value: "price-desc", label: "Nejdražší" },
-  { value: "price-asc", label: "Nejlevnější" },
-  { value: "year", label: "Rok výroby" },
-  { value: "newest", label: "Od nejnovějšího přidání" },
+const reasons = [
+  { icon: Search, title: "Specializace", text: "Chrysler není jen jedna z mnoha značek v našem portfoliu. Je to naše vášeň. Známe každý šroubek modelů Pacifica, Voyager i Grand Caravan." },
+  { icon: Shield, title: "Transparentnost", text: "Každý vůz v naší nabídce prochází přísnou kontrolou. U nás neexistují skryté vady – ke každému vozu dodáváme kompletní historii a prověření Carfax." },
+  { icon: Wrench, title: "Komplexní péče", text: "Prodejem to u nás nekončí. Zajišťujeme odborný servis, dodávky originálních náhradních dílů a profesionální přestavby na LPG." },
+  { icon: CheckCircle, title: "Dovoz bez rizika", text: "Pokud si nevyberete z našich skladových zásob, najdeme a dovezeme vám vůz snů přímo z USA nebo EU. Vyřešíme za vás clo, homologaci i přihlášení." },
 ];
 
-const SITE_URL = "https://chryslerpardubice.site";
-
-const tabConfig: { key: AdminTab; label: string; icon: React.ReactNode }[] = [
-  { key: "dashboard", label: "Dashboard", icon: <LayoutDashboard className="w-4 h-4" /> },
-  { key: "vehicles", label: "Vozidla", icon: <Car className="w-4 h-4" /> },
-  { key: "leads", label: "Poptávky", icon: <Inbox className="w-4 h-4" /> },
-  { key: "scrape", label: "Aktualizace", icon: <RefreshCw className="w-4 h-4" /> },
-  { key: "analytics", label: "Statistiky", icon: <BarChart3 className="w-4 h-4" /> },
-  { key: "banners", label: "Bannery", icon: <Megaphone className="w-4 h-4" /> },
-  { key: "contacts", label: "Kontakty", icon: <Phone className="w-4 h-4" /> },
-  { key: "ticker", label: "Novinky", icon: <Type className="w-4 h-4" /> },
-  { key: "facility", label: "Zázemí", icon: <Camera className="w-4 h-4" /> },
-  { key: "tipcars", label: "TipCars", icon: <Send className="w-4 h-4" /> },
-  { key: "smart-capture", label: "Smart Capture", icon: <Sparkles className="w-4 h-4" /> },
-  { key: "showroom", label: "Showroom Mode", icon: <Wand2 className="w-4 h-4" /> },
-  { key: "hits", label: "To bude hit", icon: <Music className="w-4 h-4" /> },
+const milestones = [
+  { year: "2003", text: "Založení společnosti CHDP s.r.o. — začátek specializace na vozy Chrysler, Dodge a Lancia." },
+  { year: "2008", text: "Naše společnost posouvá služby i autoservis pod autorizaci DaimlerChrysler Praha. Tato spolupráce otevřela možnosti odborné diagnostiky, programování jednotek i školení mechaniků." },
+  { year: "2012", text: "Rozšíření servisu o diagnostiku a opravy automatických převodovek. V rámci přípravy vozidel pro zákazníky zajišťujeme u našich partnerů přestavby vozidel na LPG." },
+  { year: "2014", text: "Přechod pod správu FCA. V tomto roce vznikl koncern FCA (Fiat Chrysler Automobiles) sloučením Fiatu a Chrysleru." },
+  { year: "2016", text: "Seznamování s novým modelem Pacifica. Servisní postupy, speciální přípravky, školení, hybridní pohon a spoustu dalších osvojených dovedností pro tento konkrétní model." },
+  { year: "2026", text: "Spuštění digitální platformy Chrysler - Dodge Pardubice — katalog dílů, servisní knížka a AI diagnostika v jedné aplikaci." },
 ];
 
-const AdminPage = () => {
-  const { user, isAdmin, loading: authLoading, signIn, signOut } = useAuth();
-  const { toast } = useToast();
-  const [activeTab, setActiveTab] = useState<AdminTab>("dashboard");
-  const [loginEmail, setLoginEmail] = useState("");
-  const [loginPassword, setLoginPassword] = useState("");
-  const [loginLoading, setLoginLoading] = useState(false);
+const reviews = [
+  { name: "Hans (Honza)", source: "Chrysler Club CZ", text: "Mám auto z Lukovny a jsem zatím maximálně spokojený. Auto slouží bezvadně! Nikde nic nebouchá, nerachtá, nehučí. Důležité je mít zázemí, když kupujete ameriku — to vám jiný bazar určitě nedá.", rating: 5 },
+  { name: "Chylik (Jirka)", source: "Chrysler Club CZ", text: "Taky jsem měl zkušenosti se servisem v Lukovně a můžu zatím říci jen pozitivní. Jarda je nejlepší servismen! Vždy poradí, je suprověj.", rating: 5 },
+  { name: "xpatx (Martin)", source: "Chrysler Club CZ", text: "S Lukovnou jsem žádný problém neměl. Co se týče rad — Jarda ochotně poradil, pomohl, nasměroval. Ohledně dílů také žádný problém. Je vidět, že ten podnik není otevřený rok ani dva, ale už pár let.", rating: 5 },
+  { name: "dandyMaverick", source: "Chrysler Club CZ", text: "Jsem s Lukovnou maximálně spokojený, pánové jen tak dál!", rating: 5 },
+  { name: "Soryu (Standa)", source: "Chrysler Club CZ", text: "Já si taky nemůžu stěžovat — ochotní a poradí.", rating: 5 },
+  { name: "0610", source: "Chrysler Club CZ", text: "Dobré zkušenosti. I servis v Rakousku doporučují Mopar. Jinak jste vždy pomohli.", rating: 5 },
+];
 
-  const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginLoading(true);
-    try {
-      await signIn(loginEmail, loginPassword);
-      toast({ title: "Přihlášeno" });
-    } catch (err: any) {
-      toast({ title: "Chyba přihlášení", description: err.message, variant: "destructive" });
-    } finally {
-      setLoginLoading(false);
-    }
-  };
+const galleryImages = [
+  { src: workshop1, alt: "Profesionální autodílna — hydraulické zvedáky", caption: "Moderní dílna s hydraulickými zvedáky" },
+  { src: workshop2, alt: "Oprava automatické převodovky", caption: "Specializace na automatické převodovky" },
+  { src: workshop3, alt: "Diagnostika motoru", caption: "Profesionální diagnostické vybavení" },
+  { src: workshop4, alt: "Autolakovna", caption: "Vlastní lakovací kabina" },
+];
 
-  if (authLoading) return <div className="min-h-screen bg-background flex items-center justify-center"><p className="text-muted-foreground">Načítání...</p></div>;
+const AboutPage = () => {
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+  const { data: dbPhotos } = useFacilityPhotos();
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="pt-24 pb-16 flex items-center justify-center">
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="deep-card p-8 w-full max-w-sm">
-            <div className="flex items-center gap-3 mb-6">
-              <LogIn className="w-6 h-6 text-primary" />
-              <h1 className="text-xl font-bold text-foreground uppercase tracking-wider">Admin přihlášení</h1>
-            </div>
-            <form onSubmit={handleLogin} className="space-y-4">
-              <div>
-                <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">E-mail</label>
-                <input type="email" required value={loginEmail} onChange={(e) => setLoginEmail(e.target.value)} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
-              </div>
-              <div>
-                <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">Heslo</label>
-                <input type="password" required value={loginPassword} onChange={(e) => setLoginPassword(e.target.value)} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
-              </div>
-              <button type="submit" disabled={loginLoading} className="chrome-button w-full">{loginLoading ? "Přihlašuji..." : "Přihlásit se"}</button>
-            </form>
-          </motion.div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  if (!isAdmin) {
-    return (
-      <div className="min-h-screen bg-background">
-        <Navbar />
-        <div className="pt-24 pb-16 container mx-auto px-4 text-center">
-          <p className="text-destructive text-lg font-semibold">Nemáte oprávnění pro přístup k administraci.</p>
-          <button onClick={signOut} className="outline-button mt-4 inline-flex items-center gap-2"><LogOut className="w-4 h-4" /> Odhlásit se</button>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
-
-  return (
-    <MaraProvider>
-      <AdminInner user={user} signOut={signOut} activeTab={activeTab} setActiveTab={setActiveTab} />
-    </MaraProvider>
-  );
-};
-
-// Wraps the actual admin UI so it can use useMara() hook.
-const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
-  user: { email?: string | null };
-  signOut: () => Promise<void>;
-  activeTab: AdminTab;
-  setActiveTab: (t: AdminTab) => void;
-}) => {
-  const { say } = useMara();
-
-  // First-time welcome: greet Mára-style, then create a one-off "special" song.
-  useEffectAdmin(() => {
-    let cancelled = false;
-    (async () => {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth.user?.id;
-      if (!uid) return;
-      // Time window (Europe/Prague):
-      //  < 05:00 → TEST mode: uvítání při každém přihlášení, do DB nezapisujeme.
-      //  ≥ 05:30 → PROD mode: zobrazit jen poprvé, pak zapsat do admin_welcome_seen.
-      //  05:00–05:30 → tichý mezičas (nic nezobrazujeme, nic nezapisujeme).
-      const pragueNow = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Prague" }));
-      const minutes = pragueNow.getHours() * 60 + pragueNow.getMinutes();
-      const isTestMode = minutes < 5 * 60;
-      const isProdMode = minutes >= 5 * 60 + 30;
-      if (!isTestMode && !isProdMode) return;
-
-      const { data: existing } = await supabase
-        .from("admin_welcome_seen")
-        .select("user_id")
-        .eq("user_id", uid)
-        .maybeSingle();
-      if (cancelled) return;
-      if (isProdMode && existing) return; // v prod módu už uvítání viděl
-      // Show welcome
-      say(
-        `Ahoj Máro! Jsem tvůj AI parťák. Pomáhám s naceněním vozů (Smart Price Check), hlídám fotky, exporty a leady. Každé pondělí ti do sekce "To bude hit" napíšu text písničky s ambicí stát se hitem. Dnes se vidíme poprvé (pokud ses nekoukal do zrcadla 😎), tak jsem ti něco napsal mimořádně. Koukni do sekce "To bude hit".`,
-        { title: "Vítej" },
-      );
-      supabase.functions.invoke("generate-weekly-hit", { body: { special: true } }).catch(() => {});
-      if (isProdMode && !existing) {
-        await supabase.from("admin_welcome_seen").insert({ user_id: uid });
-      }
-    })();
-    return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  // Use DB photos if available, otherwise fallback to static
+  const displayPhotos = dbPhotos && dbPhotos.length > 0
+    ? dbPhotos.map((p) => ({ src: p.image_url, alt: p.alt_text || p.caption, caption: p.caption }))
+    : galleryImages;
 
   return (
     <div className="min-h-screen bg-background">
-      <AdminSurprise />
-      <AdminDailyReport />
       <Navbar />
       <div className="pt-24 pb-16">
-        <div className="container mx-auto px-4">
-          {/* Header */}
-          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mb-6 flex flex-wrap items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <img src={logoPardubice} alt="Admin" className="h-14 w-auto drop-shadow-lg" />
-              <div>
-                <h1 className="section-heading text-2xl">Administrace</h1>
-                <p className="text-xs text-muted-foreground">{user.email} · Autorizovaný přístup</p>
+        <div className="container mx-auto px-4 max-w-5xl lg:max-w-[1920px] lg:px-12">
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}>
+            <div className="relative overflow-hidden rounded-xl px-2 py-6 sm:px-6">
+              <div className="relative z-10">
+                <h1 className="section-heading">Více než jen auto</h1>
+                <p className="text-primary text-lg font-medium mt-2 tracking-wide">Tradice, která definuje komfort.</p>
+                <p className="section-subheading mt-1">Jsme specialisté na značku Chrysler v České republice. Přinášíme vám americký luxus bez kompromisů.</p>
+
+                <div className="mt-10 glass-card p-8 relative overflow-hidden">
+                  <CardBg src={chdpChromeAsset.url} variant="logo" fit="contain" inset="18px" opacity={0.3} keepColor backdrop="#000" />
+                  <p className="relative z-10 text-foreground leading-relaxed">
+                    Značka Chrysler vždy stála na vrcholu inovací a rodinného pohodlí. Od ikonického sedanu 300C
+                    až po revoluční rodinné vozy Pacifica, Chrysler definuje, co znamená cestovat první třídou.
+                    Naším posláním na Chrysler.cz je zprostředkovat tento zážitek i českým řidičům.
+                  </p>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <RevertButton />
-              <a href="/admin/smart-capture" className="chrome-button inline-flex items-center gap-2 text-sm">
-                <Camera className="w-4 h-4" /> Smart Capture
+
+            {/* Company History */}
+            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
+              <Clock className="w-6 h-6 text-primary" />
+              Historie firmy
+            </h2>
+            <p className="text-muted-foreground text-sm mb-8">Od malé dílny v Lukovně k přednímu specialistovi na americké vozy v ČR.</p>
+
+            <div className="relative pl-8 border-l-2 border-primary/30 space-y-8">
+              {milestones.map((m, i) => (
+                <motion.div key={m.year} initial={{ opacity: 0, x: -20 }} whileInView={{ opacity: 1, x: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="relative">
+                  <div className="absolute -left-[calc(1rem+5px)] top-1 w-3 h-3 rounded-full bg-primary border-2 border-background" />
+                  <div className="glass-card p-5">
+                    <span className="text-primary font-bold text-lg">{m.year}</span>
+                    <p className="text-sm text-foreground mt-1">{m.text}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Workshop Gallery */}
+            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
+              <Camera className="w-6 h-6 text-primary" />
+              Naše zázemí
+            </h2>
+            <p className="text-muted-foreground text-sm mb-8">Profesionální dílna a vybavení v Lukovně u Pardubic.</p>
+
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              {displayPhotos.map((img, i) => (
+                <motion.button
+                  key={i}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  whileInView={{ opacity: 1, scale: 1 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                  onClick={() => setLightboxIndex(i)}
+                  className="group relative overflow-hidden rounded-lg aspect-[3/2]"
+                >
+                  <img src={img.src} alt={img.alt} className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110" loading="lazy" width={1024} height={680} />
+                  <div className="absolute inset-0 bg-background/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-end p-3">
+                    <p className="text-xs text-foreground font-medium">{img.caption}</p>
+                  </div>
+                </motion.button>
+              ))}
+            </div>
+
+            {/* Lightbox */}
+            <AnimatePresence>
+              {lightboxIndex !== null && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 bg-background/90 flex items-center justify-center p-4"
+                  onClick={() => setLightboxIndex(null)}
+                >
+                  <button onClick={() => setLightboxIndex(null)} className="absolute top-4 right-4 text-foreground hover:text-primary transition-colors">
+                    <X className="w-8 h-8" />
+                  </button>
+                  <img
+                    src={displayPhotos[lightboxIndex].src}
+                    alt={displayPhotos[lightboxIndex].alt}
+                    className="max-w-full max-h-[85vh] rounded-lg object-contain"
+                  />
+                  <p className="absolute bottom-6 text-foreground text-sm font-medium">{displayPhotos[lightboxIndex].caption}</p>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Key Info */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-12">
+              <div className="glass-card p-6 text-center">
+                <MapPin className="w-6 h-6 text-primary mx-auto mb-2" />
+                <p className="text-sm font-bold text-foreground">Lukovna 11, Sezemice</p>
+                <p className="text-xs text-muted-foreground">533 04, u Pardubic</p>
+              </div>
+              <div className="glass-card p-6 text-center">
+                <Clock className="w-6 h-6 text-primary mx-auto mb-2" />
+                <p className="text-sm font-bold text-foreground">20+ let praxe</p>
+                <p className="text-xs text-muted-foreground">Na trhu od roku 2003</p>
+              </div>
+              <div className="glass-card p-6 text-center">
+                <Users className="w-6 h-6 text-primary mx-auto mb-2" />
+                <p className="text-sm font-bold text-foreground">Stovky spokojených klientů</p>
+                <p className="text-xs text-muted-foreground">Partner Chrysler Club CZ</p>
+              </div>
+            </div>
+
+            {/* Why Us */}
+            <h2 className="text-2xl font-bold text-foreground mt-16 mb-6 tracking-wider">Proč zvolit právě nás?</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {reasons.map((r, i) => (
+                <motion.div key={r.title} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.1 }} className="glass-card p-6">
+                  <r.icon className="w-6 h-6 text-gold mb-3" />
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-2">{r.title}</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{r.text}</p>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Customer Reviews */}
+            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
+              <Star className="w-6 h-6 text-primary fill-primary" />
+              Co o nás říkají zákazníci
+            </h2>
+            <p className="text-muted-foreground text-sm mb-8">
+              Autentické reference z komunity{" "}
+              <a href="https://www.chrysler-club.net/forum-tema/lukovna-chrysler-pardubice-10753" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">
+                Chrysler Club CZ
               </a>
-              <a href="/admin/tipcars" className="outline-button inline-flex items-center gap-2 text-sm">
-                <Send className="w-4 h-4" /> TipCars import
-              </a>
-              <a href="/admin/exports" className="outline-button inline-flex items-center gap-2 text-sm">
-                <ExternalLink className="w-4 h-4" /> Export Dashboard
-              </a>
-              <button onClick={signOut} className="outline-button inline-flex items-center gap-2 text-sm"><LogOut className="w-4 h-4" /> Odhlásit</button>
+            </p>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {reviews.map((review, i) => (
+                <motion.div key={review.name} initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} transition={{ delay: i * 0.08 }} className="glass-card p-6 flex flex-col">
+                  <Quote className="w-5 h-5 text-primary/40 mb-3" />
+                  <p className="text-sm text-foreground leading-relaxed flex-1 italic">„{review.text}"</p>
+                  <div className="mt-4 pt-3 border-t border-primary/10 flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">{review.name}</p>
+                      <p className="text-xs text-muted-foreground">{review.source}</p>
+                    </div>
+                    <div className="flex gap-0.5">
+                      {Array.from({ length: review.rating }).map((_, j) => (
+                        <Star key={j} className="w-3.5 h-3.5 text-primary fill-primary" />
+                      ))}
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+
+            {/* Map & Contact */}
+            <h2 className="text-2xl font-bold text-foreground mt-16 mb-2 tracking-wider flex items-center gap-3">
+              <MapPin className="w-6 h-6 text-primary" />
+              Kde nás najdete
+            </h2>
+            <p className="text-muted-foreground text-sm mb-8">Lukovna 11, 533 04 Sezemice u Pardubic</p>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2 rounded-lg overflow-hidden glass-card aspect-[16/9]">
+                <iframe
+                  src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d2559.5!2d15.8667!3d50.0667!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x470dc94d5a2b0f1d%3A0x400af0f661460e0!2sLukovna%2011%2C%20533%2004%20Sezemice!5e0!3m2!1scs!2scz!4v1700000000000!5m2!1scs!2scz"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  allowFullScreen
+                  loading="lazy"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  title="Mapa — Chrysler - Dodge Pardubice, Lukovna 11"
+                />
+              </div>
+
+              <div className="space-y-4">
+                <div className="glass-card p-6">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-4">Kontakt</h3>
+                  <div className="space-y-3">
+                    <a href="tel:+420603559767" onClick={() => trackPhoneClick("+420603559767", "about")} className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
+                      <Phone className="w-4 h-4 text-primary" />
+                      <div>
+                        <p className="text-foreground font-medium">+420 603 559 767</p>
+                        <p className="text-xs">Prodej vozidel</p>
+                      </div>
+                    </a>
+                    <a href="mailto:obchod@chrysler.cz" className="flex items-center gap-3 text-sm text-muted-foreground hover:text-primary transition-colors">
+                      <Mail className="w-4 h-4 text-primary" />
+                      <div>
+                        <p className="text-foreground font-medium">obchod@chrysler.cz</p>
+                        <p className="text-xs">E-mail</p>
+                      </div>
+                    </a>
+                  </div>
+                </div>
+
+                <div className="glass-card p-6">
+                  <h3 className="text-sm font-bold uppercase tracking-wider text-foreground mb-3">Otevírací doba</h3>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between"><span className="text-muted-foreground">Po – Pá</span><span className="text-foreground font-medium">8:00 – 17:00</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Sobota</span><span className="text-foreground font-medium">Po domluvě</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Neděle</span><span className="text-foreground font-medium">Zavřeno</span></div>
+                  </div>
+                </div>
+
+                <a
+                  href="https://www.google.com/maps/dir//Lukovna+11,+533+04+Sezemice"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="chrome-button w-full text-center block"
+                >
+                  Navigovat do Lukovny
+                </a>
+              </div>
+            </div>
+
+            {/* CTA */}
+            <div className="mt-12 glass-card p-8 border-gold/30 text-center">
+              <p className="text-lg text-foreground font-semibold">Staňte se součástí rodiny Chrysler.</p>
+              <p className="text-muted-foreground mt-2">Přijďte si vyzkoušet, jak chutná americký sen na českých silnicích.</p>
             </div>
           </motion.div>
-
-          {/* Tabs */}
-          <div className="flex flex-wrap gap-1 mb-6 border-b border-border/30">
-            {tabConfig.map((tab) => (
-              <button
-                key={tab.key}
-                onClick={() => setActiveTab(tab.key)}
-                className={`admin-tab inline-flex items-center gap-2 ${activeTab === tab.key ? "active" : ""}`}
-              >
-                {tab.icon}
-                <span className="hidden sm:inline">{tab.label}</span>
-              </button>
-            ))}
-          </div>
-
-          {/* Tab Content */}
-          {activeTab === "dashboard" && <DashboardTab />}
-          {activeTab === "vehicles" && <VehiclesTab />}
-          {activeTab === "leads" && <LeadsTab />}
-          {activeTab === "scrape" && <ScrapeTab />}
-          {activeTab === "analytics" && <AnalyticsTab />}
-          {activeTab === "banners" && <BannerManagerTab />}
-          {activeTab === "contacts" && <ContactsTab />}
-          {activeTab === "ticker" && <TickerTab />}
-          {activeTab === "facility" && <FacilityTab />}
-          {activeTab === "tipcars" && <TipCarsTab />}
-          {activeTab === "smart-capture" && <SmartCaptureSettingsTab />}
-          {activeTab === "showroom" && <ShowroomTab />}
-          {activeTab === "hits" && <HitSongsTab />}
         </div>
       </div>
       <Footer />
@@ -296,1839 +282,4 @@ const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
   );
 };
 
-// ════════════════════════════════════════════════════
-// VEHICLES TAB
-// ════════════════════════════════════════════════════
-const VehiclesTab = () => {
-  const { data: vehicles, isLoading } = useVehicles(true);
-  const createVehicle = useCreateVehicle();
-  const updateVehicle = useUpdateVehicle();
-  const deleteVehicle = useDeleteVehicle();
-  const { toast } = useToast();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editData, setEditData] = useState<TablesUpdate<"vehicles">>({});
-  const [showNew, setShowNew] = useState(false);
-  const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
-  const [newPhotos, setNewPhotos] = useState<BufferedPhoto[]>([]);
-  const [showSmartDashboard, setShowSmartDashboard] = useState(false);
-  const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
-  const [printVehicleId, setPrintVehicleId] = useState<string | null>(null);
-  const [uploadingFor, setUploadingFor] = useState<string | null>(null);
-  const [galleryVehicleId, setGalleryVehicleId] = useState<string | null>(null);
-  const [adminSort, setAdminSort] = useState<AdminSort>("price-desc");
-  const [priceFilter, setPriceFilter] = useState<string>("");
-  const [selectedVehicleIds, setSelectedVehicleIds] = useState<Set<string>>(new Set());
-  const [bulkVehicleBusy, setBulkVehicleBusy] = useState(false);
-  const addImage = useAddVehicleImage();
-  const deleteImage = useDeleteVehicleImage();
-  const setMainImage = useSetMainImage();
-
-  const sortedVehicles = useMemo(() => {
-    if (!vehicles) return [];
-    let arr = [...vehicles];
-    const priceNum = Number(priceFilter);
-    if (priceFilter.trim() !== "" && !isNaN(priceNum) && priceNum > 0) {
-      arr = arr.filter((v) => v.price_with_vat === priceNum);
-    }
-    if (adminSort === "price-desc") arr.sort((a, b) => b.price_with_vat - a.price_with_vat);
-    if (adminSort === "price-asc") arr.sort((a, b) => a.price_with_vat - b.price_with_vat);
-    if (adminSort === "year") arr.sort((a, b) => b.year - a.year);
-    if (adminSort === "newest") arr.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    return arr;
-  }, [vehicles, adminSort, priceFilter]);
-
-  // Sauto export state
-  const [sautoVehicleId, setSautoVehicleId] = useState<string | null>(null);
-  const [sautoExporting, setSautoExporting] = useState(false);
-  const [sautoCredentials, setSautoCredentials] = useState(() => {
-    try {
-      const saved = localStorage.getItem("sauto_credentials");
-      return saved ? JSON.parse(saved) : { login: "", password: "", sw_key: "" };
-    } catch { return { login: "", password: "", sw_key: "" }; }
-  });
-
-  // TipCars export state
-  const [tipcarsVehicleId, setTipcarsVehicleId] = useState<string | null>(null);
-  const [tipcarsExporting, setTipcarsExporting] = useState(false);
-  const [tipcarsCredentials, setTipcarsCredentials] = useState(() => {
-    try {
-      const saved = localStorage.getItem("tipcars_credentials");
-      return saved ? JSON.parse(saved) : { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" };
-    } catch { return { kod_firmy: "", heslo: "", ftp_user: "", ftp_password: "", ftp_host: "ftp.tipcars.com" }; }
-  });
-
-  // AI helpers state
-  const [vinDecoding, setVinDecoding] = useState<"new" | string | null>(null);
-  const [descGenerating, setDescGenerating] = useState<"new" | string | null>(null);
-  const [typicalEquipment, setTypicalEquipment] = useState<Record<string, string>>({});
-  const [aiChatTarget, setAiChatTarget] = useState<"new" | string | null>(null);
-  const [vinPreview, setVinPreview] = useState<{ target: "new" | string; decoded: any } | null>(null);
-
-  const decodeVin = async (vin: string, target: "new" | string) => {
-    if (!vin || vin.trim().length < 11) {
-      toast({ title: "VIN musí mít alespoň 11 znaků", variant: "destructive" });
-      return;
-    }
-    setVinDecoding(target);
-    try {
-      const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: vin.trim() } });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const d = data?.decoded ?? {};
-      // Otevři dialog s náhledem místo přímého vyplnění
-      setVinPreview({ target, decoded: d });
-    } catch (e: any) {
-      toast({ title: "Dekódování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
-    } finally {
-      setVinDecoding(null);
-    }
-  };
-
-  const applyVinSelection = (selected: any) => {
-    if (!vinPreview) return;
-    const { target } = vinPreview;
-    const updates: any = {};
-    ["name", "year", "fuel", "engine", "transmission", "power"].forEach((k) => {
-      if (selected[k] !== undefined) updates[k] = selected[k];
-    });
-    if (Object.keys(updates).length) {
-      if (target === "new") setNewData((prev) => ({ ...prev, ...updates }));
-      else setEditData((prev) => ({ ...prev, ...updates }));
-    }
-    if (selected.typicalEquipment) {
-      setTypicalEquipment((prev) => ({ ...prev, [target]: selected.typicalEquipment }));
-    }
-    toast({ title: "Pole vyplněna", description: `${Object.keys(updates).length} polí aktualizováno` });
-  };
-
-  const generateDescription = async (vehicleData: Partial<TablesInsert<"vehicles">>, target: "new" | string) => {
-    setDescGenerating(target);
-    try {
-      const payload: any = { ...vehicleData };
-      if (typicalEquipment[target]) payload.typicalEquipment = typicalEquipment[target];
-      const { data, error } = await supabase.functions.invoke("generate-vehicle-description", { body: { vehicle: payload } });
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-      const description = data?.description || "";
-      if (!description) throw new Error("Prázdná odpověď");
-      if (target === "new") setNewData((prev) => ({ ...prev, description }));
-      else setEditData((prev) => ({ ...prev, description }));
-      toast({ title: "Popis vygenerován" });
-    } catch (e: any) {
-      toast({ title: "Generování selhalo", description: e?.message || "Neznámá chyba", variant: "destructive" });
-    } finally {
-      setDescGenerating(null);
-    }
-  };
-
-  const handleToggle = (vehicle: DbVehicle, field: keyof DbVehicle, value: any) => {
-    updateVehicle.mutate({ id: vehicle.id, updates: { [field]: value } as TablesUpdate<"vehicles"> });
-  };
-
-  const startEdit = (v: DbVehicle) => {
-    setEditingId(v.id);
-    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off" } as any);
-  };
-
-  const saveEdit = () => {
-    if (!editingId) return;
-    updateVehicle.mutate({ id: editingId, updates: editData }, {
-      onSuccess: () => { setEditingId(null); toast({ title: "Uloženo" }); },
-    });
-  };
-
-  const handleCreate = () => {
-    // Validace: pouze povinné minimum (název + cena). AI cenový tip je
-    // POUZE doporučení — i pokud admin s AI nesouhlasí, uložení se NEBLOKUJE.
-    const missing: string[] = [];
-    if (!newData.name) missing.push("Název");
-    if (!newData.price_with_vat || newData.price_with_vat <= 0) missing.push("Cena");
-    if (missing.length) {
-      toast({
-        title: "Nelze uložit vůz",
-        description: `Vyplňte povinná pole: ${missing.join(", ")}.`,
-        variant: "destructive",
-      });
-      return;
-    }
-    createVehicle.mutate(newData, {
-      onSuccess: async (created: any) => {
-        const vehicleId = created?.id;
-        const showroomMode = (newData as any).showroom_mode as "off" | "main" | "exterior" | undefined;
-        const createdImgIds: string[] = [];
-        if (vehicleId && newPhotos.length) {
-          setUploadingFor(vehicleId);
-          try {
-            for (const p of newPhotos) {
-              const row: any = await addImage.mutateAsync({ vehicleId, file: p.file, isMain: p.isMain });
-              if (row?.id) createdImgIds.push(row.id);
-            }
-            toast({ title: `Vůz přidán · ${newPhotos.length} fotek nahráno` });
-          } catch (e: any) {
-            toast({
-              title: "Vůz přidán, ale nahrávání fotek selhalo",
-              description: e?.message || "Neznámá chyba při nahrávání fotek.",
-              variant: "destructive",
-            });
-          } finally {
-            setUploadingFor(null);
-          }
-        } else {
-          toast({ title: "Vůz přidán" });
-        }
-
-        // Auto-trigger Showroom Background pokud je zapnuto
-        if (vehicleId && showroomMode && showroomMode !== "off" && createdImgIds.length > 0) {
-          toast({ title: "Generuji showroom pozadí…", description: "AI úprava titulní fotky" });
-          (async () => {
-            try {
-              const mainIdx = newPhotos.findIndex((p) => p.isMain);
-              const targetIds = showroomMode === "exterior"
-                ? createdImgIds.slice(0, 6)
-                : [createdImgIds[mainIdx >= 0 ? mainIdx : 0]];
-              for (const imgId of targetIds) {
-                const { data, error } = await supabase.functions.invoke("showroom-generate", { body: { imageId: imgId } });
-                if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
-                await supabase.functions.invoke("showroom-apply", { body: { imageId: imgId, action: "apply" } });
-              }
-              toast({ title: "Showroom pozadí aplikováno" });
-            } catch (e: any) {
-              toast({ title: "Showroom selhal", description: e?.message || "Neznámá chyba", variant: "destructive" });
-            }
-          })();
-        }
-
-        newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-        setNewPhotos([]);
-        setShowNew(false);
-        setNewData(emptyVehicle);
-      },
-      onError: (err: any) => {
-        // KRITICKÉ: pokud DB vrátí chybu (RLS, NOT NULL, duplicitní VIN,
-        // chybějící oprávnění apod.) — adminovi VŽDY ukážeme konkrétní důvod,
-        // ať neřeší tichý fail.
-        const raw = err?.message || err?.error_description || err?.hint || "Neznámá chyba databáze.";
-        const code = err?.code ? ` (kód: ${err.code})` : "";
-        let humanized = raw;
-        if (/duplicate key|already exists/i.test(raw)) humanized = "Vůz s tímto VIN už v katalogu existuje.";
-        else if (/violates not-null/i.test(raw)) humanized = `Chybí povinné pole: ${raw}`;
-        else if (/row-level security|permission denied|not authorized/i.test(raw)) humanized = "Nemáte oprávnění přidat vůz (přihlaste se znovu jako admin).";
-        else if (/network|fetch|Failed to fetch/i.test(raw)) humanized = "Výpadek spojení s databází — zkuste to znovu.";
-        toast({
-          title: "Vůz se nepodařilo uložit",
-          description: `${humanized}${code}`,
-          variant: "destructive",
-        });
-        console.error("[Admin] createVehicle failed:", err);
-      },
-    });
-  };
-
-  const handleDelete = (id: string, name: string) => {
-    if (!confirm(`Opravdu smazat "${name}"?`)) return;
-    deleteVehicle.mutate(id, { onSuccess: () => toast({ title: "Smazáno" }) });
-  };
-
-  const handleSell = (vehicle: DbVehicle) => {
-    if (!confirm(`Označit "${vehicle.name}" jako prodáno?`)) return;
-    updateVehicle.mutate({ id: vehicle.id, updates: { status: "prodano" as const } }, {
-      onSuccess: () => toast({ title: `${vehicle.name} označeno jako prodáno` }),
-    });
-  };
-
-  const handlePhotoUpload = async (vehicleId: string, files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploadingFor(vehicleId);
-    try {
-      for (const file of Array.from(files)) {
-        await addImage.mutateAsync({ vehicleId, file });
-      }
-      toast({ title: `${files.length} foto nahráno` });
-    } catch (err: any) {
-      toast({ title: "Chyba nahrávání", description: err.message, variant: "destructive" });
-    } finally {
-      setUploadingFor(null);
-    }
-  };
-
-  const downloadQR = (vehicleId: string, vehicleName: string) => {
-    const svg = document.getElementById(`qr-${vehicleId}`);
-    if (!svg) return;
-    const svgData = new XMLSerializer().serializeToString(svg);
-    const canvas = document.createElement("canvas");
-    canvas.width = 400; canvas.height = 400;
-    const ctx = canvas.getContext("2d");
-    const img = new Image();
-    img.onload = () => {
-      ctx?.drawImage(img, 0, 0, 400, 400);
-      const link = document.createElement("a");
-      link.download = `QR-${vehicleName.replace(/\s+/g, "_")}.png`;
-      link.href = canvas.toDataURL("image/png");
-      link.click();
-    };
-    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-  };
-
-  const handleSautoExport = async (vehicleId: string) => {
-    if (!sautoCredentials.login || !sautoCredentials.password || !sautoCredentials.sw_key) {
-      toast({ title: "Vyplňte přihlašovací údaje k Sauto.cz", variant: "destructive" });
-      return;
-    }
-    setSautoExporting(true);
-    try {
-      // Save credentials for next time
-      localStorage.setItem("sauto_credentials", JSON.stringify(sautoCredentials));
-
-      const { data, error } = await supabase.functions.invoke("sauto-export", {
-        body: {
-          vehicle_id: vehicleId,
-          sauto_login: sautoCredentials.login,
-          sauto_password: sautoCredentials.password,
-          sauto_sw_key: sautoCredentials.sw_key,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      toast({
-        title: "Export na Sauto.cz úspěšný!",
-        description: `Car ID: ${data.car_id}, Fotek: ${data.photos_uploaded}/${data.photos_total}`,
-      });
-      setSautoVehicleId(null);
-    } catch (err: any) {
-      toast({ title: "Chyba exportu na Sauto.cz", description: err.message, variant: "destructive" });
-    } finally {
-      setSautoExporting(false);
-    }
-  };
-
-  const handleTipcarsExport = async (vehicleId: string) => {
-    if (!tipcarsCredentials.kod_firmy || !tipcarsCredentials.heslo) {
-      toast({ title: "Vyplňte kód firmy a heslo pro TipCars", variant: "destructive" });
-      return;
-    }
-    if (!tipcarsCredentials.ftp_user || !tipcarsCredentials.ftp_password) {
-      toast({ title: "Vyplňte FTP přihlašovací údaje pro TipCars", variant: "destructive" });
-      return;
-    }
-    setTipcarsExporting(true);
-    try {
-      localStorage.setItem("tipcars_credentials", JSON.stringify(tipcarsCredentials));
-
-      const { data, error } = await supabase.functions.invoke("tipcars-export", {
-        body: {
-          vehicle_ids: [vehicleId],
-          tipcars_kod_firmy: tipcarsCredentials.kod_firmy,
-          tipcars_heslo: tipcarsCredentials.heslo,
-          firma_nazev: "Chrysler Pardubice",
-          firma_info: { mesto: "Pardubice", www: "www.chrysler-pardubice.cz" },
-          ftp_host: tipcarsCredentials.ftp_host || "ftp.tipcars.com",
-          ftp_user: tipcarsCredentials.ftp_user,
-          ftp_password: tipcarsCredentials.ftp_password,
-        },
-      });
-
-      if (error) throw error;
-      if (data?.error) throw new Error(data.error);
-
-      if (data?.ftp_uploaded) {
-        toast({
-          title: "✅ TipCars export nahrán na FTP!",
-          description: `${data.vehicles_count} vozidel, ${data.photos_count} fotek (${data.zip_size_mb} MB). ${data.ftp_message}`,
-        });
-      } else {
-        toast({
-          title: "⚠️ ZIP vytvořen, ale FTP upload selhal",
-          description: data?.ftp_message || "ZIP je dostupný ke stažení jako záloha.",
-          variant: "destructive",
-        });
-        if (data?.zip_url) window.open(data.zip_url, "_blank");
-      }
-      setTipcarsVehicleId(null);
-    } catch (err: any) {
-      toast({ title: "Chyba exportu do TipCars", description: err.message, variant: "destructive" });
-    } finally {
-      setTipcarsExporting(false);
-    }
-  };
-
-  return (
-    <div>
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
-        <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Správa vozidel</h2>
-        <div className="flex items-center gap-2 flex-wrap">
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">Cena (Kč)</label>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              inputMode="numeric"
-              value={priceFilter}
-              onChange={(e) => setPriceFilter(e.target.value)}
-              placeholder="např. 849000"
-              className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border focus:ring-1 focus:ring-primary outline-none w-36"
-            />
-            {priceFilter && (
-              <button
-                type="button"
-                onClick={() => setPriceFilter("")}
-                className="text-xs px-2 py-2 rounded-md border border-border bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                title="Vymazat filtr"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            )}
-          </div>
-          <label className="text-xs text-muted-foreground uppercase tracking-wider">Řadit podle</label>
-          <select
-            value={adminSort}
-            onChange={(e) => setAdminSort(e.target.value as AdminSort)}
-            className="bg-secondary text-secondary-foreground text-sm px-3 py-2 rounded-md border border-border focus:ring-1 focus:ring-primary outline-none"
-          >
-            {adminSortOptions.map((o) => (
-              <option key={o.value} value={o.value}>{o.label}</option>
-            ))}
-          </select>
-          <button onClick={() => setShowNew(true)} className="chrome-button inline-flex items-center gap-2 text-sm"><Plus className="w-4 h-4" /> Přidat vůz</button>
-        </div>
-      </div>
-
-      {showNew && (
-        <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="deep-card p-6 mb-6">
-          <h3 className="text-lg font-bold text-foreground mb-4">Nový vůz</h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            <InputField label="Název *" value={newData.name || ""} onChange={(v) => setNewData({ ...newData, name: v })} />
-            <InputField label="Rok *" type="number" value={String(newData.year)} onChange={(v) => setNewData({ ...newData, year: Number(v) })} />
-            <InputField label="Evidenční číslo" value={(newData as any).inventory_number || ""} onChange={(v) => setNewData({ ...newData, inventory_number: v } as any)} />
-            <InputField label="Cena s DPH *" type="number" value={String(newData.price_with_vat)} onChange={(v) => setNewData({ ...newData, price_with_vat: Number(v) })} />
-            <InputField label="Nájezd (km)" type="number" value={String(newData.mileage || 0)} onChange={(v) => setNewData({ ...newData, mileage: Number(v) })} />
-            <div>
-              <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">VIN</label>
-              <div className="flex gap-2">
-                <input
-                  value={newData.vin || ""}
-                  onChange={(e) => setNewData({ ...newData, vin: e.target.value })}
-                  className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                  placeholder="17 znaků"
-                />
-                <button
-                  type="button"
-                  onClick={() => decodeVin(newData.vin || "", "new")}
-                  disabled={vinDecoding === "new"}
-                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 whitespace-nowrap"
-                  title="Automaticky vyplnit z VIN (NHTSA + AI)"
-                >
-                  {vinDecoding === "new" ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                  Dekódovat
-                </button>
-              </div>
-            </div>
-            <InputField label="Palivo" value={newData.fuel || ""} onChange={(v) => setNewData({ ...newData, fuel: v })} />
-            <InputField label="URL obrázku" value={newData.image_url || ""} onChange={(v) => setNewData({ ...newData, image_url: v })} />
-            <InputField label="Motor" value={newData.engine || ""} onChange={(v) => setNewData({ ...newData, engine: v })} />
-            <InputField label="Převodovka" value={newData.transmission || ""} onChange={(v) => setNewData({ ...newData, transmission: v })} />
-            <InputField label="Výkon" value={newData.power || ""} onChange={(v) => setNewData({ ...newData, power: v })} />
-            <InputField label="Barva" value={newData.color || ""} onChange={(v) => setNewData({ ...newData, color: v })} />
-            <div className="sm:col-span-2 lg:col-span-3">
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
-                <button
-                  type="button"
-                  onClick={() => setAiChatTarget("new")}
-                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                  title="Otevřít AI chat pro generování / úpravu popisu"
-                >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  AI popis
-                </button>
-              </div>
-              <textarea value={newData.description || ""} onChange={(e) => setNewData({ ...newData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3">
-              <SmartPriceCheck
-                input={{
-                  vin: newData.vin || undefined,
-                  make: (newData.name || "").split(" ")[0] || "",
-                  model: (newData.name || "").split(" ").slice(1).join(" "),
-                  year: newData.year,
-                  mileage: newData.mileage || undefined,
-                  fuel: newData.fuel || undefined,
-                  engine: newData.engine || undefined,
-                  power: newData.power || undefined,
-                  equipment: typicalEquipment["new"],
-                }}
-                triggerKey={`${newData.vin}-${newData.year}-${newData.mileage}`}
-              />
-            </div>
-            <div className="sm:col-span-2 lg:col-span-3 mt-2">
-              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Camera className="w-4 h-4 text-primary" />
-                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
-                  <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <label
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border text-xs cursor-pointer hover:bg-secondary"
-                    title="Po uložení vozu se vytvoří separátní AI showroom varianta pouze pro úvodní fotografii"
-                  >
-                    <Switch
-                      checked={(newData as any).showroom_mode && (newData as any).showroom_mode !== "off"}
-                      onCheckedChange={(v) => setNewData({ ...newData, showroom_mode: v ? "main" : "off" } as any)}
-                    />
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <span>Pozadí Chrysler.cz</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowSmartDashboard(true)}
-                    className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                    title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Smart Dashboard
-                  </button>
-                </div>
-              </div>
-              <NewVehiclePhotoUploader
-                photos={newPhotos}
-                onChange={setNewPhotos}
-                onLaunchSmartCapture={() => window.open("/admin/smart-capture", "_blank")}
-              />
-              <p className="text-[11px] text-muted-foreground mt-2">
-                Použít showroom background pro úvodní fotografii vozu
-              </p>
-            </div>
-            <TipCarsFields
-              data={newData as any}
-              mirrored={{
-                name: newData.name,
-                vin: newData.vin,
-                year: newData.year,
-                mileage: newData.mileage,
-                fuel: newData.fuel,
-                color: newData.color,
-                engine: newData.engine,
-                power: newData.power,
-                transmission: newData.transmission,
-                price_with_vat: newData.price_with_vat,
-                show_vat: newData.show_vat,
-              }}
-              onChange={(patch) => setNewData({ ...newData, ...patch } as any)}
-            />
-          </div>
-          <div className="flex flex-col gap-2 mt-4">
-            <div className="flex gap-3">
-              <button onClick={handleCreate} disabled={createVehicle.isPending || uploadingFor !== null} className="chrome-button inline-flex items-center gap-2 text-sm">
-                {(createVehicle.isPending || uploadingFor !== null) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                {uploadingFor ? "Nahrávám fotky..." : "Uložit"}
-              </button>
-              <button onClick={() => {
-                newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
-                setNewPhotos([]);
-                setShowNew(false); setNewData(emptyVehicle);
-              }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
-            </div>
-            <p className="text-[11px] text-muted-foreground">
-              💡 AI Smart Price Check je pouze doporučení — vůz se uloží i v případě, že s navrženou cenou nesouhlasíte.
-            </p>
-          </div>
-        </motion.div>
-      )}
-
-      <SmartDashboardDialog
-        open={showSmartDashboard}
-        onOpenChange={(v) => {
-          setShowSmartDashboard(v);
-          if (v && !showNew) setShowNew(true);
-        }}
-        onImport={(buffered, meta) => {
-          // pokud není otevřený formulář, otevři ho
-          if (!showNew) setShowNew(true);
-          setNewPhotos((prev) => [...prev, ...buffered]);
-          setNewData((prev) => ({
-            ...prev,
-            vin: prev.vin || meta.vin || "",
-            name: prev.name || [meta.brand, meta.model].filter(Boolean).join(" ") || prev.name,
-            year: prev.year || meta.year || prev.year,
-          }));
-        }}
-      />
-
-      {isLoading && <p className="text-muted-foreground text-center py-10">Načítání...</p>}
-
-      {sortedVehicles.length > 0 && (
-        <div className="mb-3 flex flex-wrap items-center gap-2 px-3 py-2 rounded-md bg-secondary/40 border border-border text-sm">
-          <button
-            onClick={() => {
-              const all = sortedVehicles;
-              const allSel = all.length > 0 && all.every((v) => selectedVehicleIds.has(v.id));
-              setSelectedVehicleIds(allSel ? new Set() : new Set(all.map((v) => v.id)));
-            }}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md border border-border hover:bg-background text-xs"
-          >
-            {sortedVehicles.every((v) => selectedVehicleIds.has(v.id)) && sortedVehicles.length > 0
-              ? "Odznačit vše" : "Označit vše"}
-          </button>
-          <span className="text-xs text-muted-foreground">Označeno: <strong>{selectedVehicleIds.size}</strong> z {sortedVehicles.length}</span>
-          <div className="ml-auto flex flex-wrap items-center gap-2">
-            <select
-              disabled={selectedVehicleIds.size === 0 || bulkVehicleBusy}
-              onChange={async (e) => {
-                const newStatus = e.target.value;
-                e.target.value = "";
-                if (!newStatus) return;
-                if (!confirm(`Změnit status u ${selectedVehicleIds.size} vozů na "${statusLabels[newStatus as VehicleStatus]}"?`)) return;
-                setBulkVehicleBusy(true);
-                try {
-                  const ids = Array.from(selectedVehicleIds);
-                  for (const id of ids) {
-                    await updateVehicle.mutateAsync({ id, updates: { status: newStatus as VehicleStatus } });
-                  }
-                  toast({ title: "Status změněn", description: `${ids.length} vozů aktualizováno.` });
-                  setSelectedVehicleIds(new Set());
-                } catch (err) {
-                  toast({ title: "Chyba", description: String(err), variant: "destructive" });
-                } finally { setBulkVehicleBusy(false); }
-              }}
-              className="text-xs bg-background border border-border rounded-md px-2 py-1 disabled:opacity-40"
-            >
-              <option value="">Změnit status…</option>
-              {(Object.keys(statusLabels) as VehicleStatus[]).map((s) => (
-                <option key={s} value={s}>{statusLabels[s]}</option>
-              ))}
-            </select>
-            <button
-              disabled={selectedVehicleIds.size === 0 || bulkVehicleBusy}
-              onClick={async () => {
-                if (!confirm(`Opravdu smazat ${selectedVehicleIds.size} vozů? Tato akce je nevratná.`)) return;
-                setBulkVehicleBusy(true);
-                try {
-                  const ids = Array.from(selectedVehicleIds);
-                  for (const id of ids) {
-                    await new Promise<void>((res, rej) =>
-                      deleteVehicle.mutate(id, { onSuccess: () => res(), onError: (e) => rej(e) }),
-                    );
-                  }
-                  toast({ title: "Smazáno", description: `${ids.length} vozů smazáno.` });
-                  setSelectedVehicleIds(new Set());
-                } catch (err) {
-                  toast({ title: "Chyba", description: String(err), variant: "destructive" });
-                } finally { setBulkVehicleBusy(false); }
-              }}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-md text-xs bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-40"
-            >
-              <Trash2 className="w-3.5 h-3.5" /> Smazat označené
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        {sortedVehicles.map((vehicle) => {
-          // Prefer Supabase gallery (main image first), filter dead legacy server URLs.
-          const sortedGallery = [...((vehicle as any).vehicle_images ?? [])].sort((a: any, b: any) => {
-            if (a.is_main !== b.is_main) return Number(b.is_main) - Number(a.is_main);
-            return a.sort_order - b.sort_order;
-          });
-          const isUsable = (u: string | null | undefined): u is string => !!u && !u.includes("chrysler-pardubice.cz");
-          const candidate = sortedGallery.map((g: any) => g.image_url).find(isUsable) ?? (isUsable(vehicle.image_url) ? vehicle.image_url : "");
-          const thumbSrc = candidate ? optimizeImage(candidate, "card") : "/vehicle-placeholder.svg";
-          return (
-          <motion.div key={vehicle.id} initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className={`glass-card p-5 ${selectedVehicleIds.has(vehicle.id) ? "ring-2 ring-primary" : ""}`}>
-            <div className="flex items-start gap-2 mb-2">
-              <input
-                type="checkbox"
-                checked={selectedVehicleIds.has(vehicle.id)}
-                onChange={() => setSelectedVehicleIds((p) => { const n = new Set(p); n.has(vehicle.id) ? n.delete(vehicle.id) : n.add(vehicle.id); return n; })}
-                className="mt-1 w-4 h-4 accent-primary cursor-pointer"
-                title="Označit pro hromadnou akci"
-              />
-            </div>
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="w-full lg:w-44 h-28 shrink-0 rounded-md bg-muted/30 overflow-hidden">
-                <img
-                  src={thumbSrc}
-                  alt={vehicle.name}
-                  className="w-full h-full object-cover object-center"
-                  loading="lazy"
-                  decoding="async"
-                  width={176}
-                  height={112}
-                  onError={(e) => {
-                    const img = e.currentTarget;
-                    if (!img.src.endsWith("/vehicle-placeholder.svg")) img.src = "/vehicle-placeholder.svg";
-                  }}
-                />
-              </div>
-              <div className="flex-1">
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <div>
-                    <h3 className="text-base font-bold text-foreground normal-case">{vehicle.name}</h3>
-                    <p className="text-xs text-muted-foreground">{vehicle.year} · {vehicle.vin}</p>
-                    {(vehicle as any).inventory_number && (
-                      <p className="text-xs text-primary font-semibold mt-0.5">Ev.č.: {(vehicle as any).inventory_number}</p>
-                    )}
-                    <p className="text-lg font-bold text-primary mt-1">{formatPrice(vehicle.price_with_vat)}</p>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <select
-                      value={vehicle.status}
-                      onChange={(e) => handleToggle(vehicle, "status", e.target.value)}
-                      className={`${statusStylesMap[vehicle.status as VehicleStatus]} text-xs font-semibold px-2.5 py-1 rounded-full bg-transparent`}
-                    >
-                      {(Object.keys(statusLabels) as VehicleStatus[]).map((s) => (
-                        <option key={s} value={s} className="bg-card text-foreground">{statusLabels[s]}</option>
-                      ))}
-                    </select>
-                    {vehicle.status !== "prodano" && (
-                      <button onClick={() => handleSell(vehicle)} className="p-1.5 text-muted-foreground hover:text-amber-400 transition-colors" title="Prodat">
-                        <ShoppingBag className="w-4 h-4" />
-                      </button>
-                    )}
-                    <button onClick={() => setQrVehicleId(qrVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-primary transition-colors" title="QR">
-                      <QrCode className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => editingId === vehicle.id ? setEditingId(null) : startEdit(vehicle)} className="p-1.5 text-muted-foreground hover:text-primary transition-colors">
-                      <Edit className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setSautoVehicleId(sautoVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-orange-400 transition-colors" title="Export na Sauto.cz">
-                      <Upload className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setTipcarsVehicleId(tipcarsVehicleId === vehicle.id ? null : vehicle.id)} className="p-1.5 text-muted-foreground hover:text-emerald-400 transition-colors" title="Export do TipCars">
-                      <Download className="w-4 h-4" />
-                    </button>
-                    <button onClick={() => setPrintVehicleId(vehicle.id)} className="p-1.5 text-muted-foreground hover:text-blue-400 transition-colors" title="Tisk letáku A4">
-                      <Printer className="w-4 h-4" />
-                    </button>
-                    <QuickExportButton vehicle={vehicle} />
-                    <button onClick={() => handleDelete(vehicle.id, vehicle.name)} className="p-1.5 text-muted-foreground hover:text-destructive transition-colors">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-
-                {qrVehicleId === vehicle.id && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 bg-foreground rounded-lg flex flex-col items-center gap-2">
-                    <QRCodeSVG id={`qr-${vehicle.id}`} value={`${SITE_URL}/vozidla/${vehicle.id}`} size={200} bgColor="#ffffff" fgColor="#000000" level="H" includeMargin />
-                    <p className="text-xs text-background/60">{SITE_URL}/vozidla/{vehicle.id}</p>
-                    <div className="flex gap-2">
-                      <button onClick={() => downloadQR(vehicle.id, vehicle.name)} className="text-xs bg-primary text-primary-foreground px-3 py-1.5 rounded-md flex items-center gap-1.5"><Download className="w-3 h-3" /> PNG</button>
-                      <button onClick={() => setQrVehicleId(null)} className="text-xs text-background/60 hover:text-background px-3 py-1.5">Zavřít</button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {sautoVehicleId === vehicle.id && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 rounded-lg bg-secondary/50 border border-border">
-                    <div className="flex items-center gap-2 mb-3">
-                      <ExternalLink className="w-4 h-4 text-orange-400" />
-                      <h4 className="text-sm font-bold text-foreground">Export na Sauto.cz</h4>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Login (uživatelské jméno)</label>
-                        <input
-                          type="text"
-                          value={sautoCredentials.login}
-                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, login: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="vas_login"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo</label>
-                        <input
-                          type="password"
-                          value={sautoCredentials.password}
-                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, password: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="••••••"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Softwarový klíč</label>
-                        <input
-                          type="text"
-                          value={sautoCredentials.sw_key}
-                          onChange={(e) => setSautoCredentials({ ...sautoCredentials, sw_key: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="sw_key od Sauto"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Údaje se uloží pro příště. Vozidlo bude exportováno včetně všech fotek z galerie.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleSautoExport(vehicle.id)}
-                        disabled={sautoExporting}
-                        className="chrome-button inline-flex items-center gap-2 text-sm"
-                      >
-                        {sautoExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                        {sautoExporting ? "Exportuji..." : "Exportovat na Sauto.cz"}
-                      </button>
-                      <button onClick={() => setSautoVehicleId(null)} className="outline-button text-sm">Zrušit</button>
-                    </div>
-                  </motion.div>
-                )}
-
-                {tipcarsVehicleId === vehicle.id && (
-                  <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="mt-3 p-4 rounded-lg bg-secondary/50 border border-border">
-                    <div className="flex items-center gap-2 mb-3">
-                      <Download className="w-4 h-4 text-emerald-400" />
-                      <h4 className="text-sm font-bold text-foreground">Export do TipCars</h4>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-3">
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Kód firmy (licenční číslo)</label>
-                        <input
-                          type="text"
-                          value={tipcarsCredentials.kod_firmy}
-                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, kod_firmy: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="např. 1234"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">Heslo TipCars</label>
-                        <input
-                          type="password"
-                          value={tipcarsCredentials.heslo}
-                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, heslo: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="heslo k TipCars"
-                        />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">FTP Server</label>
-                        <input
-                          type="text"
-                          value={tipcarsCredentials.ftp_host}
-                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, ftp_host: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="ftp.tipcars.com"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">FTP Uživatel</label>
-                        <input
-                          type="text"
-                          value={tipcarsCredentials.ftp_user}
-                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, ftp_user: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="FTP login"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1">FTP Heslo</label>
-                        <input
-                          type="password"
-                          value={tipcarsCredentials.ftp_password}
-                          onChange={(e) => setTipcarsCredentials({ ...tipcarsCredentials, ftp_password: e.target.value })}
-                          className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                          placeholder="FTP heslo"
-                        />
-                      </div>
-                    </div>
-                    <p className="text-xs text-muted-foreground mb-3">
-                      Vygeneruje ZIP a automaticky ho nahraje na FTP server TipCars.
-                    </p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleTipcarsExport(vehicle.id)}
-                        disabled={tipcarsExporting}
-                        className="chrome-button inline-flex items-center gap-2 text-sm"
-                      >
-                        {tipcarsExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
-                        {tipcarsExporting ? "Generuji a nahrávám..." : "Export a nahrát na FTP"}
-                      </button>
-                      <button onClick={() => setTipcarsVehicleId(null)} className="outline-button text-sm">Zrušit</button>
-                    </div>
-                  </motion.div>
-                )}
-
-
-                {editingId === vehicle.id && (
-                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-3 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    <InputField label="Název" value={editData.name || ""} onChange={(v) => setEditData({ ...editData, name: v })} />
-                    <InputField label="Rok" type="number" value={String(editData.year || "")} onChange={(v) => setEditData({ ...editData, year: Number(v) })} />
-                    <InputField label="Evidenční číslo" value={(editData as any).inventory_number || ""} onChange={(v) => setEditData({ ...editData, inventory_number: v } as any)} />
-                    <InputField label="Cena" type="number" value={String(editData.price_with_vat || "")} onChange={(v) => setEditData({ ...editData, price_with_vat: Number(v) })} />
-                    <InputField label="Nájezd" type="number" value={String(editData.mileage || "")} onChange={(v) => setEditData({ ...editData, mileage: Number(v) })} />
-                    <div>
-                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">VIN</label>
-                      <div className="flex gap-2">
-                        <input
-                          value={editData.vin || ""}
-                          onChange={(e) => setEditData({ ...editData, vin: e.target.value })}
-                          className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                        />
-                        <button
-                          type="button"
-                          onClick={() => decodeVin(editData.vin || "", vehicle.id)}
-                          disabled={vinDecoding === vehicle.id}
-                          className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 whitespace-nowrap"
-                          title="Automaticky vyplnit z VIN"
-                        >
-                          {vinDecoding === vehicle.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Wand2 className="w-3.5 h-3.5" />}
-                          Dekódovat
-                        </button>
-                      </div>
-                    </div>
-                    <InputField label="Palivo" value={editData.fuel || ""} onChange={(v) => setEditData({ ...editData, fuel: v })} />
-                    <InputField label="URL obrázku" value={editData.image_url || ""} onChange={(v) => setEditData({ ...editData, image_url: v })} />
-                    <InputField label="Motor" value={editData.engine || ""} onChange={(v) => setEditData({ ...editData, engine: v })} />
-                    <InputField label="Převodovka" value={editData.transmission || ""} onChange={(v) => setEditData({ ...editData, transmission: v })} />
-                    <InputField label="Výkon" value={editData.power || ""} onChange={(v) => setEditData({ ...editData, power: v })} />
-                    <InputField label="Barva" value={editData.color || ""} onChange={(v) => setEditData({ ...editData, color: v })} />
-                    <InputField label="Carfax URL" value={editData.carfax_url || ""} onChange={(v) => setEditData({ ...editData, carfax_url: v })} />
-                    <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
-                    <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />
-                    <div className="sm:col-span-2 lg:col-span-3 rounded-md border border-border bg-secondary/30 p-3 flex flex-wrap items-center justify-between gap-3">
-                      <div className="flex items-center gap-2">
-                        <Sparkles className="w-4 h-4 text-primary" />
-                        <div>
-                          <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Pozadí Chrysler.cz</p>
-                          <p className="text-[11px] text-muted-foreground">Použít showroom background pro úvodní fotografii vozu</p>
-                        </div>
-                      </div>
-                      <Switch
-                        checked={((editData as any).showroom_mode ?? (vehicle as any).showroom_mode ?? "off") !== "off"}
-                        onCheckedChange={(v) => setEditData({ ...editData, showroom_mode: v ? "main" : "off" } as any)}
-                      />
-                    </div>
-                    <div className="sm:col-span-2 lg:col-span-3">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Popis</label>
-                        <button
-                          type="button"
-                          onClick={() => setAiChatTarget(vehicle.id)}
-                          className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                          title="Otevřít AI chat pro generování / úpravu popisu"
-                        >
-                          <Sparkles className="w-3.5 h-3.5" />
-                          AI popis
-                        </button>
-                      </div>
-                      <textarea value={editData.description || ""} onChange={(e) => setEditData({ ...editData, description: e.target.value })} rows={6} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none resize-y" />
-                    </div>
-                    <TipCarsFields
-                      data={{
-                        tipcars_export_enabled: (editData as any).tipcars_export_enabled ?? (vehicle as any).tipcars_export_enabled ?? true,
-                        tipcars_znacka_kod: (editData as any).tipcars_znacka_kod ?? (vehicle as any).tipcars_znacka_kod ?? "AW",
-                        tipcars_model_kod: (editData as any).tipcars_model_kod ?? (vehicle as any).tipcars_model_kod ?? "AWM",
-                        tipcars_karoserie_kod: (editData as any).tipcars_karoserie_kod ?? (vehicle as any).tipcars_karoserie_kod,
-                        tipcars_karoserie_popis: (editData as any).tipcars_karoserie_popis ?? (vehicle as any).tipcars_karoserie_popis,
-                        tipcars_pocet_mist: (editData as any).tipcars_pocet_mist ?? (vehicle as any).tipcars_pocet_mist ?? 5,
-                        tipcars_pocet_dveri: (editData as any).tipcars_pocet_dveri ?? (vehicle as any).tipcars_pocet_dveri ?? 5,
-                        tipcars_prvni_majitel: (editData as any).tipcars_prvni_majitel ?? (vehicle as any).tipcars_prvni_majitel ?? false,
-                        tipcars_servisni_knizka: (editData as any).tipcars_servisni_knizka ?? (vehicle as any).tipcars_servisni_knizka ?? false,
-                        tipcars_nebourane: (editData as any).tipcars_nebourane ?? (vehicle as any).tipcars_nebourane ?? true,
-                        tipcars_stk_do: (editData as any).tipcars_stk_do ?? (vehicle as any).tipcars_stk_do,
-                        tipcars_emisni_norma: (editData as any).tipcars_emisni_norma ?? (vehicle as any).tipcars_emisni_norma ?? "",
-                        tipcars_pohon: (editData as any).tipcars_pohon ?? (vehicle as any).tipcars_pohon ?? "",
-                        tipcars_prevodovka_pocet: (editData as any).tipcars_prevodovka_pocet ?? (vehicle as any).tipcars_prevodovka_pocet,
-                        tipcars_garantovany_najezd: (editData as any).tipcars_garantovany_najezd ?? (vehicle as any).tipcars_garantovany_najezd ?? true,
-                        tipcars_klimatizace: (editData as any).tipcars_klimatizace ?? (vehicle as any).tipcars_klimatizace ?? "",
-                        tipcars_airbagy: (editData as any).tipcars_airbagy ?? (vehicle as any).tipcars_airbagy,
-                      }}
-                      mirrored={{
-                        name: editData.name ?? vehicle.name,
-                        vin: editData.vin ?? vehicle.vin,
-                        year: editData.year ?? vehicle.year,
-                        mileage: editData.mileage ?? vehicle.mileage,
-                        fuel: editData.fuel ?? vehicle.fuel,
-                        color: editData.color ?? vehicle.color,
-                        engine: editData.engine ?? vehicle.engine,
-                        power: editData.power ?? vehicle.power,
-                        transmission: editData.transmission ?? vehicle.transmission,
-                        price_with_vat: editData.price_with_vat ?? vehicle.price_with_vat,
-                        show_vat: editData.show_vat ?? vehicle.show_vat,
-                      }}
-                      onChange={(patch) => setEditData({ ...editData, ...patch } as any)}
-                    />
-                    <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
-                      <button onClick={saveEdit} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>
-                      <button onClick={() => setEditingId(null)} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
-                    </div>
-                  </motion.div>
-                )}
-
-                <div className="mt-3 grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-2">
-                  <ToggleItem icon={<Receipt className="w-3.5 h-3.5 text-primary" />} label="DPH" checked={vehicle.show_vat} onChange={(v) => handleToggle(vehicle, "show_vat", v)} />
-                  <ToggleItem icon={<Shield className="w-3.5 h-3.5 text-primary" />} label="Carfax" checked={vehicle.carfax_enabled} onChange={(v) => handleToggle(vehicle, "carfax_enabled", v)} />
-                  <ToggleItem icon={<Leaf className="w-3.5 h-3.5 text-emerald-400" />} label="LPG" checked={vehicle.lpg_enabled} onChange={(v) => handleToggle(vehicle, "lpg_enabled", v)} />
-                  <ToggleItem icon={<Video className="w-3.5 h-3.5 text-primary" />} label="Video" checked={vehicle.video_enabled} onChange={(v) => handleToggle(vehicle, "video_enabled", v)} />
-                  <ToggleItem icon={<Award className="w-3.5 h-3.5 text-gold" />} label="Záruka" checked={vehicle.warranty_enabled} onChange={(v) => handleToggle(vehicle, "warranty_enabled", v)} />
-                  <div className="flex items-center justify-between p-2 rounded-md bg-secondary/50">
-                    <div className="flex items-center gap-1.5 text-xs">
-                      {vehicle.status === "prodano" ? <EyeOff className="w-3.5 h-3.5 text-destructive" /> : <Eye className="w-3.5 h-3.5 text-primary" />}
-                      <span className="text-muted-foreground">{vehicle.status === "prodano" ? "Skryto" : "Viditelné"}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input type="file" accept="image/*" multiple className="hidden" id={`file-${vehicle.id}`} onChange={(e) => handlePhotoUpload(vehicle.id, e.target.files)} />
-                  <button onClick={() => document.getElementById(`file-${vehicle.id}`)?.click()} disabled={uploadingFor === vehicle.id} className="outline-button inline-flex items-center gap-1.5 text-xs !px-3 !py-2">
-                    <ImagePlus className="w-3.5 h-3.5" />{uploadingFor === vehicle.id ? "Nahrávám..." : "Fotky"}
-                  </button>
-                  <button onClick={() => setGalleryVehicleId(galleryVehicleId === vehicle.id ? null : vehicle.id)} className="outline-button inline-flex items-center gap-1.5 text-xs !px-3 !py-2">
-                    <Images className="w-3.5 h-3.5" />Galerie
-                  </button>
-                </div>
-
-                {galleryVehicleId === vehicle.id && (
-                  <VehicleGalleryManager
-                    vehicleId={vehicle.id}
-                    onDeleteImage={(id) => deleteImage.mutate({ id, vehicleId: vehicle.id })}
-                    onSetMain={(id, url) => setMainImage.mutate({ id, vehicleId: vehicle.id, imageUrl: url })}
-                  />
-                )}
-              </div>
-            </div>
-          </motion.div>
-          );
-        })}
-      </div>
-
-      {vehicles?.length === 0 && !isLoading && (
-        <p className="text-center text-muted-foreground py-20">Žádná vozidla.</p>
-      )}
-
-      {aiChatTarget && (() => {
-        const isNew = aiChatTarget === "new";
-        const baseVehicle = isNew
-          ? newData
-          : { ...(vehicles?.find((v) => v.id === aiChatTarget) || {}), ...editData };
-        const initial = isNew ? (newData.description || "") : (editData.description ?? baseVehicle.description ?? "");
-        return (
-          <AIDescriptionChat
-            open={true}
-            onClose={() => setAiChatTarget(null)}
-            vehicleData={baseVehicle as Record<string, any>}
-            initialDescription={initial}
-            onApply={(desc) => {
-              if (isNew) setNewData((prev) => ({ ...prev, description: desc }));
-              else setEditData((prev) => ({ ...prev, description: desc }));
-            }}
-          />
-        );
-      })()}
-
-      <VinDecodePreview
-        open={!!vinPreview}
-        onOpenChange={(o) => { if (!o) setVinPreview(null); }}
-        decoded={vinPreview?.decoded ?? null}
-        currentValues={
-          vinPreview?.target === "new"
-            ? (newData as any)
-            : (vinPreview ? { ...(vehicles?.find((v) => v.id === vinPreview.target) || {}), ...editData } : {})
-        }
-        onApply={applyVinSelection}
-      />
-
-      <PrintFlyerDialog
-        open={!!printVehicleId}
-        onOpenChange={(o) => { if (!o) setPrintVehicleId(null); }}
-        vehicle={vehicles?.find((v) => v.id === printVehicleId) || null}
-        siteUrl={SITE_URL}
-      />
-    </div>
-  );
-};
-
-// ════════════════════════════════════════════════════
-// SCRAPE TAB
-// ════════════════════════════════════════════════════
-const ScrapeTab = () => {
-  const { toast } = useToast();
-  const { data: logs } = useScrapeLog();
-  const [scraping, setScraping] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [statusText, setStatusText] = useState("");
-
-  const startScrape = async () => {
-    setScraping(true);
-    setProgress(10);
-    setStatusText("Vytváření záznamu...");
-
-    try {
-      const { data: logEntry, error: logErr } = await supabase
-        .from("scrape_log")
-        .insert({ triggered_by: "manual", status: "starting" })
-        .select("id")
-        .single();
-
-      if (logErr) throw logErr;
-
-      setProgress(25);
-      setStatusText("Scrapuji chrysler.cz...");
-
-      const { data, error } = await supabase.functions.invoke("scrape-vehicles", {
-        body: { log_id: logEntry?.id },
-      });
-
-      if (error) throw error;
-
-      setProgress(90);
-      setStatusText("Dokončuji...");
-
-      setTimeout(() => {
-        setProgress(100);
-        setStatusText(`Hotovo! Nalezeno ${data?.vehicles_found || 0} vozidel, aktualizováno ${data?.vehicles_updated || 0}.`);
-        toast({
-          title: "Aktualizace dokončena",
-          description: `${data?.vehicles_updated || 0} vozidel aktualizováno, ${data?.images_saved || 0} fotek staženo.`,
-        });
-        setScraping(false);
-      }, 500);
-    } catch (err: any) {
-      setStatusText(`Chyba: ${err.message}`);
-      toast({ title: "Chyba aktualizace", description: err.message, variant: "destructive" });
-      setScraping(false);
-    }
-  };
-
-  return (
-    <div className="space-y-6">
-      <div className="deep-card p-6 border-2 border-amber-500/40">
-        <div className="flex items-center gap-3 mb-4">
-          <RefreshCw className="w-6 h-6 text-muted-foreground" />
-          <div>
-            <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Aktualizace nabídky vozidel</h2>
-            <p className="text-xs text-amber-400 font-semibold mt-1">⚠ Funkce je vypnutá — vozidla se spravují výhradně z administrace.</p>
-          </div>
-        </div>
-
-        <button
-          onClick={() => toast({
-            title: "Synchronizace je vypnutá",
-            description: "Vozidla se nyní spravují výhradně z administrace. Synchronizace s chrysler.cz již neprobíhá.",
-            variant: "destructive",
-          })}
-          disabled
-          className="gold-button inline-flex items-center gap-2 mb-4 opacity-50 cursor-not-allowed"
-        >
-          <RefreshCw className="w-4 h-4" />
-          Synchronizace vypnuta
-        </button>
-      </div>
-
-      <div className="deep-card p-6">
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Historie aktualizací (archiv)</h3>
-        {logs?.length === 0 && <p className="text-xs text-muted-foreground">Zatím žádné aktualizace.</p>}
-        <div className="space-y-2">
-          {logs?.map((log) => (
-            <div key={log.id} className="flex flex-wrap items-center gap-3 p-3 rounded-md bg-secondary/30 text-xs">
-              <span className={`px-2 py-0.5 rounded-full font-semibold ${
-                log.status === "completed" ? "bg-emerald-500/20 text-emerald-400" :
-                log.status === "error" ? "bg-red-500/20 text-red-400" :
-                "bg-blue-500/20 text-blue-400"
-              }`}>{log.status}</span>
-              <span className="text-muted-foreground">{new Date(log.started_at).toLocaleString("cs-CZ")}</span>
-              <span className="text-foreground">{log.vehicles_found} nalezeno · {log.vehicles_updated} aktualizováno · {log.images_downloaded} fotek</span>
-              {log.error_message && <span className="text-destructive">{log.error_message}</span>}
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="glass-card p-4">
-        <p className="text-xs text-muted-foreground">
-          <strong>Stav:</strong> Automatická i ruční synchronizace s chrysler.cz je <strong className="text-amber-400">vypnutá</strong>. Veškeré nové vozy a úpravy nabídky probíhají výhradně přes správu vozidel v administraci.
-        </p>
-      </div>
-    </div>
-  );
-};
-
-// ════════════════════════════════════════════════════
-// CONTACTS TAB
-// ════════════════════════════════════════════════════
-const ContactsTab = () => {
-  const { data: contacts, isLoading } = useSiteContacts();
-  const updateContact = useUpdateContact();
-  const { toast } = useToast();
-  const [editing, setEditing] = useState<Record<string, string>>({});
-
-  const fields = [
-    { key: "phone", label: "Telefon", icon: <Phone className="w-4 h-4 text-primary" /> },
-    { key: "email", label: "E-mail", icon: <Mail className="w-4 h-4 text-primary" /> },
-    { key: "address", label: "Adresa", icon: <MapPin className="w-4 h-4 text-primary" /> },
-    { key: "hours_weekday", label: "Pracovní doba (Po-Pá)", icon: <Clock className="w-4 h-4 text-primary" /> },
-    { key: "hours_weekend", label: "Víkend", icon: <Clock className="w-4 h-4 text-muted-foreground" /> },
-  ];
-
-  const handleSave = (key: string) => {
-    updateContact.mutate({ key, value: editing[key] }, {
-      onSuccess: () => {
-        toast({ title: "Kontakt aktualizován" });
-        setEditing((prev) => { const next = { ...prev }; delete next[key]; return next; });
-      },
-    });
-  };
-
-  if (isLoading) return <p className="text-muted-foreground">Načítání...</p>;
-
-  return (
-    <div className="deep-card p-6">
-      <h2 className="text-lg font-bold text-foreground uppercase tracking-wider mb-6">Správa kontaktů</h2>
-      <div className="space-y-4">
-        {fields.map((f) => (
-          <div key={f.key} className="flex flex-col sm:flex-row items-start sm:items-center gap-3 p-4 rounded-md bg-secondary/30">
-            <div className="flex items-center gap-2 min-w-[180px]">
-              {f.icon}
-              <span className="text-sm font-semibold text-foreground">{f.label}</span>
-            </div>
-            {editing[f.key] !== undefined ? (
-              <div className="flex-1 flex gap-2 w-full">
-                <input
-                  value={editing[f.key]}
-                  onChange={(e) => setEditing({ ...editing, [f.key]: e.target.value })}
-                  className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-                />
-                <button onClick={() => handleSave(f.key)} className="chrome-button !px-4 !py-2 text-xs"><Save className="w-3 h-3" /></button>
-                <button onClick={() => setEditing((prev) => { const next = { ...prev }; delete next[f.key]; return next; })} className="outline-button !px-4 !py-2 text-xs"><X className="w-3 h-3" /></button>
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-between gap-2 w-full">
-                <span className="text-sm text-muted-foreground">{contacts?.[f.key] || "–"}</span>
-                <button onClick={() => setEditing({ ...editing, [f.key]: contacts?.[f.key] || "" })} className="p-1.5 text-muted-foreground hover:text-primary transition-colors">
-                  <Edit className="w-4 h-4" />
-                </button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* Feature switches — stored as rows in site_contacts ('true' / 'false').
-          Turning one off immediately hides every public entry point of that feature. */}
-      <h2 className="text-lg font-bold text-foreground uppercase tracking-wider mt-10 mb-4">Funkce webu</h2>
-      <div className="space-y-3">
-        {[
-          { key: "feature_watchdog_enabled", label: "Hlídací pes", hint: "Formulář na /vozidla a e-maily o nových vozech" },
-          { key: "feature_live_chat_enabled", label: "Živý chat", hint: "Plovoucí obálka vpravo dole na celém webu" },
-          { key: "feature_vehicle_compare_enabled", label: "Porovnání vozů", hint: "Zaškrtávátko na kartách a stránka /porovnani-vozidel" },
-          { key: "feature_pacifica_tour_enabled", label: "Virtuální prohlídka Pacifica", hint: "Interaktivní prezentace Chrysler Pacifica na hlavní stránce a samostatné stránce." },
-        ].map((f) => {
-          const enabled = contacts?.[f.key] !== "false";
-          return (
-            <div key={f.key} className="flex items-center justify-between gap-4 p-4 rounded-md bg-secondary/30">
-              <div>
-                <p className="text-sm font-semibold text-foreground">{f.label}</p>
-                <p className="text-xs text-muted-foreground">{f.hint}</p>
-              </div>
-              <Switch
-                checked={enabled}
-                onCheckedChange={(v) =>
-                  updateContact.mutate(
-                    { key: f.key, value: v ? "true" : "false" },
-                    { onSuccess: () => toast({ title: v ? `${f.label} zapnuto` : `${f.label} vypnuto` }) },
-                  )
-                }
-              />
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-};
-
-
-// ════════════════════════════════════════════════════
-// TICKER TAB
-// ════════════════════════════════════════════════════
-const TickerTab = () => {
-  const { data: items, isLoading } = useTickerItems();
-  const createItem = useCreateTickerItem();
-  const updateItem = useUpdateTickerItem();
-  const deleteItem = useDeleteTickerItem();
-  const { toast } = useToast();
-  const [newText, setNewText] = useState("");
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editText, setEditText] = useState("");
-
-  const handleAdd = () => {
-    if (!newText.trim()) return;
-    createItem.mutate(newText.trim(), {
-      onSuccess: () => { setNewText(""); toast({ title: "Novinka přidána" }); },
-    });
-  };
-
-  const handleSave = (id: string) => {
-    updateItem.mutate({ id, text: editText }, {
-      onSuccess: () => { setEditingId(null); toast({ title: "Uloženo" }); },
-    });
-  };
-
-  return (
-    <div className="deep-card p-6">
-      <h2 className="text-lg font-bold text-foreground uppercase tracking-wider mb-2">Pohyblivý text s novinkami</h2>
-      <p className="text-xs text-muted-foreground mb-6">Tyto texty se zobrazují v běžícím pásu na hlavní stránce.</p>
-
-      <div className="flex gap-2 mb-6">
-        <input
-          value={newText}
-          onChange={(e) => setNewText(e.target.value)}
-          placeholder="Nová novinka..."
-          className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none"
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-        />
-        <button onClick={handleAdd} className="chrome-button !px-4 text-xs"><Plus className="w-4 h-4" /></button>
-      </div>
-
-      {isLoading && <p className="text-xs text-muted-foreground">Načítání...</p>}
-      <div className="space-y-2">
-        {items?.map((item) => (
-          <div key={item.id} className="flex items-center gap-3 p-3 rounded-md bg-secondary/30">
-            <Switch checked={item.is_active} onCheckedChange={(v) => updateItem.mutate({ id: item.id, is_active: v })} />
-            {editingId === item.id ? (
-              <div className="flex-1 flex gap-2">
-                <input value={editText} onChange={(e) => setEditText(e.target.value)} className="flex-1 bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
-                <button onClick={() => handleSave(item.id)} className="p-1.5 text-primary"><Save className="w-4 h-4" /></button>
-                <button onClick={() => setEditingId(null)} className="p-1.5 text-muted-foreground"><X className="w-4 h-4" /></button>
-              </div>
-            ) : (
-              <>
-                <span className={`flex-1 text-sm ${item.is_active ? "text-foreground" : "text-muted-foreground line-through"}`}>{item.text}</span>
-                <button onClick={() => { setEditingId(item.id); setEditText(item.text); }} className="p-1.5 text-muted-foreground hover:text-primary"><Edit className="w-4 h-4" /></button>
-                <button onClick={() => { if (confirm("Smazat?")) deleteItem.mutate(item.id); }} className="p-1.5 text-muted-foreground hover:text-destructive"><Trash2 className="w-4 h-4" /></button>
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ════════════════════════════════════════════════════
-// FACILITY TAB
-// ════════════════════════════════════════════════════
-const FacilityTab = () => {
-  const { data: photos, isLoading } = useFacilityPhotos();
-  const addPhoto = useAddFacilityPhoto();
-  const deletePhoto = useDeleteFacilityPhoto();
-  const { toast } = useToast();
-  const fileRef = useRef<HTMLInputElement>(null);
-  const [caption, setCaption] = useState("");
-  const [uploading, setUploading] = useState(false);
-
-  const handleUpload = async (files: FileList | null) => {
-    if (!files || files.length === 0) return;
-    setUploading(true);
-    try {
-      for (const file of Array.from(files)) {
-        await addPhoto.mutateAsync({ file, caption: caption || file.name });
-      }
-      toast({ title: "Fotky nahrány" });
-      setCaption("");
-    } catch (err: any) {
-      toast({ title: "Chyba", description: err.message, variant: "destructive" });
-    } finally {
-      setUploading(false);
-    }
-  };
-
-  return (
-    <div className="deep-card p-6">
-      <h2 className="text-lg font-bold text-foreground uppercase tracking-wider mb-2">Fotky zázemí</h2>
-      <p className="text-xs text-muted-foreground mb-6">Fotografie zobrazené v sekci „Naše zázemí" na stránce O nás.</p>
-
-      <div className="flex flex-wrap gap-2 mb-6">
-        <input value={caption} onChange={(e) => setCaption(e.target.value)} placeholder="Popisek fotky..." className="flex-1 min-w-[200px] bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
-        <input type="file" accept="image/*" multiple className="hidden" ref={fileRef} onChange={(e) => handleUpload(e.target.files)} />
-        <button onClick={() => fileRef.current?.click()} disabled={uploading} className="chrome-button inline-flex items-center gap-2 text-xs">
-          <ImagePlus className="w-4 h-4" />{uploading ? "Nahrávám..." : "Nahrát fotky"}
-        </button>
-      </div>
-
-      {isLoading && <p className="text-xs text-muted-foreground">Načítání...</p>}
-      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-        {photos?.map((photo) => (
-          <div key={photo.id} className="relative group rounded-lg overflow-hidden border border-border">
-            <img src={optimizeImage(photo.image_url, "card")} alt={photo.alt_text} className="w-full h-32 object-cover" loading="lazy" decoding="async" />
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-1">
-              <p className="text-xs text-white px-2 text-center">{photo.caption}</p>
-              <button onClick={() => { if (confirm("Smazat?")) deletePhoto.mutate(photo.id); }} className="text-xs text-white bg-destructive/80 px-2 py-1 rounded">Smazat</button>
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-};
-
-// ════════════════════════════════════════════════════
-// SHARED COMPONENTS
-// ════════════════════════════════════════════════════
-const InputField = ({ label, value, onChange, type = "text" }: { label: string; value: string; onChange: (v: string) => void; type?: string }) => (
-  <div>
-    <label className="text-xs font-semibold text-foreground uppercase tracking-wider block mb-1.5">{label}</label>
-    <input type={type} value={value} onChange={(e) => onChange(e.target.value)} className="w-full bg-secondary text-secondary-foreground border border-border rounded-md px-3 py-2 text-sm focus:ring-1 focus:ring-primary outline-none" />
-  </div>
-);
-
-const ToggleItem = ({ icon, label, checked, onChange }: { icon: React.ReactNode; label: string; checked: boolean; onChange: (v: boolean) => void }) => (
-  <div className="flex items-center justify-between p-2 rounded-md bg-secondary/50">
-    <div className="flex items-center gap-1.5 text-xs">
-      {icon}
-      <span className="text-muted-foreground">{label}</span>
-    </div>
-    <Switch checked={checked} onCheckedChange={onChange} />
-  </div>
-);
-
-const VehicleGalleryManager = ({ vehicleId, onDeleteImage, onSetMain }: { vehicleId: string; onDeleteImage: (id: string) => void; onSetMain: (id: string, url: string) => void }) => {
-  const { data: images, isLoading } = useVehicleImages(vehicleId);
-  const reorder = useReorderVehicleImage();
-  const move = useMoveVehicleImage();
-  const [draggedId, setDraggedId] = useState<string | null>(null);
-  const [dragOverId, setDragOverId] = useState<string | null>(null);
-
-  if (isLoading) return <p className="text-xs text-muted-foreground mt-2">Načítání...</p>;
-  if (!images || images.length === 0) return <p className="text-xs text-muted-foreground mt-2">Žádné fotky.</p>;
-
-  // Main photo stays locked first. Everything else can be dragged freely.
-  const nonMain = images.filter((i: any) => !i.is_main);
-  const firstNonMainId = nonMain[0]?.id;
-  const lastNonMainId = nonMain[nonMain.length - 1]?.id;
-  const busy = reorder.isPending || move.isPending;
-
-  const finishDrag = (targetId: string | null) => {
-    if (!draggedId) return;
-    if (targetId && targetId !== draggedId) {
-      const source = images.find((i: any) => i.id === draggedId);
-      const target = images.find((i: any) => i.id === targetId);
-      if (source && target && !source.is_main && !target.is_main) {
-        move.mutate({ id: draggedId, vehicleId, targetId });
-      }
-    }
-    setDraggedId(null);
-    setDragOverId(null);
-  };
-
-  const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>, id: string, isMain: boolean) => {
-    if (isMain || busy) return;
-    // Buttons must remain clickable and must not start a drag.
-    if ((e.target as HTMLElement).closest("button")) return;
-    e.currentTarget.setPointerCapture(e.pointerId);
-    setDraggedId(id);
-    setDragOverId(id);
-  };
-
-  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (!draggedId) return;
-    const el = document.elementFromPoint(e.clientX, e.clientY) as HTMLElement | null;
-    const card = el?.closest<HTMLElement>("[data-gallery-id]");
-    const targetId = card?.dataset.galleryId ?? null;
-    if (targetId && targetId !== draggedId) {
-      const target = images.find((i: any) => i.id === targetId);
-      if (target && !target.is_main) setDragOverId(targetId);
-    }
-  };
-
-  return (
-    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="mt-2">
-      <p className="text-xs font-semibold text-foreground mb-2 uppercase tracking-wider">
-        Galerie ({images.length}) <span className="text-muted-foreground font-normal normal-case">— přetáhněte fotku na požadované místo</span>
-      </p>
-      <div className="grid grid-cols-4 sm:grid-cols-6 gap-2">
-        {images.map((img: any) => {
-          const isMain = img.is_main;
-          const disableUp = isMain || img.id === firstNonMainId;
-          const disableDown = isMain || img.id === lastNonMainId;
-          const isDragging = draggedId === img.id;
-          const isDropTarget = dragOverId === img.id && draggedId !== img.id;
-          return (
-            <div
-              key={img.id}
-              data-gallery-id={img.id}
-              onPointerDown={(e) => handlePointerDown(e, img.id, isMain)}
-              onPointerMove={handlePointerMove}
-              onPointerUp={() => finishDrag(dragOverId)}
-              onPointerCancel={() => finishDrag(null)}
-              className={`relative group rounded-md overflow-hidden border-2 select-none touch-none transition-all ${
-                isMain ? "border-primary" : "border-border"
-              } ${isDragging ? "opacity-40 scale-95 ring-2 ring-primary" : ""} ${isDropTarget ? "border-primary ring-2 ring-primary scale-[1.03]" : ""}`}
-              title={isMain ? "Hlavní fotka je uzamčená" : "Přetáhněte fotku na jiné místo"}
-            >
-              <img src={optimizeImage(img.image_url, "thumb")} alt="" className="w-full h-16 object-cover pointer-events-none" loading="lazy" decoding="async" draggable={false} />
-              {isMain && <div className="absolute top-0 left-0 bg-primary text-primary-foreground text-[8px] px-1 font-bold z-30 pointer-events-none">HLAVNÍ</div>}
-              <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10" />
-              <div className="absolute bottom-0 left-0 right-0 flex justify-center gap-1 p-1 z-20">
-                {!isMain && (
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => onSetMain(img.id, img.image_url)}
-                    className="text-[10px] text-white bg-primary/90 hover:bg-primary px-1.5 py-0.5 rounded leading-none"
-                    title="Nastavit jako hlavní"
-                  >★</button>
-                )}
-                <button
-                  type="button"
-                  onPointerDown={(e) => e.stopPropagation()}
-                  onClick={() => onDeleteImage(img.id)}
-                  className="text-[10px] text-white bg-destructive/90 hover:bg-destructive px-1.5 py-0.5 rounded leading-none"
-                  title="Smazat"
-                >✕</button>
-              </div>
-              {!isMain && (
-                <div className="absolute top-0 right-0 flex flex-row z-20">
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => !disableUp && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "up" })}
-                    disabled={disableUp || busy}
-                    title="Posunout blíže k první fotce"
-                    className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  >◀</button>
-                  <button
-                    type="button"
-                    onPointerDown={(e) => e.stopPropagation()}
-                    onClick={() => !disableDown && !busy && reorder.mutate({ id: img.id, vehicleId, direction: "down" })}
-                    disabled={disableDown || busy}
-                    title="Posunout blíže ke konci"
-                    className="bg-black/70 text-white text-xs leading-none w-6 h-6 flex items-center justify-center hover:bg-primary disabled:opacity-30 disabled:cursor-not-allowed"
-                  >▶</button>
-                </div>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </motion.div>
-  );
-};
-
-// ════════════════════════════════════════════════════
-// ANALYTICS TAB
-// ════════════════════════════════════════════════════
-const AnalyticsTab = () => {
-  const [days, setDays] = useState(30);
-  const { data: views, isLoading } = useAnalyticsData(days);
-  const { data: leads, isLoading: leadsLoading } = useLeadsAnalytics(days);
-  const stats = views ? computeAnalyticsStats(views) : null;
-  const convStats = views && leads ? computeConversionStats(views, leads) : null;
-
-  const formatTime = (seconds: number) => {
-    if (seconds < 60) return `${seconds}s`;
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}m ${s}s`;
-  };
-
-  const pathLabels: Record<string, string> = {
-    "/": "Hlavní stránka",
-    "/vozidla": "Nabídka vozidel",
-    "/dovoz": "Dovoz",
-    "/vykup": "Výkup",
-    "/servis": "Servis",
-    "/nahradni-dily": "Náhradní díly",
-    "/o-nas": "O nás",
-    "/kontakt": "Kontakt",
-    "/admin": "Administrace",
-  };
-
-  const getLabel = (path: string) => {
-    if (pathLabels[path]) return pathLabels[path];
-    if (path.startsWith("/vozidla/")) return `Detail vozu`;
-    return path;
-  };
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="w-6 h-6 animate-spin text-primary" />
-        <span className="ml-2 text-muted-foreground">Načítání statistik...</span>
-      </div>
-    );
-  }
-
-  if (!stats) {
-    return (
-      <div className="text-center py-20">
-        <BarChart3 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-        <p className="text-muted-foreground">Zatím žádná data o návštěvnosti.</p>
-        <p className="text-xs text-muted-foreground mt-1">Data se začnou sbírat automaticky při návštěvách webu.</p>
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-        <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Statistiky návštěvnosti</h2>
-        <div className="flex gap-2">
-          {[7, 14, 30, 90].map((d) => (
-            <button
-              key={d}
-              onClick={() => setDays(d)}
-              className={`text-xs px-3 py-1.5 rounded-md font-semibold uppercase tracking-wider transition-colors ${
-                days === d
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-muted-foreground hover:text-foreground"
-              }`}
-            >
-              {d}d
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Summary Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Users className="w-5 h-5" />} label="Unikátní návštěvy" value={stats.uniqueSessions} />
-        <StatCard icon={<Eye className="w-5 h-5" />} label="Zobrazení stránek" value={stats.totalViews} />
-        <StatCard icon={<Timer className="w-5 h-5" />} label="Prům. čas na stránce" value={formatTime(stats.avgTimeOnPage)} />
-        <StatCard icon={<TrendingDown className="w-5 h-5" />} label="Míra okamžitých odchodů" value={`${stats.bounceRate}%`} color={stats.bounceRate > 60 ? "text-destructive" : "text-emerald-400"} />
-      </div>
-
-      {/* Device Breakdown */}
-      <div className="deep-card p-5 mb-6">
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Zařízení</h3>
-        <div className="grid grid-cols-3 gap-4">
-          <DeviceBar icon={<Smartphone className="w-4 h-4" />} label="Mobil" count={stats.devices.mobile} total={stats.totalViews} />
-          <DeviceBar icon={<Tablet className="w-4 h-4" />} label="Tablet" count={stats.devices.tablet} total={stats.totalViews} />
-          <DeviceBar icon={<Monitor className="w-4 h-4" />} label="Desktop" count={stats.devices.desktop} total={stats.totalViews} />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Most Viewed Pages */}
-        <div className="deep-card p-5">
-          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-            <TrendingUp className="w-4 h-4 text-primary" /> Nejnavštěvovanější stránky
-          </h3>
-          <div className="space-y-2">
-            {stats.pageStats.slice(0, 10).map((p) => (
-              <div key={p.path} className="flex items-center justify-between text-sm">
-                <span className="text-foreground truncate flex-1">{getLabel(p.path)}</span>
-                <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                  <span>{p.views}×</span>
-                  <span className="w-14 text-right">{formatTime(p.avgTime)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Where They Spend Most Time */}
-        <div className="deep-card p-5">
-          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Timer className="w-4 h-4 text-accent" /> Kde tráví nejvíce času
-          </h3>
-          <div className="space-y-2">
-            {stats.mostTimeSpent.map((p) => (
-              <div key={p.path} className="flex items-center justify-between text-sm">
-                <span className="text-foreground truncate flex-1">{getLabel(p.path)}</span>
-                <div className="flex items-center gap-4 text-xs">
-                  <span className="text-emerald-400 font-semibold">{formatTime(p.avgTime)}</span>
-                  <span className="text-muted-foreground w-10 text-right">{p.views}×</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        {/* Exit Pages */}
-        <div className="deep-card p-5">
-          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-            <TrendingDown className="w-4 h-4 text-destructive" /> Kde návštěvníci odcházejí
-          </h3>
-          <div className="space-y-2">
-            {stats.topExitPages.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Zatím žádná data.</p>
-            ) : (
-              stats.topExitPages.map((p) => (
-                <div key={p.path} className="flex items-center justify-between text-sm">
-                  <span className="text-foreground truncate flex-1">{getLabel(p.path)}</span>
-                  <span className={`text-xs font-semibold ${p.exitRate > 50 ? "text-destructive" : "text-muted-foreground"}`}>
-                    {p.exitRate}% odchodů
-                  </span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        {/* Referrers */}
-        <div className="deep-card p-5">
-          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-            <ExternalLink className="w-4 h-4 text-primary" /> Zdroje návštěvnosti
-          </h3>
-          <div className="space-y-2">
-            {stats.referrers.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Většina návštěv je přímých.</p>
-            ) : (
-              stats.referrers.map((r) => (
-                <div key={r.source} className="flex items-center justify-between text-sm">
-                  <span className="text-foreground truncate flex-1">{r.source}</span>
-                  <span className="text-xs text-muted-foreground">{r.count}×</span>
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Conversion Stats */}
-      {convStats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <div className="deep-card p-5">
-            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-              <ShoppingBag className="w-4 h-4 text-accent" /> Konverze — poptávky vs. návštěvy
-            </h3>
-            <div className="grid grid-cols-3 gap-4 mb-4">
-              <div className="text-center">
-                <p className="text-2xl font-bold text-foreground">{convStats.uniqueSessions}</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Návštěvy</p>
-              </div>
-              <div className="text-center">
-                <p className="text-2xl font-bold text-primary">{convStats.totalLeads}</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Poptávky</p>
-              </div>
-              <div className="text-center">
-                <p className={`text-2xl font-bold ${Number(convStats.conversionRate) > 2 ? "text-emerald-400" : "text-accent"}`}>{convStats.conversionRate}%</p>
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Konverze</p>
-              </div>
-            </div>
-            {convStats.leadsByType.length > 0 && (
-              <div className="space-y-1.5 pt-3 border-t border-border/30">
-                <p className="text-[10px] text-muted-foreground uppercase tracking-wider mb-2">Podle typu</p>
-                {convStats.leadsByType.map((t) => (
-                  <div key={t.type} className="flex items-center justify-between text-sm">
-                    <span className="text-foreground capitalize">{t.type}</span>
-                    <span className="text-xs text-muted-foreground font-semibold">{t.count}×</span>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          {convStats.dailyConversion.length > 1 && (
-            <div className="deep-card p-5">
-              <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-                <TrendingUp className="w-4 h-4 text-emerald-400" /> Denní konverze
-              </h3>
-              <div className="flex items-end gap-1 h-32">
-                {convStats.dailyConversion.map((d) => {
-                  const maxVisits = Math.max(...convStats.dailyConversion.map(v => v.visits), 1);
-                  const visitH = (d.visits / maxVisits) * 100;
-                  const leadH = d.leads > 0 ? Math.max((d.leads / maxVisits) * 100, 4) : 0;
-                  return (
-                    <div key={d.date} className="flex-1 flex flex-col items-center gap-0.5" title={`${d.date}: ${d.visits} návštěv, ${d.leads} poptávek`}>
-                      <div className="w-full flex flex-col-reverse">
-                        <div
-                          className="w-full rounded-t-sm bg-primary/40 min-h-[2px]"
-                          style={{ height: `${Math.max(visitH, 2)}%` }}
-                        />
-                        {leadH > 0 && (
-                          <div
-                            className="w-full rounded-t-sm bg-emerald-400"
-                            style={{ height: `${leadH}%` }}
-                          />
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex justify-between mt-2">
-                <span className="text-[9px] text-muted-foreground">{convStats.dailyConversion[0]?.date}</span>
-                <span className="text-[9px] text-muted-foreground">{convStats.dailyConversion[convStats.dailyConversion.length - 1]?.date}</span>
-              </div>
-              <div className="flex items-center gap-4 mt-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-primary/40" /> Návštěvy</span>
-                <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-sm bg-emerald-400" /> Poptávky</span>
-              </div>
-            </div>
-          )}
-        </div>
-      )}
-
-      {/* Hourly Distribution */}
-      <div className="deep-card p-5 mb-6">
-        <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4 flex items-center gap-2">
-          <Clock className="w-4 h-4 text-primary" /> Návštěvnost podle hodin
-        </h3>
-        <div className="flex items-end gap-1 h-24">
-          {stats.hourlyViews.map((h) => {
-            const maxCount = Math.max(...stats.hourlyViews.map(v => v.count), 1);
-            const height = (h.count / maxCount) * 100;
-            return (
-              <div key={h.hour} className="flex-1 flex flex-col items-center gap-1">
-                <div
-                  className="w-full rounded-t-sm bg-primary/60 hover:bg-primary transition-colors min-h-[2px]"
-                  style={{ height: `${Math.max(height, 2)}%` }}
-                  title={`${h.hour}:00 — ${h.count} návštěv`}
-                />
-                {h.hour % 4 === 0 && (
-                  <span className="text-[9px] text-muted-foreground">{h.hour}</span>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Daily Views */}
-      {stats.dailyViews.length > 1 && (
-        <div className="deep-card p-5">
-          <h3 className="text-sm font-bold text-foreground uppercase tracking-wider mb-4">Denní přehled</h3>
-          <div className="flex items-end gap-1 h-32">
-            {stats.dailyViews.map((d) => {
-              const maxCount = Math.max(...stats.dailyViews.map(v => v.count), 1);
-              const height = (d.count / maxCount) * 100;
-              return (
-                <div key={d.date} className="flex-1 flex flex-col items-center gap-1">
-                  <div
-                    className="w-full rounded-t-sm bg-primary/50 hover:bg-primary transition-colors min-h-[2px]"
-                    style={{ height: `${Math.max(height, 2)}%` }}
-                    title={`${d.date}: ${d.count} návštěv`}
-                  />
-                </div>
-              );
-            })}
-          </div>
-          <div className="flex justify-between mt-2">
-            <span className="text-[9px] text-muted-foreground">{stats.dailyViews[0]?.date}</span>
-            <span className="text-[9px] text-muted-foreground">{stats.dailyViews[stats.dailyViews.length - 1]?.date}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
-
-const StatCard = ({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string | number; color?: string }) => (
-  <div className="deep-card p-4 text-center">
-    <div className="flex justify-center mb-2 text-primary">{icon}</div>
-    <p className={`text-xl font-bold ${color || "text-foreground"}`}>{value}</p>
-    <p className="text-[10px] text-muted-foreground uppercase tracking-wider mt-1">{label}</p>
-  </div>
-);
-
-const DeviceBar = ({ icon, label, count, total }: { icon: React.ReactNode; label: string; count: number; total: number }) => {
-  const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-  return (
-    <div className="text-center">
-      <div className="flex justify-center mb-2 text-muted-foreground">{icon}</div>
-      <p className="text-lg font-bold text-foreground">{pct}%</p>
-      <p className="text-[10px] text-muted-foreground uppercase tracking-wider">{label}</p>
-      <p className="text-[9px] text-muted-foreground mt-0.5">{count} návštěv</p>
-    </div>
-  );
-};
-
-export default AdminPage;
+export default AboutPage;

@@ -14,10 +14,10 @@ export const ActionDock = ({ items, offset }: { items: ActionChip[]; offset: boo
   if (items.length === 0) return null;
   return (
     <div
-      className={`pointer-events-none absolute inset-x-0 z-30 flex justify-center px-3 transition-[bottom] duration-400 ${
+      className={`pointer-events-none absolute inset-x-0 z-30 justify-center px-3 transition-[bottom] duration-400 ${
         offset
-          ? "bottom-[calc(env(safe-area-inset-bottom)+11rem)] md:bottom-[5.4rem]"
-          : "bottom-[calc(env(safe-area-inset-bottom)+4.6rem)]"
+          ? "hidden md:flex md:bottom-[5.4rem]"
+          : "flex bottom-[calc(env(safe-area-inset-bottom)+4.6rem)]"
       }`}
     >
       <div className="pointer-events-auto flex max-w-full gap-1.5 overflow-x-auto no-scrollbar rounded-full border border-white/10 bg-black/45 p-1.5 backdrop-blur-xl animate-in fade-in slide-in-from-bottom-2 duration-300">

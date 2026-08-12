@@ -31,7 +31,11 @@ export const Hotspot3D = ({ hotspot, active, onSelect }: Props) => (
           }`}
         />
       </span>
-      <span className="px-2 py-0.5 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[10px] tracking-wide text-white whitespace-nowrap opacity-0 group-hover:opacity-100 max-md:opacity-100 transition-opacity">
+      <span
+        className={`px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md border border-white/15 text-[10px] tracking-wide text-white whitespace-nowrap transition-opacity ${
+          active ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+        }`}
+      >
         {hotspot.label}
       </span>
     </button>

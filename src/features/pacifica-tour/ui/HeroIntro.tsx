@@ -12,18 +12,20 @@ type Props = {
  */
 export const HeroIntro = ({ onStart, onClose }: Props) => (
   <div className="fixed inset-0 z-50 bg-[#05070b] overflow-hidden animate-in fade-in duration-500">
-    {/* Fotografie konkrétního vozu — nikdy deformovaná (object-cover + focus point) */}
-    <img
-      src="/pacifica-hero.webp"
-      alt="Chrysler Pacifica — konkrétní vůz v nabídce Chrysler Pardubice"
-      fetchPriority="high"
-      decoding="async"
-      className="absolute inset-0 h-full w-full object-cover object-[62%_58%] md:object-[58%_62%] scale-[1.02]"
-    />
+    {/* Fotografie konkrétního vozu — na mobilu v horní části, aby byl vůz celý vidět */}
+    <div className="absolute inset-x-0 top-0 h-[62%] md:inset-0 md:h-full">
+      <img
+        src="/pacifica-hero.webp"
+        alt="Chrysler Pacifica — konkrétní vůz v nabídce Chrysler Pardubice"
+        fetchPriority="high"
+        decoding="async"
+        className="h-full w-full object-cover object-[54%_46%] md:object-[58%_62%]"
+      />
+    </div>
 
     {/* Jemné cinematic ztmavení pro čitelnost textu */}
-    <div className="absolute inset-0 bg-gradient-to-t from-[#05070b] via-[#05070b]/55 to-[#05070b]/25 md:bg-gradient-to-r md:from-[#05070b]/92 md:via-[#05070b]/35 md:to-transparent" />
-    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_120%,transparent_35%,rgba(5,7,11,0.85)_100%)]" />
+    <div className="absolute inset-0 bg-gradient-to-t from-[#05070b] via-[#05070b]/50 to-[#05070b]/20 md:bg-gradient-to-r md:from-[#05070b]/92 md:via-[#05070b]/35 md:to-transparent" />
+    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_50%_120%,transparent_38%,rgba(5,7,11,0.9)_100%)]" />
 
     <button
       type="button"

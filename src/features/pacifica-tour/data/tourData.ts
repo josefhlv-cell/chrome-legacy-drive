@@ -483,3 +483,52 @@ export const HOTSPOTS: TourHotspot[] = [
     },
   },
 ];
+
+/**
+ * Kamerové presety pro akce (otevření dveří, kapoty, sklopení sedadel).
+ * Po spuštění akce kamera plynule přejede tak, aby byl pohyb skutečně vidět.
+ */
+export const ACTION_SHOTS: Record<string, CameraShot> = {
+  "sliding-doors": {
+    position: [-5.9, 1.85, 1.4],
+    target: [-0.4, 1.05, -0.3],
+    orbit: true,
+    minDistance: 2.4,
+    maxDistance: 14,
+  },
+  engine: {
+    position: [0.2, 2.9, 5.9],
+    target: [0, 1.15, 1.9],
+    orbit: true,
+    minDistance: 2.6,
+    maxDistance: 14,
+  },
+  liftgate: {
+    position: [1.1, 2.5, -6.6],
+    target: [0, 1.35, -2.4],
+    orbit: true,
+    minDistance: 2.4,
+    maxDistance: 14,
+  },
+  headlights: {
+    position: [-3.9, 1.5, 6.1],
+    target: [-0.4, 0.95, 2.1],
+    orbit: true,
+    minDistance: 2.4,
+    maxDistance: 14,
+  },
+  "stow-n-go": {
+    position: [-3.4, 1.75, -1.6],
+    target: [0, 1.0, -0.9],
+    orbit: true,
+    minDistance: 1.4,
+    maxDistance: 10,
+  },
+  cargo: {
+    position: [0.4, 2.1, -5.6],
+    target: [0, 1.05, -2.0],
+    orbit: true,
+    minDistance: 1.6,
+    maxDistance: 10,
+  },
+};

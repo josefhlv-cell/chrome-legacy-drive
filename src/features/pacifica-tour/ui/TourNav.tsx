@@ -11,7 +11,12 @@ type Props = {
   onToggleFullscreen: () => void;
   onClose: () => void;
   usingRealModel: boolean;
+  /** Odsadit spodní navigaci, když je otevřený detail (mobil). */
+  sheetOpen: boolean;
 };
+
+const iconBtn =
+  "h-10 w-10 rounded-full border border-white/12 bg-white/8 backdrop-blur-md grid place-items-center text-white/85 transition hover:bg-white/16 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95";
 
 export const TourNav = ({
   view,
@@ -23,15 +28,16 @@ export const TourNav = ({
   onToggleFullscreen,
   onClose,
   usingRealModel,
+  sheetOpen,
 }: Props) => (
   <>
-    {/* Horní lišta */}
-    <div className="absolute top-0 left-0 right-0 z-30 flex items-start justify-between px-4 pt-[max(0.85rem,env(safe-area-inset-top))] pb-3 pointer-events-none">
+    {/* Horní lišta — kompaktní, neruší výhled na vůz */}
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 px-4 pt-[max(0.8rem,env(safe-area-inset-top))] pb-2">
       <div className="pointer-events-auto">
-        <p className="text-[10px] uppercase tracking-[0.32em] text-primary">Digitální showroom</p>
-        <h1 className="font-serif italic text-base md:text-lg text-white/95">Chrysler Pacifica</h1>
+        <p className="text-[9px] uppercase tracking-[0.3em] text-primary">Digitální showroom</p>
+        <h1 className="font-serif text-[15px] md:text-lg italic text-white/95">Chrysler Pacifica</h1>
         {!usingRealModel && (
-          <p className="mt-0.5 text-[9px] uppercase tracking-[0.18em] text-white/45">
+          <p className="mt-0.5 text-[8px] uppercase tracking-[0.16em] text-white/40">
             Náhledový 3D model — ilustrační
           </p>
         )}
@@ -41,51 +47,47 @@ export const TourNav = ({
         <button
           type="button"
           onClick={onToggleHotspots}
-          aria-label={hotspotsVisible ? "Skrýt hotspoty" : "Zobrazit hotspoty"}
-          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/90 active:scale-95 transition"
+          aria-label={hotspotsVisible ? "Skrýt body zájmu" : "Zobrazit body zájmu"}
+          aria-pressed={hotspotsVisible}
+          className={iconBtn}
         >
-          {hotspotsVisible ? <Eye className="w-4 h-4" /> : <EyeOff className="w-4 h-4" />}
+          {hotspotsVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
         </button>
-        <button
-          type="button"
-          onClick={onReset}
-          aria-label="Reset kamery"
-          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/90 active:scale-95 transition"
-        >
-          <RotateCcw className="w-4 h-4" />
+        <button type="button" onClick={onReset} aria-label="Vrátit vůz do výchozího stavu" className={iconBtn}>
+          <RotateCcw className="h-4 w-4" />
         </button>
         <button
           type="button"
           onClick={onToggleFullscreen}
-          aria-label="Celá obrazovka"
-          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/90 active:scale-95 transition"
+          aria-label={fullscreen ? "Ukončit celou obrazovku" : "Celá obrazovka"}
+          className={`${iconBtn} hidden sm:grid`}
         >
-          {fullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Zavřít prohlídku"
-          className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-md border border-white/20 flex items-center justify-center text-white/90 active:scale-95 transition"
-        >
-          <X className="w-4 h-4" />
+        <button type="button" onClick={onClose} aria-label="Zavřít prohlídku" className={iconBtn}>
+          <X className="h-4 w-4" />
         </button>
       </div>
     </div>
 
     {/* Navigace pohledů */}
-    <div className="absolute bottom-0 left-0 right-0 z-30 px-3 pb-[max(0.85rem,env(safe-area-inset-bottom))]">
-      <div className="mx-auto w-full max-w-2xl overflow-x-auto no-scrollbar">
-        <div className="flex items-center gap-1.5 p-1.5 rounded-full border border-white/12 bg-black/45 backdrop-blur-xl min-w-max mx-auto">
+    <div
+      className={`absolute inset-x-0 z-30 px-3 transition-[bottom] duration-400 ${
+        sheetOpen ? "bottom-[calc(env(safe-area-inset-bottom)+6.6rem)] md:bottom-0" : "bottom-0"
+      }`}
+    >
+      <div className="mx-auto w-full max-w-2xl overflow-x-auto no-scrollbar pb-[max(0.7rem,env(safe-area-inset-bottom))]">
+        <div className="mx-auto flex min-w-max items-center gap-1 rounded-full border border-white/10 bg-black/50 p-1.5 backdrop-blur-xl">
           {VIEWS.map((v) => (
             <button
               key={v.key}
               type="button"
               onClick={() => onView(v.key)}
-              className={`px-4 h-10 rounded-full text-xs font-semibold uppercase tracking-wider whitespace-nowrap transition ${
+              aria-current={v.key === view}
+              className={`h-10 rounded-full px-4 text-[11px] font-semibold uppercase tracking-[0.12em] whitespace-nowrap transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                 v.key === view
-                  ? "bg-primary text-primary-foreground shadow-[0_6px_24px_hsl(var(--primary)/0.45)]"
-                  : "text-white/75 hover:text-white"
+                  ? "bg-primary text-primary-foreground shadow-[0_6px_22px_hsl(var(--primary)/0.45)]"
+                  : "text-white/70 hover:text-white"
               }`}
             >
               {v.label}

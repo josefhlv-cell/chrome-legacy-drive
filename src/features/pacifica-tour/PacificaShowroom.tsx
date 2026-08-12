@@ -70,6 +70,23 @@ export const PacificaShowroom = () => {
   const [dpr, setDpr] = useState(1.5);
 
   const usingRealModel = useRealModelAvailable() === true;
+  const [fit, setFit] = useState(1);
+
+  // Na úzkých displejích je vodorovný záběr menší — kamera musí odjet dál,
+  // jinak by byl vůz na mobilu uříznutý.
+  useEffect(() => {
+    const compute = () => {
+      const a = window.innerWidth / Math.max(1, window.innerHeight);
+      setFit(a < 0.75 ? 1.62 : a < 1 ? 1.42 : a < 1.35 ? 1.16 : 1);
+    };
+    compute();
+    window.addEventListener("resize", compute);
+    window.addEventListener("orientationchange", compute);
+    return () => {
+      window.removeEventListener("resize", compute);
+      window.removeEventListener("orientationchange", compute);
+    };
+  }, []);
 
   const baseShot = useMemo(
     () => VIEWS.find((v) => v.key === view)?.shot ?? VIEWS[0].shot,
@@ -77,9 +94,24 @@ export const PacificaShowroom = () => {
   );
 
   const shot = useMemo(() => {
-    if (!focusShot) return baseShot;
-    return { ...baseShot, position: focusShot.position, target: focusShot.target };
-  }, [baseShot, focusShot]);
+    const raw = focusShot
+      ? { ...baseShot, position: focusShot.position, target: focusShot.target }
+      : baseShot;
+    if (fit === 1) return raw;
+    // Odsadíme kameru po ose pohledu od cíle — kompozice zůstane stejná.
+    const [tx, ty, tz] = raw.target;
+    const [px, py, pz] = raw.position;
+    const position: [number, number, number] = [
+      tx + (px - tx) * fit,
+      ty + (py - ty) * fit,
+      tz + (pz - tz) * fit,
+    ];
+    return {
+      ...raw,
+      position,
+      maxDistance: (raw.maxDistance ?? 16) * fit,
+    };
+  }, [baseShot, focusShot, fit]);
 
   const visibleHotspots = useMemo(() => HOTSPOTS.filter((h) => h.view === view), [view]);
 

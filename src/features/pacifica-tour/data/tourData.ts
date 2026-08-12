@@ -490,42 +490,42 @@ export const HOTSPOTS: TourHotspot[] = [
  */
 export const ACTION_SHOTS: Record<string, CameraShot> = {
   "sliding-doors": {
-    position: [-5.9, 1.85, 1.4],
+    position: [-7.97, 2.50, 1.89],
     target: [-0.4, 1.05, -0.3],
     orbit: true,
     minDistance: 2.4,
     maxDistance: 14,
   },
   engine: {
-    position: [0.2, 2.9, 5.9],
+    position: [0.27, 3.92, 7.97],
     target: [0, 1.15, 1.9],
     orbit: true,
     minDistance: 2.6,
     maxDistance: 14,
   },
   liftgate: {
-    position: [1.1, 2.5, -6.6],
+    position: [1.49, 3.38, -8.91],
     target: [0, 1.35, -2.4],
     orbit: true,
     minDistance: 2.4,
     maxDistance: 14,
   },
   headlights: {
-    position: [-3.9, 1.5, 6.1],
+    position: [-5.27, 2.03, 8.23],
     target: [-0.4, 0.95, 2.1],
     orbit: true,
     minDistance: 2.4,
     maxDistance: 14,
   },
   "stow-n-go": {
-    position: [-3.4, 1.75, -1.6],
+    position: [-4.59, 2.36, -2.16],
     target: [0, 1.0, -0.9],
     orbit: true,
     minDistance: 1.4,
     maxDistance: 10,
   },
   cargo: {
-    position: [0.4, 2.1, -5.6],
+    position: [0.54, 2.84, -7.56],
     target: [0, 1.05, -2.0],
     orbit: true,
     minDistance: 1.6,

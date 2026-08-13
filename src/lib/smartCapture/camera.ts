@@ -4,8 +4,9 @@
  * Cíl:
  *  • preferovat HLAVNÍ zadní kameru 1×
  *  • nikdy záměrně nepoužívat ultra-wide / 0,5× objektiv
- *  • nikdy nepoužívat teleobjektiv / 2× / 3× / 5×
- *  • žádný digitální zoom
+ *  • nikdy záměrně nepoužívat teleobjektiv / 2× / 3× / 5×
+ *  • preferovat skutečný zoom 1×, pokud jej kamera podporuje
+ *  • žádný digitální zoom nad 1×
  *  • preferovat poměr 4:3
  *  • resizeMode "none" — bez umělého dokropování
  *  • kaskáda fallbacků pro zařízení, která nepodporují všechny constraints
@@ -19,46 +20,48 @@ let cachedMainDeviceId: string | null | undefined;
  * Skóre objektivu podle názvu zařízení.
  *
  * Priorita:
- *  4 = hlavní zadní 1× kamera
+ *  4 = hlavní / standardní zadní 1× kamera
  *  2 = neznámá kamera
  *  1 = ultra-wide / 0,5×
  *  0 = teleobjektiv / zoom
  *
  * Důležité:
- * Ultra-wide záměrně NEpreferujeme, protože způsobuje
- * výraznou perspektivní deformaci a "rybí oko".
+ * Ultra-wide záměrně NEpreferujeme.
+ * Teleobjektiv záměrně NEpreferujeme.
  */
 const lensScore = (label: string): number => {
   const l = label.toLowerCase();
 
   // Teleobjektiv / optický zoom nechceme.
-  if (/tele|telephoto|zoom|2x|3x|5x/.test(l)) {
+  if (
+    /telephoto|tele|zoom|2x|3x|5x|2×|3×|5×/.test(l)
+  ) {
     return 0;
   }
 
   // Ultra-wide / 0,5× nechceme.
   if (
-    /ultra|ultrawide|ultra wide|ultra-wide|0[.,]5|0\.5/.test(l)
+    /ultra[\s-]?wide|ultrawide|0[.,]5|0\.5|0,5|0×|0x/.test(l)
   ) {
     return 1;
   }
 
-  // Preferujeme hlavní / standardní zadní kameru 1×.
+  // Preferujeme hlavní / standardní zadní kameru.
   if (
-    /main|primary|standard|wide|hlavn|hlavní|sirok|širok/.test(l)
+    /main|primary|standard|wide|hlavn|sirok|širok/.test(l)
   ) {
     return 4;
   }
 
-  // Neznámý objektiv — lepší než ultra-wide, ale horší než hlavní kamera.
+  // Neznámý objektiv.
   return 2;
 };
 
 /**
  * Najde hlavní zadní kameru 1×.
  *
- * Pokud prohlížeč poskytuje názvy objektivů, vybere standardní
- * hlavní zadní kameru místo ultra-wide.
+ * Pokud prohlížeč poskytuje názvy kamer,
+ * vybere nejvhodnější standardní zadní kameru.
  */
 export const findMainRearCamera = async (): Promise<string | null> => {
   if (cachedMainDeviceId !== undefined) {
@@ -94,11 +97,10 @@ export const findMainRearCamera = async (): Promise<string | null> => {
 };
 
 /**
- * Zpětná kompatibilita pro případ, že některá část aplikace
- * ještě používá původní název funkce.
+ * Zpětná kompatibilita.
  *
- * Původní funkce už ale NEHLEDÁ nejširší objektiv.
- * Vrací hlavní zadní 1× kameru.
+ * Původní název funkce může být používán
+ * jinými částmi aplikace.
  */
 export const findWidestRearCamera = async (): Promise<string | null> => {
   return findMainRearCamera();
@@ -112,6 +114,9 @@ export const resetCameraCache = () => {
   cachedMainDeviceId = undefined;
 };
 
+/**
+ * Převod browser chyby na českou chybu.
+ */
 const czechError = (err: unknown): Error => {
   const name = (err as { name?: string })?.name ?? "";
 
@@ -144,12 +149,13 @@ const czechError = (err: unknown): Error => {
  * Otevře MediaStream.
  *
  * Priorita:
- *  1. hlavní zadní kamera 1× + 4:3
- *  2. zadní kamera přes facingMode + 4:3
- *  3. zadní kamera
- *  4. libovolná kamera jako poslední fallback
+ *  1. konkrétní hlavní zadní kamera + 4:3 + zoom 1×
+ *  2. zadní kamera přes facingMode + 4:3 + zoom 1×
+ *  3. zadní kamera + 4:3
+ *  4. zadní kamera
+ *  5. poslední fallback
  *
- * Digitální zoom se nepoužívá.
+ * Digitální zoom nad 1× se nepoužívá.
  */
 export const openCamera = async (
   facing: Facing = "environment",
@@ -162,11 +168,12 @@ export const openCamera = async (
   }
 
   /**
-   * Základní nastavení:
-   * - 4:3 odpovídá přirozenému poměru senzoru telefonu
-   * - vysoké rozlišení
-   * - žádný digitální zoom
-   * - žádné úmyslné cropování
+   * Základní nastavení.
+   *
+   * 4:3 odpovídá přirozenému poměru hlavního senzoru
+   * u mnoha telefonů.
+   *
+   * zoom: 1 znamená požadovanou výchozí hodnotu 1×.
    */
   const base: MediaTrackConstraints = {
     width: {
@@ -186,7 +193,6 @@ export const openCamera = async (
     resizeMode: "none",
 
     zoom: 1,
-
   };
 
   const attempts: MediaTrackConstraints[] = [];
@@ -199,6 +205,7 @@ export const openCamera = async (
   if (facing === "environment" && deviceId) {
     attempts.push({
       ...base,
+
       deviceId: {
         exact: deviceId,
       },
@@ -207,19 +214,17 @@ export const openCamera = async (
 
   /**
    * 2. Zadní kamera s preferencí 4:3.
-   *
-   * Pokud browser neumí vybrat konkrétní objektiv,
-   * použije standardní environment kameru.
    */
   attempts.push({
     ...base,
+
     facingMode: {
       ideal: "environment",
     },
   });
 
   /**
-   * 3. Jednodušší 4:3 zadní kamera.
+   * 3. Jednodušší 4:3 kamera.
    */
   attempts.push({
     facingMode: {
@@ -229,6 +234,12 @@ export const openCamera = async (
     aspectRatio: {
       ideal: 4 / 3,
     },
+
+    // @ts-expect-error — resizeMode není dostupný
+    // ve všech verzích lib.dom typů.
+    resizeMode: "none",
+
+    zoom: 1,
   });
 
   /**
@@ -238,10 +249,16 @@ export const openCamera = async (
     facingMode: {
       ideal: facing,
     },
+
+    zoom: 1,
   });
 
   /**
-   * 5. Poslední fallback — necháme browser vybrat kameru.
+   * 5. Poslední fallback.
+   *
+   * Tady už zoom constraint nepoužíváme,
+   * protože browser může vybrat kameru,
+   * která zoom constraint vůbec nepodporuje.
    */
   attempts.push({});
 
@@ -254,7 +271,21 @@ export const openCamera = async (
         audio: false,
       });
 
-      await ensureNoZoom(stream);
+      /**
+       * DŮLEŽITÉ:
+       *
+       * Dříve zde bylo ensureNoZoom(), které nastavovalo
+       * zoom na caps.zoom.min.
+       *
+       * Pokud měl telefon:
+       *
+       * caps.zoom.min === 0.5
+       *
+       * aplikace sama nastavila kameru na 0.5×.
+       *
+       * Nyní vždy preferujeme 1×.
+       */
+      await ensureZoomOne(stream);
 
       return stream;
     } catch (e) {
@@ -276,15 +307,20 @@ export const openCamera = async (
 };
 
 /**
- * Zajistí, že kamera nepoužívá digitální zoom.
+ * Nastaví kameru na skutečné 1×,
+ * pokud zařízení podporuje zoom constraint.
  *
- * Pokud zařízení podporuje zoom constraint,
- * nastavíme jeho nejnižší dostupnou hodnotu.
+ * POZOR:
  *
- * Tím zabráníme tomu, aby Smart Capture digitálně
- * přibližoval obraz.
+ * Nepoužíváme caps.zoom.min.
+ *
+ * caps.zoom.min může být například 0.5.
+ * Nastavit min tedy NEZNAMENÁ "bez zoomu".
+ * Naopak by to mohlo znamenat 0.5× ultra-wide pohled.
+ *
+ * Chceme explicitně zoom = 1.
  */
-export const ensureNoZoom = async (
+export const ensureZoomOne = async (
   stream: MediaStream
 ): Promise<void> => {
   const track = stream.getVideoTracks()[0];
@@ -298,22 +334,65 @@ export const ensureNoZoom = async (
       | {
           zoom?: {
             min?: number;
+            max?: number;
+            step?: number;
           };
         }
       | undefined;
 
-    if (
-      caps?.zoom &&
+    /**
+     * Pokud kamera zoom vůbec nepodporuje,
+     * není co nastavovat.
+     */
+    if (!caps?.zoom) {
+      return;
+    }
+
+    const min =
       typeof caps.zoom.min === "number"
-    ) {
+        ? caps.zoom.min
+        : 1;
+
+    const max =
+      typeof caps.zoom.max === "number"
+        ? caps.zoom.max
+        : 1;
+
+    /**
+     * 1× musí být v podporovaném rozsahu.
+     */
+    if (min <= 1 && max >= 1) {
       await track.applyConstraints({
-        advanced: [{ zoom: caps.zoom.min } as unknown as MediaTrackConstraintSet],
+        advanced: [
+          {
+            zoom: 1,
+          } as unknown as MediaTrackConstraintSet,
+        ],
       } as MediaTrackConstraints);
-
-
     }
   } catch {
-    // Zařízení zoom nepodporuje nebo constraint odmítlo.
-    // To nevadí — pokračujeme bez zoomu.
+    /**
+     * Některá zařízení/browser zoom constraint
+     * nepodporují nebo jeho změnu odmítnou.
+     *
+     * Stream ale může dál normálně fungovat.
+     */
   }
+};
+
+/**
+ * Zpětná kompatibilita.
+ *
+ * Pokud někde v aplikaci stále existuje import:
+ *
+ *   ensureNoZoom(...)
+ *
+ * nechceme rozbít build.
+ *
+ * Funkce nyní nastavuje 1× místo caps.zoom.min.
+ */
+export const ensureNoZoom = async (
+  stream: MediaStream
+): Promise<void> => {
+  await ensureZoomOne(stream);
 };

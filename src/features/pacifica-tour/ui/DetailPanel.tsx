@@ -88,21 +88,36 @@ export const DetailPanel = ({
             expanded ? "max-h-[52vh]" : "max-h-0 md:max-h-[62vh]"
           } transition-[max-height] duration-400`}
         >
-          {d.image && (
-            <div className="mt-4 relative h-32 md:h-36 overflow-hidden rounded-2xl border border-white/8">
-              <img
-                src={d.image}
-                alt={d.title}
-                loading="lazy"
-                decoding="async"
-                className="h-full w-full object-cover opacity-85"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[hsl(var(--card))]/80 to-transparent" />
-              <p className="absolute bottom-1.5 left-3 text-[8px] uppercase tracking-[0.22em] text-white/55">
-                Ilustrační materiál
+          {(d.clip || d.image) && (
+            <div className="mt-4 relative aspect-[16/10] max-h-44 md:max-h-52 overflow-hidden rounded-2xl border border-white/8 bg-black/40">
+              {d.clip ? (
+                <video
+                  key={d.clip}
+                  src={`/pacifica/clips/${d.clip}.mp4`}
+                  poster={`/pacifica/clips/${d.clip}.jpg`}
+                  autoPlay
+                  muted
+                  loop
+                  playsInline
+                  preload="none"
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <img
+                  src={d.image}
+                  alt={d.title}
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover opacity-95"
+                />
+              )}
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[hsl(var(--card))]/70 to-transparent" />
+              <p className="pointer-events-none absolute bottom-1.5 left-3 text-[8px] uppercase tracking-[0.22em] text-white/60">
+                {d.clip ? "Reálné video vozu" : "Fotografie vozu — Chrysler Pardubice"}
               </p>
             </div>
           )}
+
 
           {d.variants && (
             <div className="mt-4 inline-flex rounded-full border border-white/12 bg-black/30 p-1">

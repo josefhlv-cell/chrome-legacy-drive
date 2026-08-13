@@ -57,8 +57,10 @@ export type HotspotDetail = {
   eyebrow: string;
   text: string;
   bullets: string[];
-  /** Referenční fotografie z existující prohlídky (ilustrační materiál). */
+  /** Fotografie konkrétního vozu z provozovny. */
   image?: string;
+  /** Krátký reálný videoklip (bez zvuku, ve smyčce) — název souboru v /pacifica/clips. */
+  clip?: string;
   specs?: { label: string; value: string }[];
   variants?: DetailVariant[];
 };
@@ -180,6 +182,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Dětská pojistka a ovládání z místa řidiče — dle výbavy",
       ],
       image: img("sliding-doors.webp"),
+      clip: "sliding-doors",
     },
   },
   {
@@ -238,6 +241,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Nízká nakládací hrana",
       ],
       image: img("liftgate.webp"),
+      clip: "liftgate",
     },
   },
 
@@ -418,6 +422,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Přístup přes posuvné boční dveře",
       ],
       image: img("row3.webp"),
+      clip: "row3-fold",
     },
   },
   {
@@ -461,6 +466,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Rovná ložná plocha po sklopení",
       ],
       image: img("stow-n-go.webp"),
+      clip: "row3-fold",
     },
   },
   {
@@ -480,6 +486,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Maximální nákladový objem dle údajů výrobce a konfigurace",
       ],
       image: img("cargo.webp"),
+      clip: "liftgate",
     },
   },
 ];

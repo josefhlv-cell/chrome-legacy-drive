@@ -80,7 +80,7 @@ export type TourHotspot = {
   action?: HotspotAction;
 };
 
-const img = (n: string) => `/${n}`;
+const img = (n: string) => `/pacifica/${n}`;
 
 export const HOTSPOTS: TourHotspot[] = [
   /* ---------------- EXTERIÉR ---------------- */
@@ -100,7 +100,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "LED denní svícení — dle výbavy",
         "Automatické přepínání dálkových světel — dle výbavy",
       ],
-      image: img("09_design_a_detaily.jpg"),
+      image: img("headlights.webp"),
     },
   },
   {
@@ -118,7 +118,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Aktivní klapky chlazení — dle motorizace",
         "Logo Chrysler v ose masky",
       ],
-      image: img("01_predni_cast.jpg"),
+      image: img("grille.webp"),
     },
   },
   {
@@ -136,7 +136,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Celoroční pneumatiky u vozů z USA — dle konkrétního vozu",
         "Rezerva / opravná sada — dle konfigurace",
       ],
-      image: img("03_bocni_pohled.jpg"),
+      image: img("side.webp"),
     },
   },
   {
@@ -154,7 +154,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Blind Spot Monitoring s indikací v zrcátku — dle výbavy",
         "Sklopná zrcátka — dle výbavy",
       ],
-      image: img("09_design_a_detaily.jpg"),
+      image: img("mirrors.webp"),
     },
   },
   {
@@ -179,7 +179,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Široký vstup do druhé i třetí řady",
         "Dětská pojistka a ovládání z místa řidiče — dle výbavy",
       ],
-      image: img("08_posuvne_dvere.jpg"),
+      image: img("sliding-doors.webp"),
     },
   },
   {
@@ -194,7 +194,7 @@ export const HOTSPOTS: TourHotspot[] = [
       title: "Motorový prostor",
       text: "Pacifica se nabízí ve dvou odlišných pohonech. Konkrétní hodnoty se liší podle modelového roku a trhu.",
       bullets: [],
-      image: img("10_motor_a_prevodovka.jpg"),
+      image: img("front.webp"),
       variants: [
         {
           label: "Standard",
@@ -237,7 +237,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Hands-free otevření — dle výbavy",
         "Nízká nakládací hrana",
       ],
-      image: img("02_zadni_cast.jpg"),
+      image: img("liftgate.webp"),
     },
   },
 
@@ -257,7 +257,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Řazení pomocí otočného voliče",
         "Adaptivní tempomat — dle výbavy",
       ],
-      image: img("04_kokpit_a_technologie.jpg"),
+      image: img("steering.webp"),
     },
   },
   {
@@ -274,7 +274,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Zobrazení jízdních asistentů",
         "U hybridu tok energie a stav baterie",
       ],
-      image: img("04_kokpit_a_technologie.jpg"),
+      image: img("cluster.webp"),
     },
   },
   {
@@ -297,7 +297,7 @@ export const HOTSPOTS: TourHotspot[] = [
         { label: "Displej", value: "10,1\" (dle modelového roku)" },
         { label: "Systém", value: "Uconnect 5" },
       ],
-      image: img("04_kokpit_a_technologie.jpg"),
+      image: img("uconnect.webp"),
     },
   },
   {
@@ -315,7 +315,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Samostatné ovládání pro zadní řady — dle výbavy",
         "Vyhřívaná přední sedadla — dle výbavy",
       ],
-      image: img("04_kokpit_a_technologie.jpg"),
+      image: img("console.webp"),
     },
   },
   {
@@ -334,7 +334,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Rear Cross Path Detection — dle výbavy",
         "FamCAM kamera na zadní sedadla — dle výbavy a modelového roku",
       ],
-      image: img("09_design_a_detaily.jpg"),
+      image: img("camera360.webp"),
     },
   },
 
@@ -355,7 +355,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Stow ’n Go ve druhé řadě — pouze u kompatibilních verzí (ne u plug-in hybridu)",
         "Vyhřívaná sedadla druhé řady — dle výbavy",
       ],
-      image: img("05_2_rada_sedadel.jpg"),
+      image: img("row2.webp"),
     },
   },
   {
@@ -378,7 +378,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Úchyty ISOFIX ve druhé řadě",
         "Stínítka v zadních oknech — dle výbavy",
       ],
-      image: img("08_posuvne_dvere.jpg"),
+      image: img("row2-space.webp"),
     },
   },
   {
@@ -396,7 +396,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Prémiový audio systém — dle výbavy",
         "220V zásuvka — dle výbavy",
       ],
-      image: img("04_kokpit_a_technologie.jpg"),
+      image: img("row2-space.webp"),
     },
   },
 
@@ -417,7 +417,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Dělené sklápění 60/40",
         "Přístup přes posuvné boční dveře",
       ],
-      image: img("06_3_rada_sedadel.jpg"),
+      image: img("row3.webp"),
     },
   },
   {
@@ -434,7 +434,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Odkládací prostory v bočních panelech",
         "Držáky nápojů pro všechny řady",
       ],
-      image: img("07_zavazadlovy_prostor.jpg"),
+      image: img("cargo-flat.webp"),
     },
   },
 
@@ -460,7 +460,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Druhá řada Stow ’n Go pouze u spalovacích verzí",
         "Rovná ložná plocha po sklopení",
       ],
-      image: img("07_zavazadlovy_prostor.jpg"),
+      image: img("stow-n-go.webp"),
     },
   },
   {
@@ -479,7 +479,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Nízká nakládací hrana",
         "Maximální nákladový objem dle údajů výrobce a konfigurace",
       ],
-      image: img("07_zavazadlovy_prostor.jpg"),
+      image: img("cargo.webp"),
     },
   },
 ];

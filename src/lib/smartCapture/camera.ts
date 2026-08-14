@@ -249,9 +249,10 @@ export const openCamera = async (
     facingMode: {
       ideal: facing,
     },
-
-    zoom: 1,
+    // `zoom` není v TS typech MediaTrackConstraints, prohlížeče ho ale podporují.
+    ...({ zoom: 1 } as MediaTrackConstraints),
   });
+
 
   /**
    * 5. Poslední fallback.

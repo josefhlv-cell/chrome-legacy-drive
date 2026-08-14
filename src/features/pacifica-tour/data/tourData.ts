@@ -1,541 +1,260 @@
-import type { PartKey } from "../model/parts";
+/**
+ * Jediné místo s daty prohlídky Chrysler Pacifica Limited AWD.
+ *
+ * Exteriér je VŽDY reprezentován skutečným 3D modelem. Reálné fotografie
+ * a videa se používají pouze jako detail uvnitř informační karty
+ * (a u interiéru jako hlavní vizuál karty) — nikdy jako náhrada 3D exteriéru.
+ */
 
-/** Kamera pro danou scénu / pohled. */
 export type CameraShot = {
   position: [number, number, number];
   target: [number, number, number];
-  /** Povolit orbit (exteriér) nebo jen omezené rozhlížení (interiér). */
-  orbit: boolean;
   minDistance?: number;
   maxDistance?: number;
 };
 
-export type ViewKey = "exterior" | "driver" | "row2" | "row3" | "cargo";
+/** Výchozí orbit pohled na vůz (metry, vůz je 5,18 m dlouhý, přední část na +Z). */
+export const DEFAULT_SHOT: CameraShot = {
+  position: [5.4, 2.1, 5.6],
+  target: [0, 0.85, 0],
+  minDistance: 3.6,
+  maxDistance: 13,
+};
 
-export const VIEWS: { key: ViewKey; label: string; shot: CameraShot }[] = [
-  {
-    key: "exterior",
-    label: "Exteriér",
-    shot: {
-      position: [6.6, 2.3, 6.4],
-      target: [0, 1.0, 0],
-      orbit: true,
-      minDistance: 4.2,
-      maxDistance: 16,
-    },
-  },
-  {
-    key: "driver",
-    label: "Řidič",
-    shot: { position: [-0.45, 1.3, 0.25], target: [-0.1, 1.15, 1.6], orbit: true, minDistance: 0.4, maxDistance: 2.4 },
-  },
-  {
-    key: "row2",
-    label: "2. řada",
-    shot: { position: [0, 1.4, -0.45], target: [0, 1.05, 0.8], orbit: true, minDistance: 0.4, maxDistance: 2.4 },
-  },
-  {
-    key: "row3",
-    label: "3. řada",
-    shot: { position: [0, 1.4, -1.5], target: [0, 1.05, -0.4], orbit: true, minDistance: 0.4, maxDistance: 2.4 },
-  },
-  {
-    key: "cargo",
-    label: "Kufr",
-    shot: { position: [0, 1.7, -4.6], target: [0, 0.95, -1.7], orbit: true, minDistance: 1.6, maxDistance: 8 },
-  },
-];
-
-export type DetailVariant = {
-  label: string;
-  text: string;
-  bullets: string[];
+export type HotspotMedia = {
+  type: "image" | "video";
+  src: string;
+  /** Poster u videa. */
+  poster?: string;
+  /** Popisek zdroje pod médiem. */
+  caption?: string;
 };
 
 export type HotspotDetail = {
-  title: string;
   eyebrow: string;
+  title: string;
   text: string;
   bullets: string[];
-  /** Fotografie konkrétního vozu z provozovny. */
-  image?: string;
-  /** Krátký reálný videoklip (bez zvuku, ve smyčce) — název souboru v /pacifica/clips. */
-  clip?: string;
   specs?: { label: string; value: string }[];
-  variants?: DetailVariant[];
+  media?: HotspotMedia;
 };
-
-export type HotspotAction =
-  | { type: "toggle"; parts: PartKey[]; labelOn: string; labelOff: string }
-  | { type: "lights"; labelOn: string; labelOff: string }
-  | { type: "goToView"; view: ViewKey };
 
 export type TourHotspot = {
   id: string;
   label: string;
-  view: ViewKey;
-  /** Skutečná pozice ve 3D scéně — hotspot je ukotvený k modelu. */
+  /** Skutečná pozice na modelu (metry) — snadno ručně upravitelné. */
   position: [number, number, number];
-  /** Cinematic přejezd kamery po kliknutí. */
-  focus?: { position: [number, number, number]; target: [number, number, number] };
-  detail?: HotspotDetail;
-  action?: HotspotAction;
+  /** Cinematic přiblížení kamery po kliknutí. */
+  focus: { position: [number, number, number]; lookAt: [number, number, number] };
+  detail: HotspotDetail;
 };
 
-const img = (n: string) => `/pacifica/${n}`;
+const photo = (n: string) => `/pacifica/${n}`;
+const clip = (n: string) => `/pacifica/clips/${n}.mp4`;
+const poster = (n: string) => `/pacifica/clips/${n}.jpg`;
+const PHOTO_CAPTION = "Detail konkrétního vozu — Chrysler Pardubice";
+const VIDEO_CAPTION = "Reálné video vozu — Chrysler Pardubice";
 
 export const HOTSPOTS: TourHotspot[] = [
-  /* ---------------- EXTERIÉR ---------------- */
   {
     id: "headlights",
-    label: "Světlomety",
-    view: "exterior",
-    position: [-0.78, 1.02, 2.6],
-    focus: { position: [-3.4, 1.5, 5.6], target: [-0.5, 1.0, 2.2] },
-    action: { type: "lights", labelOn: "Rozsvítit světla", labelOff: "Zhasnout světla" },
+    label: "Světla",
+    position: [0.74, 0.98, 2.16],
+    focus: { position: [3.1, 1.5, 4.6], lookAt: [0.4, 0.9, 1.9] },
     detail: {
-      eyebrow: "Přední část",
-      title: "Světlomety a design přední části",
-      text: "Výrazná přední část s LED technikou osvětlení. Konkrétní provedení světlometů a masky se liší podle modelového roku a výbavy.",
+      eyebrow: "Přední i zadní část",
+      title: "Plná LED světla",
+      text: "Přední i zadní světla jsou celoLEDová — včetně LED mlhovek. Oproti klasickým žárovkám svítí jasněji, spotřebují méně energie a vydrží prakticky celou životnost auta.",
       bullets: [
-        "LED světlomety — dle výbavy a modelového roku",
-        "LED denní svícení — dle výbavy",
-        "Automatické přepínání dálkových světel — dle výbavy",
+        "LED světlomety i LED zadní světla",
+        "LED mlhovky",
+        "Nižší spotřeba energie, delší životnost",
       ],
-      image: img("headlights.webp"),
-    },
-  },
-  {
-    id: "grille",
-    label: "Maska",
-    view: "exterior",
-    position: [0, 0.9, 2.66],
-    focus: { position: [0.4, 1.4, 6.2], target: [0, 0.95, 2.3] },
-    detail: {
-      eyebrow: "Design",
-      title: "Maska chladiče",
-      text: "Design masky a povrchová úprava lemů se u Pacifiky liší podle stupně výbavy a modelového roku — od černých prvků až po chromované provedení.",
-      bullets: [
-        "Provedení masky dle výbavy (černé / chromované prvky)",
-        "Aktivní klapky chlazení — dle motorizace",
-        "Logo Chrysler v ose masky",
-      ],
-      image: img("grille.webp"),
+      media: { type: "image", src: photo("detail-headlight.webp"), caption: PHOTO_CAPTION },
     },
   },
   {
     id: "wheels",
     label: "Kola",
-    view: "exterior",
-    position: [-1.15, 0.42, 1.63],
-    focus: { position: [-3.6, 0.9, 3.6], target: [-0.9, 0.45, 1.6] },
+    position: [1.02, 0.42, 1.62],
+    focus: { position: [3.4, 0.95, 2.9], lookAt: [0.6, 0.42, 1.6] },
     detail: {
       eyebrow: "Podvozek",
-      title: "Kola a pneumatiky",
-      text: "Rozměr a design kol závisí na výbavě. Vyšší výbavy nabízejí větší lehká litá kola.",
+      title: "Kola a design ráfků",
+      text: "Vůz stojí na lehkých slitinových ráfcích s vícepaprskovým designem. Kombinace většího průměru kola a vysokoprofilové pneumatiky drží komfort odpružení, na který je minivan stavěný.",
       bullets: [
-        "Litá kola v různých rozměrech — dle výbavy",
-        "Celoroční pneumatiky u vozů z USA — dle konkrétního vozu",
-        "Rezerva / opravná sada — dle konfigurace",
+        "Slitinové ráfky s vícepaprskovým designem",
+        "Krytky kol se znakem Chrysler",
+        "Kotoučové brzdy na všech kolech",
       ],
-      image: img("side.webp"),
-    },
-  },
-  {
-    id: "mirrors",
-    label: "Zrcátka",
-    view: "exterior",
-    position: [-1.16, 1.4, 1.15],
-    focus: { position: [-3.2, 1.8, 3.2], target: [-1.0, 1.35, 1.1] },
-    detail: {
-      eyebrow: "Komfort",
-      title: "Vnější zrcátka",
-      text: "Elektricky ovládaná zrcátka s integrovanými směrovými světly. Vyhřívání, sklápění a paměť jsou dostupné dle výbavy.",
-      bullets: [
-        "Elektrické ovládání a vyhřívání — dle výbavy",
-        "Blind Spot Monitoring s indikací v zrcátku — dle výbavy",
-        "Sklopná zrcátka — dle výbavy",
-      ],
-      image: img("mirrors.webp"),
-    },
-  },
-  {
-    id: "sliding-doors",
-    label: "Posuvné dveře",
-    view: "exterior",
-    position: [-1.12, 1.22, -0.2],
-    focus: { position: [-5.4, 1.8, 0.6], target: [-0.6, 1.15, -0.2] },
-    action: {
-      type: "toggle",
-      parts: ["doorLeft", "doorRight"],
-      labelOn: "Otevřít posuvné dveře",
-      labelOff: "Zavřít posuvné dveře",
-    },
-    detail: {
-      eyebrow: "Přístup",
-      title: "Elektricky ovládané posuvné dveře",
-      text: "Posuvné dveře na obou stranách nepotřebují prostor vedle vozu. Kliknutím dveře skutečně otevřete i na 3D modelu.",
-      bullets: [
-        "Elektricky ovládané posuvné dveře — dle výbavy",
-        "Hands-free otevření pohybem nohy — dle výbavy",
-        "Široký vstup do druhé i třetí řady",
-        "Dětská pojistka a ovládání z místa řidiče — dle výbavy",
-      ],
-      image: img("sliding-doors.webp"),
-      clip: "sliding-doors",
+      media: { type: "image", src: photo("detail-wheel.webp"), caption: PHOTO_CAPTION },
     },
   },
   {
     id: "engine",
     label: "Motor",
-    view: "exterior",
-    position: [0, 1.32, 1.95],
-    focus: { position: [0, 3.0, 5.4], target: [0, 1.1, 2.0] },
-    action: { type: "toggle", parts: ["hood"], labelOn: "Otevřít kapotu", labelOff: "Zavřít kapotu" },
+    position: [0.34, 1.18, 1.48],
+    focus: { position: [2.6, 2.3, 4.4], lookAt: [0, 1.1, 1.5] },
     detail: {
       eyebrow: "Pohon",
-      title: "Motorový prostor",
-      text: "Pacifica se nabízí ve dvou odlišných pohonech. Konkrétní hodnoty se liší podle modelového roku a trhu.",
-      bullets: [],
-      image: img("front.webp"),
-      variants: [
-        {
-          label: "Standard",
-          text: "Atmosférický šestiválec 3.6 Pentastar V6 s devítistupňovou automatickou převodovkou. Plynulý výkon i s plně obsazeným vozem.",
-          bullets: [
-            "3.6 Pentastar V6",
-            "Výkon přibližně 214 kW — dle modelového roku a trhu",
-            "Točivý moment přibližně 356 Nm",
-            "9stupňová automatická převodovka",
-            "Pohon předních kol, u některých modelových roků i AWD — dle verze",
-          ],
-        },
-        {
-          label: "Hybrid",
-          text: "Plug-in Hybrid kombinuje 3.6litrový V6 s elektrickým pohonem a vysokonapěťovou baterií. Krátké denní trasy zvládne elektricky, delší na benzin.",
-          bullets: [
-            "Plug-in hybrid: 3.6 V6 + elektrický pohon",
-            "Vysokonapěťová trakční baterie",
-            "Nabíjení z externího zdroje",
-            "Rekuperační brzdění",
-            "Elektrický dojezd dle údajů výrobce a modelového roku",
-          ],
-        },
+      title: "3.6L Pentastar V6",
+      text: "Pod kapotou je benzinový šestiválec 3.6 litru s výkonem 287 koní (211 kW) a točivým momentem 262 lb-ft. Zážeh přes 9stupňovou automatickou převodovku. U AWD verze umí systém pohonu poslat až 100 % výkonu na zadní nápravu, když přední kola ztrácí trakci.",
+      bullets: [
+        "9stupňová automatická převodovka",
+        "AWD — až 100 % momentu na zadní nápravu",
+        "Automatické odpojení pohonu zadní nápravy pro nižší spotřebu",
       ],
+      specs: [
+        { label: "Objem", value: "3,6 l V6" },
+        { label: "Výkon", value: "287 hp / 211 kW" },
+        { label: "Moment", value: "262 lb-ft" },
+        { label: "Převodovka", value: "9st. automat" },
+      ],
+    },
+  },
+  {
+    id: "uconnect",
+    label: "Uconnect 5",
+    position: [0.6, 1.34, 0.98],
+    focus: { position: [2.5, 1.75, 2.3], lookAt: [0.2, 1.25, 1.0] },
+    detail: {
+      eyebrow: "Palubní deska",
+      title: "Uconnect 5",
+      text: "10,1palcová dotyková obrazovka s Apple CarPlay, Android Auto a WiFi hotspotem. Ovládá navigaci, klimatizaci, audio i nastavení auta.",
+      bullets: [
+        "10,1\" dotykový displej",
+        "Apple CarPlay a Android Auto",
+        "WiFi hotspot",
+        "Ovládání klimatizace, audia i nastavení vozu",
+      ],
+      media: { type: "image", src: photo("uconnect.webp"), caption: PHOTO_CAPTION },
+    },
+  },
+  {
+    id: "sliding-doors",
+    label: "Posuvné dveře",
+    position: [1.04, 1.02, -0.36],
+    focus: { position: [3.9, 1.5, -0.2], lookAt: [0.5, 1.0, -0.4] },
+    detail: {
+      eyebrow: "Nástup",
+      title: "Elektrické posuvné dveře",
+      text: "Obě boční dveře se otevírají a zavírají elektricky — stačí tlačítko na klíčence, na palubní desce, nebo pohyb nohou pod nárazníkem (hands-free). Ideální s náručí plnou tašek nebo s dětmi.",
+      bullets: [
+        "Elektrické otevírání i zavírání",
+        "Ovládání z klíčenky i z palubní desky",
+        "Hands-free otevření pohybem nohy",
+      ],
+      media: {
+        type: "video",
+        src: clip("sliding-doors"),
+        poster: poster("sliding-doors"),
+        caption: VIDEO_CAPTION,
+      },
     },
   },
   {
     id: "liftgate",
     label: "Páté dveře",
-    view: "exterior",
-    position: [0, 1.9, -2.7],
-    focus: { position: [0.6, 2.4, -6.2], target: [0, 1.4, -2.4] },
-    action: { type: "toggle", parts: ["liftgate"], labelOn: "Otevřít páté dveře", labelOff: "Zavřít páté dveře" },
+    position: [0.5, 1.34, -2.42],
+    focus: { position: [2.4, 1.9, -4.6], lookAt: [0, 1.2, -2.3] },
     detail: {
       eyebrow: "Zadní část",
-      title: "Páté dveře",
-      text: "Velká páté dveře s nízkou nakládací hranou. Elektrické i hands-free ovládání jsou dostupné dle výbavy.",
+      title: "Elektrické víko kufru",
+      text: "Zadní víko kufru se otevírá a zavírá elektricky, včetně motion-activated režimu (pohyb nohou pod nárazníkem). Nastavitelná výška otevření, ať se vejde i do nižší garáže.",
       bullets: [
-        "Elektricky ovládané páté dveře — dle výbavy",
-        "Hands-free otevření — dle výbavy",
-        "Nízká nakládací hrana",
+        "Elektrické otevírání a zavírání",
+        "Otevření pohybem nohy pod nárazníkem",
+        "Nastavitelná výška otevření",
       ],
-      image: img("liftgate.webp"),
-      clip: "liftgate",
+      media: {
+        type: "video",
+        src: clip("liftgate"),
+        poster: poster("liftgate"),
+        caption: VIDEO_CAPTION,
+      },
     },
   },
-
-  /* ---------------- ŘIDIČ ---------------- */
-  {
-    id: "steering",
-    label: "Volant",
-    view: "driver",
-    position: [-0.42, 1.3, 0.68],
-    detail: {
-      eyebrow: "Místo řidiče",
-      title: "Volant a ovládání",
-      text: "Multifunkční volant s ovládáním audia, telefonu a jízdních asistentů. Vyhřívání volantu je dostupné dle výbavy.",
-      bullets: [
-        "Multifunkční volant",
-        "Vyhřívání volantu — dle výbavy",
-        "Řazení pomocí otočného voliče",
-        "Adaptivní tempomat — dle výbavy",
-      ],
-      image: img("steering.webp"),
-    },
-  },
-  {
-    id: "cluster",
-    label: "Přístrojový panel",
-    view: "driver",
-    position: [-0.42, 1.34, 0.92],
-    detail: {
-      eyebrow: "Informace",
-      title: "Přístrojový panel",
-      text: "Přehledný přístrojový štít s barevným informačním displejem mezi ukazateli. U hybridní verze zobrazuje také tok energie a stav baterie.",
-      bullets: [
-        "Barevný informační displej — dle výbavy",
-        "Zobrazení jízdních asistentů",
-        "U hybridu tok energie a stav baterie",
-      ],
-      image: img("cluster.webp"),
-    },
-  },
-  {
-    id: "uconnect",
-    label: "Uconnect",
-    view: "driver",
-    position: [0.02, 1.28, 0.78],
-    focus: { position: [-0.1, 1.3, 0.1], target: [0.05, 1.2, 0.9] },
-    detail: {
-      eyebrow: "Technologie",
-      title: "Uconnect 5 a infotainment",
-      text: "Novější modelové roky Pacifiky používají systém Uconnect 5 s dotykovým displejem o úhlopříčce 10,1\". Konkrétní funkce závisí na výbavě a modelovém roku.",
-      bullets: [
-        "Uconnect 5 s 10,1\" dotykovým displejem — dle modelového roku",
-        "Bezdrátové Apple CarPlay a Android Auto — dle výbavy",
-        "Uživatelské profily",
-        "Navigace a hlasové ovládání — dle výbavy",
-      ],
-      specs: [
-        { label: "Displej", value: "10,1\" (dle modelového roku)" },
-        { label: "Systém", value: "Uconnect 5" },
-      ],
-      image: img("uconnect.webp"),
-    },
-  },
-  {
-    id: "start",
-    label: "Startování",
-    view: "driver",
-    position: [0.3, 1.18, 0.72],
-    detail: {
-      eyebrow: "Ovládání",
-      title: "Startování a klimatizace",
-      text: "Bezklíčový vstup a startování tlačítkem jsou dostupné dle výbavy. Klimatizace bývá třízónová s ovládáním pro zadní část vozu.",
-      bullets: [
-        "Keyless Enter ’n Go — dle výbavy",
-        "Třízónová automatická klimatizace — dle výbavy",
-        "Samostatné ovládání pro zadní řady — dle výbavy",
-        "Vyhřívaná přední sedadla — dle výbavy",
-      ],
-      image: img("console.webp"),
-    },
-  },
-  {
-    id: "safety",
-    label: "Bezpečnost",
-    view: "driver",
-    position: [-0.1, 1.6, 1.1],
-    detail: {
-      eyebrow: "Asistenty",
-      title: "Bezpečnost a asistenční systémy",
-      text: "Nabídka asistentů se liší podle modelového roku a výbavy. Níže jsou systémy, které Chrysler pro Pacificu uvádí.",
-      bullets: [
-        "360° kamerový systém — dle výbavy",
-        "ParkSense parkovací senzory — dle výbavy",
-        "Blind Spot Monitoring — dle výbavy",
-        "Rear Cross Path Detection — dle výbavy",
-        "FamCAM kamera na zadní sedadla — dle výbavy a modelového roku",
-      ],
-      image: img("camera360.webp"),
-    },
-  },
-
-  /* ---------------- 2. ŘADA ---------------- */
-  {
-    id: "row2-seats",
-    label: "Sedadla 2. řady",
-    view: "row2",
-    position: [-0.45, 1.35, -0.72],
-    action: { type: "toggle", parts: ["row2"], labelOn: "Sklopit 2. řadu", labelOff: "Rozložit 2. řadu" },
-    detail: {
-      eyebrow: "Interiér",
-      title: "Druhá řada",
-      text: "Druhá řada je řešená s ohledem na pohodlí i snadný přístup dozadu. Konfigurace se liší podle verze vozu — samostatná sedadla nebo lavice.",
-      bullets: [
-        "Samostatná sedadla nebo lavice — dle verze",
-        "Easy Tilt pro přístup do třetí řady — dle výbavy",
-        "Stow ’n Go ve druhé řadě — pouze u kompatibilních verzí (ne u plug-in hybridu)",
-        "Vyhřívaná sedadla druhé řady — dle výbavy",
-      ],
-      image: img("row2.webp"),
-    },
-  },
-  {
-    id: "row2-doors",
-    label: "Posuvné dveře zevnitř",
-    view: "row2",
-    position: [-0.95, 1.25, -0.3],
-    action: {
-      type: "toggle",
-      parts: ["doorLeft"],
-      labelOn: "Otevřít levé dveře",
-      labelOff: "Zavřít levé dveře",
-    },
-    detail: {
-      eyebrow: "Přístup",
-      title: "Nastupování do druhé řady",
-      text: "Široký otvor posuvných dveří usnadňuje usazení dětí i montáž autosedačky. Dveře lze ovládat i zevnitř — dle výbavy.",
-      bullets: [
-        "Ovládání dveří zevnitř — dle výbavy",
-        "Úchyty ISOFIX ve druhé řadě",
-        "Stínítka v zadních oknech — dle výbavy",
-      ],
-      image: img("row2-space.webp"),
-    },
-  },
-  {
-    id: "connectivity",
-    label: "USB a konektivita",
-    view: "row2",
-    position: [0.5, 1.05, -0.1],
-    detail: {
-      eyebrow: "Family",
-      title: "Konektivita a zábava",
-      text: "Pacifica bývá vybavena USB porty pro zadní cestující a u vyšších výbav i zábavním systémem pro zadní sedadla.",
-      bullets: [
-        "USB porty pro druhou i třetí řadu — dle výbavy",
-        "Zábavní systém pro zadní sedadla — dle výbavy",
-        "Prémiový audio systém — dle výbavy",
-        "220V zásuvka — dle výbavy",
-      ],
-      image: img("row2-space.webp"),
-    },
-  },
-
-  /* ---------------- 3. ŘADA ---------------- */
-  {
-    id: "row3-seats",
-    label: "Třetí řada",
-    view: "row3",
-    position: [0, 1.35, -1.78],
-    action: { type: "toggle", parts: ["row3"], labelOn: "Sklopit 3. řadu", labelOff: "Rozložit 3. řadu" },
-    detail: {
-      eyebrow: "Interiér",
-      title: "Plnohodnotná třetí řada",
-      text: "Třetí řada má vlastní bezpečnostní pásy i opěrky hlavy. Sedadla se sklápějí do podlahy systémem Stow ’n Go.",
-      bullets: [
-        "Vlastní pásy a opěrky hlavy",
-        "Sklápění do podlahy — Stow ’n Go",
-        "Dělené sklápění 60/40",
-        "Přístup přes posuvné boční dveře",
-      ],
-      image: img("row3.webp"),
-      clip: "row3-fold",
-    },
-  },
-  {
-    id: "storage",
-    label: "Úložné prostory",
-    view: "row3",
-    position: [-0.7, 0.95, -1.4],
-    detail: {
-      eyebrow: "Praktičnost",
-      title: "Úložné prostory",
-      text: "Podlahové schránky, které u verzí se Stow ’n Go slouží pro uložení sklopených sedadel, lze při rozložených sedadlech využít jako úložný prostor.",
-      bullets: [
-        "Podlahové schránky — dle konfigurace",
-        "Odkládací prostory v bočních panelech",
-        "Držáky nápojů pro všechny řady",
-      ],
-      image: img("cargo-flat.webp"),
-    },
-  },
-
-  /* ---------------- KUFR ---------------- */
   {
     id: "stow-n-go",
-    label: "Stow ’n Go",
-    view: "cargo",
-    position: [0, 1.0, -1.9],
-    action: {
-      type: "toggle",
-      parts: ["row2", "row3", "liftgate"],
-      labelOn: "Aktivovat Stow ’n Go",
-      labelOff: "Vrátit sedadla",
-    },
+    label: "Stow'n'Go",
+    position: [1.02, 1.46, -0.95],
+    focus: { position: [3.4, 1.9, -1.6], lookAt: [0.4, 1.2, -1.0] },
     detail: {
-      eyebrow: "Variabilita",
-      title: "Stow ’n Go",
-      text: "U kompatibilních konfigurací se sedadla sklápějí přímo do podlahy, bez vyjímání z vozu. Přechod z rodinného vozu na dodávku je otázkou chvilky. U plug-in hybridu je Stow ’n Go ve druhé řadě omezené kvůli umístění baterie.",
+      eyebrow: "2. a 3. řada",
+      title: "Stow'n'Go sedadla",
+      text: "Sedadla 2. i 3. řady se dají sklopit přímo do podlahy — bez snímání, jen je sklopíš a zmizí. U verzí s pohonem všech kol (AWD) tohle donedávna nešlo kvůli technice pod podlahou, 2021 Pacifica to jako první AWD minivan zvládá taky.",
       bullets: [
-        "Sklápění sedadel do podlahy — dle verze",
-        "Třetí řada Stow ’n Go u standardní i hybridní verze",
-        "Druhá řada Stow ’n Go pouze u spalovacích verzí",
-        "Rovná ložná plocha po sklopení",
+        "Sklopení 2. i 3. řady do podlahy",
+        "Bez demontáže sedadel",
+        "Funguje i u AWD verze",
       ],
-      image: img("stow-n-go.webp"),
-      clip: "row3-fold",
+      media: {
+        type: "video",
+        src: clip("row3-fold"),
+        poster: poster("row3-fold"),
+        caption: VIDEO_CAPTION,
+      },
     },
   },
   {
     id: "cargo",
-    label: "Zavazadlový prostor",
-    view: "cargo",
-    position: [0.7, 1.15, -2.2],
-    action: { type: "toggle", parts: ["liftgate"], labelOn: "Otevřít kufr", labelOff: "Zavřít kufr" },
+    label: "Kufr",
+    position: [0.86, 0.9, -2.3],
+    focus: { position: [2.9, 1.5, -4.2], lookAt: [0.3, 0.95, -2.1] },
+    detail: {
+      eyebrow: "Nákladový prostor",
+      title: "Až 140,5 kubické stopy",
+      text: "Se sklopenou 2. a 3. řadou (Stow'n'Go) nabídne kufr přes 140 kubických stop nákladového prostoru — dost na nábytek nebo týdenní nákup na měsíc.",
+      bullets: [
+        "140,5 cu ft se sklopenou 2. i 3. řadou",
+        "Rovná podlaha bez prahu",
+        "Hluboké úložné vany pod podlahou",
+      ],
+      media: { type: "image", src: photo("cargo.webp"), caption: PHOTO_CAPTION },
+    },
+  },
+  {
+    id: "audio",
+    label: "Harman/Kardon",
+    position: [1.04, 1.2, -1.55],
+    focus: { position: [3.3, 1.6, -2.2], lookAt: [0.5, 1.1, -1.6] },
+    detail: {
+      eyebrow: "Audio",
+      title: "Harman/Kardon audio",
+      text: "Prémiový zvukový systém Harman/Kardon s 19 reproduktory a samostatným subwooferem — výrazně bohatší zvuk než základní audio.",
+      bullets: ["19 reproduktorů", "Samostatný subwoofer", "Ovládání přes Uconnect 5"],
+      media: { type: "image", src: photo("console.webp"), caption: PHOTO_CAPTION },
+    },
+  },
+  {
+    id: "interior",
+    label: "Interiér",
+    position: [1.0, 1.5, 0.3],
+    focus: { position: [3.2, 1.9, 1.5], lookAt: [0.3, 1.25, 0.3] },
     detail: {
       eyebrow: "Prostor",
-      title: "Zavazadlový prostor",
-      text: "Za třetí řadou zůstává použitelný prostor i s plným obsazením. Po sklopení sedadel vznikne velká rovná ložná plocha.",
+      title: "Prostor pro 7 osob",
+      text: "165 kubických stop vnitřního prostoru, tři samostatné klimatizační zóny, vyhřívaná sedadla 2. řady a panoramatické střešní okno. Přední řada nabízí 41 palců místa na nohy — víc než u většiny SUV.",
       bullets: [
-        "Prostor za třetí řadou i s obsazenými sedadly",
-        "Rovná ložná plocha po sklopení",
-        "Nízká nakládací hrana",
-        "Maximální nákladový objem dle údajů výrobce a konfigurace",
+        "7 míst k sezení",
+        "Tři samostatné klimatizační zóny",
+        "Vyhřívaná sedadla 2. řady",
+        "Panoramatické střešní okno",
       ],
-      image: img("cargo.webp"),
-      clip: "liftgate",
+      media: { type: "image", src: photo("cockpit.webp"), caption: PHOTO_CAPTION },
     },
   },
 ];
 
-/**
- * Kamerové presety pro akce (otevření dveří, kapoty, sklopení sedadel).
- * Po spuštění akce kamera plynule přejede tak, aby byl pohyb skutečně vidět.
- */
-export const ACTION_SHOTS: Record<string, CameraShot> = {
-  "sliding-doors": {
-    position: [-7.97, 2.50, 1.89],
-    target: [-0.4, 1.05, -0.3],
-    orbit: true,
-    minDistance: 2.4,
-    maxDistance: 14,
-  },
-  engine: {
-    position: [0.27, 3.92, 7.97],
-    target: [0, 1.15, 1.9],
-    orbit: true,
-    minDistance: 2.6,
-    maxDistance: 14,
-  },
-  liftgate: {
-    position: [1.49, 3.38, -8.91],
-    target: [0, 1.35, -2.4],
-    orbit: true,
-    minDistance: 2.4,
-    maxDistance: 14,
-  },
-  headlights: {
-    position: [-5.27, 2.03, 8.23],
-    target: [-0.4, 0.95, 2.1],
-    orbit: true,
-    minDistance: 2.4,
-    maxDistance: 14,
-  },
-  "stow-n-go": {
-    position: [-4.59, 2.36, -2.16],
-    target: [0, 1.0, -0.9],
-    orbit: true,
-    minDistance: 1.4,
-    maxDistance: 10,
-  },
-  cargo: {
-    position: [0.54, 2.84, -7.56],
-    target: [0, 1.05, -2.0],
-    orbit: true,
-    minDistance: 1.6,
-    maxDistance: 10,
-  },
-};
+/** Barvy laku — mění se pouze základní barva karoserie, ostatní materiály zůstávají. */
+export const BODY_COLORS: { key: string; label: string; hex: string | null }[] = [
+  { key: "original", label: "Originál", hex: null },
+  { key: "white", label: "Bílá", hex: "#e9ebee" },
+  { key: "black", label: "Černá", hex: "#0d0f12" },
+  { key: "silver", label: "Šedá", hex: "#9aa2ab" },
+  { key: "navy", label: "Tmavě modrá", hex: "#12203c" },
+  { key: "red", label: "Vínová", hex: "#5d1220" },
+];
+
+/** Atribuce modelu (CC-BY-4.0). */
+export const MODEL_ATTRIBUTION = "3D model: SanjithKid45 (Sketchfab), CC-BY-4.0";

@@ -13,7 +13,7 @@ type Props = {
  * Malý, elegantní, animovaný — text až po kliknutí.
  */
 export const Hotspot3D = ({ hotspot, active, onSelect }: Props) => (
-  <Html position={hotspot.position} center distanceFactor={7} zIndexRange={[20, 10]}>
+  <Html position={hotspot.position} center distanceFactor={8} zIndexRange={[20, 10]}>
     <button
       type="button"
       onClick={(e) => {
@@ -21,7 +21,7 @@ export const Hotspot3D = ({ hotspot, active, onSelect }: Props) => (
         onSelect(hotspot);
       }}
       aria-label={hotspot.label}
-      className="group relative flex items-center gap-2 pointer-events-auto"
+      className="group relative flex min-h-[44px] min-w-[44px] items-center gap-2 p-2.5 pointer-events-auto"
     >
       <span className="relative flex items-center justify-center w-6 h-6">
         <span className="absolute inset-0 rounded-full bg-primary/45 animate-ping" />
@@ -31,6 +31,7 @@ export const Hotspot3D = ({ hotspot, active, onSelect }: Props) => (
           }`}
         />
       </span>
+
       <span
         className={`px-2 py-0.5 rounded-full bg-black/65 backdrop-blur-md border border-white/15 text-[10px] tracking-wide text-white whitespace-nowrap transition-opacity ${
           active ? "opacity-100" : "opacity-0 group-hover:opacity-100"

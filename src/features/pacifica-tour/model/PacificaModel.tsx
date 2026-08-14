@@ -2,10 +2,10 @@ import type {} from "@react-three/fiber";
 import { Component, type ReactNode, useEffect, useMemo, useRef } from "react";
 import { useGLTF } from "@react-three/drei";
 import * as THREE from "three";
-import modelAsset from "./pacifica.glb.asset.json";
 
 /** Skutečný 3D model Chrysler Pacifica Limited AWD (optimalizovaný GLB, Draco). */
-export const MODEL_URL = modelAsset.url;
+export const MODEL_URL = "/models/pacifica.glb";
+
 
 useGLTF.preload(MODEL_URL);
 

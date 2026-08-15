@@ -1,5 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowRight, Check, Play, RotateCcw, X } from "lucide-react";
+import {
+  ArrowLeft,
+  ArrowRight,
+  Check,
+  Play,
+  RotateCcw,
+  X,
+} from "lucide-react";
 import {
   CONFIG_MODES,
   INTERIOR_STEPS,
@@ -25,7 +32,7 @@ const VideoCardMedia = ({ videos }: { videos: TourVideo[] }) => (
     {videos.map((video) => (
       <div
         key={video.src}
-        className="overflow-hidden rounded-2xl border border-white/10 bg-black/50"
+        className="overflow-hidden rounded-2xl border border-white/10 bg-black/60"
       >
         <video
           className="block max-h-[38vh] w-full bg-black object-contain"
@@ -47,8 +54,6 @@ const VideoCardMedia = ({ videos }: { videos: TourVideo[] }) => (
   </div>
 );
 
-const isCollapsibleCard = (card: TourCard) => card.collapsible === true;
-
 const InfoCard = ({
   card,
   expanded,
@@ -60,19 +65,18 @@ const InfoCard = ({
   onToggleExpanded: () => void;
   onClose: () => void;
 }) => {
-  const collapsible = isCollapsibleCard(card);
+  const collapsible = card.collapsible === true;
 
   /*
-   * DŮLEŽITÉ:
-   * Sbalená karta zůstává malá dole nad navigací.
-   * Nikdy nezakryje celou fotografii.
-   *
-   * Videa nejsou v DOMu ve sbaleném stavu.
-   * Teprve po kliknutí na "Rozbalit detail" se video vyrenderuje.
+   * SBALENÁ KARTA:
+   * - zůstává malá
+   * - fotografie zůstává viditelná
+   * - video se vůbec nevyrenderuje
+   * - karta je nad spodní navigací
    */
   if (collapsible && !expanded) {
     return (
-      <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 mx-2 max-h-[29vh] overflow-hidden rounded-[28px] border border-white/10 bg-[#111925]/97 p-5 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:mx-0 sm:w-[min(560px,calc(100vw-48px))]">
+      <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 mx-2 overflow-hidden rounded-[28px] border border-white/10 bg-[#111925]/98 p-5 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:mx-0 sm:w-[min(560px,calc(100vw-48px))]">
         <button
           type="button"
           onClick={onClose}
@@ -109,8 +113,8 @@ const InfoCard = ({
 
   /*
    * ROZBALENÁ KARTA:
-   * Je umístěná NAD spodními tlačítky.
-   * Proto tlačítka "Zpět" a "Další" nemohou překrývat její spodní část.
+   * bottom-[5.9rem] znamená, že její spodní okraj je vždy nad
+   * spodními tlačítky Zpět / Další.
    */
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 max-h-[78vh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#111925]/98 p-5 pb-6 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[78vh] sm:rounded-[28px]">
@@ -201,31 +205,41 @@ const PhotoStep = ({
   const [mode, setMode] = useState(CONFIG_MODES[0].key);
 
   useEffect(() => {
-    setOpenCard(null);
+    /*
+     * Přední konzole má vlastní intro kartu bez hotspotu.
+     * Po příchodu na tento krok ji proto otevřeme automaticky,
+     * ale vždy SBALENOU. Fotografie zůstane vidět a video 003
+     * se zobrazí až po ručním rozbalení karty.
+     *
+     * Ostatní kroky zachovávají původní chování:
+     * karta se otevře pouze po kliknutí na hotspot.
+     */
+    setOpenCard(step.id === "front-console" ? (step.intro ?? null) : null);
     setExpanded(false);
     setZoom(null);
     setMode(CONFIG_MODES[0].key);
   }, [step]);
 
-  const pick = (hotspot: PhotoHotspot) => {
-    if (hotspot.advance && hotspot.card) {
-      setOpenCard(hotspot.card);
-      setExpanded(false);
-      setZoom(null);
-      return;
-    }
+  const pick = useCallback(
+    (hotspot: PhotoHotspot) => {
+      if (hotspot.card) {
+        /*
+         * Záměrně vždy začínáme SBALENĚ.
+         * To platí i pro přístrojový štít, Uconnect 360 a rádio/Uconnect.
+         * Video se zobrazí až po ručním kliknutí na "Rozbalit detail".
+         */
+        setOpenCard(hotspot.card);
+        setExpanded(false);
+        setZoom(null);
+        return;
+      }
 
-    if (hotspot.card) {
-      setOpenCard(hotspot.card);
-      setExpanded(!hotspot.card.collapsible);
-      setZoom({ x: hotspot.x, y: hotspot.y });
-      return;
-    }
-
-    if (hotspot.advance) {
-      onAdvance();
-    }
-  };
+      if (hotspot.advance) {
+        onAdvance();
+      }
+    },
+    [onAdvance],
+  );
 
   const activeMode =
     CONFIG_MODES.find((item) => item.key === mode) ?? CONFIG_MODES[0];
@@ -240,13 +254,7 @@ const PhotoStep = ({
             maxWidth: "min(100%, calc((100vh - 9rem) * 4 / 3))",
           }}
         >
-          <div
-            className="absolute inset-0 transition-transform duration-700 ease-out will-change-transform"
-            style={{
-              transform: zoom ? "scale(1.45)" : "scale(1)",
-              transformOrigin: zoom ? `${zoom.x}% ${zoom.y}%` : "center",
-            }}
-          >
+          <div className="absolute inset-0">
             <img
               src={step.src}
               alt={step.alt}
@@ -268,7 +276,7 @@ const PhotoStep = ({
                 }}
               >
                 <span className="relative grid h-5 w-5 place-items-center">
-                  <span className="absolute inset-0 rounded-full bg-primary/40 animate-ping" />
+                  <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
                   <span className="relative h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_16px_hsl(var(--primary))]" />
                 </span>
 
@@ -278,16 +286,6 @@ const PhotoStep = ({
               </button>
             ))}
           </div>
-
-          {zoom && (
-            <button
-              type="button"
-              onClick={() => setZoom(null)}
-              className="absolute left-3 top-3 z-10 rounded-full border border-white/15 bg-black/60 px-3 py-1.5 text-[10px] uppercase tracking-[0.18em] text-white/80 backdrop-blur-md"
-            >
-              Zmenšit
-            </button>
-          )}
         </div>
       </div>
 
@@ -367,8 +365,11 @@ const VideoStep = ({
             <button
               type="button"
               onClick={(event) => {
-                const video = event.currentTarget
-                  .previousElementSibling as HTMLVideoElement | null;
+                const video =
+                  event.currentTarget.previousElementSibling as
+                    | HTMLVideoElement
+                    | null;
+
                 void video?.play();
                 setNeedsPlay(false);
               }}
@@ -386,7 +387,12 @@ const VideoStep = ({
       {ended && (
         <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 sm:bottom-24">
           <div className="mx-2 sm:mx-auto sm:w-[min(560px,calc(100vw-48px))]">
-            <InfoCard card={step.card} expanded={true} onToggleExpanded={() => undefined} onClose={() => undefined} />
+            <InfoCard
+              card={step.card}
+              expanded={true}
+              onToggleExpanded={() => undefined}
+              onClose={() => undefined}
+            />
           </div>
         </div>
       )}
@@ -424,11 +430,12 @@ export const InteriorTour = ({ onExitToExterior, onClose }: Props) => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowRight") next();
       if (event.key === "ArrowLeft") back();
+      if (event.key === "Escape") onClose();
     };
 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [next, back]);
+  }, [next, back, onClose]);
 
   if (step.kind === "done") {
     return (

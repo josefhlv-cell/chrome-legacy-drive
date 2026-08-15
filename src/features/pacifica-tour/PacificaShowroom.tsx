@@ -18,6 +18,8 @@ import DetailPanel from "./ui/DetailPanel";
 import TourNav from "./ui/TourNav";
 import LoadingOverlay from "./ui/LoadingOverlay";
 import HeroIntro from "./ui/HeroIntro";
+import InteriorTour from "./interior/InteriorTour";
+
 
 const Loader = () => {
   const { progress, active } = useProgress();
@@ -43,6 +45,8 @@ export const PacificaShowroom = () => {
   const rig = useRef<CameraRigHandle>(null);
 
   const [started, setStarted] = useState(false);
+  const [interior, setInterior] = useState(false);
+
   const [focus, setFocus] = useState<{ position: [number, number, number]; target: [number, number, number] } | null>(null);
   const [nonce, setNonce] = useState(0);
   const [selected, setSelected] = useState<TourHotspot | null>(null);

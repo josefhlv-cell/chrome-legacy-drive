@@ -1,343 +1,370 @@
-/**
- * Krokový scénář interiérové části virtuální prohlídky Chrysler Pacifica.
- *
- * Všechna reálná média jsou výhradně v:
- * public/pacifica/virtual-tour/
- *
- * Použité soubory:
- * 001-ridic-pristrojova-deska.mp4
- * 002-360-kamery.mp4
- * 003-radio-uconnect.mp4
- */
+import type {} from "@react-three/fiber";
+import { useCallback, useMemo, useState } from "react";
+import {
+  INTERIOR_STEPS,
+  type InteriorStep,
+  type PhotoHotspot,
+  type TourCard,
+} from "./interiorTourData";
 
-const TOUR_ASSETS = "/pacifica/virtual-tour";
-
-const cockpit = `${TOUR_ASSETS}/01_cockpit_overview.png`;
-const uconnect = `${TOUR_ASSETS}/02_uconnect_detail.png`;
-const passengerSeat = `${TOUR_ASSETS}/03_front_passenger_seat.png`;
-const frontConsole = `${TOUR_ASSETS}/04_front_console_and_dashboard.png`;
-const secondRow = `${TOUR_ASSETS}/05_second_row_front_view.png`;
-const secondRowSide = `${TOUR_ASSETS}/06_second_row_side_stow_n_go.png`;
-const flatFloor = `${TOUR_ASSETS}/07_stow_n_go_flat_floor.png`;
-const thirdRow = `${TOUR_ASSETS}/08_third_row_cargo_view.png`;
-
-const driverDashboardVideo = `${TOUR_ASSETS}/001-ridic-pristrojova-deska.mp4`;
-const camera360Video = `${TOUR_ASSETS}/002-360-kamery.mp4`;
-const radioUconnectVideo = `${TOUR_ASSETS}/003-radio-uconnect.mp4`;
-const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation_under25mb.mp4`;
-const tailgateVideo = `${TOUR_ASSETS}/03_tailgate_closing.mp4`;
-
-export type TourCardVideo = {
-  src: string;
-  poster?: string;
-  caption?: string;
+type Props = {
+  onExitToExterior: () => void;
+  onClose: () => void;
 };
 
-export type TourCard = {
-  eyebrow: string;
-  title: string;
-  text: string;
-  bullets?: string[];
-  sections?: { title: string; items: string[] }[];
-  note?: string;
+const VideoCardMedia = ({
+  videos,
+}: {
+  videos: NonNullable<TourCard["videos"]>;
+}) => (
+  <div className="mt-5 space-y-4">
+    {videos.map((video) => (
+      <div
+        key={video.src}
+        className="overflow-hidden rounded-2xl border border-white/10 bg-black/30"
+      >
+        <video
+          className="block max-h-[42vh] w-full bg-black object-contain"
+          src={video.src}
+          poster={video.poster}
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nodownload"
+          aria-label={video.caption ?? "Video"}
+        />
+        {video.caption && (
+          <div className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/45">
+            {video.caption}
+          </div>
+        )}
+      </div>
+    ))}
+  </div>
+);
 
-  /**
-   * Pokud true, karta se po klepnutí na hotspot otevře jako plnohodnotný
-   * překryv přes celý obrázek, ale její obsah zůstane sbalený.
-   * Uživatel ji rozbalí tlačítkem "Rozbalit detail".
+const Card = ({
+  card,
+  expanded,
+  onToggleExpanded,
+  onClose,
+}: {
+  card: TourCard;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  onClose: () => void;
+}) => {
+  const collapsible = !!card.collapsible;
+
+  /*
+   * Uconnect 360 a Přední konzole:
+   * po klepnutí na hotspot překryjí celý fotografický vizuál.
+   * Obsah je záměrně sbalený a uživatel jej rozbalí ručně.
    */
-  collapsible?: boolean;
+  if (collapsible && !expanded) {
+    return (
+      <div className="pointer-events-auto absolute inset-0 z-30 flex flex-col bg-[#07101b]/96 backdrop-blur-md">
+        <div className="flex flex-1 items-center justify-center px-6">
+          <div className="w-full max-w-xl text-center">
+            <div className="text-[11px] font-medium uppercase tracking-[0.3em] text-[#6b96e8]">
+              {card.eyebrow}
+            </div>
+            <h2 className="mt-3 font-serif text-3xl font-semibold text-white">
+              {card.title}
+            </h2>
+            <p className="mx-auto mt-4 max-w-lg text-sm leading-6 text-white/55">
+              Detail je připraven. Rozbalte kartu a zobrazte text, informace a
+              reálné video.
+            </p>
 
-  /** Jedno nebo více reálných videí uvnitř karty. */
-  videos?: TourCardVideo[];
+            <button
+              type="button"
+              onClick={onToggleExpanded}
+              className="mt-7 rounded-full bg-[#3f7bd7] px-8 py-4 text-sm font-semibold text-white shadow-lg"
+            >
+              Rozbalit detail ↓
+            </button>
+          </div>
+        </div>
+
+        <div className="flex justify-center px-5 pb-8">
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Zavřít detail"
+            className="flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-2xl text-white/70"
+          >
+            ×
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 max-h-[82vh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#111925]/97 p-5 pb-28 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[82vh] sm:rounded-[28px] sm:pb-6">
+      <button
+        type="button"
+        onClick={onClose}
+        aria-label="Zavřít detail"
+        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70"
+      >
+        ×
+      </button>
+
+      <div className="pr-12">
+        <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#6b96e8]">
+          {card.eyebrow}
+        </div>
+        <h2 className="mt-2 font-serif text-2xl font-semibold text-white">
+          {card.title}
+        </h2>
+        <p className="mt-3 text-[16px] leading-7 text-white/65">
+          {card.text}
+        </p>
+      </div>
+
+      {card.videos && card.videos.length > 0 && (
+        <VideoCardMedia videos={card.videos} />
+      )}
+
+      {card.bullets && card.bullets.length > 0 && (
+        <ul className="mt-5 space-y-2 text-[15px] leading-6 text-white/70">
+          {card.bullets.map((item) => (
+            <li key={item} className="flex gap-2">
+              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4d80d8]" />
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {card.sections?.map((section) => (
+        <section
+          key={section.title}
+          className="mt-5 rounded-2xl border border-white/8 bg-white/[0.025] p-4"
+        >
+          <div className="text-[11px] uppercase tracking-[0.25em] text-[#6b96e8]">
+            {section.title}
+          </div>
+          <div className="mt-3 space-y-3 text-[15px] leading-6 text-white/70">
+            {section.items.map((item) => (
+              <p key={item}>{item}</p>
+            ))}
+          </div>
+        </section>
+      ))}
+
+      {card.note && (
+        <p className="mt-5 border-t border-white/8 pt-4 text-xs leading-5 text-white/45">
+          {card.note}
+        </p>
+      )}
+
+      {collapsible && (
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="mt-5 w-full rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-semibold text-white/70"
+        >
+          Sbalit detail ↑
+        </button>
+      )}
+    </div>
+  );
 };
 
-export type PhotoHotspot = {
-  id: string;
-  label: string;
-  x: number;
-  y: number;
-  card?: TourCard;
-  advance?: boolean;
+const StepMedia = ({
+  step,
+  onHotspot,
+}: {
+  step: InteriorStep;
+  onHotspot: (hotspot: PhotoHotspot) => void;
+}) => {
+  if (step.kind === "done") return null;
+
+  if (step.kind === "video") {
+    return (
+      <div className="absolute inset-0 flex items-center justify-center p-4 pb-32">
+        <video
+          className="max-h-[72vh] w-full max-w-5xl rounded-2xl bg-black object-contain shadow-2xl"
+          src={step.src}
+          controls
+          playsInline
+          preload="metadata"
+          controlsList="nodownload"
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="absolute inset-0 flex items-center justify-center p-4 pb-32">
+      <div className="relative max-h-[72vh] max-w-5xl overflow-hidden rounded-2xl border border-white/10 bg-black/20 shadow-2xl">
+        <img
+          src={step.src}
+          alt={step.alt}
+          className="block max-h-[72vh] max-w-full object-contain"
+          draggable={false}
+        />
+
+        {step.hotspots.map((hotspot) => (
+          <button
+            key={hotspot.id}
+            type="button"
+            onClick={() => onHotspot(hotspot)}
+            className="absolute -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/50 bg-[#2f6bd8]/80 p-2 shadow-[0_0_24px_rgba(47,107,216,.55)]"
+            style={{ left: `${hotspot.x}%`, top: `${hotspot.y}%` }}
+            aria-label={hotspot.label}
+          >
+            <span className="block h-2.5 w-2.5 rounded-full bg-white" />
+          </button>
+        ))}
+      </div>
+    </div>
+  );
 };
 
-export type InteriorStep =
-  | {
-      kind: "photo";
-      id: string;
-      src: string;
-      alt: string;
-      intro?: TourCard;
-      hotspots: PhotoHotspot[];
-      configurator?: boolean;
-      nextLabel?: string;
-    }
-  | {
-      kind: "video";
-      id: string;
-      src: string;
-      card: TourCard;
-      nextLabel?: string;
-    }
-  | {
-      kind: "done";
-      id: string;
-    };
+export const InteriorTour = ({ onExitToExterior, onClose }: Props) => {
+  const [stepIndex, setStepIndex] = useState(0);
+  const [selectedCard, setSelectedCard] = useState<TourCard | null>(null);
+  const [cardExpanded, setCardExpanded] = useState(false);
 
-export const EQUIP_NOTE =
-  "Uvedené funkce se mohou lišit podle výbavy vozu.";
+  const step = INTERIOR_STEPS[stepIndex];
 
-export const INTERIOR_STEPS: InteriorStep[] = [
-  {
-    kind: "photo",
-    id: "cockpit",
-    src: cockpit,
-    alt: "Přístrojová deska a řidičovo místo Chrysler Pacifica",
-    intro: {
-      eyebrow: "Krok 1 — Kokpit",
-      title: "Místo řidiče",
-      text: "Pohled na přístrojovou desku a řidičovo místo konkrétního vozu. Klepnutím na body zájmu si prohlédnete přístrojový štít a centrální dotykový systém.",
-    },
-    hotspots: [
-      {
-        id: "cluster",
-        label: "Přístrojový štít",
-        x: 44,
-        y: 41,
-        card: {
-          eyebrow: "Za volantem",
-          title: "Přístrojový štít",
-          text: "Přístrojový štít poskytuje řidiči základní informace o jízdě a stavu vozidla. Níže je skutečné video přístrojového štítu konkrétního vozu.",
-          videos: [
-            {
-              src: driverDashboardVideo,
-              caption:
-                "Reálné video přístrojového štítu — Chrysler Pardubice",
-            },
-          ],
-          note:
-            "Význam a barva kontrolky určují, jak rychle je nutné reagovat. U skutečného vozu vždy postupujte podle návodu k obsluze.",
-        },
-      },
-      {
-        id: "uconnect-spot",
-        label: "Uconnect 360",
-        x: 79,
-        y: 43,
-        advance: true,
-      },
-    ],
-    nextLabel: "Detail Uconnect 360 →",
-  },
-  {
-    kind: "photo",
-    id: "uconnect",
-    src: uconnect,
-    alt: "Detail dotykového systému Uconnect a středové konzoly",
-    intro: {
-      eyebrow: "Krok 2 — Ovládání",
-      title: "Uconnect 360",
-      text: "Centrální systém Uconnect sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
-      videos: [
-        {
-          src: camera360Video,
-          caption: "Reálné video 360° kamer — Chrysler Pardubice",
-        },
-      ],
-      bullets: [
-        "Dotykový displej ve středu palubní desky",
-        "Systém 360° kamer podle výbavy vozu",
-        "Fyzická tlačítka a ovladače klimatizace",
-        "Rozsah funkcí podle konkrétní výbavy",
-      ],
-      note: EQUIP_NOTE,
-      collapsible: true,
-    },
-    hotspots: [],
-    nextLabel: "Pokračovat →",
-  },
-  {
-    kind: "photo",
-    id: "front-comfort",
-    src: passengerSeat,
-    alt: "Sedadlo spolujezdce a přední část interiéru",
-    hotspots: [
-      {
-        id: "seat",
-        label: "Sedadlo spolujezdce",
-        x: 60,
-        y: 76,
-        card: {
-          eyebrow: "Vpředu",
-          title: "Komfort vpředu",
-          text: "Interiér kombinuje černé kožené čalounění s kontrastními světlými plochami kabiny. Podle výbavy může být k dispozici elektrické nastavení předních sedadel a další komfortní funkce.",
-          bullets: [
-            "Černé kožené čalounění s prošíváním",
-            "Loketní opěrka sedadla spolujezdce",
-            "Elektrické nastavení sedadel — pokud je vůz touto funkcí vybaven",
-            "Stow ’n Go Assist s automatickým posunutím předního sedadla — pokud je vůz touto funkcí vybaven",
-          ],
-          note: EQUIP_NOTE,
-        },
-      },
-      {
-        id: "to-rear",
-        label: "Prohlédnout zadní část →",
-        x: 88,
-        y: 30,
-        advance: true,
-      },
-    ],
-    nextLabel: "Přední konzole →",
-  },
-  {
-    kind: "photo",
-    id: "front-console",
-    src: frontConsole,
-    alt: "Detail přední části, středové konzoly a ovládacích prvků",
-    intro: {
-      eyebrow: "Vpředu",
-      title: "Přední konzole a ovládání",
-      text: "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Karta obsahuje také reálné video rádia a systému Uconnect konkrétního vozu.",
-      videos: [
-        {
-          src: radioUconnectVideo,
-          caption: "Reálné video rádia a Uconnect — Chrysler Pardubice",
-        },
-      ],
-      note: EQUIP_NOTE,
-      collapsible: true,
-    },
-    hotspots: [],
-    nextLabel: "Prohlédnout zadní část →",
-  },
-  {
-    kind: "photo",
-    id: "second-row",
-    src: secondRow,
-    alt: "Pohled na druhou řadu sedadel a přední část kabiny",
-    intro: {
-      eyebrow: "Krok 3 — Zadní část",
-      title: "Druhá řada",
-      text: "Tady začíná hlavní část prohlídky praktického využití interiéru. Pacifica využívá systém Stow ’n Go, který umožňuje podle konfigurace měnit prostor pro cestující a náklad.",
-    },
-    hotspots: [
-      {
-        id: "stow-spot",
-        label: "Stow ’n Go",
-        x: 50,
-        y: 64,
-        advance: true,
-      },
-    ],
-    nextLabel: "Stow ’n Go →",
-  },
-  {
-    kind: "photo",
-    id: "stow-side",
-    src: secondRowSide,
-    alt: "Boční pohled na druhou řadu a mechanismus Stow ’n Go",
-    intro: {
-      eyebrow: "Variabilita",
-      title: "Stow ’n Go",
-      text: "Systém Stow ’n Go umožňuje u vybraných konfigurací druhou a třetí řadu skládat a ukládat do podlahových prostorů. Výsledkem je rychlá změna uspořádání kabiny bez nutnosti vyjímat běžná sedadla z vozidla.",
-      note: EQUIP_NOTE,
-    },
-    hotspots: [
-      {
-        id: "stow-lever",
-        label: "Ukázat Stow ’n Go →",
-        x: 33,
-        y: 73,
-        advance: true,
-      },
-    ],
-    nextLabel: "Ukázat Stow ’n Go →",
-  },
-  {
-    kind: "photo",
-    id: "flat-floor",
-    src: flatFloor,
-    alt: "Rovná podlaha po uložení sedadel Stow ’n Go",
-    intro: {
-      eyebrow: "Prostor",
-      title: "Maximální využití prostoru",
-      text: "Po uložení příslušných sedadel vzniká rozsáhlá rovná plocha pro přepravu nákladu. Přesná kapacita závisí na konfiguraci a konkrétní verzi vozidla.",
-      bullets: [
-        "Rovná ložná plocha bez vystupujících sedadel",
-        "Nakládání přímo od zadních dveří",
-        "Rozsah plochy podle konfigurace a výbavy vozu",
-      ],
-    },
-    hotspots: [],
-    nextLabel: "Třetí řada →",
-  },
-  {
-    kind: "photo",
-    id: "third-row",
-    src: thirdRow,
-    alt: "Třetí řada sedadel a zadní nákladový prostor",
-    intro: {
-      eyebrow: "Krok 4 — Konfigurace",
-      title: "Třetí řada",
-      text: "Třetí řada rozšiřuje přepravní kapacitu cestujících a současně je součástí systému variabilního uspořádání interiéru. Podle konfigurace ji lze využít pro cestující, nebo složit pro získání dalšího nákladového prostoru.",
-    },
-    configurator: true,
-    hotspots: [
-      {
-        id: "finish",
-        label: "Pokračovat na video Stow ’n Go →",
-        x: 76,
-        y: 62,
-        advance: true,
-      },
-    ],
-    nextLabel: "Video Stow ’n Go →",
-  },
-  {
-    kind: "video",
-    id: "stow-video",
-    src: stowVideo,
-    card: {
-      eyebrow: "Reálné video vozu",
-      title: "Práce se sedačkou Stow ’n Go",
-      text: "Video zachycuje skládání sedadla druhé řady na konkrétním vozu. Postup a dostupnost se u jednotlivých sedadel liší podle konfigurace a výbavy vozu.",
-      note: EQUIP_NOTE,
-    },
-    nextLabel: "Zavření víka kufru →",
-  },
-  {
-    kind: "video",
-    id: "tailgate-video",
-    src: tailgateVideo,
-    card: {
-      eyebrow: "Reálné video vozu",
-      title: "Zavření víka kufru",
-      text: "Zavírání zadního víka kufru na konkrétním vozu. Způsob ovládání a dostupné funkce závisí na výbavě vozu.",
-      note: EQUIP_NOTE,
-    },
-    nextLabel: "Dokončit →",
-  },
-  {
-    kind: "done",
-    id: "done",
-  },
-];
+  const next = useCallback(() => {
+    setSelectedCard(null);
+    setCardExpanded(false);
+    setStepIndex((index) => Math.min(index + 1, INTERIOR_STEPS.length - 1));
+  }, []);
 
-export const CONFIG_MODES: { key: string; label: string; text: string }[] = [
-  {
-    key: "passengers",
-    label: "Více cestujících",
-    text: "Druhá i třetí řada je vyklopená a připravená k jízdě — maximum míst pro cestující.",
-  },
-  {
-    key: "mixed",
-    label: "Kombinace",
-    text: "Část sedadel zůstává nahoře pro cestující, zbytek prostoru slouží pro náklad.",
-  },
-  {
-    key: "cargo",
-    label: "Maximální prostor",
-    text: "Sedadla jsou uložená podle možností systému Stow ’n Go a vzniká rovná ložná plocha.",
-  },
-];
+  const back = useCallback(() => {
+    setSelectedCard(null);
+    setCardExpanded(false);
+    setStepIndex((index) => Math.max(index - 1, 0));
+  }, []);
+
+  const selectHotspot = useCallback(
+    (hotspot: PhotoHotspot) => {
+      if (hotspot.card) {
+        setSelectedCard(hotspot.card);
+        setCardExpanded(!hotspot.card.collapsible);
+        return;
+      }
+
+      if (hotspot.advance) next();
+    },
+    [next],
+  );
+
+  const progressLabel = useMemo(() => {
+    const visibleSteps = INTERIOR_STEPS.filter(
+      (item) => item.kind !== "done",
+    );
+    const current = Math.min(stepIndex + 1, visibleSteps.length);
+    return `Krok ${current} / ${visibleSteps.length}`;
+  }, [stepIndex]);
+
+  if (step.kind === "done") {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[#05070b] px-6 text-center text-white">
+        <div className="text-[11px] uppercase tracking-[0.3em] text-[#6b96e8]">
+          Digitální showroom
+        </div>
+        <h1 className="mt-3 font-serif text-3xl">
+          Prohlídka dokončena
+        </h1>
+        <div className="mt-8 flex gap-3">
+          <button
+            type="button"
+            onClick={onExitToExterior}
+            className="rounded-full border border-white/15 px-6 py-3 text-sm"
+          >
+            Zpět k vozu
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-full bg-[#3d78d6] px-6 py-3 text-sm font-semibold"
+          >
+            Zavřít
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 overflow-hidden bg-[#05070b] text-white select-none">
+      <header className="absolute inset-x-0 top-0 z-40 px-5 pt-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <div className="text-[10px] uppercase tracking-[0.35em] text-[#6b96e8]">
+              Interiér
+            </div>
+            <h1 className="mt-1 font-serif text-2xl font-semibold">
+              Chrysler <i>Pacifica</i>
+            </h1>
+            <div className="mt-1 text-xs text-white/40">
+              {progressLabel}
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="Zavřít prohlídku"
+            className="flex h-12 w-12 items-center justify-center rounded-full border border-white/10 text-2xl text-white/75"
+          >
+            ×
+          </button>
+        </div>
+      </header>
+
+      <StepMedia step={step} onHotspot={selectHotspot} />
+
+      {selectedCard && (
+        <Card
+          card={selectedCard}
+          expanded={cardExpanded}
+          onToggleExpanded={() => setCardExpanded((value) => !value)}
+          onClose={() => {
+            setSelectedCard(null);
+            setCardExpanded(false);
+          }}
+        />
+      )}
+
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 z-20 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={back}
+            disabled={stepIndex === 0}
+            className="pointer-events-auto rounded-full border border-white/10 bg-black/30 px-6 py-4 text-sm font-semibold backdrop-blur-md disabled:opacity-35"
+          >
+            ← Zpět
+          </button>
+
+          <button
+            type="button"
+            onClick={next}
+            className="pointer-events-auto min-w-[190px] rounded-full bg-[#3f7bd7] px-6 py-4 text-sm font-semibold shadow-lg"
+          >
+            {step.nextLabel ?? "Pokračovat →"}
+          </button>
+        </div>
+
+        <button
+          type="button"
+          onClick={onExitToExterior}
+          className="pointer-events-auto mx-auto mt-3 block text-[11px] uppercase tracking-[0.22em] text-white/40"
+        >
+          Zpět k 3D vozu
+        </button>
+      </div>
+    </div>
+  );
+};
+
+export default InteriorTour;

@@ -22,7 +22,7 @@ const secondRowSide = `${TOUR_ASSETS}/06_second_row_side_stow_n_go.png`;
 const flatFloor = `${TOUR_ASSETS}/07_stow_n_go_flat_floor.png`;
 const thirdRow = `${TOUR_ASSETS}/08_third_row_cargo_view.png`;
 
-const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation.mp4`;
+const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation_under25mb.mp4`;
 const tailgateVideo = `${TOUR_ASSETS}/03_tailgate_closing.mp4`;
 
 export type TourCard = {

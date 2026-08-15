@@ -224,18 +224,6 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     nextLabel: "Ukázat Stow ’n Go →",
   },
   {
-    kind: "video",
-    id: "stow-video",
-    src: stowVideo,
-    card: {
-      eyebrow: "Reálné video vozu",
-      title: "Práce se sedačkou Stow ’n Go",
-      text: "Video zachycuje skládání sedadla druhé řady na konkrétním vozu. Postup a dostupnost se u jednotlivých sedadel liší podle konfigurace a výbavy vozu.",
-      note: EQUIP_NOTE,
-    },
-    nextLabel: "Rovná podlaha →",
-  },
-  {
     kind: "photo",
     id: "flat-floor",
     src: flatFloor,
@@ -267,13 +255,25 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     hotspots: [
       {
         id: "finish",
-        label: "Dokončit prohlídku",
+        label: "Pokračovat na video Stow ’n Go →",
         x: 76,
         y: 62,
         advance: true,
       },
     ],
-    nextLabel: "Dokončit prohlídku →",
+    nextLabel: "Video Stow ’n Go →",
+  },
+  {
+    kind: "video",
+    id: "stow-video",
+    src: stowVideo,
+    card: {
+      eyebrow: "Reálné video vozu",
+      title: "Práce se sedačkou Stow ’n Go",
+      text: "Video zachycuje skládání sedadla druhé řady na konkrétním vozu. Postup a dostupnost se u jednotlivých sedadel liší podle konfigurace a výbavy vozu.",
+      note: EQUIP_NOTE,
+    },
+    nextLabel: "Zavření víka kufru →",
   },
   {
     kind: "video",

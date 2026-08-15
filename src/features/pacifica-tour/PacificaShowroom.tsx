@@ -18,6 +18,8 @@ import DetailPanel from "./ui/DetailPanel";
 import TourNav from "./ui/TourNav";
 import LoadingOverlay from "./ui/LoadingOverlay";
 import HeroIntro from "./ui/HeroIntro";
+import InteriorTour from "./interior/InteriorTour";
+
 
 const Loader = () => {
   const { progress, active } = useProgress();
@@ -43,6 +45,8 @@ export const PacificaShowroom = () => {
   const rig = useRef<CameraRigHandle>(null);
 
   const [started, setStarted] = useState(false);
+  const [interior, setInterior] = useState(false);
+
   const [focus, setFocus] = useState<{ position: [number, number, number]; target: [number, number, number] } | null>(null);
   const [nonce, setNonce] = useState(0);
   const [selected, setSelected] = useState<TourHotspot | null>(null);
@@ -108,7 +112,8 @@ export const PacificaShowroom = () => {
       window.clearTimeout(idleTimer.current);
       setAutoRotate(false);
       setSelected(h);
-      setExpanded(false);
+      setExpanded(!!h.detail.media);
+
       setFocus({ position: h.focus.position, target: h.focus.lookAt });
       setNonce((n) => n + 1);
       setFlash(true);
@@ -160,6 +165,19 @@ export const PacificaShowroom = () => {
   if (!started) {
     return <HeroIntro onStart={() => setStarted(true)} onClose={() => navigate("/")} />;
   }
+
+  if (interior) {
+    return (
+      <InteriorTour
+        onExitToExterior={() => {
+          setInterior(false);
+          backToCar();
+        }}
+        onClose={() => navigate("/")}
+      />
+    );
+  }
+
 
   return (
     <div
@@ -252,8 +270,10 @@ export const PacificaShowroom = () => {
           expanded={expanded}
           onToggleExpanded={() => setExpanded((e) => !e)}
           onClose={backToCar}
+          onCta={selected.detail.cta ? () => setInterior(true) : undefined}
         />
       )}
+
 
       <Loader />
     </div>

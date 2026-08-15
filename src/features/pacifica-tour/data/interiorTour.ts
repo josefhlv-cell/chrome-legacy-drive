@@ -1,14 +1,13 @@
 /**
  * Krokový scénář interiérové části virtuální prohlídky Chrysler Pacifica.
  *
- * Interiér NENÍ 3D — používají se výhradně dodané reálné fotografie a videa
- * konkrétního vozu z balíčku Final_Chrysler_Pacifica_Virtualni_Prohlidka.zip.
+ * Všechna reálná média jsou výhradně v:
+ * public/pacifica/virtual-tour/
  *
- * DŮLEŽITÉ:
- * - nepoužívat staré assety z /public/pacifica (cockpit.webp, uconnect.webp atd.)
- * - nepoužívat .asset.json ani /__l5e/assets-v1/ URL
- * - používat výhradně soubory dodané pro tuto virtuální prohlídku
- * - assety jsou uloženy v public/pacifica/virtual-tour/
+ * Použité soubory:
+ * 001-ridic-pristrojova-deska.mp4
+ * 002-360-kamery.mp4
+ * 003-radio-uconnect.mp4
  */
 
 const TOUR_ASSETS = "/pacifica/virtual-tour";
@@ -22,8 +21,17 @@ const secondRowSide = `${TOUR_ASSETS}/06_second_row_side_stow_n_go.png`;
 const flatFloor = `${TOUR_ASSETS}/07_stow_n_go_flat_floor.png`;
 const thirdRow = `${TOUR_ASSETS}/08_third_row_cargo_view.png`;
 
+const driverDashboardVideo = `${TOUR_ASSETS}/001-ridic-pristrojova-deska.mp4`;
+const camera360Video = `${TOUR_ASSETS}/002-360-kamery.mp4`;
+const radioUconnectVideo = `${TOUR_ASSETS}/003-radio-uconnect.mp4`;
 const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation_under25mb.mp4`;
 const tailgateVideo = `${TOUR_ASSETS}/03_tailgate_closing.mp4`;
+
+export type TourCardVideo = {
+  src: string;
+  poster?: string;
+  caption?: string;
+};
 
 export type TourCard = {
   eyebrow: string;
@@ -32,6 +40,16 @@ export type TourCard = {
   bullets?: string[];
   sections?: { title: string; items: string[] }[];
   note?: string;
+
+  /**
+   * Pokud true, karta se po klepnutí na hotspot otevře jako plnohodnotný
+   * překryv přes celý obrázek, ale její obsah zůstane sbalený.
+   * Uživatel ji rozbalí tlačítkem "Rozbalit detail".
+   */
+  collapsible?: boolean;
+
+  /** Jedno nebo více reálných videí uvnitř karty. */
+  videos?: TourCardVideo[];
 };
 
 export type PhotoHotspot = {
@@ -61,9 +79,13 @@ export type InteriorStep =
       card: TourCard;
       nextLabel?: string;
     }
-  | { kind: "done"; id: string };
+  | {
+      kind: "done";
+      id: string;
+    };
 
-export const EQUIP_NOTE = "Uvedené funkce se mohou lišit podle výbavy vozu.";
+export const EQUIP_NOTE =
+  "Uvedené funkce se mohou lišit podle výbavy vozu.";
 
 export const INTERIOR_STEPS: InteriorStep[] = [
   {
@@ -85,33 +107,27 @@ export const INTERIOR_STEPS: InteriorStep[] = [
         card: {
           eyebrow: "Za volantem",
           title: "Přístrojový štít",
-          text: "Přístrojový štít poskytuje řidiči základní informace o jízdě a stavu vozidla. Podle výbavy a nastavení může zobrazovat informace o jízdě, spotřebě, médiích, telefonu, navigaci a dalších funkcích vozidla.",
-          sections: [
+          text: "Přístrojový štít poskytuje řidiči základní informace o jízdě a stavu vozidla. Níže je skutečné video přístrojového štítu konkrétního vozu.",
+          videos: [
             {
-              title: "Základní kontrolky",
-              items: [
-                "Bezpečnostní pás — upozornění na nezapnutý pás řidiče či posádky.",
-                "Airbag — signalizuje závadu v systému airbagů; nechte zkontrolovat v servisu.",
-                "Brzdový systém — může znamenat zataženou parkovací brzdu nebo nízkou hladinu brzdové kapaliny.",
-                "Dobíjení — porucha dobíjení baterie; hrozí ztráta elektrické energie.",
-                "Tlak oleje — nízký tlak motorového oleje; ihned bezpečně zastavte a vypněte motor.",
-                "Teplota chladicí kapaliny — motor je přehřátý; nepokračujte v jízdě.",
-                "Otevřené dveře — některé dveře nebo víko kufru nejsou zavřené.",
-              ],
+              src: driverDashboardVideo,
+              caption:
+                "Reálné video přístrojového štítu — Chrysler Pardubice",
             },
           ],
-          note: "Význam a barva kontrolky určuje, jak rychle je nutné reagovat — červená kontrolka může vyžadovat okamžité zastavení. Vždy postupujte podle návodu k obsluze vozu.",
+          note:
+            "Význam a barva kontrolky určují, jak rychle je nutné reagovat. U skutečného vozu vždy postupujte podle návodu k obsluze.",
         },
       },
       {
         id: "uconnect-spot",
-        label: "Uconnect",
+        label: "Uconnect 360",
         x: 79,
         y: 43,
         advance: true,
       },
     ],
-    nextLabel: "Detail Uconnect →",
+    nextLabel: "Detail Uconnect 360 →",
   },
   {
     kind: "photo",
@@ -120,14 +136,22 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     alt: "Detail dotykového systému Uconnect a středové konzoly",
     intro: {
       eyebrow: "Krok 2 — Ovládání",
-      title: "Uconnect",
-      text: "Centrální dotykový systém sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Podle konkrétní verze systému a výbavy může zahrnovat také navigaci, Bluetooth, USB/AUX, hlasové funkce a další služby.",
+      title: "Uconnect 360",
+      text: "Centrální systém Uconnect sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
+      videos: [
+        {
+          src: camera360Video,
+          caption: "Reálné video 360° kamer — Chrysler Pardubice",
+        },
+      ],
       bullets: [
         "Dotykový displej ve středu palubní desky",
-        "Pod displejem fyzická tlačítka a ovladače klimatizace",
-        "Rozsah funkcí podle výbavy vozu",
+        "Systém 360° kamer podle výbavy vozu",
+        "Fyzická tlačítka a ovladače klimatizace",
+        "Rozsah funkcí podle konkrétní výbavy",
       ],
       note: EQUIP_NOTE,
+      collapsible: true,
     },
     hotspots: [],
     nextLabel: "Pokračovat →",
@@ -174,8 +198,15 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     intro: {
       eyebrow: "Vpředu",
       title: "Přední konzole a ovládání",
-      text: "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Konkrétní rozsah funkcí odpovídá výbavě vozu.",
+      text: "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Karta obsahuje také reálné video rádia a systému Uconnect konkrétního vozu.",
+      videos: [
+        {
+          src: radioUconnectVideo,
+          caption: "Reálné video rádia a Uconnect — Chrysler Pardubice",
+        },
+      ],
       note: EQUIP_NOTE,
+      collapsible: true,
     },
     hotspots: [],
     nextLabel: "Prohlédnout zadní část →",
@@ -287,7 +318,10 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     },
     nextLabel: "Dokončit →",
   },
-  { kind: "done", id: "done" },
+  {
+    kind: "done",
+    id: "done",
+  },
 ];
 
 export const CONFIG_MODES: { key: string; label: string; text: string }[] = [

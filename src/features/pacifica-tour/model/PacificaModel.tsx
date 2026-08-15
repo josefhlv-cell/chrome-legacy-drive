@@ -6,7 +6,6 @@ import * as THREE from "three";
 /** Skutečný 3D model Chrysler Pacifica Limited AWD (optimalizovaný GLB, Draco). */
 export const MODEL_URL = "/models/pacifica.glb";
 
-
 useGLTF.preload(MODEL_URL);
 
 /** Skutečná délka vozu v metrech — model normalizujeme na reálné rozměry. */
@@ -30,8 +29,17 @@ type Prepared = {
  * Připraví scénu: normalizuje rozměry (délka 5,18 m, kola na y = 0, střed v ose),
  * vylepší materiály do studiové kvality a vyklonuje materiály karoserie,
  * aby se dala bezpečně měnit barva laku bez dopadu na sklo, chrom a interiér.
+ *
+ * Mobilní optimalizace:
+ * - realtime shadow flags se na mobilu vypnou,
+ * - materiály, geometrie a textury se nemění,
+ * - frustum culling zůstává zapnutý,
+ * - samotný model GLB se nijak nezjednodušuje.
  */
-const prepare = (scene: THREE.Object3D): Prepared => {
+const prepare = (
+  scene: THREE.Object3D,
+  enableShadows: boolean,
+): Prepared => {
   const root = new THREE.Group();
   const clone = scene.clone(true);
   root.add(clone);
@@ -43,11 +51,19 @@ const prepare = (scene: THREE.Object3D): Prepared => {
   clone.traverse((o) => {
     const mesh = o as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+
+    // Mobil: Canvas shadows jsou vypnuté, takže není potřeba připravovat
+    // žádný mesh pro shadow pass. Desktop si zachovává původní stíny.
+    mesh.castShadow = enableShadows;
+    mesh.receiveShadow = enableShadows;
+
+    // Three.js má frustum culling standardně zapnutý. Nastavujeme jej
+    // explicitně, aby zůstal aktivní i po přípravě klonovaného modelu.
+    mesh.frustumCulled = true;
 
     const src = mesh.material as THREE.MeshStandardMaterial;
     if (!src || Array.isArray(mesh.material)) return;
+
     const name = src.name ?? "";
 
     const cached = seen.get(name);
@@ -60,6 +76,8 @@ const prepare = (scene: THREE.Object3D): Prepared => {
     const n = name.toLowerCase();
 
     if (isBody(name)) {
+      // MeshPhysicalMaterial zachovává kvalitní lak s clearcoatem.
+      // Necháváme jej beze změny, aby se nezhoršily odlesky karoserie.
       const paint = new THREE.MeshPhysicalMaterial({
         color: src.color.clone(),
         metalness: 0.62,
@@ -68,6 +86,7 @@ const prepare = (scene: THREE.Object3D): Prepared => {
         clearcoatRoughness: 0.06,
         envMapIntensity: 1.15,
       });
+
       paint.name = name;
       bodyMaterials.push(paint);
       originalColors.push(src.color.clone());
@@ -82,7 +101,12 @@ const prepare = (scene: THREE.Object3D): Prepared => {
         transmission: 0,
         envMapIntensity: 1.4,
       });
-    } else if (n.includes("chrome") || n.includes("rims1") || n.includes("mirrors") || n.includes("calipers")) {
+    } else if (
+      n.includes("chrome") ||
+      n.includes("rims1") ||
+      n.includes("mirrors") ||
+      n.includes("calipers")
+    ) {
       next = new THREE.MeshStandardMaterial({
         color: src.color.clone(),
         metalness: 0.92,
@@ -94,7 +118,11 @@ const prepare = (scene: THREE.Object3D): Prepared => {
       m.roughness = 0.95;
       m.metalness = 0;
       next = m;
-    } else if (n.includes("drl") || n.includes("headlightsbase") || n.includes("reflectors")) {
+    } else if (
+      n.includes("drl") ||
+      n.includes("headlightsbase") ||
+      n.includes("reflectors")
+    ) {
       const m = src.clone() as THREE.MeshStandardMaterial;
       m.emissive = new THREE.Color("#dfe9ff");
       m.emissiveIntensity = 0.55;
@@ -114,12 +142,14 @@ const prepare = (scene: THREE.Object3D): Prepared => {
   const box = new THREE.Box3().setFromObject(clone);
   const size = new THREE.Vector3();
   box.getSize(size);
+
   const scale = REAL_LENGTH / Math.max(size.x, size.y, size.z);
   clone.scale.setScalar(scale);
 
   const scaled = new THREE.Box3().setFromObject(clone);
   const center = new THREE.Vector3();
   scaled.getCenter(center);
+
   clone.position.x -= center.x;
   clone.position.z -= center.z;
   clone.position.y -= scaled.min.y;
@@ -134,13 +164,31 @@ type Props = {
 
 export const PacificaModel = ({ bodyColor }: Props) => {
   const { scene } = useGLTF(MODEL_URL);
-  const prepared = useMemo(() => prepare(scene), [scene]);
+
+  // Mobilní zařízení nepotřebují připravovat model pro realtime shadow pass,
+  // protože PacificaShowroom na mobilu Canvas shadows vypíná.
+  const enableShadows = useMemo(() => {
+    if (typeof window === "undefined") return true;
+
+    return !(
+      window.matchMedia("(max-width: 768px)").matches ||
+      "ontouchstart" in window ||
+      navigator.maxTouchPoints > 0
+    );
+  }, []);
+
+  const prepared = useMemo(
+    () => prepare(scene, enableShadows),
+    [scene, enableShadows],
+  );
+
   const group = useRef<THREE.Group>(null);
 
   useEffect(() => {
     prepared.bodyMaterials.forEach((m, i) => {
       if (bodyColor) m.color.set(bodyColor);
       else m.color.copy(prepared.originalColors[i]);
+
       m.needsUpdate = true;
     });
   }, [bodyColor, prepared]);
@@ -152,10 +200,16 @@ export const PacificaModel = ({ bodyColor }: Props) => {
   );
 };
 
-type BoundaryProps = { children: ReactNode; fallback: (retry: () => void) => ReactNode };
+type BoundaryProps = {
+  children: ReactNode;
+  fallback: (retry: () => void) => ReactNode;
+};
 
 /** Zachytí chybu načtení modelu a umožní opakovaný pokus. */
-export class ModelErrorBoundary extends Component<BoundaryProps, { failed: boolean }> {
+export class ModelErrorBoundary extends Component<
+  BoundaryProps,
+  { failed: boolean }
+> {
   state = { failed: false };
 
   static getDerivedStateFromError() {
@@ -169,6 +223,7 @@ export class ModelErrorBoundary extends Component<BoundaryProps, { failed: boole
 
   render() {
     if (this.state.failed) return this.props.fallback(this.retry);
+
     return this.props.children;
   }
 }

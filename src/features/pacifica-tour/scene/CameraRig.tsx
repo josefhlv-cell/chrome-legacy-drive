@@ -1,5 +1,5 @@
 import type {} from "@react-three/fiber";
-import { useEffect, useImperativeHandle, useRef, forwardRef } from "react";
+import { forwardRef, useEffect, useImperativeHandle, useRef } from "react";
 import { useFrame, useThree } from "@react-three/fiber";
 import { OrbitControls } from "@react-three/drei";
 import * as THREE from "three";
@@ -7,23 +7,19 @@ import type { CameraShot } from "../data/tourData";
 
 type Props = {
   shot: CameraShot;
-  /** Inkrement, kterým vynutíme nový cinematic přejezd. */
   nonce: number;
-  /** Jemná auto-rotace, když uživatel neinteraguje. */
   autoRotate: boolean;
   onUserInteract?: () => void;
 };
 
-export type CameraRigHandle = { stopAnimation: () => void };
+export type CameraRigHandle = {
+  stopAnimation: () => void;
+};
 
-/**
- * Cinematic kamera + OrbitControls.
- * Přejezdy jsou plynulé (easing ~1 s), uživatelský vstup je okamžitě přeruší.
- */
 export const CameraRig = forwardRef<CameraRigHandle, Props>(
   ({ shot, nonce, autoRotate, onUserInteract }, ref) => {
     const controls = useRef<React.ElementRef<typeof OrbitControls>>(null);
-    const camera = useThree((s) => s.camera);
+    const camera = useThree((state) => state.camera);
     const animating = useRef(false);
     const desiredPos = useRef(new THREE.Vector3());
     const desiredTarget = useRef(new THREE.Vector3());
@@ -41,19 +37,36 @@ export const CameraRig = forwardRef<CameraRigHandle, Props>(
     }));
 
     useFrame((_, delta) => {
-      const c = controls.current;
-      if (!c || !animating.current) return;
-      const k = 1 - Math.pow(0.008, Math.min(delta, 0.05));
-      camera.position.lerp(desiredPos.current, k);
-      c.target.lerp(desiredTarget.current, k);
-      c.update();
-      if (
-        camera.position.distanceTo(desiredPos.current) < 0.02 &&
-        c.target.distanceTo(desiredTarget.current) < 0.02
-      ) {
-        animating.current = false;
+      const controlsApi = controls.current;
+      if (!controlsApi) return;
+
+      if (animating.current) {
+        const k = 1 - Math.exp(-Math.min(delta, 0.05) * 6.5);
+
+        camera.position.lerp(desiredPos.current, k);
+        controlsApi.target.lerp(desiredTarget.current, k);
+        controlsApi.update();
+
+        if (
+          camera.position.distanceToSquared(desiredPos.current) < 0.0009 &&
+          controlsApi.target.distanceToSquared(desiredTarget.current) < 0.0009
+        ) {
+          camera.position.copy(desiredPos.current);
+          controlsApi.target.copy(desiredTarget.current);
+          controlsApi.update();
+          animating.current = false;
+        }
+      } else {
+        controlsApi.update();
       }
     });
+
+    useEffect(() => {
+      const controlsApi = controls.current;
+      if (controlsApi) {
+        controlsApi.autoRotate = autoRotate && !animating.current;
+      }
+    }, [autoRotate]);
 
     return (
       <OrbitControls
@@ -62,20 +75,21 @@ export const CameraRig = forwardRef<CameraRigHandle, Props>(
         enablePan={false}
         enableZoom
         enableDamping
-        dampingFactor={0.08}
-        rotateSpeed={0.7}
+        dampingFactor={0.055}
+        rotateSpeed={0.65}
         zoomSpeed={0.8}
-        autoRotate={autoRotate && !animating.current}
-        autoRotateSpeed={0.5}
+        autoRotate={autoRotate}
+        autoRotateSpeed={0.32}
         minDistance={shot.minDistance ?? 3.6}
         maxDistance={shot.maxDistance ?? 13}
-        minPolarAngle={0.15}
-        maxPolarAngle={Math.PI / 2.05}
+        minPolarAngle={0.12}
+        maxPolarAngle={Math.PI / 2.04}
+        enableRotate
         onStart={() => {
           animating.current = false;
           onUserInteract?.();
         }}
-        target={new THREE.Vector3(...shot.target)}
+        target={desiredTarget.current}
       />
     );
   },

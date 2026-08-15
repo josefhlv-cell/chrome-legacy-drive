@@ -71,7 +71,6 @@ export const PacificaShowroom = () => {
   const [flash, setFlash] = useState(false);
   const [fit, setFit] = useState(1);
   const [visited, setVisited] = useState<Set<string>>(() => new Set());
-  const [realView, setRealView] = useState(false);
 
   const bodyColor = useMemo(
     () => BODY_COLORS.find((c) => c.key === colorKey)?.hex ?? null,
@@ -159,7 +158,6 @@ export const PacificaShowroom = () => {
     setAutoRotate(false);
     setSelected(hotspot);
     setExpanded(false);
-    setRealView(false);
 
     setVisited((previous) => {
       const next = new Set(previous);
@@ -180,7 +178,6 @@ export const PacificaShowroom = () => {
   const backToCar = useCallback(() => {
     setSelected(null);
     setExpanded(false);
-    setRealView(false);
     setFocus(null);
     setNonce((n) => n + 1);
     scheduleIdle();
@@ -189,7 +186,6 @@ export const PacificaShowroom = () => {
   const reset = useCallback(() => {
     setSelected(null);
     setExpanded(false);
-    setRealView(false);
     setFocus(null);
     setVisited(new Set());
     setNonce((n) => n + 1);
@@ -319,12 +315,11 @@ export const PacificaShowroom = () => {
           ref={rig}
           shot={shot}
           nonce={nonce}
-          autoRotate={autoRotate && !selected && !realView}
+          autoRotate={autoRotate && !selected}
           onUserInteract={scheduleIdle}
         />
 
         {hotspotsVisible &&
-          !realView &&
           HOTSPOTS.map((hotspot) => (
             <Hotspot3D
               key={hotspot.id}
@@ -335,28 +330,6 @@ export const PacificaShowroom = () => {
             />
           ))}
       </Canvas>
-
-      {realView && selected?.detail.media && (
-        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#05070b]/96 p-4">
-          {selected.detail.media.type === "video" ? (
-            <video
-              key={selected.detail.media.src}
-              src={selected.detail.media.src}
-              poster={selected.detail.media.poster}
-              controls
-              playsInline
-              preload="metadata"
-              className="max-h-[78vh] w-full max-w-5xl rounded-2xl bg-black object-contain shadow-2xl"
-            />
-          ) : (
-            <img
-              src={selected.detail.media.src}
-              alt={selected.detail.title}
-              className="max-h-[78vh] w-full max-w-5xl rounded-2xl object-contain shadow-2xl"
-            />
-          )}
-        </div>
-      )}
 
       <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.5)_100%)]" />
 
@@ -389,8 +362,6 @@ export const PacificaShowroom = () => {
           expanded={expanded}
           onToggleExpanded={() => setExpanded((value) => !value)}
           onClose={backToCar}
-          realView={realView}
-          onToggleRealView={() => setRealView((value) => !value)}
           onCta={selected.detail.cta ? () => setInterior(true) : undefined}
         />
       )}

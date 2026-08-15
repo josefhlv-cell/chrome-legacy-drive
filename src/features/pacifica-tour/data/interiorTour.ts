@@ -91,7 +91,8 @@ export type InteriorStep =
 export const EQUIP_NOTE =
   "Uvedené funkce se mohou lišit podle výbavy vozu.";
 
-export const VIDEO_CAPTION = "Reálné video konkrétního vozu — Chrysler Pardubice";
+export const VIDEO_CAPTION =
+  "Reálné video konkrétního vozu — Chrysler Pardubice";
 
 export const INTERIOR_STEPS: InteriorStep[] = [
   {
@@ -115,29 +116,8 @@ export const INTERIOR_STEPS: InteriorStep[] = [
           eyebrow: "Za volantem",
           title: "Přístrojový štít",
           text:
-            "Přístrojový štít poskytuje řidiči základní informace o jízdě a stavu vozidla. Níže je skutečné video přístrojového štítu konkrétního vozu.",
-          bullets: [
-            "Digitální informace o jízdě a stavu vozidla",
-            "Kontrolky bezpečnostních a provozních systémů",
-            "Zobrazení podle konkrétní výbavy a nastavení vozu",
-          ],
-          sections: [
-            {
-              title: "Základní kontrolky",
-              items: [
-                "Bezpečnostní pás — upozornění na nezapnutý pás řidiče či posádky.",
-                "Airbag — signalizuje závadu v systému airbagů; nechte zkontrolovat v servisu.",
-                "Brzdový systém — může znamenat zataženou parkovací brzdu nebo nízkou hladinu brzdové kapaliny.",
-                "Dobíjení — porucha dobíjení baterie; hrozí ztráta elektrické energie.",
-                "Tlak oleje — nízký tlak motorového oleje; ihned bezpečně zastavte a vypněte motor.",
-                "Teplota chladicí kapaliny — motor je přehřátý; nepokračujte v jízdě.",
-                "Otevřené dveře — některé dveře nebo víko kufru nejsou zavřené.",
-              ],
-            },
-          ],
-          note:
-            "Význam a barva kontrolky určují, jak rychle je nutné reagovat. Vždy postupujte podle návodu k obsluze konkrétního vozu.",
-          collapsible: true,
+            "Podívejte se na reálné video přístrojového štítu konkrétního vozu.",
+          collapsible: false,
           videos: [
             {
               src: clusterVideo,

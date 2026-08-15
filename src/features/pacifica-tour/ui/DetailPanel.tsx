@@ -80,8 +80,9 @@ const Media = ({ media, title }: { media: NonNullable<TourHotspot["detail"]["med
  * Detail hotspotu — bottom sheet na mobilu (collapsed / expanded),
  * decentní side panel na desktopu. Vůz musí zůstat vidět.
  */
-export const DetailPanel = ({ hotspot, expanded, onToggleExpanded, onClose }: Props) => {
+export const DetailPanel = ({ hotspot, expanded, onToggleExpanded, onClose, onCta }: Props) => {
   const d = hotspot.detail;
+
 
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:inset-y-0 md:left-auto md:right-0 md:flex md:items-center md:p-5">
@@ -142,10 +143,21 @@ export const DetailPanel = ({ hotspot, expanded, onToggleExpanded, onClose }: Pr
               ))}
             </dl>
           )}
+          {d.note && <p className="mt-4 text-[11px] leading-relaxed text-white/45">{d.note}</p>}
           <div className="h-3" />
         </div>
 
-        <div className="px-5 md:px-6 pt-3 pb-4 md:pb-6">
+        <div className="px-5 md:px-6 pt-3 pb-4 md:pb-6 space-y-2.5">
+          {d.cta && onCta && (
+            <button
+              type="button"
+              onClick={onCta}
+              className="w-full h-12 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.985]"
+            >
+              {d.cta.label}
+            </button>
+          )}
+
           <button
             type="button"
             onClick={onClose}

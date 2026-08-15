@@ -49,9 +49,11 @@ const prepare = (
     mesh.receiveShadow = enableShadows;
     mesh.frustumCulled = true;
 
+    // Model může obsahovat více materiálů. Ty zde záměrně necháváme
+    // beze změny, aby se nerozbily sub-meshes importované z GLB.
     if (Array.isArray(mesh.material)) return;
 
-    const src = mesh.material as THREE.MeshStandardMaterial;
+    const src = mesh.material as THREE.MeshStandardMaterial | undefined;
     if (!src) return;
 
     const name = src.name || mesh.name || "";
@@ -66,23 +68,32 @@ const prepare = (
     let next: THREE.Material;
 
     if (isBody(name)) {
-      const paint = new THREE.MeshPhysicalMaterial();
-      paint.copy(src as unknown as THREE.MeshPhysicalMaterial);
+      // NIKDY nepoužíváme MeshPhysicalMaterial.copy() na MeshStandardMaterial.
+      // To může přenést nekompatibilní physical vlastnosti a shodit renderer.
+      const paint = new THREE.MeshPhysicalMaterial({
+        color: src.color?.clone() ?? new THREE.Color("#ffffff"),
+        metalness: 0.58,
+        roughness: 0.24,
+        clearcoat: 1,
+        clearcoatRoughness: 0.055,
+        envMapIntensity: 1.15,
+      });
 
-      paint.color.copy(src.color);
-      paint.metalness = 0.58;
-      paint.roughness = 0.24;
-      paint.clearcoat = 1;
-      paint.clearcoatRoughness = 0.055;
-      paint.envMapIntensity = 1.15;
+      // Zachováme textury původního laku.
+      paint.map = src.map ?? null;
+      paint.normalMap = src.normalMap ?? null;
+      paint.roughnessMap = src.roughnessMap ?? null;
+      paint.metalnessMap = src.metalnessMap ?? null;
+      paint.aoMap = src.aoMap ?? null;
+      paint.emissiveMap = src.emissiveMap ?? null;
+
       paint.name = name;
 
       bodyMaterials.push(paint);
-      originalColors.push(src.color.clone());
+      originalColors.push(src.color?.clone() ?? new THREE.Color("#ffffff"));
       next = paint;
     } else {
       const material = src.clone();
-
       const lower = name.toLowerCase();
 
       if (lower.includes("glass") || lower.includes("windows")) {
@@ -143,7 +154,13 @@ const prepare = (
   const size = new THREE.Vector3();
   box.getSize(size);
 
-  const scale = REAL_LENGTH / Math.max(size.x, size.y, size.z);
+  const largestDimension = Math.max(size.x, size.y, size.z);
+
+  if (!Number.isFinite(largestDimension) || largestDimension <= 0) {
+    throw new Error("pacifica.glb: model má neplatné nebo nulové rozměry.");
+  }
+
+  const scale = REAL_LENGTH / largestDimension;
   clone.scale.setScalar(scale);
 
   const scaled = new THREE.Box3().setFromObject(clone);
@@ -193,6 +210,7 @@ export const PacificaModel = ({ bodyColor }: Props) => {
       } else {
         material.color.copy(prepared.originalColors[index]);
       }
+
       material.needsUpdate = true;
     });
   }, [bodyColor, prepared]);

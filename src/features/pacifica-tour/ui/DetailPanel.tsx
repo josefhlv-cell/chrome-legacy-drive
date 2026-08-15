@@ -7,7 +7,10 @@ type Props = {
   expanded: boolean;
   onToggleExpanded: () => void;
   onClose: () => void;
+  /** Akce karty (např. přechod do interiérové části prohlídky). */
+  onCta?: () => void;
 };
+
 
 /** Médium karty — reálná fotografie detailu nebo krátké video vozu. */
 const Media = ({ media, title }: { media: NonNullable<TourHotspot["detail"]["media"]>; title: string }) => {

@@ -1,14 +1,3 @@
-/**
- * Jediné místo s daty EXTERIÉRU virtuální prohlídky Chrysler Pacifica Limited AWD.
- *
- * Tento soubor musí zůstat samostatný od interiéru.
- * PacificaShowroom.tsx z něj může importovat BODY_COLORS, HOTSPOTS,
- * DEFAULT_SHOT a další data 3D exteriéru.
- *
- * Média:
- * public/pacifica/virtual-tour/
- */
-
 const TOUR_ASSETS = "/pacifica/virtual-tour";
 
 const extHeadlight = `${TOUR_ASSETS}/exterior-headlight.png`;
@@ -22,7 +11,6 @@ export type CameraShot = {
   maxDistance?: number;
 };
 
-/** Výchozí orbit pohled na vůz. */
 export const DEFAULT_SHOT: CameraShot = {
   position: [5.4, 2.1, 5.6],
   target: [0, 0.85, 0],
@@ -68,10 +56,7 @@ export const HOTSPOTS: TourHotspot[] = [
     id: "headlights",
     label: "Přední světlomet",
     position: [0.74, 0.98, 2.16],
-    focus: {
-      position: [3.1, 1.5, 4.6],
-      lookAt: [0.4, 0.9, 1.9],
-    },
+    focus: { position: [3.1, 1.5, 4.6], lookAt: [0.4, 0.9, 1.9] },
     detail: {
       eyebrow: "Přední část",
       title: "Přední světlomet",
@@ -83,21 +68,14 @@ export const HOTSPOTS: TourHotspot[] = [
         "Konkrétní typ světlometu odpovídá výbavě vozu",
       ],
       note: EQUIP_NOTE,
-      media: {
-        type: "image",
-        src: extHeadlight,
-        caption: PHOTO_CAPTION,
-      },
+      media: { type: "image", src: extHeadlight, caption: PHOTO_CAPTION },
     },
   },
   {
     id: "wheels",
     label: "Kolo a pneumatika",
     position: [1.02, 0.42, 1.62],
-    focus: {
-      position: [3.4, 0.95, 2.9],
-      lookAt: [0.6, 0.42, 1.6],
-    },
+    focus: { position: [3.4, 0.95, 2.9], lookAt: [0.6, 0.42, 1.6] },
     detail: {
       eyebrow: "Podvozek",
       title: "Kolo a pneumatika",
@@ -109,21 +87,14 @@ export const HOTSPOTS: TourHotspot[] = [
         "Rozměr pneumatiky i typ brzd odpovídá konkrétní výbavě vozu",
       ],
       note: EQUIP_NOTE,
-      media: {
-        type: "image",
-        src: extWheel,
-        caption: PHOTO_CAPTION,
-      },
+      media: { type: "image", src: extWheel, caption: PHOTO_CAPTION },
     },
   },
   {
     id: "engine",
     label: "Motor",
     position: [0.34, 1.18, 1.48],
-    focus: {
-      position: [2.6, 2.3, 4.4],
-      lookAt: [0, 1.1, 1.5],
-    },
+    focus: { position: [2.6, 2.3, 4.4], lookAt: [0, 1.1, 1.5] },
     detail: {
       eyebrow: "Pohon",
       title: "3.6L Pentastar V6",
@@ -147,10 +118,7 @@ export const HOTSPOTS: TourHotspot[] = [
     id: "sliding-doors",
     label: "Prohlédnout posuvné dveře",
     position: [1.04, 1.02, -0.36],
-    focus: {
-      position: [3.9, 1.5, -0.2],
-      lookAt: [0.5, 1.0, -0.4],
-    },
+    focus: { position: [3.9, 1.5, -0.2], lookAt: [0.5, 1.0, -0.4] },
     detail: {
       eyebrow: "Nástup",
       title: "Elektrické posuvné dveře",
@@ -162,27 +130,12 @@ export const HOTSPOTS: TourHotspot[] = [
         "Způsob ovládání podle výbavy vozu",
       ],
       note: EQUIP_NOTE,
-      media: {
-        type: "video",
-        src: doorVideo,
-        caption: VIDEO_CAPTION,
-      },
-      cta: {
-        label: "Pokračovat do interiéru →",
-        action: "interior",
-      },
+      media: { type: "video", src: doorVideo, caption: VIDEO_CAPTION },
+      cta: { label: "Pokračovat do interiéru →", action: "interior" },
     },
   },
 ];
 
-/**
- * BARVY LAKU
- *
- * Tento export je záměrně právě v tourData.ts.
- * PacificaShowroom.tsx jej může bezpečně importovat jako:
- *
- * import { BODY_COLORS } from "./data/tourData";
- */
 export const BODY_COLORS: {
   key: string;
   label: string;
@@ -196,6 +149,5 @@ export const BODY_COLORS: {
   { key: "red", label: "Vínová", hex: "#5d1220" },
 ];
 
-/** Atribuce modelu (CC-BY-4.0). */
 export const MODEL_ATTRIBUTION =
   "3D model: SanjithKid45 (Sketchfab), CC-BY-4.0";

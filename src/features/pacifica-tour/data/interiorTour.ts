@@ -6,23 +6,28 @@
  * vidět; cokoli závislé na výbavě je označeno „podle výbavy vozu“.
  */
 
-import cockpit from "../assets/01_cockpit_overview.png.asset.json";
-import uconnect from "../assets/02_uconnect_detail.png.asset.json";
-import passengerSeat from "../assets/03_front_passenger_seat.png.asset.json";
-import frontConsole from "../assets/04_front_console_and_dashboard.png.asset.json";
-import secondRow from "../assets/05_second_row_front_view.png.asset.json";
-import secondRowSide from "../assets/06_second_row_side_stow_n_go.png.asset.json";
-import flatFloor from "../assets/07_stow_n_go_flat_floor.png.asset.json";
-import thirdRow from "../assets/08_third_row_cargo_view.png.asset.json";
-import stowVideo from "../assets/02_stow_n_go_seat_operation.mp4.asset.json";
-import tailgateVideo from "../assets/03_tailgate_closing.mp4.asset.json";
+// Média jsou v public/pacifica, takže je načítáme přes veřejné URL.
+// Nepoužívat .asset.json / /__l5e/assets-v1/... — tyto odkazy nejsou
+// součástí Git/produkčního buildu.
+const PACIFICA = "/pacifica";
+
+const cockpit = `${PACIFICA}/cockpit.webp`;
+const uconnect = `${PACIFICA}/uconnect.webp`;
+const passengerSeat = `${PACIFICA}/front.webp`;
+const frontConsole = `${PACIFICA}/console.webp`;
+const secondRow = `${PACIFICA}/row2.webp`;
+const secondRowSide = `${PACIFICA}/stow-n-go.webp`;
+const flatFloor = `${PACIFICA}/cargo-flat.webp`;
+const thirdRow = `${PACIFICA}/row3-from-cargo.webp`;
+
+const stowVideo = `${PACIFICA}/clips/row3-fold.mp4`;
+const tailgateVideo = `${PACIFICA}/clips/liftgate.mp4`;
 
 export type TourCard = {
   eyebrow: string;
   title: string;
   text: string;
   bullets?: string[];
-  /** Podsekce karty (např. „Základní kontrolky“). */
   sections?: { title: string; items: string[] }[];
   note?: string;
 };
@@ -30,12 +35,9 @@ export type TourCard = {
 export type PhotoHotspot = {
   id: string;
   label: string;
-  /** Pozice v % šířky/výšky fotografie. */
   x: number;
   y: number;
-  /** Karta otevřená po kliknutí. Bez karty hotspot pouze posune prohlídku dál. */
   card?: TourCard;
-  /** Hotspot slouží jako přechod na další krok. */
   advance?: boolean;
 };
 
@@ -45,10 +47,8 @@ export type InteriorStep =
       id: string;
       src: string;
       alt: string;
-      /** Karta zobrazená hned po otevření kroku. */
       intro?: TourCard;
       hotspots: PhotoHotspot[];
-      /** Přepínač konfigurace cestující × náklad. */
       configurator?: boolean;
       nextLabel?: string;
     }
@@ -67,7 +67,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "cockpit",
-    src: cockpit.url,
+    src: cockpit,
     alt: "Přístrojová deska a řidičovo místo Chrysler Pacifica",
     intro: {
       eyebrow: "Krok 1 — Kokpit",
@@ -114,7 +114,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "uconnect",
-    src: uconnect.url,
+    src: uconnect,
     alt: "Detail dotykového systému Uconnect a středové konzoly",
     intro: {
       eyebrow: "Krok 2 — Ovládání",
@@ -133,7 +133,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "front-comfort",
-    src: passengerSeat.url,
+    src: passengerSeat,
     alt: "Sedadlo spolujezdce a přední část interiéru",
     hotspots: [
       {
@@ -167,7 +167,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "front-console",
-    src: frontConsole.url,
+    src: frontConsole,
     alt: "Detail přední části, středové konzoly a ovládacích prvků",
     intro: {
       eyebrow: "Vpředu",
@@ -181,7 +181,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "second-row",
-    src: secondRow.url,
+    src: secondRow,
     alt: "Pohled na druhou řadu sedadel a přední část kabiny",
     intro: {
       eyebrow: "Krok 3 — Zadní část",
@@ -202,7 +202,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "stow-side",
-    src: secondRowSide.url,
+    src: secondRowSide,
     alt: "Boční pohled na druhou řadu a mechanismus Stow ’n Go",
     intro: {
       eyebrow: "Variabilita",
@@ -224,7 +224,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "video",
     id: "stow-video",
-    src: stowVideo.url,
+    src: stowVideo,
     card: {
       eyebrow: "Reálné video vozu",
       title: "Práce se sedačkou Stow ’n Go",
@@ -236,7 +236,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "flat-floor",
-    src: flatFloor.url,
+    src: flatFloor,
     alt: "Rovná podlaha po uložení sedadel Stow ’n Go",
     intro: {
       eyebrow: "Prostor",
@@ -254,7 +254,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "photo",
     id: "third-row",
-    src: thirdRow.url,
+    src: thirdRow,
     alt: "Třetí řada sedadel a zadní nákladový prostor",
     intro: {
       eyebrow: "Krok 4 — Konfigurace",
@@ -276,7 +276,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   {
     kind: "video",
     id: "tailgate-video",
-    src: tailgateVideo.url,
+    src: tailgateVideo,
     card: {
       eyebrow: "Reálné video vozu",
       title: "Zavření víka kufru",
@@ -288,7 +288,6 @@ export const INTERIOR_STEPS: InteriorStep[] = [
   { kind: "done", id: "done" },
 ];
 
-/** Tři jednoduché režimy uspořádání kabiny — bez uvádění objemů. */
 export const CONFIG_MODES: { key: string; label: string; text: string }[] = [
   {
     key: "passengers",

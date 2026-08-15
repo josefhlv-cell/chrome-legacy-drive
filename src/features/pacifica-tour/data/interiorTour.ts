@@ -2,26 +2,28 @@
  * Krokový scénář interiérové části virtuální prohlídky Chrysler Pacifica.
  *
  * Interiér NENÍ 3D — používají se výhradně dodané reálné fotografie a videa
- * konkrétního vozu. Texty popisují pouze to, co je na fotografii skutečně
- * vidět; cokoli závislé na výbavě je označeno „podle výbavy vozu“.
+ * konkrétního vozu z balíčku Final_Chrysler_Pacifica_Virtualni_Prohlidka.zip.
+ *
+ * DŮLEŽITÉ:
+ * - nepoužívat staré assety z /public/pacifica (cockpit.webp, uconnect.webp atd.)
+ * - nepoužívat .asset.json ani /__l5e/assets-v1/ URL
+ * - používat výhradně soubory dodané pro tuto virtuální prohlídku
+ * - assety jsou uloženy v public/pacifica/virtual-tour/
  */
 
-// Média jsou v public/pacifica, takže je načítáme přes veřejné URL.
-// Nepoužívat .asset.json / /__l5e/assets-v1/... — tyto odkazy nejsou
-// součástí Git/produkčního buildu.
-const PACIFICA = "/pacifica";
+const TOUR_ASSETS = "/pacifica/virtual-tour";
 
-const cockpit = `${PACIFICA}/cockpit.webp`;
-const uconnect = `${PACIFICA}/uconnect.webp`;
-const passengerSeat = `${PACIFICA}/front.webp`;
-const frontConsole = `${PACIFICA}/console.webp`;
-const secondRow = `${PACIFICA}/row2.webp`;
-const secondRowSide = `${PACIFICA}/stow-n-go.webp`;
-const flatFloor = `${PACIFICA}/cargo-flat.webp`;
-const thirdRow = `${PACIFICA}/row3-from-cargo.webp`;
+const cockpit = `${TOUR_ASSETS}/01_cockpit_overview.png`;
+const uconnect = `${TOUR_ASSETS}/02_uconnect_detail.png`;
+const passengerSeat = `${TOUR_ASSETS}/03_front_passenger_seat.png`;
+const frontConsole = `${TOUR_ASSETS}/04_front_console_and_dashboard.png`;
+const secondRow = `${TOUR_ASSETS}/05_second_row_front_view.png`;
+const secondRowSide = `${TOUR_ASSETS}/06_second_row_side_stow_n_go.png`;
+const flatFloor = `${TOUR_ASSETS}/07_stow_n_go_flat_floor.png`;
+const thirdRow = `${TOUR_ASSETS}/08_third_row_cargo_view.png`;
 
-const stowVideo = `${PACIFICA}/clips/row3-fold.mp4`;
-const tailgateVideo = `${PACIFICA}/clips/liftgate.mp4`;
+const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation.mp4`;
+const tailgateVideo = `${TOUR_ASSETS}/03_tailgate_closing.mp4`;
 
 export type TourCard = {
   eyebrow: string;

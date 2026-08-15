@@ -1,136 +1,413 @@
-const Card = ({
-  card,
-  expanded,
-  onToggleExpanded,
-  onClose,
-}: {
-  card: TourCard;
-  expanded: boolean;
-  onToggleExpanded: () => void;
-  onClose: () => void;
-}) => {
-  const videos = getCardVideos(card);
-  const collapsible = isCollapsibleCard(card);
+/**
+ * Krokový scénář interiérové části virtuální prohlídky Chrysler Pacifica.
+ *
+ * Interiér NENÍ 3D — používají se výhradně dodané reálné fotografie a videa
+ * konkrétního vozu z balíčku virtuální prohlídky.
+ *
+ * Všechna média jsou v:
+ * public/pacifica/virtual-tour/
+ *
+ * Nepoužívat staré assety z /public/pacifica/ ani .asset.json URL.
+ */
 
-  /*
-   * ZABALENÁ KARTA:
-   * Nikdy nepřekrývá celou fotografii.
-   * Zůstává jako běžná spodní karta.
-   *
-   * Video se zobrazí až po ručním rozbalení.
-   */
-  if (collapsible && !expanded) {
-    return (
-      <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 max-h-[34vh] overflow-hidden rounded-t-[28px] border border-white/10 bg-[#111925]/98 p-5 pb-28 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[34vh] sm:rounded-[28px] sm:pb-6">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Zavřít detail"
-          className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70"
-        >
-          ×
-        </button>
+const TOUR_ASSETS = "/pacifica/virtual-tour";
 
-        <div className="pr-12">
-          <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#6b96e8]">
-            {card.eyebrow}
-          </div>
+const cockpit = `${TOUR_ASSETS}/01_cockpit_overview.png`;
+const uconnect = `${TOUR_ASSETS}/02_uconnect_detail.png`;
+const passengerSeat = `${TOUR_ASSETS}/03_front_passenger_seat.png`;
+const frontConsole = `${TOUR_ASSETS}/04_front_console_and_dashboard.png`;
+const secondRow = `${TOUR_ASSETS}/05_second_row_front_view.png`;
+const secondRowSide = `${TOUR_ASSETS}/06_second_row_side_stow_n_go.png`;
+const flatFloor = `${TOUR_ASSETS}/07_stow_n_go_flat_floor.png`;
+const thirdRow = `${TOUR_ASSETS}/08_third_row_cargo_view.png`;
 
-          <h2 className="mt-2 font-serif text-2xl font-semibold text-white">
-            {card.title}
-          </h2>
+const clusterVideo = `${TOUR_ASSETS}/001-ridic-pristrojova-deska.mp4`;
+const camera360Video = `${TOUR_ASSETS}/002-360-kamery.mp4`;
+const radioUconnectVideo = `${TOUR_ASSETS}/003-radio-uconnect.mp4`;
 
-          <p className="mt-3 line-clamp-3 text-[16px] leading-7 text-white/65">
-            {card.text}
-          </p>
-        </div>
+const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation_under25mb.mp4`;
+const tailgateVideo = `${TOUR_ASSETS}/03_tailgate_closing.mp4`;
 
-        <button
-          type="button"
-          onClick={onToggleExpanded}
-          className="mt-5 w-full rounded-full bg-[#3f7bd7] px-6 py-4 text-sm font-semibold text-white shadow-lg"
-        >
-          Rozbalit detail ↓
-        </button>
-      </div>
-    );
-  }
-
-  /*
-   * ROZBALENÁ KARTA:
-   * Teprve zde se zobrazí video.
-   */
-  return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-0 z-30 max-h-[82vh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#111925]/98 p-5 pb-32 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-6 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[82vh] sm:rounded-[28px] sm:pb-6">
-      <button
-        type="button"
-        onClick={onClose}
-        aria-label="Zavřít detail"
-        className="absolute right-4 top-4 flex h-10 w-10 items-center justify-center rounded-full border border-white/10 text-white/70"
-      >
-        ×
-      </button>
-
-      <div className="pr-12">
-        <div className="text-[11px] font-medium uppercase tracking-[0.28em] text-[#6b96e8]">
-          {card.eyebrow}
-        </div>
-
-        <h2 className="mt-2 font-serif text-2xl font-semibold text-white">
-          {card.title}
-        </h2>
-
-        <p className="mt-3 text-[16px] leading-7 text-white/65">
-          {card.text}
-        </p>
-      </div>
-
-      {/* VIDEO SE ZOBRAZÍ AŽ PO ROZBALENÍ */}
-      {videos.length > 0 && (
-        <VideoCardMedia videos={videos} />
-      )}
-
-      {card.bullets && card.bullets.length > 0 && (
-        <ul className="mt-5 space-y-2 text-[15px] leading-6 text-white/70">
-          {card.bullets.map((item) => (
-            <li key={item} className="flex gap-2">
-              <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#4d80d8]" />
-              <span>{item}</span>
-            </li>
-          ))}
-        </ul>
-      )}
-
-      {card.sections?.map((section) => (
-        <section
-          key={section.title}
-          className="mt-5 rounded-2xl border border-white/8 bg-white/[0.025] p-4"
-        >
-          <div className="text-[11px] uppercase tracking-[0.25em] text-[#6b96e8]">
-            {section.title}
-          </div>
-
-          <div className="mt-3 space-y-3 text-[15px] leading-6 text-white/70">
-            {section.items.map((item) => (
-              <p key={item}>{item}</p>
-            ))}
-          </div>
-        </section>
-      ))}
-
-      {card.note && (
-        <p className="mt-5 border-t border-white/8 pt-4 text-xs leading-5 text-white/45">
-          {card.note}
-        </p>
-      )}
-
-      <button
-        type="button"
-        onClick={onToggleExpanded}
-        className="mt-5 w-full rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-semibold text-white/70"
-      >
-        Sbalit detail ↑
-      </button>
-    </div>
-  );
+export type TourVideo = {
+  src: string;
+  caption?: string;
+  poster?: string;
 };
+
+export type TourCard = {
+  eyebrow: string;
+  title: string;
+  text: string;
+  bullets?: string[];
+  sections?: { title: string; items: string[] }[];
+  note?: string;
+
+  /**
+   * Pokud true, karta se po otevření hotspotu zobrazí nejdříve sbalená.
+   * Fotografie zůstane viditelná.
+   * Video se vyrenderuje až po ručním rozbalení.
+   */
+  collapsible?: boolean;
+
+  /**
+   * Videa patří přímo do informační karty.
+   * Komponenta je vykreslí pouze v rozbaleném stavu.
+   */
+  videos?: TourVideo[];
+};
+
+export type PhotoHotspot = {
+  id: string;
+  label: string;
+  x: number;
+  y: number;
+  card?: TourCard;
+  advance?: boolean;
+};
+
+export type InteriorStep =
+  | {
+      kind: "photo";
+      id: string;
+      src: string;
+      alt: string;
+      intro?: TourCard;
+      hotspots: PhotoHotspot[];
+      configurator?: boolean;
+      nextLabel?: string;
+    }
+  | {
+      kind: "video";
+      id: string;
+      src: string;
+      card: TourCard;
+      nextLabel?: string;
+    }
+  | {
+      kind: "done";
+      id: string;
+    };
+
+export const EQUIP_NOTE =
+  "Uvedené funkce se mohou lišit podle výbavy vozu.";
+
+export const VIDEO_CAPTION = "Reálné video konkrétního vozu — Chrysler Pardubice";
+
+export const INTERIOR_STEPS: InteriorStep[] = [
+  {
+    kind: "photo",
+    id: "cockpit",
+    src: cockpit,
+    alt: "Přístrojová deska a řidičovo místo Chrysler Pacifica",
+    intro: {
+      eyebrow: "Krok 1 — Kokpit",
+      title: "Místo řidiče",
+      text:
+        "Pohled na přístrojovou desku a řidičovo místo konkrétního vozu. Klepnutím na body zájmu si prohlédnete přístrojový štít a systém Uconnect 360.",
+    },
+    hotspots: [
+      {
+        id: "cluster",
+        label: "Přístrojový štít",
+        x: 44,
+        y: 41,
+        card: {
+          eyebrow: "Za volantem",
+          title: "Přístrojový štít",
+          text:
+            "Přístrojový štít poskytuje řidiči základní informace o jízdě a stavu vozidla. Níže je skutečné video přístrojového štítu konkrétního vozu.",
+          bullets: [
+            "Digitální informace o jízdě a stavu vozidla",
+            "Kontrolky bezpečnostních a provozních systémů",
+            "Zobrazení podle konkrétní výbavy a nastavení vozu",
+          ],
+          sections: [
+            {
+              title: "Základní kontrolky",
+              items: [
+                "Bezpečnostní pás — upozornění na nezapnutý pás řidiče či posádky.",
+                "Airbag — signalizuje závadu v systému airbagů; nechte zkontrolovat v servisu.",
+                "Brzdový systém — může znamenat zataženou parkovací brzdu nebo nízkou hladinu brzdové kapaliny.",
+                "Dobíjení — porucha dobíjení baterie; hrozí ztráta elektrické energie.",
+                "Tlak oleje — nízký tlak motorového oleje; ihned bezpečně zastavte a vypněte motor.",
+                "Teplota chladicí kapaliny — motor je přehřátý; nepokračujte v jízdě.",
+                "Otevřené dveře — některé dveře nebo víko kufru nejsou zavřené.",
+              ],
+            },
+          ],
+          note:
+            "Význam a barva kontrolky určují, jak rychle je nutné reagovat. Vždy postupujte podle návodu k obsluze konkrétního vozu.",
+          collapsible: true,
+          videos: [
+            {
+              src: clusterVideo,
+              caption: "Přístrojový štít — reálné video konkrétního vozu",
+            },
+          ],
+        },
+      },
+      {
+        id: "uconnect-spot",
+        label: "Uconnect 360",
+        x: 79,
+        y: 43,
+        card: {
+          eyebrow: "Krok 2 — Ovládání",
+          title: "Uconnect 360",
+          text:
+            "Centrální systém Uconnect sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
+          bullets: [
+            "Dotykový displej ve středu palubní desky",
+            "Systém 360° kamer podle výbavy vozu",
+            "Fyzická tlačítka a ovladače klimatizace",
+            "Rozsah funkcí podle konkrétní výbavy",
+          ],
+          note: EQUIP_NOTE,
+          collapsible: true,
+          videos: [
+            {
+              src: camera360Video,
+              caption: "360° kamery — reálné video konkrétního vozu",
+            },
+          ],
+        },
+        advance: true,
+      },
+    ],
+    nextLabel: "Detail Uconnect 360 →",
+  },
+
+  {
+    kind: "photo",
+    id: "uconnect",
+    src: uconnect,
+    alt: "Detail dotykového systému Uconnect a středové konzoly",
+    intro: {
+      eyebrow: "Krok 2 — Ovládání",
+      title: "Uconnect 360",
+      text:
+        "Centrální dotykový systém sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
+      bullets: [
+        "Dotykový displej ve středu palubní desky",
+        "Systém 360° kamer podle výbavy vozu",
+        "Pod displejem fyzická tlačítka a ovladače klimatizace",
+        "Rozsah funkcí podle konkrétní výbavy",
+      ],
+      note: EQUIP_NOTE,
+      collapsible: true,
+      videos: [
+        {
+          src: camera360Video,
+          caption: "360° kamery — reálné video konkrétního vozu",
+        },
+      ],
+    },
+    hotspots: [],
+    nextLabel: "Pokračovat →",
+  },
+
+  {
+    kind: "photo",
+    id: "front-comfort",
+    src: passengerSeat,
+    alt: "Sedadlo spolujezdce a přední část interiéru",
+    hotspots: [
+      {
+        id: "seat",
+        label: "Sedadlo spolujezdce",
+        x: 60,
+        y: 76,
+        card: {
+          eyebrow: "Vpředu",
+          title: "Komfort vpředu",
+          text:
+            "Interiér kombinuje černé kožené čalounění s kontrastními světlými plochami kabiny. Podle výbavy může být k dispozici elektrické nastavení předních sedadel a další komfortní funkce.",
+          bullets: [
+            "Černé kožené čalounění s prošíváním",
+            "Loketní opěrka sedadla spolujezdce",
+            "Elektrické nastavení sedadel — pokud je vůz touto funkcí vybaven",
+            "Stow ’n Go Assist s automatickým posunutím předního sedadla — pokud je vůz touto funkcí vybaven",
+          ],
+          note: EQUIP_NOTE,
+        },
+      },
+      {
+        id: "to-rear",
+        label: "Prohlédnout zadní část →",
+        x: 88,
+        y: 30,
+        advance: true,
+      },
+    ],
+    nextLabel: "Přední konzole →",
+  },
+
+  {
+    kind: "photo",
+    id: "front-console",
+    src: frontConsole,
+    alt: "Detail přední části, středové konzoly a ovládacích prvků",
+    intro: {
+      eyebrow: "Vpředu",
+      title: "Přední konzole a ovládání",
+      text:
+        "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Karta obsahuje také reálné video rádia a systému Uconnect konkrétního vozu.",
+      note: EQUIP_NOTE,
+      collapsible: true,
+      videos: [
+        {
+          src: radioUconnectVideo,
+          caption: "Rádio a Uconnect — reálné video konkrétního vozu",
+        },
+      ],
+    },
+    hotspots: [],
+    nextLabel: "Prohlédnout zadní část →",
+  },
+
+  {
+    kind: "photo",
+    id: "second-row",
+    src: secondRow,
+    alt: "Pohled na druhou řadu sedadel a přední část kabiny",
+    intro: {
+      eyebrow: "Krok 3 — Zadní část",
+      title: "Druhá řada",
+      text:
+        "Tady začíná hlavní část prohlídky praktického využití interiéru. Pacifica využívá systém Stow ’n Go, který umožňuje podle konfigurace měnit prostor pro cestující a náklad.",
+    },
+    hotspots: [
+      {
+        id: "stow-spot",
+        label: "Stow ’n Go",
+        x: 50,
+        y: 64,
+        advance: true,
+      },
+    ],
+    nextLabel: "Stow ’n Go →",
+  },
+
+  {
+    kind: "photo",
+    id: "stow-side",
+    src: secondRowSide,
+    alt: "Boční pohled na druhou řadu a mechanismus Stow ’n Go",
+    intro: {
+      eyebrow: "Variabilita",
+      title: "Stow ’n Go",
+      text:
+        "Systém Stow ’n Go umožňuje u vybraných konfigurací druhou a třetí řadu skládat a ukládat do podlahových prostorů. Výsledkem je rychlá změna uspořádání kabiny bez nutnosti vyjímat běžná sedadla z vozidla.",
+      note: EQUIP_NOTE,
+    },
+    hotspots: [
+      {
+        id: "stow-lever",
+        label: "Ukázat Stow ’n Go →",
+        x: 33,
+        y: 73,
+        advance: true,
+      },
+    ],
+    nextLabel: "Ukázat Stow ’n Go →",
+  },
+
+  {
+    kind: "photo",
+    id: "flat-floor",
+    src: flatFloor,
+    alt: "Rovná podlaha po uložení sedadel Stow ’n Go",
+    intro: {
+      eyebrow: "Prostor",
+      title: "Maximální využití prostoru",
+      text:
+        "Po uložení příslušných sedadel vzniká rozsáhlá rovná plocha pro přepravu nákladu. Přesná kapacita závisí na konfiguraci a konkrétní verzi vozidla.",
+      bullets: [
+        "Rovná ložná plocha bez vystupujících sedadel",
+        "Nakládání přímo od zadních dveří",
+        "Rozsah plochy podle konfigurace a výbavy vozu",
+      ],
+    },
+    hotspots: [],
+    nextLabel: "Třetí řada →",
+  },
+
+  {
+    kind: "photo",
+    id: "third-row",
+    src: thirdRow,
+    alt: "Třetí řada sedadel a zadní nákladový prostor",
+    intro: {
+      eyebrow: "Krok 4 — Konfigurace",
+      title: "Třetí řada",
+      text:
+        "Třetí řada rozšiřuje přepravní kapacitu cestujících a současně je součástí systému variabilního uspořádání interiéru. Podle konfigurace ji lze využít pro cestující, nebo složit pro získání dalšího nákladového prostoru.",
+    },
+    configurator: true,
+    hotspots: [
+      {
+        id: "finish",
+        label: "Pokračovat na video Stow ’n Go →",
+        x: 76,
+        y: 62,
+        advance: true,
+      },
+    ],
+    nextLabel: "Video Stow ’n Go →",
+  },
+
+  {
+    kind: "video",
+    id: "stow-video",
+    src: stowVideo,
+    card: {
+      eyebrow: "Reálné video vozu",
+      title: "Práce se sedačkou Stow ’n Go",
+      text:
+        "Video zachycuje skládání sedadla druhé řady na konkrétním vozu. Postup a dostupnost se u jednotlivých sedadel liší podle konfigurace a výbavy vozu.",
+      note: EQUIP_NOTE,
+    },
+    nextLabel: "Zavření víka kufru →",
+  },
+
+  {
+    kind: "video",
+    id: "tailgate-video",
+    src: tailgateVideo,
+    card: {
+      eyebrow: "Reálné video vozu",
+      title: "Zavření víka kufru",
+      text:
+        "Zavírání zadního víka kufru na konkrétním vozu. Způsob ovládání a dostupné funkce závisí na výbavě vozu.",
+      note: EQUIP_NOTE,
+    },
+    nextLabel: "Dokončit →",
+  },
+
+  { kind: "done", id: "done" },
+];
+
+export const CONFIG_MODES: {
+  key: string;
+  label: string;
+  text: string;
+}[] = [
+  {
+    key: "passengers",
+    label: "Více cestujících",
+    text:
+      "Druhá i třetí řada je vyklopená a připravená k jízdě — maximum míst pro cestující.",
+  },
+  {
+    key: "mixed",
+    label: "Kombinace",
+    text:
+      "Část sedadel zůstává nahoře pro cestující, zbytek prostoru slouží pro náklad.",
+  },
+  {
+    key: "cargo",
+    label: "Maximální prostor",
+    text:
+      "Sedadla jsou uložená podle možností systému Stow ’n Go a vzniká rovná ložná plocha.",
+  },
+];

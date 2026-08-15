@@ -103,7 +103,7 @@ export const INTERIOR_STEPS: InteriorStep[] = [
       eyebrow: "Krok 1 — Kokpit",
       title: "Místo řidiče",
       text:
-        "Pohled na přístrojovou desku a řidičovo místo konkrétního vozu. Klepnutím na body zájmu si prohlédnete přístrojový štít a systém Uconnect 360.",
+        "Pohled na přístrojovou desku a řidičovo místo konkrétního vozu. Klepnutím na bod zájmu si prohlédnete přístrojový štít. Na Uconnect 360 přejdete tlačítkem níže.",
     },
     hotspots: [
       {
@@ -146,33 +146,6 @@ export const INTERIOR_STEPS: InteriorStep[] = [
           ],
         },
       },
-      {
-        id: "uconnect-spot",
-        label: "Uconnect 360",
-        x: 79,
-        y: 43,
-        card: {
-          eyebrow: "Krok 2 — Ovládání",
-          title: "Uconnect 360",
-          text:
-            "Centrální systém Uconnect sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
-          bullets: [
-            "Dotykový displej ve středu palubní desky",
-            "Systém 360° kamer podle výbavy vozu",
-            "Fyzická tlačítka a ovladače klimatizace",
-            "Rozsah funkcí podle konkrétní výbavy",
-          ],
-          note: EQUIP_NOTE,
-          collapsible: true,
-          videos: [
-            {
-              src: camera360Video,
-              caption: "360° kamery — reálné video konkrétního vozu",
-            },
-          ],
-        },
-        advance: true,
-      },
     ],
     nextLabel: "Detail Uconnect 360 →",
   },
@@ -202,8 +175,35 @@ export const INTERIOR_STEPS: InteriorStep[] = [
         },
       ],
     },
-    hotspots: [],
-    nextLabel: "Pokračovat →",
+    hotspots: [
+      {
+        id: "uconnect-360",
+        label: "Uconnect 360",
+        x: 79,
+        y: 43,
+        card: {
+          eyebrow: "Krok 2 — Ovládání",
+          title: "Uconnect 360",
+          text:
+            "Centrální dotykový systém sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Po rozbalení karty se zobrazí reálné video systému 360° kamer konkrétního vozu.",
+          bullets: [
+            "Dotykový displej ve středu palubní desky",
+            "Systém 360° kamer podle výbavy vozu",
+            "Pod displejem fyzická tlačítka a ovladače klimatizace",
+            "Rozsah funkcí podle konkrétní výbavy",
+          ],
+          note: EQUIP_NOTE,
+          collapsible: true,
+          videos: [
+            {
+              src: camera360Video,
+              caption: "360° kamery — reálné video konkrétního vozu",
+            },
+          ],
+        },
+      },
+    ],
+    nextLabel: "Přejít na sedadlo spolujezdce →",
   },
 
   {
@@ -230,13 +230,6 @@ export const INTERIOR_STEPS: InteriorStep[] = [
           ],
           note: EQUIP_NOTE,
         },
-      },
-      {
-        id: "to-rear",
-        label: "Prohlédnout zadní část →",
-        x: 88,
-        y: 30,
-        advance: true,
       },
     ],
     nextLabel: "Přední konzole →",

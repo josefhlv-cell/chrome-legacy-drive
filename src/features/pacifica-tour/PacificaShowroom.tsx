@@ -112,7 +112,8 @@ export const PacificaShowroom = () => {
       window.clearTimeout(idleTimer.current);
       setAutoRotate(false);
       setSelected(h);
-      setExpanded(false);
+      setExpanded(!!h.detail.media);
+
       setFocus({ position: h.focus.position, target: h.focus.lookAt });
       setNonce((n) => n + 1);
       setFlash(true);
@@ -164,6 +165,19 @@ export const PacificaShowroom = () => {
   if (!started) {
     return <HeroIntro onStart={() => setStarted(true)} onClose={() => navigate("/")} />;
   }
+
+  if (interior) {
+    return (
+      <InteriorTour
+        onExitToExterior={() => {
+          setInterior(false);
+          backToCar();
+        }}
+        onClose={() => navigate("/")}
+      />
+    );
+  }
+
 
   return (
     <div
@@ -256,8 +270,10 @@ export const PacificaShowroom = () => {
           expanded={expanded}
           onToggleExpanded={() => setExpanded((e) => !e)}
           onClose={backToCar}
+          onCta={selected.detail.cta ? () => setInterior(true) : undefined}
         />
       )}
+
 
       <Loader />
     </div>

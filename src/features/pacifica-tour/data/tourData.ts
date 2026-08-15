@@ -5,15 +5,22 @@
  * a videa se používají pouze jako detail uvnitř informační karty
  * (a u interiéru jako hlavní vizuál karty) — nikdy jako náhrada 3D exteriéru.
  *
- * Média jsou uložena v public/pacifica a načítají se přes veřejné URL.
- * Nepoužívat .asset.json / /__l5e/assets-v1/... odkazy.
+ * DŮLEŽITÉ:
+ * Tento soubor používá výhradně média dodaná pro virtuální prohlídku
+ * v balíčku Final_Chrysler_Pacifica_Virtualni_Prohlidka.zip.
+ *
+ * Očekávané umístění:
+ * public/pacifica/virtual-tour/
+ *
+ * Nepoužívat staré soubory z public/pacifica/, .asset.json ani
+ * /__l5e/assets-v1/... URL.
  */
 
-const PACIFICA = "/pacifica";
+const TOUR_ASSETS = "/pacifica/virtual-tour";
 
-const extHeadlight = `${PACIFICA}/detail-headlight.webp`;
-const extWheel = `${PACIFICA}/detail-wheel.webp`;
-const doorVideo = `${PACIFICA}/clips/sliding-doors.mp4`;
+const extHeadlight = `${TOUR_ASSETS}/exterior-headlight.png`;
+const extWheel = `${TOUR_ASSETS}/exterior-wheel.png`;
+const doorVideo = `${TOUR_ASSETS}/01_sliding_door_opening.mp4`;
 
 export type CameraShot = {
   position: [number, number, number];

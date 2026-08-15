@@ -1,0 +1,1 @@
+update site_contacts set value='true' where key='feature_pacifica_tour_enabled';

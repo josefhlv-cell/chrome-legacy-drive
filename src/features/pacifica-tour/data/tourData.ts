@@ -6,6 +6,12 @@
  * (a u interiéru jako hlavní vizuál karty) — nikdy jako náhrada 3D exteriéru.
  */
 
+import extHeadlight from "../assets/exterior-headlight.png.asset.json";
+import extWheel from "../assets/exterior-wheel.png.asset.json";
+import doorVideo from "../assets/01_sliding_door_opening.mp4.asset.json";
+
+
+
 export type CameraShot = {
   position: [number, number, number];
   target: [number, number, number];

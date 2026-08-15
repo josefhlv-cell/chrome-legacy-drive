@@ -1,343 +1,201 @@
 /**
- * Krokový scénář interiérové části virtuální prohlídky Chrysler Pacifica.
+ * Jediné místo s daty EXTERIÉRU virtuální prohlídky Chrysler Pacifica Limited AWD.
  *
- * Všechna reálná média jsou výhradně v:
+ * Tento soubor musí zůstat samostatný od interiéru.
+ * PacificaShowroom.tsx z něj může importovat BODY_COLORS, HOTSPOTS,
+ * DEFAULT_SHOT a další data 3D exteriéru.
+ *
+ * Média:
  * public/pacifica/virtual-tour/
- *
- * Použité soubory:
- * 001-ridic-pristrojova-deska.mp4
- * 002-360-kamery.mp4
- * 003-radio-uconnect.mp4
  */
 
 const TOUR_ASSETS = "/pacifica/virtual-tour";
 
-const cockpit = `${TOUR_ASSETS}/01_cockpit_overview.png`;
-const uconnect = `${TOUR_ASSETS}/02_uconnect_detail.png`;
-const passengerSeat = `${TOUR_ASSETS}/03_front_passenger_seat.png`;
-const frontConsole = `${TOUR_ASSETS}/04_front_console_and_dashboard.png`;
-const secondRow = `${TOUR_ASSETS}/05_second_row_front_view.png`;
-const secondRowSide = `${TOUR_ASSETS}/06_second_row_side_stow_n_go.png`;
-const flatFloor = `${TOUR_ASSETS}/07_stow_n_go_flat_floor.png`;
-const thirdRow = `${TOUR_ASSETS}/08_third_row_cargo_view.png`;
+const extHeadlight = `${TOUR_ASSETS}/exterior-headlight.png`;
+const extWheel = `${TOUR_ASSETS}/exterior-wheel.png`;
+const doorVideo = `${TOUR_ASSETS}/01_sliding_door_opening.mp4`;
 
-const driverDashboardVideo = `${TOUR_ASSETS}/001-ridic-pristrojova-deska.mp4`;
-const camera360Video = `${TOUR_ASSETS}/002-360-kamery.mp4`;
-const radioUconnectVideo = `${TOUR_ASSETS}/003-radio-uconnect.mp4`;
-const stowVideo = `${TOUR_ASSETS}/02_stow_n_go_seat_operation_under25mb.mp4`;
-const tailgateVideo = `${TOUR_ASSETS}/03_tailgate_closing.mp4`;
+export type CameraShot = {
+  position: [number, number, number];
+  target: [number, number, number];
+  minDistance?: number;
+  maxDistance?: number;
+};
 
-export type TourCardVideo = {
+/** Výchozí orbit pohled na vůz. */
+export const DEFAULT_SHOT: CameraShot = {
+  position: [5.4, 2.1, 5.6],
+  target: [0, 0.85, 0],
+  minDistance: 3.6,
+  maxDistance: 13,
+};
+
+export type HotspotMedia = {
+  type: "image" | "video";
   src: string;
   poster?: string;
   caption?: string;
 };
 
-export type TourCard = {
+export type HotspotDetail = {
   eyebrow: string;
   title: string;
   text: string;
-  bullets?: string[];
-  sections?: { title: string; items: string[] }[];
+  bullets: string[];
+  specs?: { label: string; value: string }[];
+  media?: HotspotMedia;
+  cta?: { label: string; action: "interior" };
   note?: string;
-
-  /**
-   * Pokud true, karta se po klepnutí na hotspot otevře jako plnohodnotný
-   * překryv přes celý obrázek, ale její obsah zůstane sbalený.
-   * Uživatel ji rozbalí tlačítkem "Rozbalit detail".
-   */
-  collapsible?: boolean;
-
-  /** Jedno nebo více reálných videí uvnitř karty. */
-  videos?: TourCardVideo[];
 };
 
-export type PhotoHotspot = {
+export type TourHotspot = {
   id: string;
   label: string;
-  x: number;
-  y: number;
-  card?: TourCard;
-  advance?: boolean;
+  position: [number, number, number];
+  focus: {
+    position: [number, number, number];
+    lookAt: [number, number, number];
+  };
+  detail: HotspotDetail;
 };
 
-export type InteriorStep =
-  | {
-      kind: "photo";
-      id: string;
-      src: string;
-      alt: string;
-      intro?: TourCard;
-      hotspots: PhotoHotspot[];
-      configurator?: boolean;
-      nextLabel?: string;
-    }
-  | {
-      kind: "video";
-      id: string;
-      src: string;
-      card: TourCard;
-      nextLabel?: string;
-    }
-  | {
-      kind: "done";
-      id: string;
-    };
+const PHOTO_CAPTION = "Detail konkrétního vozu — Chrysler Pardubice";
+const VIDEO_CAPTION = "Reálné video vozu — Chrysler Pardubice";
+const EQUIP_NOTE = "Uvedené funkce se mohou lišit podle výbavy vozu.";
 
-export const EQUIP_NOTE =
-  "Uvedené funkce se mohou lišit podle výbavy vozu.";
-
-export const INTERIOR_STEPS: InteriorStep[] = [
+export const HOTSPOTS: TourHotspot[] = [
   {
-    kind: "photo",
-    id: "cockpit",
-    src: cockpit,
-    alt: "Přístrojová deska a řidičovo místo Chrysler Pacifica",
-    intro: {
-      eyebrow: "Krok 1 — Kokpit",
-      title: "Místo řidiče",
-      text: "Pohled na přístrojovou desku a řidičovo místo konkrétního vozu. Klepnutím na body zájmu si prohlédnete přístrojový štít a centrální dotykový systém.",
+    id: "headlights",
+    label: "Přední světlomet",
+    position: [0.74, 0.98, 2.16],
+    focus: {
+      position: [3.1, 1.5, 4.6],
+      lookAt: [0.4, 0.9, 1.9],
     },
-    hotspots: [
-      {
-        id: "cluster",
-        label: "Přístrojový štít",
-        x: 44,
-        y: 41,
-        card: {
-          eyebrow: "Za volantem",
-          title: "Přístrojový štít",
-          text: "Přístrojový štít poskytuje řidiči základní informace o jízdě a stavu vozidla. Níže je skutečné video přístrojového štítu konkrétního vozu.",
-          videos: [
-            {
-              src: driverDashboardVideo,
-              caption:
-                "Reálné video přístrojového štítu — Chrysler Pardubice",
-            },
-          ],
-          note:
-            "Význam a barva kontrolky určují, jak rychle je nutné reagovat. U skutečného vozu vždy postupujte podle návodu k obsluze.",
-        },
-      },
-      {
-        id: "uconnect-spot",
-        label: "Uconnect 360",
-        x: 79,
-        y: 43,
-        advance: true,
-      },
-    ],
-    nextLabel: "Detail Uconnect 360 →",
-  },
-  {
-    kind: "photo",
-    id: "uconnect",
-    src: uconnect,
-    alt: "Detail dotykového systému Uconnect a středové konzoly",
-    intro: {
-      eyebrow: "Krok 2 — Ovládání",
-      title: "Uconnect 360",
-      text: "Centrální systém Uconnect sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
-      videos: [
-        {
-          src: camera360Video,
-          caption: "Reálné video 360° kamer — Chrysler Pardubice",
-        },
-      ],
+    detail: {
+      eyebrow: "Přední část",
+      title: "Přední světlomet",
+      text:
+        "Detail předního světlometu konkrétního vozu. Na fotografii je patrné pouzdro světlometu s výraznou světelnou grafikou a integrovaným směrovým světlem.",
       bullets: [
-        "Dotykový displej ve středu palubní desky",
-        "Systém 360° kamer podle výbavy vozu",
-        "Fyzická tlačítka a ovladače klimatizace",
-        "Rozsah funkcí podle konkrétní výbavy",
+        "Členěná světelná grafika ve tmavém pouzdře",
+        "Chromové orámování a navazující maska",
+        "Konkrétní typ světlometu odpovídá výbavě vozu",
       ],
       note: EQUIP_NOTE,
-      collapsible: true,
-    },
-    hotspots: [],
-    nextLabel: "Pokračovat →",
-  },
-  {
-    kind: "photo",
-    id: "front-comfort",
-    src: passengerSeat,
-    alt: "Sedadlo spolujezdce a přední část interiéru",
-    hotspots: [
-      {
-        id: "seat",
-        label: "Sedadlo spolujezdce",
-        x: 60,
-        y: 76,
-        card: {
-          eyebrow: "Vpředu",
-          title: "Komfort vpředu",
-          text: "Interiér kombinuje černé kožené čalounění s kontrastními světlými plochami kabiny. Podle výbavy může být k dispozici elektrické nastavení předních sedadel a další komfortní funkce.",
-          bullets: [
-            "Černé kožené čalounění s prošíváním",
-            "Loketní opěrka sedadla spolujezdce",
-            "Elektrické nastavení sedadel — pokud je vůz touto funkcí vybaven",
-            "Stow ’n Go Assist s automatickým posunutím předního sedadla — pokud je vůz touto funkcí vybaven",
-          ],
-          note: EQUIP_NOTE,
-        },
+      media: {
+        type: "image",
+        src: extHeadlight,
+        caption: PHOTO_CAPTION,
       },
-      {
-        id: "to-rear",
-        label: "Prohlédnout zadní část →",
-        x: 88,
-        y: 30,
-        advance: true,
-      },
-    ],
-    nextLabel: "Přední konzole →",
-  },
-  {
-    kind: "photo",
-    id: "front-console",
-    src: frontConsole,
-    alt: "Detail přední části, středové konzoly a ovládacích prvků",
-    intro: {
-      eyebrow: "Vpředu",
-      title: "Přední konzole a ovládání",
-      text: "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Karta obsahuje také reálné video rádia a systému Uconnect konkrétního vozu.",
-      videos: [
-        {
-          src: radioUconnectVideo,
-          caption: "Reálné video rádia a Uconnect — Chrysler Pardubice",
-        },
-      ],
-      note: EQUIP_NOTE,
-      collapsible: true,
     },
-    hotspots: [],
-    nextLabel: "Prohlédnout zadní část →",
   },
   {
-    kind: "photo",
-    id: "second-row",
-    src: secondRow,
-    alt: "Pohled na druhou řadu sedadel a přední část kabiny",
-    intro: {
-      eyebrow: "Krok 3 — Zadní část",
-      title: "Druhá řada",
-      text: "Tady začíná hlavní část prohlídky praktického využití interiéru. Pacifica využívá systém Stow ’n Go, který umožňuje podle konfigurace měnit prostor pro cestující a náklad.",
+    id: "wheels",
+    label: "Kolo a pneumatika",
+    position: [1.02, 0.42, 1.62],
+    focus: {
+      position: [3.4, 0.95, 2.9],
+      lookAt: [0.6, 0.42, 1.6],
     },
-    hotspots: [
-      {
-        id: "stow-spot",
-        label: "Stow ’n Go",
-        x: 50,
-        y: 64,
-        advance: true,
-      },
-    ],
-    nextLabel: "Stow ’n Go →",
-  },
-  {
-    kind: "photo",
-    id: "stow-side",
-    src: secondRowSide,
-    alt: "Boční pohled na druhou řadu a mechanismus Stow ’n Go",
-    intro: {
-      eyebrow: "Variabilita",
-      title: "Stow ’n Go",
-      text: "Systém Stow ’n Go umožňuje u vybraných konfigurací druhou a třetí řadu skládat a ukládat do podlahových prostorů. Výsledkem je rychlá změna uspořádání kabiny bez nutnosti vyjímat běžná sedadla z vozidla.",
-      note: EQUIP_NOTE,
-    },
-    hotspots: [
-      {
-        id: "stow-lever",
-        label: "Ukázat Stow ’n Go →",
-        x: 33,
-        y: 73,
-        advance: true,
-      },
-    ],
-    nextLabel: "Ukázat Stow ’n Go →",
-  },
-  {
-    kind: "photo",
-    id: "flat-floor",
-    src: flatFloor,
-    alt: "Rovná podlaha po uložení sedadel Stow ’n Go",
-    intro: {
-      eyebrow: "Prostor",
-      title: "Maximální využití prostoru",
-      text: "Po uložení příslušných sedadel vzniká rozsáhlá rovná plocha pro přepravu nákladu. Přesná kapacita závisí na konfiguraci a konkrétní verzi vozidla.",
+    detail: {
+      eyebrow: "Podvozek",
+      title: "Kolo a pneumatika",
+      text:
+        "Detail kola konkrétního vozu. Na fotografii je vidět lehký slitinový ráfek s vícepaprskovým designem, středová krytka se znakem Chrysler a pneumatika s vyšším profilem.",
       bullets: [
-        "Rovná ložná plocha bez vystupujících sedadel",
-        "Nakládání přímo od zadních dveří",
-        "Rozsah plochy podle konfigurace a výbavy vozu",
+        "Slitinový ráfek s vícepaprskovým designem",
+        "Středová krytka se znakem Chrysler",
+        "Rozměr pneumatiky i typ brzd odpovídá konkrétní výbavě vozu",
       ],
-    },
-    hotspots: [],
-    nextLabel: "Třetí řada →",
-  },
-  {
-    kind: "photo",
-    id: "third-row",
-    src: thirdRow,
-    alt: "Třetí řada sedadel a zadní nákladový prostor",
-    intro: {
-      eyebrow: "Krok 4 — Konfigurace",
-      title: "Třetí řada",
-      text: "Třetí řada rozšiřuje přepravní kapacitu cestujících a současně je součástí systému variabilního uspořádání interiéru. Podle konfigurace ji lze využít pro cestující, nebo složit pro získání dalšího nákladového prostoru.",
-    },
-    configurator: true,
-    hotspots: [
-      {
-        id: "finish",
-        label: "Pokračovat na video Stow ’n Go →",
-        x: 76,
-        y: 62,
-        advance: true,
+      note: EQUIP_NOTE,
+      media: {
+        type: "image",
+        src: extWheel,
+        caption: PHOTO_CAPTION,
       },
-    ],
-    nextLabel: "Video Stow ’n Go →",
+    },
   },
   {
-    kind: "video",
-    id: "stow-video",
-    src: stowVideo,
-    card: {
-      eyebrow: "Reálné video vozu",
-      title: "Práce se sedačkou Stow ’n Go",
-      text: "Video zachycuje skládání sedadla druhé řady na konkrétním vozu. Postup a dostupnost se u jednotlivých sedadel liší podle konfigurace a výbavy vozu.",
+    id: "engine",
+    label: "Motor",
+    position: [0.34, 1.18, 1.48],
+    focus: {
+      position: [2.6, 2.3, 4.4],
+      lookAt: [0, 1.1, 1.5],
+    },
+    detail: {
+      eyebrow: "Pohon",
+      title: "3.6L Pentastar V6",
+      text:
+        "Pod kapotou je benzinový šestiválec 3.6 litru s výkonem 287 koní (211 kW) a točivým momentem 262 lb-ft. Přenos výkonu zajišťuje 9stupňová automatická převodovka.",
+      bullets: [
+        "9stupňová automatická převodovka",
+        "AWD — podle systému může být moment přenášen mezi nápravami podle trakce",
+        "Automatické řízení pohonu pro efektivní provoz",
+      ],
+      specs: [
+        { label: "Objem", value: "3,6 l V6" },
+        { label: "Výkon", value: "287 hp / 211 kW" },
+        { label: "Moment", value: "262 lb-ft" },
+        { label: "Převodovka", value: "9st. automat" },
+      ],
       note: EQUIP_NOTE,
     },
-    nextLabel: "Zavření víka kufru →",
   },
   {
-    kind: "video",
-    id: "tailgate-video",
-    src: tailgateVideo,
-    card: {
-      eyebrow: "Reálné video vozu",
-      title: "Zavření víka kufru",
-      text: "Zavírání zadního víka kufru na konkrétním vozu. Způsob ovládání a dostupné funkce závisí na výbavě vozu.",
-      note: EQUIP_NOTE,
+    id: "sliding-doors",
+    label: "Prohlédnout posuvné dveře",
+    position: [1.04, 1.02, -0.36],
+    focus: {
+      position: [3.9, 1.5, -0.2],
+      lookAt: [0.5, 1.0, -0.4],
     },
-    nextLabel: "Dokončit →",
-  },
-  {
-    kind: "done",
-    id: "done",
+    detail: {
+      eyebrow: "Nástup",
+      title: "Elektrické posuvné dveře",
+      text:
+        "Praktické řešení pro pohodlný nástup cestujících a snadný přístup do druhé řady. Konkrétní způsob ovládání a dostupné funkce závisí na výbavě vozu.",
+      bullets: [
+        "Posuvné boční dveře s širokým otvorem pro nástup",
+        "Snadný přístup do druhé i třetí řady",
+        "Způsob ovládání podle výbavy vozu",
+      ],
+      note: EQUIP_NOTE,
+      media: {
+        type: "video",
+        src: doorVideo,
+        caption: VIDEO_CAPTION,
+      },
+      cta: {
+        label: "Pokračovat do interiéru →",
+        action: "interior",
+      },
+    },
   },
 ];
 
-export const CONFIG_MODES: { key: string; label: string; text: string }[] = [
-  {
-    key: "passengers",
-    label: "Více cestujících",
-    text: "Druhá i třetí řada je vyklopená a připravená k jízdě — maximum míst pro cestující.",
-  },
-  {
-    key: "mixed",
-    label: "Kombinace",
-    text: "Část sedadel zůstává nahoře pro cestující, zbytek prostoru slouží pro náklad.",
-  },
-  {
-    key: "cargo",
-    label: "Maximální prostor",
-    text: "Sedadla jsou uložená podle možností systému Stow ’n Go a vzniká rovná ložná plocha.",
-  },
+/**
+ * BARVY LAKU
+ *
+ * Tento export je záměrně právě v tourData.ts.
+ * PacificaShowroom.tsx jej může bezpečně importovat jako:
+ *
+ * import { BODY_COLORS } from "./data/tourData";
+ */
+export const BODY_COLORS: {
+  key: string;
+  label: string;
+  hex: string | null;
+}[] = [
+  { key: "original", label: "Originál", hex: null },
+  { key: "white", label: "Bílá", hex: "#e9ebee" },
+  { key: "black", label: "Černá", hex: "#0d0f12" },
+  { key: "silver", label: "Šedá", hex: "#9aa2ab" },
+  { key: "navy", label: "Tmavě modrá", hex: "#12203c" },
+  { key: "red", label: "Vínová", hex: "#5d1220" },
 ];
+
+/** Atribuce modelu (CC-BY-4.0). */
+export const MODEL_ATTRIBUTION =
+  "3D model: SanjithKid45 (Sketchfab), CC-BY-4.0";

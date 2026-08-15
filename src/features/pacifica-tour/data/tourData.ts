@@ -4,13 +4,16 @@
  * Exteriér je VŽDY reprezentován skutečným 3D modelem. Reálné fotografie
  * a videa se používají pouze jako detail uvnitř informační karty
  * (a u interiéru jako hlavní vizuál karty) — nikdy jako náhrada 3D exteriéru.
+ *
+ * Média jsou uložena v public/pacifica a načítají se přes veřejné URL.
+ * Nepoužívat .asset.json / /__l5e/assets-v1/... odkazy.
  */
 
-import extHeadlight from "../assets/exterior-headlight.png.asset.json";
-import extWheel from "../assets/exterior-wheel.png.asset.json";
-import doorVideo from "../assets/01_sliding_door_opening.mp4.asset.json";
+const PACIFICA = "/pacifica";
 
-
+const extHeadlight = `${PACIFICA}/detail-headlight.webp`;
+const extWheel = `${PACIFICA}/detail-wheel.webp`;
+const doorVideo = `${PACIFICA}/clips/sliding-doors.mp4`;
 
 export type CameraShot = {
   position: [number, number, number];
@@ -79,7 +82,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Konkrétní typ světlometu odpovídá výbavě vozu",
       ],
       note: EQUIP_NOTE,
-      media: { type: "image", src: extHeadlight.url, caption: PHOTO_CAPTION },
+      media: { type: "image", src: extHeadlight, caption: PHOTO_CAPTION },
     },
   },
   {
@@ -97,7 +100,7 @@ export const HOTSPOTS: TourHotspot[] = [
         "Rozměr pneumatiky i typ brzd odpovídá konkrétní výbavě vozu",
       ],
       note: EQUIP_NOTE,
-      media: { type: "image", src: extWheel.url, caption: PHOTO_CAPTION },
+      media: { type: "image", src: extWheel, caption: PHOTO_CAPTION },
     },
   },
   {
@@ -140,7 +143,7 @@ export const HOTSPOTS: TourHotspot[] = [
       note: EQUIP_NOTE,
       media: {
         type: "video",
-        src: doorVideo.url,
+        src: doorVideo,
         caption: VIDEO_CAPTION,
       },
       cta: { label: "Pokračovat do interiéru →", action: "interior" },

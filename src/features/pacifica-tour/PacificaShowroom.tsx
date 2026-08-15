@@ -1,8 +1,9 @@
 import type {} from "@react-three/fiber";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Canvas } from "@react-three/fiber";
+import { Canvas, useThree } from "@react-three/fiber";
 import { Html, PerformanceMonitor, useProgress } from "@react-three/drei";
 import { useNavigate } from "react-router-dom";
+import * as THREE from "three";
 import Showroom from "./scene/Showroom";
 import CameraRig, { type CameraRigHandle } from "./scene/CameraRig";
 import PacificaModel, { ModelErrorBoundary } from "./model/PacificaModel";
@@ -20,13 +21,26 @@ import LoadingOverlay from "./ui/LoadingOverlay";
 import HeroIntro from "./ui/HeroIntro";
 import InteriorTour from "./interior/InteriorTour";
 
+const RendererQuality = ({ mobile }: { mobile: boolean }) => {
+  const gl = useThree((state) => state.gl);
+
+  useEffect(() => {
+    gl.outputColorSpace = THREE.SRGBColorSpace;
+    gl.toneMapping = THREE.ACESFilmicToneMapping;
+    gl.toneMappingExposure = mobile ? 1.0 : 1.08;
+    gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.35 : 2));
+  }, [gl, mobile]);
+
+  return null;
+};
+
 const Loader = () => {
   const { progress, active } = useProgress();
   const [done, setDone] = useState(false);
 
   useEffect(() => {
     if (active) return;
-    const t = window.setTimeout(() => setDone(true), 500);
+    const t = window.setTimeout(() => setDone(true), 450);
     return () => window.clearTimeout(t);
   }, [active, progress]);
 
@@ -34,12 +48,6 @@ const Loader = () => {
   return <LoadingOverlay progress={active ? progress : 100} />;
 };
 
-/**
- * Digitální 3D showroom Chrysler Pacifica Limited AWD.
- *
- * Mobilní renderer používá adaptivní DPR bez pixelovaného AdaptiveDpr režimu.
- * Desktop zachovává vyšší renderovací hustotu a antialiasing.
- */
 export const PacificaShowroom = () => {
   const navigate = useNavigate();
   const wrapper = useRef<HTMLDivElement>(null);
@@ -58,45 +66,47 @@ export const PacificaShowroom = () => {
   const [fullscreen, setFullscreen] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
   const [colorKey, setColorKey] = useState("original");
-
   const [isMobile, setIsMobile] = useState(false);
-  const [dpr, setDpr] = useState(1.25);
-
+  const [dpr, setDpr] = useState(1.35);
   const [flash, setFlash] = useState(false);
   const [fit, setFit] = useState(1);
+  const [visited, setVisited] = useState<Set<string>>(() => new Set());
+  const [realView, setRealView] = useState(false);
 
   const bodyColor = useMemo(
     () => BODY_COLORS.find((c) => c.key === colorKey)?.hex ?? null,
     [colorKey],
   );
 
-  // Mobilní zařízení dostane vlastní renderovací profil.
   useEffect(() => {
-    const checkMobile = () => {
+    const check = () => {
       const mobile =
         window.matchMedia("(max-width: 768px)").matches ||
-        "ontouchstart" in window ||
         navigator.maxTouchPoints > 0;
 
       setIsMobile(mobile);
-      setDpr(mobile ? 1.25 : 1.5);
+      setDpr(mobile ? 1.15 : 1.65);
     };
 
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    window.addEventListener("orientationchange", checkMobile);
+    check();
+    window.addEventListener("resize", check);
+    window.addEventListener("orientationchange", check);
 
     return () => {
-      window.removeEventListener("resize", checkMobile);
-      window.removeEventListener("orientationchange", checkMobile);
+      window.removeEventListener("resize", check);
+      window.removeEventListener("orientationchange", check);
     };
   }, []);
 
-  // Na úzkých displejích je vodorovný záběr menší — kamera musí odjet dál.
   useEffect(() => {
     const compute = () => {
-      const a = window.innerWidth / Math.max(1, window.innerHeight);
-      setFit(a < 0.75 ? 1.72 : a < 1 ? 1.48 : a < 1.35 ? 1.14 : 1);
+      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+      setFit(
+        aspect < 0.75 ? 1.72 :
+        aspect < 1 ? 1.48 :
+        aspect < 1.35 ? 1.14 :
+        1,
+      );
     };
 
     compute();
@@ -110,7 +120,7 @@ export const PacificaShowroom = () => {
   }, []);
 
   const shot = useMemo<CameraShot>(() => {
-    const raw: CameraShot = focus
+    const raw = focus
       ? { ...DEFAULT_SHOT, position: focus.position, target: focus.target }
       : DEFAULT_SHOT;
 
@@ -135,39 +145,42 @@ export const PacificaShowroom = () => {
   const scheduleIdle = useCallback(() => {
     window.clearTimeout(idleTimer.current);
     setAutoRotate(false);
-    idleTimer.current = window.setTimeout(() => setAutoRotate(true), 3000);
+    idleTimer.current = window.setTimeout(() => setAutoRotate(true), 3500);
   }, []);
 
   useEffect(() => {
     if (!started) return;
-
     scheduleIdle();
-
     return () => window.clearTimeout(idleTimer.current);
   }, [started, scheduleIdle]);
 
-  const selectHotspot = useCallback(
-    (h: TourHotspot) => {
-      window.clearTimeout(idleTimer.current);
-      setAutoRotate(false);
-      setSelected(h);
-      setExpanded(!!h.detail.media);
+  const selectHotspot = useCallback((hotspot: TourHotspot) => {
+    window.clearTimeout(idleTimer.current);
+    setAutoRotate(false);
+    setSelected(hotspot);
+    setExpanded(false);
+    setRealView(false);
 
-      setFocus({
-        position: h.focus.position,
-        target: h.focus.lookAt,
-      });
+    setVisited((previous) => {
+      const next = new Set(previous);
+      next.add(hotspot.id);
+      return next;
+    });
 
-      setNonce((n) => n + 1);
-      setFlash(true);
-      window.setTimeout(() => setFlash(false), 420);
-    },
-    [],
-  );
+    setFocus({
+      position: hotspot.focus.position,
+      target: hotspot.focus.lookAt,
+    });
+
+    setNonce((n) => n + 1);
+    setFlash(true);
+    window.setTimeout(() => setFlash(false), 360);
+  }, []);
 
   const backToCar = useCallback(() => {
     setSelected(null);
     setExpanded(false);
+    setRealView(false);
     setFocus(null);
     setNonce((n) => n + 1);
     scheduleIdle();
@@ -176,36 +189,42 @@ export const PacificaShowroom = () => {
   const reset = useCallback(() => {
     setSelected(null);
     setExpanded(false);
+    setRealView(false);
     setFocus(null);
-    setColorKey((k) => k);
+    setVisited(new Set());
     setNonce((n) => n + 1);
     scheduleIdle();
   }, [scheduleIdle]);
 
   const toggleFullscreen = useCallback(() => {
-    const el = wrapper.current;
-    if (!el) return;
+    const element = wrapper.current;
+    if (!element) return;
 
     if (document.fullscreenElement) {
       void document.exitFullscreen();
     } else {
-      void el.requestFullscreen?.();
+      void element.requestFullscreen?.();
     }
   }, []);
 
   useEffect(() => {
     const onChange = () => setFullscreen(!!document.fullscreenElement);
-
     document.addEventListener("fullscreenchange", onChange);
     return () => document.removeEventListener("fullscreenchange", onChange);
   }, []);
 
   useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape" || document.fullscreenElement) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
 
-      if (selected) backToCar();
-      else if (started) navigate("/");
+      if (selected) {
+        backToCar();
+        return;
+      }
+
+      if (started && !document.fullscreenElement) {
+        navigate("/");
+      }
     };
 
     window.addEventListener("keydown", onKey);
@@ -242,8 +261,11 @@ export const PacificaShowroom = () => {
         shadows={!isMobile}
         dpr={[1, dpr]}
         gl={{
-          antialias: !isMobile,
+          antialias: true,
           powerPreference: "high-performance",
+          alpha: false,
+          stencil: false,
+          depth: true,
         }}
         camera={{
           position: DEFAULT_SHOT.position,
@@ -254,19 +276,21 @@ export const PacificaShowroom = () => {
         onPointerMissed={() => selected && backToCar()}
         style={{ touchAction: "none" }}
       >
+        <RendererQuality mobile={isMobile} />
+
         <color attach="background" args={["#05070b"]} />
 
         <PerformanceMonitor
-          bounds={() => (isMobile ? [30, 55] : [45, 60])}
-          onDecline={() => {
-            setDpr(isMobile ? 1 : 1.25);
-          }}
-          onIncline={() => {
-            setDpr(isMobile ? 1.35 : 1.75);
-          }}
+          bounds={() => (isMobile ? [38, 58] : [50, 60])}
+          onDecline={() =>
+            setDpr((value) => Math.max(isMobile ? 0.9 : 1.25, value - 0.15))
+          }
+          onIncline={() =>
+            setDpr((value) => Math.min(isMobile ? 1.35 : 2, value + 0.1))
+          }
         />
 
-        <Showroom />
+        <Showroom mobile={isMobile} />
 
         <ModelErrorBoundary
           fallback={(retry) => (
@@ -295,40 +319,64 @@ export const PacificaShowroom = () => {
           ref={rig}
           shot={shot}
           nonce={nonce}
-          autoRotate={autoRotate && !selected}
+          autoRotate={autoRotate && !selected && !realView}
           onUserInteract={scheduleIdle}
         />
 
         {hotspotsVisible &&
-          HOTSPOTS.map((h) => (
+          !realView &&
+          HOTSPOTS.map((hotspot) => (
             <Hotspot3D
-              key={h.id}
-              hotspot={h}
-              active={selected?.id === h.id}
+              key={hotspot.id}
+              hotspot={hotspot}
+              active={selected?.id === hotspot.id}
+              visited={visited.has(hotspot.id)}
               onSelect={selectHotspot}
             />
           ))}
       </Canvas>
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.66)_100%)]" />
+      {realView && selected?.detail.media && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center bg-[#05070b]/96 p-4">
+          {selected.detail.media.type === "video" ? (
+            <video
+              key={selected.detail.media.src}
+              src={selected.detail.media.src}
+              poster={selected.detail.media.poster}
+              controls
+              playsInline
+              preload="metadata"
+              className="max-h-[78vh] w-full max-w-5xl rounded-2xl bg-black object-contain shadow-2xl"
+            />
+          ) : (
+            <img
+              src={selected.detail.media.src}
+              alt={selected.detail.title}
+              className="max-h-[78vh] w-full max-w-5xl rounded-2xl object-contain shadow-2xl"
+            />
+          )}
+        </div>
+      )}
+
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.5)_100%)]" />
 
       <div
         className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-300 ${
-          flash ? "opacity-[0.07]" : "opacity-0"
+          flash ? "opacity-[0.06]" : "opacity-0"
         }`}
       />
 
       <TourNav
         onReset={reset}
         hotspotsVisible={hotspotsVisible}
-        onToggleHotspots={() => setHotspotsVisible((v) => !v)}
+        onToggleHotspots={() => setHotspotsVisible((value) => !value)}
         fullscreen={fullscreen}
         onToggleFullscreen={toggleFullscreen}
         onClose={() => navigate("/")}
         autoRotate={autoRotate}
         onToggleAutoRotate={() => {
           window.clearTimeout(idleTimer.current);
-          setAutoRotate((v) => !v);
+          setAutoRotate((value) => !value);
         }}
         colorKey={colorKey}
         onColor={setColorKey}
@@ -339,8 +387,10 @@ export const PacificaShowroom = () => {
         <DetailPanel
           hotspot={selected}
           expanded={expanded}
-          onToggleExpanded={() => setExpanded((e) => !e)}
+          onToggleExpanded={() => setExpanded((value) => !value)}
           onClose={backToCar}
+          realView={realView}
+          onToggleRealView={() => setRealView((value) => !value)}
           onCta={selected.detail.cta ? () => setInterior(true) : undefined}
         />
       )}

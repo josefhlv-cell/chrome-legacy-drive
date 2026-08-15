@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, ChevronDown, ChevronUp, Play, Box } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronUp, Play } from "lucide-react";
 import type { TourHotspot } from "../data/tourData";
 
 type Props = {
@@ -8,8 +8,6 @@ type Props = {
   onToggleExpanded: () => void;
   onClose: () => void;
   onCta?: () => void;
-  realView?: boolean;
-  onToggleRealView?: () => void;
 };
 
 const Media = ({
@@ -91,8 +89,6 @@ export const DetailPanel = ({
   onToggleExpanded,
   onClose,
   onCta,
-  realView = false,
-  onToggleRealView,
 }: Props) => {
   const detail = hotspot.detail;
 
@@ -147,7 +143,7 @@ export const DetailPanel = ({
                 {detail.text}
               </p>
 
-              {detail.bullets.length > 0 && (
+              {detail.bullets && detail.bullets.length > 0 && (
                 <ul className="mt-3.5 space-y-2">
                   {detail.bullets.map((bullet) => (
                     <li
@@ -191,17 +187,6 @@ export const DetailPanel = ({
         </div>
 
         <div className="space-y-2.5 px-5 pb-4 pt-3 md:px-6 md:pb-6">
-          {detail.media && onToggleRealView && (
-            <button
-              type="button"
-              onClick={onToggleRealView}
-              className="flex h-11 w-full items-center justify-center gap-2 rounded-full border border-white/10 bg-white/[0.05] text-[12px] font-semibold text-foreground transition hover:bg-white/10"
-            >
-              <Box className="h-4 w-4" />
-              {realView ? "Zpět na 3D model" : "Zobrazit skutečné auto"}
-            </button>
-          )}
-
           {detail.cta && onCta && (
             <button
               type="button"

@@ -29,7 +29,7 @@ const btnGhost =
   "h-12 rounded-full border border-white/15 bg-black/35 text-white text-[13px] font-semibold px-5 flex items-center justify-center gap-2 backdrop-blur-md transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.985]";
 
 /* -------------------------------------------------------------------------- */
-/* KEY — FINISH / EXIT PLACEHOLDER                                           */
+/* KEY — FINISH / EXIT                                                       */
 /* -------------------------------------------------------------------------- */
 
 const FinishKey = ({
@@ -74,12 +74,6 @@ const FinishKey = ({
           "
         />
 
-        {/*
-         * LOCK BUTTON
-         *
-         * Levé horní tlačítko klíče.
-         * Pulsuje jako jediný aktivní hotspot.
-         */}
         <button
           type="button"
           onClick={(event) => {
@@ -103,7 +97,6 @@ const FinishKey = ({
             WebkitTapHighlightColor: "transparent",
           }}
         >
-          {/* Vnější pulz */}
           <span
             className="
               absolute
@@ -115,7 +108,6 @@ const FinishKey = ({
             "
           />
 
-          {/* Světelný prstenec */}
           <span
             className="
               absolute
@@ -130,7 +122,6 @@ const FinishKey = ({
             "
           />
 
-          {/* Střed */}
           <span
             className="
               relative
@@ -212,59 +203,16 @@ const VideoCardMedia = ({
 );
 
 /* -------------------------------------------------------------------------- */
-/* INFO CARD                                                                  */
+/* INFO CARD — VŽDY ROZBALENÁ                                                */
 /* -------------------------------------------------------------------------- */
 
 const InfoCard = ({
   card,
-  expanded,
-  onToggleExpanded,
   onClose,
 }: {
   card: TourCard;
-  expanded: boolean;
-  onToggleExpanded: () => void;
   onClose: () => void;
 }) => {
-  const collapsible = card.collapsible === true;
-
-  if (collapsible && !expanded) {
-    return (
-      <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 mx-2 overflow-hidden rounded-[28px] border border-white/10 bg-[#111925]/98 p-5 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:mx-0 sm:w-[min(560px,calc(100vw-48px))]">
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Zavřít kartu"
-          className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.02] text-2xl text-white/70"
-        >
-          ×
-        </button>
-
-        <div className="pr-12">
-          <div className="text-[10px] font-medium uppercase tracking-[0.28em] text-[#6b96e8]">
-            {card.eyebrow}
-          </div>
-
-          <h2 className="mt-2 font-serif text-2xl font-semibold leading-tight text-white">
-            {card.title}
-          </h2>
-
-          <p className="mt-3 line-clamp-2 text-[14px] leading-6 text-white/60">
-            {card.text}
-          </p>
-        </div>
-
-        <button
-          type="button"
-          onClick={onToggleExpanded}
-          className="mt-4 w-full rounded-full bg-[#3f7bd7] px-6 py-3.5 text-sm font-semibold text-white shadow-lg"
-        >
-          Rozbalit detail ↓
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 max-h-[78vh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#111925]/98 p-5 pb-6 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[78vh] sm:rounded-[28px]">
       <button
@@ -327,16 +275,6 @@ const InfoCard = ({
           {card.note}
         </p>
       )}
-
-      {collapsible && (
-        <button
-          type="button"
-          onClick={onToggleExpanded}
-          className="mt-5 w-full rounded-full border border-white/10 bg-white/[0.04] px-5 py-3 text-xs font-semibold text-white/70"
-        >
-          Sbalit detail ↑
-        </button>
-      )}
     </div>
   );
 };
@@ -355,9 +293,6 @@ const PhotoStep = ({
   const [openCard, setOpenCard] =
     useState<TourCard | null>(null);
 
-  const [expanded, setExpanded] =
-    useState(false);
-
   const [zoom, setZoom] = useState<{
     x: number;
     y: number;
@@ -370,7 +305,10 @@ const PhotoStep = ({
   useEffect(() => {
     /*
      * Front-console intro se otevře automaticky.
-     * Ostatní karty pouze přes hotspot.
+     * Všechny ostatní karty se otevřou po kliknutí
+     * na příslušný hotspot.
+     *
+     * Karta je nyní vždy kompletně rozbalená.
      */
     setOpenCard(
       step.id === "front-console"
@@ -378,7 +316,6 @@ const PhotoStep = ({
         : null,
     );
 
-    setExpanded(false);
     setZoom(null);
     setMode(CONFIG_MODES[0].key);
   }, [step]);
@@ -386,8 +323,12 @@ const PhotoStep = ({
   const pick = useCallback(
     (hotspot: PhotoHotspot) => {
       if (hotspot.card) {
+        /*
+         * DŮLEŽITÉ:
+         * Karta se vždy otevře rovnou v plném režimu.
+         * Už zde není setExpanded(false).
+         */
         setOpenCard(hotspot.card);
-        setExpanded(false);
         setZoom(null);
         return;
       }
@@ -438,6 +379,7 @@ const PhotoStep = ({
               >
                 <span className="relative grid h-5 w-5 place-items-center">
                   <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
+
                   <span className="relative h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_16px_hsl(var(--primary))]" />
                 </span>
 
@@ -481,13 +423,8 @@ const PhotoStep = ({
       {openCard && (
         <InfoCard
           card={openCard}
-          expanded={expanded}
-          onToggleExpanded={() =>
-            setExpanded((value) => !value)
-          }
           onClose={() => {
             setOpenCard(null);
-            setExpanded(false);
             setZoom(null);
           }}
         />
@@ -560,8 +497,6 @@ const VideoStep = ({
           <div className="mx-2 sm:mx-auto sm:w-[min(560px,calc(100vw-48px))]">
             <InfoCard
               card={step.card}
-              expanded={true}
-              onToggleExpanded={() => undefined}
               onClose={() => undefined}
             />
           </div>
@@ -653,15 +588,10 @@ export const InteriorTour = ({
             komfortní a praktické funkce vozu.
           </p>
 
-          {/* ------------------------------------------------------------ */}
-          {/* FINISH KEY                                                    */}
-          {/* ------------------------------------------------------------ */}
-
           <FinishKey
             onLock={onExitToExterior}
           />
 
-          {/* Znovu projít */}
           <button
             type="button"
             onClick={() => setIndex(0)}
@@ -688,7 +618,6 @@ export const InteriorTour = ({
             Projít znovu
           </button>
 
-          {/* klasické zavření aplikace zůstává oddělené */}
           <button
             type="button"
             onClick={onClose}

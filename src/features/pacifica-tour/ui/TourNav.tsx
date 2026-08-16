@@ -1,5 +1,6 @@
 import { Eye, EyeOff, Maximize2, Minimize2, Orbit, RotateCcw, X } from "lucide-react";
 import { BODY_COLORS, MODEL_ATTRIBUTION } from "../data/tourData";
+import ARPreviewButton from "../ar/ARPreviewButton";
 
 type Props = {
   onReset: () => void;
@@ -64,6 +65,7 @@ export const TourNav = ({
         <button type="button" onClick={onReset} aria-label="Reset pohledu" className={iconBtn}>
           <RotateCcw className="h-4 w-4" />
         </button>
+        <ARPreviewButton />
         <button
           type="button"
           onClick={onToggleFullscreen}

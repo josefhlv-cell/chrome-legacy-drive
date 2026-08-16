@@ -91,15 +91,18 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
       className="
         pointer-events-auto
         absolute
-        right-4
-        bottom-[104px]
         z-30
         flex
         flex-col
         items-center
-        sm:right-6
-        sm:bottom-[112px]
       "
+      style={{
+        // Responsivní pozice: co nejblíž pravému okraji, ale nikdy oříznuté
+        // a vždy nad safe-area i nad spodním ovládáním.
+        right: "max(0.25rem, env(safe-area-inset-right))",
+        bottom:
+          "calc(env(safe-area-inset-bottom) + clamp(96px, 13vh, 120px))",
+      }}
     >
       {/* Label above key */}
       <div
@@ -111,12 +114,12 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
           border
           border-white/10
           bg-black/70
-          px-3
-          py-1.5
-          text-[9px]
+          px-2.5
+          py-1
+          text-[8px]
           font-medium
           uppercase
-          tracking-[0.16em]
+          tracking-[0.14em]
           text-white/85
           shadow-lg
           backdrop-blur-md
@@ -126,7 +129,14 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
       </div>
 
       {/* Key */}
-      <div className="relative h-[190px] w-[122px] sm:h-[220px] sm:w-[142px]">
+      <div
+        className="relative"
+        style={{
+          // ~18 % menší než původní 122 × 190 / 142 × 220 px.
+          width: "clamp(88px, 24vw, 116px)",
+          aspectRatio: "122 / 190",
+        }}
+      >
         <img
           src={KEY_ASSET}
           alt="Klíč od vozu"
@@ -139,7 +149,9 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
           "
         />
 
-        {/* UNLOCK hotspot — pravé horní tlačítko */}
+        {/* UNLOCK hotspot — levé horní tlačítko (otevřený zámek).
+            Střed odpovídá skutečné pozici tlačítka v interior-key.png
+            (415/1030 ≈ 40 % šířky, 320/1540 ≈ 21 % výšky). */}
         <button
           type="button"
           onClick={(event) => {
@@ -149,11 +161,13 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
           aria-label="Odemknout prohlídku interiéru"
           className="
             absolute
-            right-[8%]
-            top-[7%]
+            left-[40%]
+            top-[21%]
+            -translate-x-1/2
+            -translate-y-1/2
             flex
-            h-14
-            w-14
+            h-12
+            w-12
             items-center
             justify-center
             rounded-full
@@ -167,8 +181,8 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
           <span
             className="
               absolute
-              h-14
-              w-14
+              h-12
+              w-12
               animate-ping
               rounded-full
               bg-primary/25
@@ -179,8 +193,8 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
           <span
             className="
               absolute
-              h-11
-              w-11
+              h-9
+              w-9
               animate-pulse
               rounded-full
               border-2
@@ -195,8 +209,8 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
             className="
               relative
               flex
-              h-7
-              w-7
+              h-6
+              w-6
               items-center
               justify-center
               rounded-full
@@ -207,7 +221,7 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-3.5 w-3.5"
+              className="h-3 w-3"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -254,7 +268,6 @@ export const PacificaShowroom = () => {
   const [selected, setSelected] =
     useState<TourHotspot | null>(null);
 
-  const [expanded, setExpanded] = useState(false);
   const [hotspotsVisible, setHotspotsVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
@@ -392,7 +405,6 @@ export const PacificaShowroom = () => {
 
       setAutoRotate(false);
       setSelected(hotspot);
-      setExpanded(false);
 
       setVisited((previous) => {
         const next = new Set(previous);
@@ -423,7 +435,6 @@ export const PacificaShowroom = () => {
 
   const backToCar = useCallback(() => {
     setSelected(null);
-    setExpanded(false);
     setFocus(null);
 
     setNonce((n) => n + 1);
@@ -437,7 +448,6 @@ export const PacificaShowroom = () => {
 
   const reset = useCallback(() => {
     setSelected(null);
-    setExpanded(false);
     setFocus(null);
     setVisited(new Set());
 
@@ -455,7 +465,6 @@ export const PacificaShowroom = () => {
 
     setAutoRotate(false);
     setSelected(null);
-    setExpanded(false);
     setFocus(null);
 
     setInterior(true);
@@ -753,12 +762,6 @@ export const PacificaShowroom = () => {
       {selected && (
         <DetailPanel
           hotspot={selected}
-          expanded={expanded}
-          onToggleExpanded={() =>
-            setExpanded(
-              (value) => !value,
-            )
-          }
           onClose={backToCar}
           onCta={
             selected.detail.cta

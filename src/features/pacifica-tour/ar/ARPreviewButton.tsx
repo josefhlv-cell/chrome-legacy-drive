@@ -33,6 +33,18 @@ const detectPlatform = (): Platform => {
   return "other";
 };
 
+/**
+ * Redmi 13 (model code 24040RN64Y) není na oficiálním seznamu
+ * certifikovaných ARCore zařízení. Zachováme AR tlačítko, ale
+ * na tomto konkrétním zařízení nespouštíme zbytečné načítání/čekání.
+ */
+const isUnsupportedRedmi13 = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+
+  const ua = navigator.userAgent || "";
+  return /24040RN64Y/i.test(ua);
+};
+
 let modelViewerLoaded = false;
 let modelViewerLoading: Promise<void> | null = null;
 
@@ -154,6 +166,13 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
 
     if (currentPlatform === "other") {
       setShowQR(true);
+      return;
+    }
+
+    if (currentPlatform === "android" && isUnsupportedRedmi13()) {
+      setStatus("unsupported");
+      setErrorReason(null);
+      setShowSheet(true);
       return;
     }
 

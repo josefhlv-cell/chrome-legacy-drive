@@ -109,16 +109,93 @@ const FinishKey = ({
           />
 
           <span
+const FinishKey = ({
+  onLock,
+}: {
+  onLock: () => void;
+}) => {
+  return (
+    <div className="pointer-events-auto fixed bottom-3 right-2 z-[60] flex flex-col items-end">
+      <div
+        className="
+          mb-1
+          whitespace-nowrap
+          rounded-full
+          border
+          border-white/10
+          bg-black/70
+          px-2.5
+          py-1
+          text-[7px]
+          font-medium
+          uppercase
+          tracking-[0.14em]
+          text-white/75
+          shadow-lg
+          backdrop-blur-md
+        "
+      >
+        Ukonči prohlídku
+      </div>
+
+      <div className="relative h-[105px] w-[68px]">
+        <img
+          src={KEY_ASSET}
+          alt="Klíč od vozu"
+          draggable={false}
+          className="
+            h-full
+            w-full
+            object-contain
+            drop-shadow-[0_10px_20px_rgba(0,0,0,0.7)]
+          "
+        />
+
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onLock();
+          }}
+          aria-label="Zamknout a ukončit prohlídku"
+          className="
+            absolute
+            left-[8%]
+            top-[7%]
+            flex
+            h-9
+            w-9
+            items-center
+            justify-center
+            rounded-full
+            touch-manipulation
+          "
+          style={{
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          <span
             className="
               absolute
-              h-11
-              w-11
+              h-9
+              w-9
+              animate-ping
+              rounded-full
+              bg-primary/25
+            "
+          />
+
+          <span
+            className="
+              absolute
+              h-7
+              w-7
               animate-pulse
               rounded-full
-              border-2
+              border
               border-primary
               bg-primary/15
-              shadow-[0_0_30px_hsl(var(--primary))]
+              shadow-[0_0_18px_hsl(var(--primary))]
             "
           />
 
@@ -126,19 +203,19 @@ const FinishKey = ({
             className="
               relative
               flex
-              h-7
-              w-7
+              h-5
+              w-5
               items-center
               justify-center
               rounded-full
               bg-primary
               text-primary-foreground
-              shadow-[0_0_22px_hsl(var(--primary))]
+              shadow-[0_0_14px_hsl(var(--primary))]
             "
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-3.5 w-3.5"
+              className="h-2.5 w-2.5"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -159,13 +236,12 @@ const FinishKey = ({
         </button>
       </div>
 
-      <p className="mt-2 text-center text-[11px] text-white/40">
+      <p className="mt-0.5 text-[7px] text-white/30">
         Zamkni prohlídku
       </p>
     </div>
   );
 };
-
 /* -------------------------------------------------------------------------- */
 /* VIDEO CARD                                                                 */
 /* -------------------------------------------------------------------------- */

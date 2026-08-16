@@ -1,12 +1,21 @@
 import type {} from "@react-three/fiber";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { Canvas, useThree } from "@react-three/fiber";
 import { Html, PerformanceMonitor, useProgress } from "@react-three/drei";
 import { useNavigate } from "react-router-dom";
 import * as THREE from "three";
+
 import Showroom from "./scene/Showroom";
 import CameraRig, { type CameraRigHandle } from "./scene/CameraRig";
 import PacificaModel, { ModelErrorBoundary } from "./model/PacificaModel";
+
 import {
   BODY_COLORS,
   DEFAULT_SHOT,
@@ -14,12 +23,19 @@ import {
   type CameraShot,
   type TourHotspot,
 } from "./data/tourData";
+
 import Hotspot3D from "./ui/Hotspot3D";
 import DetailPanel from "./ui/DetailPanel";
 import TourNav from "./ui/TourNav";
 import LoadingOverlay from "./ui/LoadingOverlay";
 import HeroIntro from "./ui/HeroIntro";
 import InteriorTour from "./interior/InteriorTour";
+
+const KEY_ASSET = "/pacifica/virtual-tour/interior-key.png";
+
+/* -------------------------------------------------------------------------- */
+/* Renderer                                                                    */
+/* -------------------------------------------------------------------------- */
 
 const RendererQuality = ({ mobile }: { mobile: boolean }) => {
   const gl = useThree((state) => state.gl);
@@ -28,11 +44,21 @@ const RendererQuality = ({ mobile }: { mobile: boolean }) => {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
     gl.toneMappingExposure = mobile ? 1.0 : 1.08;
-    gl.setPixelRatio(Math.min(window.devicePixelRatio || 1, mobile ? 1.35 : 2));
+
+    gl.setPixelRatio(
+      Math.min(
+        window.devicePixelRatio || 1,
+        mobile ? 1.35 : 2,
+      ),
+    );
   }, [gl, mobile]);
 
   return null;
 };
+
+/* -------------------------------------------------------------------------- */
+/* Loader                                                                      */
+/* -------------------------------------------------------------------------- */
 
 const Loader = () => {
   const { progress, active } = useProgress();
@@ -40,27 +66,194 @@ const Loader = () => {
 
   useEffect(() => {
     if (active) return;
+
     const t = window.setTimeout(() => setDone(true), 450);
+
     return () => window.clearTimeout(t);
   }, [active, progress]);
 
   if (done) return null;
+
   return <LoadingOverlay progress={active ? progress : 100} />;
 };
 
+/* -------------------------------------------------------------------------- */
+/* Exterior interior-key                                                      */
+/* -------------------------------------------------------------------------- */
+
+type ExteriorKeyProps = {
+  onUnlock: () => void;
+};
+
+const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
+  return (
+    <div
+      className="
+        pointer-events-auto
+        absolute
+        right-4
+        bottom-[104px]
+        z-30
+        flex
+        flex-col
+        items-center
+        sm:right-6
+        sm:bottom-[112px]
+      "
+    >
+      {/* Label above key */}
+      <div
+        className="
+          pointer-events-none
+          mb-2
+          whitespace-nowrap
+          rounded-full
+          border
+          border-white/10
+          bg-black/70
+          px-3
+          py-1.5
+          text-[9px]
+          font-medium
+          uppercase
+          tracking-[0.16em]
+          text-white/85
+          shadow-lg
+          backdrop-blur-md
+        "
+      >
+        Odemkni prohlídku interiéru
+      </div>
+
+      {/* Key */}
+      <div className="relative h-[190px] w-[122px] sm:h-[220px] sm:w-[142px]">
+        <img
+          src={KEY_ASSET}
+          alt="Klíč od vozu"
+          draggable={false}
+          className="
+            h-full
+            w-full
+            object-contain
+            drop-shadow-[0_18px_35px_rgba(0,0,0,0.65)]
+          "
+        />
+
+        {/* UNLOCK hotspot — pravé horní tlačítko */}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onUnlock();
+          }}
+          aria-label="Odemknout prohlídku interiéru"
+          className="
+            absolute
+            right-[8%]
+            top-[7%]
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            touch-manipulation
+          "
+          style={{
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          {/* pulzující kruh */}
+          <span
+            className="
+              absolute
+              h-14
+              w-14
+              animate-ping
+              rounded-full
+              bg-primary/25
+            "
+          />
+
+          {/* světelný prstenec */}
+          <span
+            className="
+              absolute
+              h-11
+              w-11
+              animate-pulse
+              rounded-full
+              border-2
+              border-primary
+              bg-primary/15
+              shadow-[0_0_28px_hsl(var(--primary))]
+            "
+          />
+
+          {/* střed */}
+          <span
+            className="
+              relative
+              flex
+              h-7
+              w-7
+              items-center
+              justify-center
+              rounded-full
+              bg-primary
+              text-primary-foreground
+              shadow-[0_0_20px_hsl(var(--primary))]
+            "
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="11"
+                width="18"
+                height="10"
+                rx="2"
+              />
+              <path d="M7 11V7a5 5 0 0 1 10 0v1" />
+            </svg>
+          </span>
+        </button>
+      </div>
+    </div>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* Main showroom                                                               */
+/* -------------------------------------------------------------------------- */
+
 export const PacificaShowroom = () => {
   const navigate = useNavigate();
+
   const wrapper = useRef<HTMLDivElement>(null);
   const rig = useRef<CameraRigHandle>(null);
 
   const [started, setStarted] = useState(false);
   const [interior, setInterior] = useState(false);
+
   const [focus, setFocus] = useState<{
     position: [number, number, number];
     target: [number, number, number];
   } | null>(null);
+
   const [nonce, setNonce] = useState(0);
-  const [selected, setSelected] = useState<TourHotspot | null>(null);
+
+  const [selected, setSelected] =
+    useState<TourHotspot | null>(null);
+
   const [expanded, setExpanded] = useState(false);
   const [hotspotsVisible, setHotspotsVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
@@ -70,12 +263,20 @@ export const PacificaShowroom = () => {
   const [dpr, setDpr] = useState(1.35);
   const [flash, setFlash] = useState(false);
   const [fit, setFit] = useState(1);
-  const [visited, setVisited] = useState<Set<string>>(() => new Set());
+
+  const [visited, setVisited] = useState<Set<string>>(
+    () => new Set(),
+  );
 
   const bodyColor = useMemo(
-    () => BODY_COLORS.find((c) => c.key === colorKey)?.hex ?? null,
+    () =>
+      BODY_COLORS.find((c) => c.key === colorKey)?.hex ?? null,
     [colorKey],
   );
+
+  /* ---------------------------------------------------------------------- */
+  /* Mobile                                                                  */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     const check = () => {
@@ -88,6 +289,7 @@ export const PacificaShowroom = () => {
     };
 
     check();
+
     window.addEventListener("resize", check);
     window.addEventListener("orientationchange", check);
 
@@ -97,18 +299,29 @@ export const PacificaShowroom = () => {
     };
   }, []);
 
+  /* ---------------------------------------------------------------------- */
+  /* Camera fit                                                              */
+  /* ---------------------------------------------------------------------- */
+
   useEffect(() => {
     const compute = () => {
-      const aspect = window.innerWidth / Math.max(1, window.innerHeight);
+      const aspect =
+        window.innerWidth /
+        Math.max(1, window.innerHeight);
+
       setFit(
-        aspect < 0.75 ? 1.72 :
-        aspect < 1 ? 1.48 :
-        aspect < 1.35 ? 1.14 :
-        1,
+        aspect < 0.75
+          ? 1.72
+          : aspect < 1
+            ? 1.48
+            : aspect < 1.35
+              ? 1.14
+              : 1,
       );
     };
 
     compute();
+
     window.addEventListener("resize", compute);
     window.addEventListener("orientationchange", compute);
 
@@ -120,7 +333,11 @@ export const PacificaShowroom = () => {
 
   const shot = useMemo<CameraShot>(() => {
     const raw = focus
-      ? { ...DEFAULT_SHOT, position: focus.position, target: focus.target }
+      ? {
+          ...DEFAULT_SHOT,
+          position: focus.position,
+          target: focus.target,
+        }
       : DEFAULT_SHOT;
 
     if (fit === 1) return raw;
@@ -139,61 +356,118 @@ export const PacificaShowroom = () => {
     };
   }, [focus, fit]);
 
+  /* ---------------------------------------------------------------------- */
+  /* Idle rotation                                                           */
+  /* ---------------------------------------------------------------------- */
+
   const idleTimer = useRef<number>();
 
   const scheduleIdle = useCallback(() => {
     window.clearTimeout(idleTimer.current);
+
     setAutoRotate(false);
-    idleTimer.current = window.setTimeout(() => setAutoRotate(true), 3500);
+
+    idleTimer.current = window.setTimeout(
+      () => setAutoRotate(true),
+      3500,
+    );
   }, []);
 
   useEffect(() => {
     if (!started) return;
+
     scheduleIdle();
-    return () => window.clearTimeout(idleTimer.current);
+
+    return () =>
+      window.clearTimeout(idleTimer.current);
   }, [started, scheduleIdle]);
 
-  const selectHotspot = useCallback((hotspot: TourHotspot) => {
-    window.clearTimeout(idleTimer.current);
-    setAutoRotate(false);
-    setSelected(hotspot);
-    setExpanded(false);
+  /* ---------------------------------------------------------------------- */
+  /* Hotspots                                                                */
+  /* ---------------------------------------------------------------------- */
 
-    setVisited((previous) => {
-      const next = new Set(previous);
-      next.add(hotspot.id);
-      return next;
-    });
+  const selectHotspot = useCallback(
+    (hotspot: TourHotspot) => {
+      window.clearTimeout(idleTimer.current);
 
-    setFocus({
-      position: hotspot.focus.position,
-      target: hotspot.focus.lookAt,
-    });
+      setAutoRotate(false);
+      setSelected(hotspot);
+      setExpanded(false);
 
-    setNonce((n) => n + 1);
-    setFlash(true);
-    window.setTimeout(() => setFlash(false), 360);
-  }, []);
+      setVisited((previous) => {
+        const next = new Set(previous);
+        next.add(hotspot.id);
+        return next;
+      });
+
+      setFocus({
+        position: hotspot.focus.position,
+        target: hotspot.focus.lookAt,
+      });
+
+      setNonce((n) => n + 1);
+
+      setFlash(true);
+
+      window.setTimeout(
+        () => setFlash(false),
+        360,
+      );
+    },
+    [],
+  );
+
+  /* ---------------------------------------------------------------------- */
+  /* Back to car                                                             */
+  /* ---------------------------------------------------------------------- */
 
   const backToCar = useCallback(() => {
     setSelected(null);
     setExpanded(false);
     setFocus(null);
+
     setNonce((n) => n + 1);
+
     scheduleIdle();
   }, [scheduleIdle]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Reset                                                                   */
+  /* ---------------------------------------------------------------------- */
 
   const reset = useCallback(() => {
     setSelected(null);
     setExpanded(false);
     setFocus(null);
     setVisited(new Set());
+
     setNonce((n) => n + 1);
+
     scheduleIdle();
   }, [scheduleIdle]);
 
+  /* ---------------------------------------------------------------------- */
+  /* Unlock interior                                                         */
+  /* ---------------------------------------------------------------------- */
+
+  const unlockInterior = useCallback(() => {
+    window.clearTimeout(idleTimer.current);
+
+    setAutoRotate(false);
+    setSelected(null);
+    setExpanded(false);
+    setFocus(null);
+
+    setInterior(true);
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Fullscreen                                                              */
+  /* ---------------------------------------------------------------------- */
+
   const toggleFullscreen = useCallback(() => {
     const element = wrapper.current;
+
     if (!element) return;
 
     if (document.fullscreenElement) {
@@ -204,10 +478,24 @@ export const PacificaShowroom = () => {
   }, []);
 
   useEffect(() => {
-    const onChange = () => setFullscreen(!!document.fullscreenElement);
-    document.addEventListener("fullscreenchange", onChange);
-    return () => document.removeEventListener("fullscreenchange", onChange);
+    const onChange = () =>
+      setFullscreen(!!document.fullscreenElement);
+
+    document.addEventListener(
+      "fullscreenchange",
+      onChange,
+    );
+
+    return () =>
+      document.removeEventListener(
+        "fullscreenchange",
+        onChange,
+      );
   }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Keyboard                                                                */
+  /* ---------------------------------------------------------------------- */
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -218,14 +506,31 @@ export const PacificaShowroom = () => {
         return;
       }
 
-      if (started && !document.fullscreenElement) {
+      if (
+        started &&
+        !document.fullscreenElement
+      ) {
         navigate("/");
       }
     };
 
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [selected, started, navigate, backToCar]);
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        onKey,
+      );
+  }, [
+    selected,
+    started,
+    navigate,
+    backToCar,
+  ]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Hero                                                                    */
+  /* ---------------------------------------------------------------------- */
 
   if (!started) {
     return (
@@ -235,6 +540,10 @@ export const PacificaShowroom = () => {
       />
     );
   }
+
+  /* ---------------------------------------------------------------------- */
+  /* Interior                                                                */
+  /* ---------------------------------------------------------------------- */
 
   if (interior) {
     return (
@@ -248,10 +557,24 @@ export const PacificaShowroom = () => {
     );
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* Exterior                                                                */
+  /* ---------------------------------------------------------------------- */
+
   return (
     <div
       ref={wrapper}
-      className="fixed inset-0 overflow-hidden bg-[#05070b] select-none touch-none animate-in fade-in duration-500"
+      className="
+        fixed
+        inset-0
+        select-none
+        touch-none
+        overflow-hidden
+        bg-[#05070b]
+        animate-in
+        fade-in
+        duration-500
+      "
     >
       <Canvas
         shadows={!isMobile}
@@ -269,20 +592,41 @@ export const PacificaShowroom = () => {
           near: 0.1,
           far: 120,
         }}
-        onPointerMissed={() => selected && backToCar()}
-        style={{ touchAction: "none" }}
+        onPointerMissed={() =>
+          selected && backToCar()
+        }
+        style={{
+          touchAction: "none",
+        }}
       >
         <RendererQuality mobile={isMobile} />
 
-        <color attach="background" args={["#05070b"]} />
+        <color
+          attach="background"
+          args={["#05070b"]}
+        />
 
         <PerformanceMonitor
-          bounds={() => (isMobile ? [38, 58] : [50, 60])}
+          bounds={() =>
+            isMobile
+              ? [38, 58]
+              : [50, 60]
+          }
           onDecline={() =>
-            setDpr((value) => Math.max(isMobile ? 0.9 : 1.25, value - 0.15))
+            setDpr((value) =>
+              Math.max(
+                isMobile ? 0.9 : 1.25,
+                value - 0.15,
+              ),
+            )
           }
           onIncline={() =>
-            setDpr((value) => Math.min(isMobile ? 1.35 : 2, value + 0.1))
+            setDpr((value) =>
+              Math.min(
+                isMobile ? 1.35 : 2,
+                value + 0.1,
+              ),
+            )
           }
         />
 
@@ -295,10 +639,20 @@ export const PacificaShowroom = () => {
                 <p className="text-xs text-white/80">
                   3D model se nepodařilo načíst.
                 </p>
+
                 <button
                   type="button"
                   onClick={retry}
-                  className="mt-3 h-10 w-full rounded-full bg-primary text-primary-foreground text-xs font-semibold"
+                  className="
+                    mt-3
+                    h-10
+                    w-full
+                    rounded-full
+                    bg-primary
+                    text-xs
+                    font-semibold
+                    text-primary-foreground
+                  "
                 >
                   Zkusit znovu
                 </button>
@@ -307,7 +661,9 @@ export const PacificaShowroom = () => {
           )}
         >
           <Suspense fallback={null}>
-            <PacificaModel bodyColor={bodyColor} />
+            <PacificaModel
+              bodyColor={bodyColor}
+            />
           </Suspense>
         </ModelErrorBoundary>
 
@@ -315,7 +671,9 @@ export const PacificaShowroom = () => {
           ref={rig}
           shot={shot}
           nonce={nonce}
-          autoRotate={autoRotate && !selected}
+          autoRotate={
+            autoRotate && !selected
+          }
           onUserInteract={scheduleIdle}
         />
 
@@ -324,45 +682,89 @@ export const PacificaShowroom = () => {
             <Hotspot3D
               key={hotspot.id}
               hotspot={hotspot}
-              active={selected?.id === hotspot.id}
-              visited={visited.has(hotspot.id)}
+              active={
+                selected?.id === hotspot.id
+              }
+              visited={visited.has(
+                hotspot.id,
+              )}
               onSelect={selectHotspot}
             />
           ))}
       </Canvas>
 
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.5)_100%)]" />
+      {/* Vignette */}
+      <div
+        className="
+          pointer-events-none
+          absolute
+          inset-0
+          bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.5)_100%)]
+        "
+      />
 
+      {/* Flash */}
       <div
         className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-300 ${
-          flash ? "opacity-[0.06]" : "opacity-0"
+          flash
+            ? "opacity-[0.06]"
+            : "opacity-0"
         }`}
       />
 
+      {/* -------------------------------------------------------------- */}
+      {/* NOVÝ KLÍČ — pevně v exteriéru                                  */}
+      {/* -------------------------------------------------------------- */}
+
+      <ExteriorKey
+        onUnlock={unlockInterior}
+      />
+
+      {/* Navigation */}
       <TourNav
         onReset={reset}
         hotspotsVisible={hotspotsVisible}
-        onToggleHotspots={() => setHotspotsVisible((value) => !value)}
+        onToggleHotspots={() =>
+          setHotspotsVisible(
+            (value) => !value,
+          )
+        }
         fullscreen={fullscreen}
-        onToggleFullscreen={toggleFullscreen}
+        onToggleFullscreen={
+          toggleFullscreen
+        }
         onClose={() => navigate("/")}
         autoRotate={autoRotate}
         onToggleAutoRotate={() => {
-          window.clearTimeout(idleTimer.current);
-          setAutoRotate((value) => !value);
+          window.clearTimeout(
+            idleTimer.current,
+          );
+
+          setAutoRotate(
+            (value) => !value,
+          );
         }}
         colorKey={colorKey}
         onColor={setColorKey}
         sheetOpen={!!selected}
       />
 
+      {/* Detail panel */}
       {selected && (
         <DetailPanel
           hotspot={selected}
           expanded={expanded}
-          onToggleExpanded={() => setExpanded((value) => !value)}
+          onToggleExpanded={() =>
+            setExpanded(
+              (value) => !value,
+            )
+          }
           onClose={backToCar}
-          onCta={selected.detail.cta ? () => setInterior(true) : undefined}
+          onCta={
+            selected.detail.cta
+              ? () => setInterior(true)
+              : undefined
+          }
         />
       )}
 

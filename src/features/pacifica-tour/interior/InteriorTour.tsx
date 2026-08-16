@@ -29,7 +29,7 @@ const btnGhost =
   "h-12 rounded-full border border-white/15 bg-black/35 text-white text-[13px] font-semibold px-5 flex items-center justify-center gap-2 backdrop-blur-md transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.985]";
 
 /* -------------------------------------------------------------------------- */
-/* KEY — FINISH / EXIT                                                       */
+/* FINISH KEY                                                                */
 /* -------------------------------------------------------------------------- */
 
 const FinishKey = ({
@@ -38,87 +38,10 @@ const FinishKey = ({
   onLock: () => void;
 }) => {
   return (
-    <div className="mt-8 flex flex-col items-center">
+    <div className="absolute bottom-5 right-4 z-30 flex flex-col items-center sm:bottom-6 sm:right-6">
       <div
         className="
-          mb-3
-          whitespace-nowrap
-          rounded-full
-          border
-          border-white/10
-          bg-black/70
-          px-4
-          py-2
-          text-[9px]
-          font-medium
-          uppercase
-          tracking-[0.18em]
-          text-white/85
-          shadow-lg
-          backdrop-blur-md
-        "
-      >
-        Ukonči prohlídku
-      </div>
-
-      <div className="relative h-[240px] w-[155px]">
-        <img
-          src={KEY_ASSET}
-          alt="Klíč od vozu"
-          draggable={false}
-          className="
-            h-full
-            w-full
-            object-contain
-            drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)]
-          "
-        />
-
-        <button
-          type="button"
-          onClick={(event) => {
-            event.stopPropagation();
-            onLock();
-          }}
-          aria-label="Zamknout a ukončit prohlídku"
-          className="
-            absolute
-            left-[8%]
-            top-[7%]
-            flex
-            h-14
-            w-14
-            items-center
-            justify-center
-            rounded-full
-            touch-manipulation
-          "
-          style={{
-            WebkitTapHighlightColor: "transparent",
-          }}
-        >
-          <span
-            className="
-              absolute
-              h-14
-              w-14
-              animate-ping
-              rounded-full
-              bg-primary/25
-            "
-          />
-
-          <span
-const FinishKey = ({
-  onLock,
-}: {
-  onLock: () => void;
-}) => {
-  return (
-    <div className="pointer-events-auto fixed bottom-3 right-2 z-[60] flex flex-col items-end">
-      <div
-        className="
-          mb-1
+          mb-1.5
           whitespace-nowrap
           rounded-full
           border
@@ -138,7 +61,7 @@ const FinishKey = ({
         Ukonči prohlídku
       </div>
 
-      <div className="relative h-[105px] w-[68px]">
+      <div className="relative h-[110px] w-[70px]">
         <img
           src={KEY_ASSET}
           alt="Klíč od vozu"
@@ -147,7 +70,7 @@ const FinishKey = ({
             h-full
             w-full
             object-contain
-            drop-shadow-[0_10px_20px_rgba(0,0,0,0.7)]
+            drop-shadow-[0_12px_24px_rgba(0,0,0,0.75)]
           "
         />
 
@@ -236,12 +159,13 @@ const FinishKey = ({
         </button>
       </div>
 
-      <p className="mt-0.5 text-[7px] text-white/30">
+      <p className="mt-0.5 text-center text-[7px] text-white/30">
         Zamkni prohlídku
       </p>
     </div>
   );
 };
+
 /* -------------------------------------------------------------------------- */
 /* VIDEO CARD                                                                 */
 /* -------------------------------------------------------------------------- */
@@ -290,12 +214,51 @@ const InfoCard = ({
   onClose: () => void;
 }) => {
   return (
-    <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 max-h-[78vh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#111925]/98 p-5 pb-6 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[78vh] sm:rounded-[28px]">
+    <div
+      className="
+        pointer-events-auto
+        absolute
+        inset-x-0
+        bottom-[5.9rem]
+        z-50
+        max-h-[78vh]
+        overflow-y-auto
+        overscroll-contain
+        rounded-t-[28px]
+        border
+        border-white/10
+        bg-[#111925]/98
+        p-5
+        pb-6
+        shadow-2xl
+        backdrop-blur-xl
+        sm:inset-x-auto
+        sm:right-6
+        sm:bottom-24
+        sm:w-[min(560px,calc(100vw-48px))]
+        sm:max-h-[78vh]
+        sm:rounded-[28px]
+      "
+    >
       <button
         type="button"
         onClick={onClose}
         aria-label="Zavřít kartu"
-        className="absolute right-4 top-4 grid h-10 w-10 place-items-center rounded-full border border-white/10 bg-white/[0.02] text-2xl text-white/70"
+        className="
+          absolute
+          right-4
+          top-4
+          grid
+          h-10
+          w-10
+          place-items-center
+          rounded-full
+          border
+          border-white/10
+          bg-white/[0.02]
+          text-2xl
+          text-white/70
+        "
       >
         ×
       </button>
@@ -369,30 +332,15 @@ const PhotoStep = ({
   const [openCard, setOpenCard] =
     useState<TourCard | null>(null);
 
-  const [zoom, setZoom] = useState<{
-    x: number;
-    y: number;
-  } | null>(null);
-
   const [mode, setMode] = useState(
     CONFIG_MODES[0].key,
   );
 
   useEffect(() => {
     /*
-     * Front-console intro se otevře automaticky.
-     * Všechny ostatní karty se otevřou po kliknutí
-     * na příslušný hotspot.
-     *
-     * Karta je nyní vždy kompletně rozbalená.
+     * Každý krok, který má intro, ho otevře automaticky.
      */
-    setOpenCard(
-      step.id === "front-console"
-        ? step.intro ?? null
-        : null,
-    );
-
-    setZoom(null);
+    setOpenCard(step.intro ?? null);
     setMode(CONFIG_MODES[0].key);
   }, [step]);
 
@@ -400,12 +348,10 @@ const PhotoStep = ({
     (hotspot: PhotoHotspot) => {
       if (hotspot.card) {
         /*
-         * DŮLEŽITÉ:
-         * Karta se vždy otevře rovnou v plném režimu.
-         * Už zde není setExpanded(false).
+         * Hotspotová karta se vždy otevře kompletní.
+         * Hodnota collapsible se záměrně ignoruje.
          */
         setOpenCard(hotspot.card);
-        setZoom(null);
         return;
       }
 
@@ -425,7 +371,17 @@ const PhotoStep = ({
     <>
       <div className="absolute inset-0 flex items-center justify-center p-2 pb-24 md:p-6 md:pb-28">
         <div
-          className="relative w-full max-h-full overflow-hidden rounded-2xl border border-white/8 bg-black/40 shadow-[0_30px_80px_rgba(0,0,0,0.6)]"
+          className="
+            relative
+            w-full
+            max-h-full
+            overflow-hidden
+            rounded-2xl
+            border
+            border-white/8
+            bg-black/40
+            shadow-[0_30px_80px_rgba(0,0,0,0.6)]
+          "
           style={{
             aspectRatio: "4 / 3",
             maxWidth:
@@ -447,7 +403,18 @@ const PhotoStep = ({
                 type="button"
                 onClick={() => pick(hotspot)}
                 aria-label={hotspot.label}
-                className="group absolute -translate-x-1/2 -translate-y-1/2 flex min-h-[44px] min-w-[44px] items-center gap-2 p-2"
+                className="
+                  group
+                  absolute
+                  -translate-x-1/2
+                  -translate-y-1/2
+                  flex
+                  min-h-[44px]
+                  min-w-[44px]
+                  items-center
+                  gap-2
+                  p-2
+                "
                 style={{
                   left: `${hotspot.x}%`,
                   top: `${hotspot.y}%`,
@@ -499,10 +466,7 @@ const PhotoStep = ({
       {openCard && (
         <InfoCard
           card={openCard}
-          onClose={() => {
-            setOpenCard(null);
-            setZoom(null);
-          }}
+          onClose={() => setOpenCard(null)}
         />
       )}
     </>
@@ -521,13 +485,9 @@ const VideoStep = ({
   const [needsPlay, setNeedsPlay] =
     useState(true);
 
-  const [ended, setEnded] =
-    useState(false);
-
   useEffect(() => {
     setNeedsPlay(true);
-    setEnded(false);
-  }, [step]);
+  }, [step.src]);
 
   return (
     <>
@@ -540,7 +500,6 @@ const VideoStep = ({
             playsInline
             preload="metadata"
             onPlay={() => setNeedsPlay(false)}
-            onEnded={() => setEnded(true)}
             className="h-auto w-full"
           />
 
@@ -568,16 +527,11 @@ const VideoStep = ({
         </div>
       </div>
 
-      {ended && (
-        <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 sm:bottom-24">
-          <div className="mx-2 sm:mx-auto sm:w-[min(560px,calc(100vw-48px))]">
-            <InfoCard
-              card={step.card}
-              onClose={() => undefined}
-            />
-          </div>
-        </div>
-      )}
+      {/* Video karta je otevřená automaticky. */}
+      <InfoCard
+        card={step.card}
+        onClose={() => undefined}
+      />
     </>
   );
 };
@@ -644,13 +598,13 @@ export const InteriorTour = ({
   }, [next, back, onClose]);
 
   /* ---------------------------------------------------------------------- */
-  /* FINISH PAGE                                                             */
+  /* FINISH                                                                  */
   /* ---------------------------------------------------------------------- */
 
   if (step.kind === "done") {
     return (
       <div className="fixed inset-0 z-50 overflow-hidden bg-[#05070b] px-6 animate-in fade-in duration-500">
-        <div className="flex min-h-full flex-col items-center justify-center">
+        <div className="flex min-h-full flex-col items-center justify-center pb-8">
           <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/15 ring-1 ring-primary/40">
             <Check className="h-6 w-6 text-primary" />
           </span>
@@ -664,15 +618,12 @@ export const InteriorTour = ({
             komfortní a praktické funkce vozu.
           </p>
 
-          <FinishKey
-            onLock={onExitToExterior}
-          />
-
+          {/* Znovu projít zůstává uprostřed a není pod klíčem. */}
           <button
             type="button"
             onClick={() => setIndex(0)}
             className="
-              mt-7
+              mt-8
               flex
               h-11
               items-center
@@ -715,12 +666,17 @@ export const InteriorTour = ({
             Zavřít
           </button>
         </div>
+
+        {/* Klíč je samostatně v pravém dolním rohu. */}
+        <FinishKey
+          onLock={onExitToExterior}
+        />
       </div>
     );
   }
 
   /* ---------------------------------------------------------------------- */
-  /* NORMAL INTERIOR                                                        */
+  /* NORMAL INTERIOR                                                         */
   /* ---------------------------------------------------------------------- */
 
   return (

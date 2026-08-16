@@ -42,7 +42,7 @@ export const HeroIntro = ({ onStart, onClose }: Props) => (
         Chrysler <span className="italic">Pacifica</span>
       </h1>
       <p className="mt-3 max-w-md text-sm md:text-base leading-relaxed text-white/70">
-        Prémiový rodinný van pro sedm cestujících. Prohlédněte si vůz ve 3D — otevřete posuvné dveře,
+        Prémiový rodinný van pro sedm až osm cestujících. Prohlédněte si vůz ve 3D — otevřete posuvné dveře,
         páté dveře i kapotu a projděte si interiér řada po řadě.
       </p>
 

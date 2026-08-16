@@ -135,26 +135,6 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     id: "uconnect",
     src: uconnect,
     alt: "Detail dotykového systému Uconnect a středové konzoly",
-    intro: {
-      eyebrow: "Krok 2 — Ovládání",
-      title: "Uconnect 360",
-      text:
-        "Centrální dotykový systém sdružuje funkce rádia, médií, telefonu a nastavení vozidla. Karta obsahuje také reálné video systému 360° kamer konkrétního vozu.",
-      bullets: [
-        "Dotykový displej ve středu palubní desky",
-        "Systém 360° kamer podle výbavy vozu",
-        "Pod displejem fyzická tlačítka a ovladače klimatizace",
-        "Rozsah funkcí podle konkrétní výbavy",
-      ],
-      note: EQUIP_NOTE,
-      collapsible: true,
-      videos: [
-        {
-          src: camera360Video,
-          caption: "360° kamery — reálné video konkrétního vozu",
-        },
-      ],
-    },
     hotspots: [
       {
         id: "uconnect-360",

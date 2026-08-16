@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
   Check,
-  Play,
   X,
 } from "lucide-react";
 import {
@@ -38,7 +37,13 @@ const FinishKey = ({
   onLock: () => void;
 }) => {
   return (
-    <div className="absolute bottom-5 right-4 z-30 flex flex-col items-center sm:bottom-6 sm:right-6">
+    <div
+      className="pointer-events-auto absolute z-30 flex flex-col items-center"
+      style={{
+        right: "max(0.25rem, env(safe-area-inset-right))",
+        bottom: "calc(env(safe-area-inset-bottom) + 0.75rem)",
+      }}
+    >
       <div
         className="
           mb-1.5
@@ -61,7 +66,14 @@ const FinishKey = ({
         Ukonči prohlídku
       </div>
 
-      <div className="relative h-[110px] w-[70px]">
+      <div
+        className="relative"
+        style={{
+          // Stejné zmenšené proporce jako klíč v exteriéru.
+          width: "clamp(88px, 24vw, 116px)",
+          aspectRatio: "122 / 190",
+        }}
+      >
         <img
           src={KEY_ASSET}
           alt="Klíč od vozu"
@@ -74,6 +86,8 @@ const FinishKey = ({
           "
         />
 
+        {/* LOCK hotspot — pravé horní tlačítko (zavřený zámek).
+            615/1030 ≈ 60 % šířky, 320/1540 ≈ 21 % výšky. */}
         <button
           type="button"
           onClick={(event) => {
@@ -83,11 +97,13 @@ const FinishKey = ({
           aria-label="Zamknout a ukončit prohlídku"
           className="
             absolute
-            left-[8%]
-            top-[7%]
+            left-[60%]
+            top-[21%]
+            -translate-x-1/2
+            -translate-y-1/2
             flex
-            h-9
-            w-9
+            h-12
+            w-12
             items-center
             justify-center
             rounded-full
@@ -100,8 +116,8 @@ const FinishKey = ({
           <span
             className="
               absolute
-              h-9
-              w-9
+              h-12
+              w-12
               animate-ping
               rounded-full
               bg-primary/25
@@ -111,8 +127,8 @@ const FinishKey = ({
           <span
             className="
               absolute
-              h-7
-              w-7
+              h-9
+              w-9
               animate-pulse
               rounded-full
               border
@@ -126,8 +142,8 @@ const FinishKey = ({
             className="
               relative
               flex
-              h-5
-              w-5
+              h-6
+              w-6
               items-center
               justify-center
               rounded-full
@@ -138,7 +154,7 @@ const FinishKey = ({
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-2.5 w-2.5"
+              className="h-3 w-3"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -158,10 +174,6 @@ const FinishKey = ({
           </span>
         </button>
       </div>
-
-      <p className="mt-0.5 text-center text-[7px] text-white/30">
-        Zamkni prohlídku
-      </p>
     </div>
   );
 };
@@ -169,6 +181,50 @@ const FinishKey = ({
 /* -------------------------------------------------------------------------- */
 /* VIDEO CARD                                                                 */
 /* -------------------------------------------------------------------------- */
+
+const AutoVideo = ({
+  video,
+  className,
+}: {
+  video: TourVideo;
+  className?: string;
+}) => {
+  const ref = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    const element = ref.current;
+    if (!element) return;
+
+    // Karta se právě otevřela → přehraj vždy od začátku.
+    element.currentTime = 0;
+    element.muted = true;
+    void element.play().catch(() => undefined);
+
+    return () => {
+      element.pause();
+    };
+  }, [video.src]);
+
+  return (
+    <video
+      ref={ref}
+      key={video.src}
+      className={
+        className ??
+        "block max-h-[38vh] w-full bg-black object-contain"
+      }
+      src={video.src}
+      poster={video.poster}
+      controls
+      autoPlay
+      muted
+      playsInline
+      preload="auto"
+      controlsList="nodownload"
+      aria-label={video.caption ?? "Video"}
+    />
+  );
+};
 
 const VideoCardMedia = ({
   videos,
@@ -181,16 +237,7 @@ const VideoCardMedia = ({
         key={video.src}
         className="overflow-hidden rounded-2xl border border-white/10 bg-black/60"
       >
-        <video
-          className="block max-h-[38vh] w-full bg-black object-contain"
-          src={video.src}
-          poster={video.poster}
-          controls
-          playsInline
-          preload="metadata"
-          controlsList="nodownload"
-          aria-label={video.caption ?? "Video"}
-        />
+        <AutoVideo video={video} />
 
         {video.caption && (
           <div className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/45">
@@ -215,6 +262,7 @@ const InfoCard = ({
 }) => {
   return (
     <div
+      key={card.title}
       className="
         pointer-events-auto
         absolute
@@ -482,48 +530,14 @@ const VideoStep = ({
 }: {
   step: Extract<InteriorStep, { kind: "video" }>;
 }) => {
-  const [needsPlay, setNeedsPlay] =
-    useState(true);
-
-  useEffect(() => {
-    setNeedsPlay(true);
-  }, [step.src]);
-
   return (
     <>
       <div className="absolute inset-0 flex items-center justify-center p-2 pb-24 md:p-6 md:pb-28">
         <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-white/8 bg-black shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
-          <video
-            key={step.src}
-            src={step.src}
-            controls
-            playsInline
-            preload="metadata"
-            onPlay={() => setNeedsPlay(false)}
+          <AutoVideo
+            video={{ src: step.src }}
             className="h-auto w-full"
           />
-
-          {needsPlay && (
-            <button
-              type="button"
-              onClick={(event) => {
-                const video =
-                  event.currentTarget
-                    .previousElementSibling as
-                    | HTMLVideoElement
-                    | null;
-
-                void video?.play();
-                setNeedsPlay(false);
-              }}
-              aria-label="Přehrát video"
-              className="pointer-events-none absolute inset-0 grid place-items-center bg-transparent"
-            >
-              <span className="pointer-events-auto grid h-14 w-14 place-items-center rounded-full bg-primary shadow-xl">
-                <Play className="h-6 w-6 text-primary-foreground" />
-              </span>
-            </button>
-          )}
         </div>
       </div>
 

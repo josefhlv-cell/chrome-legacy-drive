@@ -4,7 +4,6 @@ import {
   ArrowRight,
   Check,
   Play,
-  RotateCcw,
   X,
 } from "lucide-react";
 import {
@@ -21,13 +20,170 @@ type Props = {
   onClose: () => void;
 };
 
+const KEY_ASSET = "/pacifica/virtual-tour/interior-key.png";
+
 const btnPrimary =
   "h-12 rounded-full bg-primary text-primary-foreground text-[13px] font-semibold px-6 flex items-center justify-center gap-2 transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.985]";
 
 const btnGhost =
   "h-12 rounded-full border border-white/15 bg-black/35 text-white text-[13px] font-semibold px-5 flex items-center justify-center gap-2 backdrop-blur-md transition hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-[0.985]";
 
-const VideoCardMedia = ({ videos }: { videos: TourVideo[] }) => (
+/* -------------------------------------------------------------------------- */
+/* KEY — FINISH / EXIT PLACEHOLDER                                           */
+/* -------------------------------------------------------------------------- */
+
+const FinishKey = ({
+  onLock,
+}: {
+  onLock: () => void;
+}) => {
+  return (
+    <div className="mt-8 flex flex-col items-center">
+      <div
+        className="
+          mb-3
+          whitespace-nowrap
+          rounded-full
+          border
+          border-white/10
+          bg-black/70
+          px-4
+          py-2
+          text-[9px]
+          font-medium
+          uppercase
+          tracking-[0.18em]
+          text-white/85
+          shadow-lg
+          backdrop-blur-md
+        "
+      >
+        Ukonči prohlídku
+      </div>
+
+      <div className="relative h-[240px] w-[155px]">
+        <img
+          src={KEY_ASSET}
+          alt="Klíč od vozu"
+          draggable={false}
+          className="
+            h-full
+            w-full
+            object-contain
+            drop-shadow-[0_20px_40px_rgba(0,0,0,0.7)]
+          "
+        />
+
+        {/*
+         * LOCK BUTTON
+         *
+         * Levé horní tlačítko klíče.
+         * Pulsuje jako jediný aktivní hotspot.
+         */}
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            onLock();
+          }}
+          aria-label="Zamknout a ukončit prohlídku"
+          className="
+            absolute
+            left-[8%]
+            top-[7%]
+            flex
+            h-14
+            w-14
+            items-center
+            justify-center
+            rounded-full
+            touch-manipulation
+          "
+          style={{
+            WebkitTapHighlightColor: "transparent",
+          }}
+        >
+          {/* Vnější pulz */}
+          <span
+            className="
+              absolute
+              h-14
+              w-14
+              animate-ping
+              rounded-full
+              bg-primary/25
+            "
+          />
+
+          {/* Světelný prstenec */}
+          <span
+            className="
+              absolute
+              h-11
+              w-11
+              animate-pulse
+              rounded-full
+              border-2
+              border-primary
+              bg-primary/15
+              shadow-[0_0_30px_hsl(var(--primary))]
+            "
+          />
+
+          {/* Střed */}
+          <span
+            className="
+              relative
+              flex
+              h-7
+              w-7
+              items-center
+              justify-center
+              rounded-full
+              bg-primary
+              text-primary-foreground
+              shadow-[0_0_22px_hsl(var(--primary))]
+            "
+          >
+            <svg
+              viewBox="0 0 24 24"
+              className="h-3.5 w-3.5"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <rect
+                x="3"
+                y="11"
+                width="18"
+                height="10"
+                rx="2"
+              />
+              <path d="M7 11V7a5 5 0 0 1 10 0v1" />
+            </svg>
+          </span>
+        </button>
+      </div>
+
+      <p className="mt-2 text-center text-[11px] text-white/40">
+        Zamkni prohlídku
+      </p>
+    </div>
+  );
+};
+
+/* -------------------------------------------------------------------------- */
+/* VIDEO CARD                                                                 */
+/* -------------------------------------------------------------------------- */
+
+const VideoCardMedia = ({
+  videos,
+}: {
+  videos: TourVideo[];
+}) => (
   <div className="mt-5 space-y-4">
     {videos.map((video) => (
       <div
@@ -44,6 +200,7 @@ const VideoCardMedia = ({ videos }: { videos: TourVideo[] }) => (
           controlsList="nodownload"
           aria-label={video.caption ?? "Video"}
         />
+
         {video.caption && (
           <div className="px-3 py-2 text-[10px] uppercase tracking-[0.14em] text-white/45">
             {video.caption}
@@ -53,6 +210,10 @@ const VideoCardMedia = ({ videos }: { videos: TourVideo[] }) => (
     ))}
   </div>
 );
+
+/* -------------------------------------------------------------------------- */
+/* INFO CARD                                                                  */
+/* -------------------------------------------------------------------------- */
 
 const InfoCard = ({
   card,
@@ -67,13 +228,6 @@ const InfoCard = ({
 }) => {
   const collapsible = card.collapsible === true;
 
-  /*
-   * SBALENÁ KARTA:
-   * - zůstává malá
-   * - fotografie zůstává viditelná
-   * - video se vůbec nevyrenderuje
-   * - karta je nad spodní navigací
-   */
   if (collapsible && !expanded) {
     return (
       <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 mx-2 overflow-hidden rounded-[28px] border border-white/10 bg-[#111925]/98 p-5 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:mx-0 sm:w-[min(560px,calc(100vw-48px))]">
@@ -111,11 +265,6 @@ const InfoCard = ({
     );
   }
 
-  /*
-   * ROZBALENÁ KARTA:
-   * bottom-[5.9rem] znamená, že její spodní okraj je vždy nad
-   * spodními tlačítky Zpět / Další.
-   */
   return (
     <div className="pointer-events-auto absolute inset-x-0 bottom-[5.9rem] z-50 max-h-[78vh] overflow-y-auto overscroll-contain rounded-t-[28px] border border-white/10 bg-[#111925]/98 p-5 pb-6 shadow-2xl backdrop-blur-xl sm:inset-x-auto sm:right-6 sm:bottom-24 sm:w-[min(560px,calc(100vw-48px))] sm:max-h-[78vh] sm:rounded-[28px]">
       <button
@@ -192,6 +341,10 @@ const InfoCard = ({
   );
 };
 
+/* -------------------------------------------------------------------------- */
+/* PHOTO STEP                                                                 */
+/* -------------------------------------------------------------------------- */
+
 const PhotoStep = ({
   step,
   onAdvance,
@@ -199,22 +352,32 @@ const PhotoStep = ({
   step: Extract<InteriorStep, { kind: "photo" }>;
   onAdvance: () => void;
 }) => {
-  const [openCard, setOpenCard] = useState<TourCard | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [zoom, setZoom] = useState<{ x: number; y: number } | null>(null);
-  const [mode, setMode] = useState(CONFIG_MODES[0].key);
+  const [openCard, setOpenCard] =
+    useState<TourCard | null>(null);
+
+  const [expanded, setExpanded] =
+    useState(false);
+
+  const [zoom, setZoom] = useState<{
+    x: number;
+    y: number;
+  } | null>(null);
+
+  const [mode, setMode] = useState(
+    CONFIG_MODES[0].key,
+  );
 
   useEffect(() => {
     /*
-     * Přední konzole má vlastní intro kartu bez hotspotu.
-     * Po příchodu na tento krok ji proto otevřeme automaticky,
-     * ale vždy SBALENOU. Fotografie zůstane vidět a video 003
-     * se zobrazí až po ručním rozbalení karty.
-     *
-     * Ostatní kroky zachovávají původní chování:
-     * karta se otevře pouze po kliknutí na hotspot.
+     * Front-console intro se otevře automaticky.
+     * Ostatní karty pouze přes hotspot.
      */
-    setOpenCard(step.id === "front-console" ? (step.intro ?? null) : null);
+    setOpenCard(
+      step.id === "front-console"
+        ? step.intro ?? null
+        : null,
+    );
+
     setExpanded(false);
     setZoom(null);
     setMode(CONFIG_MODES[0].key);
@@ -223,11 +386,6 @@ const PhotoStep = ({
   const pick = useCallback(
     (hotspot: PhotoHotspot) => {
       if (hotspot.card) {
-        /*
-         * Záměrně vždy začínáme SBALENĚ.
-         * To platí i pro přístrojový štít, Uconnect 360 a rádio/Uconnect.
-         * Video se zobrazí až po ručním kliknutí na "Rozbalit detail".
-         */
         setOpenCard(hotspot.card);
         setExpanded(false);
         setZoom(null);
@@ -242,7 +400,9 @@ const PhotoStep = ({
   );
 
   const activeMode =
-    CONFIG_MODES.find((item) => item.key === mode) ?? CONFIG_MODES[0];
+    CONFIG_MODES.find(
+      (item) => item.key === mode,
+    ) ?? CONFIG_MODES[0];
 
   return (
     <>
@@ -251,7 +411,8 @@ const PhotoStep = ({
           className="relative w-full max-h-full overflow-hidden rounded-2xl border border-white/8 bg-black/40 shadow-[0_30px_80px_rgba(0,0,0,0.6)]"
           style={{
             aspectRatio: "4 / 3",
-            maxWidth: "min(100%, calc((100vh - 9rem) * 4 / 3))",
+            maxWidth:
+              "min(100%, calc((100vh - 9rem) * 4 / 3))",
           }}
         >
           <div className="absolute inset-0">
@@ -321,7 +482,9 @@ const PhotoStep = ({
         <InfoCard
           card={openCard}
           expanded={expanded}
-          onToggleExpanded={() => setExpanded((value) => !value)}
+          onToggleExpanded={() =>
+            setExpanded((value) => !value)
+          }
           onClose={() => {
             setOpenCard(null);
             setExpanded(false);
@@ -333,13 +496,20 @@ const PhotoStep = ({
   );
 };
 
+/* -------------------------------------------------------------------------- */
+/* VIDEO STEP                                                                 */
+/* -------------------------------------------------------------------------- */
+
 const VideoStep = ({
   step,
 }: {
   step: Extract<InteriorStep, { kind: "video" }>;
 }) => {
-  const [needsPlay, setNeedsPlay] = useState(true);
-  const [ended, setEnded] = useState(false);
+  const [needsPlay, setNeedsPlay] =
+    useState(true);
+
+  const [ended, setEnded] =
+    useState(false);
 
   useEffect(() => {
     setNeedsPlay(true);
@@ -366,7 +536,8 @@ const VideoStep = ({
               type="button"
               onClick={(event) => {
                 const video =
-                  event.currentTarget.previousElementSibling as
+                  event.currentTarget
+                    .previousElementSibling as
                     | HTMLVideoElement
                     | null;
 
@@ -400,20 +571,37 @@ const VideoStep = ({
   );
 };
 
-export const InteriorTour = ({ onExitToExterior, onClose }: Props) => {
+/* -------------------------------------------------------------------------- */
+/* INTERIOR TOUR                                                              */
+/* -------------------------------------------------------------------------- */
+
+export const InteriorTour = ({
+  onExitToExterior,
+  onClose,
+}: Props) => {
   const [index, setIndex] = useState(0);
+
   const step = INTERIOR_STEPS[index];
 
   const visibleSteps = useMemo(
-    () => INTERIOR_STEPS.filter((item) => item.kind !== "done"),
+    () =>
+      INTERIOR_STEPS.filter(
+        (item) => item.kind !== "done",
+      ),
     [],
   );
 
-  const progress = Math.min(index + 1, visibleSteps.length);
+  const progress = Math.min(
+    index + 1,
+    visibleSteps.length,
+  );
 
   const next = useCallback(() => {
     setIndex((current) =>
-      Math.min(INTERIOR_STEPS.length - 1, current + 1),
+      Math.min(
+        INTERIOR_STEPS.length - 1,
+        current + 1,
+      ),
     );
   }, []);
 
@@ -423,7 +611,9 @@ export const InteriorTour = ({ onExitToExterior, onClose }: Props) => {
       return;
     }
 
-    setIndex((current) => Math.max(0, current - 1));
+    setIndex((current) =>
+      Math.max(0, current - 1),
+    );
   }, [index, onExitToExterior]);
 
   useEffect(() => {
@@ -434,53 +624,107 @@ export const InteriorTour = ({ onExitToExterior, onClose }: Props) => {
     };
 
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+
+    return () =>
+      window.removeEventListener(
+        "keydown",
+        onKey,
+      );
   }, [next, back, onClose]);
+
+  /* ---------------------------------------------------------------------- */
+  /* FINISH PAGE                                                             */
+  /* ---------------------------------------------------------------------- */
 
   if (step.kind === "done") {
     return (
-      <div className="fixed inset-0 z-50 grid place-items-center bg-[#05070b] px-6 animate-in fade-in duration-500">
-        <div className="w-full max-w-md text-center">
-          <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-primary/15 ring-1 ring-primary/40">
+      <div className="fixed inset-0 z-50 overflow-hidden bg-[#05070b] px-6 animate-in fade-in duration-500">
+        <div className="flex min-h-full flex-col items-center justify-center">
+          <span className="grid h-14 w-14 place-items-center rounded-full bg-primary/15 ring-1 ring-primary/40">
             <Check className="h-6 w-6 text-primary" />
           </span>
 
-          <h2 className="mt-5 font-serif text-2xl text-white">
+          <h2 className="mt-5 text-center font-serif text-2xl text-white">
             Virtuální prohlídka dokončena
           </h2>
 
-          <p className="mt-3 text-[13px] leading-relaxed text-white/60">
-            Prošli jste hlavní exteriérové, komfortní a praktické funkce vozu.
+          <p className="mt-3 max-w-md text-center text-[13px] leading-relaxed text-white/60">
+            Prošli jste hlavní exteriérové,
+            komfortní a praktické funkce vozu.
           </p>
 
-          <div className="mt-7 flex flex-col gap-3">
-            <button
-              type="button"
-              onClick={() => setIndex(0)}
-              className={`${btnPrimary} w-full`}
-            >
-              <RotateCcw className="h-4 w-4" />
-              Projít znovu
-            </button>
+          {/* ------------------------------------------------------------ */}
+          {/* FINISH KEY                                                    */}
+          {/* ------------------------------------------------------------ */}
 
-            <button
-              type="button"
-              onClick={onClose}
-              className={`${btnGhost} w-full`}
-            >
-              <X className="h-4 w-4" />
-              Ukončit prohlídku
-            </button>
-          </div>
+          <FinishKey
+            onLock={onExitToExterior}
+          />
+
+          {/* Znovu projít */}
+          <button
+            type="button"
+            onClick={() => setIndex(0)}
+            className="
+              mt-7
+              flex
+              h-11
+              items-center
+              justify-center
+              gap-2
+              rounded-full
+              border
+              border-white/10
+              bg-white/[0.04]
+              px-6
+              text-xs
+              font-semibold
+              text-white/65
+              transition
+              hover:bg-white/[0.08]
+              hover:text-white
+            "
+          >
+            Projít znovu
+          </button>
+
+          {/* klasické zavření aplikace zůstává oddělené */}
+          <button
+            type="button"
+            onClick={onClose}
+            className="
+              mt-3
+              flex
+              items-center
+              justify-center
+              gap-2
+              text-[10px]
+              uppercase
+              tracking-[0.2em]
+              text-white/35
+              transition
+              hover:text-white/60
+            "
+          >
+            <X className="h-3.5 w-3.5" />
+            Zavřít
+          </button>
         </div>
       </div>
     );
   }
 
+  /* ---------------------------------------------------------------------- */
+  /* NORMAL INTERIOR                                                        */
+  /* ---------------------------------------------------------------------- */
+
   return (
     <div className="fixed inset-0 z-50 overflow-hidden bg-[#05070b] text-white animate-in fade-in duration-400">
       {step.kind === "photo" ? (
-        <PhotoStep step={step} onAdvance={next} />
+        <PhotoStep
+          step={step}
+          onAdvance={next}
+        />
       ) : (
         <VideoStep step={step} />
       )}
@@ -514,7 +758,11 @@ export const InteriorTour = ({ onExitToExterior, onClose }: Props) => {
 
       <nav className="pointer-events-none absolute inset-x-0 bottom-0 z-40 px-3 pb-[max(0.7rem,env(safe-area-inset-bottom))] md:px-5">
         <div className="pointer-events-auto mx-auto flex w-full max-w-lg items-center gap-2">
-          <button type="button" onClick={back} className={btnGhost}>
+          <button
+            type="button"
+            onClick={back}
+            className={btnGhost}
+          >
             <ArrowLeft className="h-4 w-4" />
             Zpět
           </button>

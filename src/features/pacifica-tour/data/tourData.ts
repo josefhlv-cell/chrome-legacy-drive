@@ -175,32 +175,6 @@ export const HOTSPOTS: TourHotspot[] = [
       },
     },
   },
-
-  {
-    id: "driver-entry",
-    label: "Nastoupit",
-    position: [-1.35, 0.48, 0.72],
-    focus: {
-      position: [-3.4, 1.55, 1.4],
-      lookAt: [-0.55, 1.05, 0.7],
-    },
-    detail: {
-      eyebrow: "Vstup do vozu",
-      title: "Nastupte do interiéru",
-      text:
-        "Prohlédněte si interiér vozu z pohledu řidiče a objevte jeho výbavu, komfort a prostor.",
-      bullets: [
-        "Pohled do interiéru z místa řidiče",
-        "Prohlídka palubní desky a ovládacích prvků",
-        "Pokračování virtuální prohlídky interiéru",
-      ],
-      cta: {
-        label: "Nastoupit →",
-        action: "interior",
-      },
-      note: EQUIP_NOTE,
-    },
-  },
 ];
 
 export const BODY_COLORS: {

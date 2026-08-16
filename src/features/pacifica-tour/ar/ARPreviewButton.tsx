@@ -6,8 +6,8 @@ import { Box, Loader2, X } from "lucide-react";
 const MODEL_GLB = "/models/pacifica.glb";
 const MODEL_USDZ = "/models/pacifica.usdz";
 
-/** Kolik ms čekáme na stažení modelu po kliknutí, než ukážeme chybu. */
-const LOAD_TIMEOUT_MS = 15000;
+/** Timeout je pouze pojistka při pomalém nebo přerušeném načítání. */
+const LOAD_TIMEOUT_MS = 30000;
 
 type Platform = "android" | "ios" | "other";
 type Status = "idle" | "loading" | "ready" | "unsupported" | "error";
@@ -62,17 +62,21 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
 
   const viewerRef = useRef<any>(null);
   const modelLoadedRef = useRef(false);
-  // Zaznamená, jestli model-viewer nahlásil chybu ještě předtím, než uživatel
-  // vůbec klikl (model se stahuje na pozadí hned od začátku).
   const loadErrorRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
-    setPlatform(detectPlatform());
-    void loadModelViewer().catch((error) => {
-      console.error("Nepodařilo se načíst @google/model-viewer:", error);
-      loadErrorRef.current = true;
-    });
+    const currentPlatform = detectPlatform();
+    setPlatform(currentPlatform);
+
+    // GLB/model-viewer načítáme pouze na Androidu.
+    // Na iOS se používá přímo USDZ + Apple Quick Look.
+    if (currentPlatform === "android") {
+      void loadModelViewer().catch((error) => {
+        console.error("Nepodařilo se načíst @google/model-viewer:", error);
+        loadErrorRef.current = true;
+      });
+    }
   }, []);
 
   const clearLoadTimeout = useCallback(() => {
@@ -82,9 +86,6 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
     }
   }, []);
 
-  // Timeout se stará jen o to, aby uživatel nekoukal na "Připravujeme AR
-  // náhled…" donekonečna, pokud se model kvůli slabému/výpadku připojení
-  // nikdy nestáhne a nepřijde ani onLoad, ani onError.
   const startLoadTimeout = useCallback(() => {
     clearLoadTimeout();
     timeoutRef.current = window.setTimeout(() => {
@@ -101,22 +102,23 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
     setViewerReady(true);
   }, []);
 
-  const handleViewerError = useCallback((event: Event) => {
-    modelLoadedRef.current = false;
-    loadErrorRef.current = true;
-    setViewerReady(false);
-    console.error("Nepodařilo se načíst AR model:", event);
+  const handleViewerError = useCallback(
+    (event: Event) => {
+      modelLoadedRef.current = false;
+      loadErrorRef.current = true;
+      setViewerReady(false);
+      console.error("Nepodařilo se načíst AR model:", event);
 
-    // Pokud uživatel právě čeká (sheet je otevřený), rovnou mu to ukážeme.
-    clearLoadTimeout();
-    setStatus((prev) => (prev === "loading" ? "error" : prev));
-    setErrorReason("network");
-  }, [clearLoadTimeout]);
+      clearLoadTimeout();
+      setStatus((prev) => (prev === "loading" ? "error" : prev));
+      setErrorReason("network");
+    },
+    [clearLoadTimeout],
+  );
 
-  /** Skutečné spuštění AR -- voláno buď hned po kliknutí (model je
-   *  už připravený), nebo automaticky, jakmile se model dostáhne. */
-  const launchAR = useCallback(() => {
+  const launchAndroidAR = useCallback(() => {
     clearLoadTimeout();
+
     const el = viewerRef.current;
 
     if (!el) {
@@ -154,6 +156,25 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
       return;
     }
 
+    // iOS: přímý Apple Quick Look.
+    // Nečekáme na GLB ani na model-viewer, protože iPhone používá USDZ.
+    if (currentPlatform === "ios") {
+      const link = document.getElementById(
+        "pacifica-ar-quick-look",
+      ) as HTMLAnchorElement | null;
+
+      if (!link) {
+        setStatus("error");
+        setErrorReason("generic");
+        setShowSheet(true);
+        return;
+      }
+
+      link.click();
+      onExitAR?.();
+      return;
+    }
+
     if (!viewerRef.current) {
       setStatus("error");
       setErrorReason("generic");
@@ -170,25 +191,26 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
 
     if (modelLoadedRef.current && viewerReady) {
       setShowSheet(true);
-      launchAR();
+      launchAndroidAR();
       return;
     }
 
-    // Model se ještě stahuje -- ukázat loading a počkat na dokončení.
-    // Automatické pokračování zajišťuje useEffect níže (sleduje viewerReady).
     setStatus("loading");
     setErrorReason(null);
     setShowSheet(true);
     startLoadTimeout();
-  }, [viewerReady, launchAR, startLoadTimeout]);
+  }, [viewerReady, launchAndroidAR, startLoadTimeout, onExitAR]);
 
-  // Jakmile se model doráhne na pozadí PO kliknutí (uživatel čeká na
-  // obrazovce "Připravujeme AR náhled…"), automaticky pokračovat k AR.
   useEffect(() => {
-    if (viewerReady && showSheet && status === "loading") {
-      launchAR();
+    if (
+      platform === "android" &&
+      viewerReady &&
+      showSheet &&
+      status === "loading"
+    ) {
+      launchAndroidAR();
     }
-  }, [viewerReady, showSheet, status, launchAR]);
+  }, [platform, viewerReady, showSheet, status, launchAndroidAR]);
 
   const closeSheet = useCallback(() => {
     clearLoadTimeout();
@@ -197,24 +219,39 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
     setErrorReason(null);
   }, [clearLoadTimeout]);
 
+  const buttonClass = `
+    h-11 w-11 rounded-full border border-white/12 bg-white/8
+    backdrop-blur-md grid place-items-center text-white/85
+    transition hover:bg-white/16 focus-visible:outline-none
+    focus-visible:ring-2 focus-visible:ring-primary active:scale-95
+  `;
+
   return (
     <>
-      <button
-        type="button"
-        onClick={handleActivate}
-        aria-label="Zobrazit vůz v rozšířené realitě (AR)"
-        className="
-          h-11 w-11 rounded-full border border-white/12 bg-white/8
-          backdrop-blur-md grid place-items-center text-white/85
-          transition hover:bg-white/16 focus-visible:outline-none
-          focus-visible:ring-2 focus-visible:ring-primary active:scale-95
-        "
-        title="Zobrazit v AR"
-      >
-        <Box className="h-4 w-4" />
-      </button>
+      {platform === "ios" ? (
+        <a
+          id="pacifica-ar-quick-look"
+          href={MODEL_USDZ}
+          rel="ar"
+          aria-label="Zobrazit vůz v rozšířené realitě (AR)"
+          title="Zobrazit v AR"
+          className={buttonClass}
+        >
+          <Box className="h-4 w-4" />
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={handleActivate}
+          aria-label="Zobrazit vůz v rozšířené realitě (AR)"
+          className={buttonClass}
+          title="Zobrazit v AR"
+        >
+          <Box className="h-4 w-4" />
+        </button>
+      )}
 
-      {platform !== "other" && (
+      {platform === "android" && (
         <model-viewer
           ref={viewerRef}
           src={MODEL_GLB}
@@ -271,7 +308,7 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
                     Připravujeme AR náhled…
                   </p>
                   <p className="mt-1 text-xs text-white/40">
-                    Model se ještě načítá (cca 20&nbsp;MB).
+                    Model se ještě načítá (cca 3,4&nbsp;MB).
                   </p>
                 </>
               )}
@@ -311,7 +348,7 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
                   </p>
                   <p className="mt-1 text-xs text-white/40">
                     {errorReason === "timeout" || errorReason === "network"
-                      ? "Zkontrolujte připojení k internetu (model má cca 20\u00a0MB) a zkuste to znovu."
+                      ? "Zkontrolujte připojení k internetu (model má cca 3,4 MB) a zkuste to znovu."
                       : "Zkuste to prosím znovu."}
                   </p>
                   <button

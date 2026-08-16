@@ -40,8 +40,8 @@ const FinishKey = ({
     <div
       className="pointer-events-auto absolute z-30 flex flex-col items-center"
       style={{
-        right: "max(0.25rem, env(safe-area-inset-right))",
-        bottom: "calc(env(safe-area-inset-bottom) + 0.75rem)",
+        right: "max(0.15rem, env(safe-area-inset-right))",
+        bottom: "calc(env(safe-area-inset-bottom) + 0.65rem)",
       }}
     >
       <div
@@ -69,8 +69,7 @@ const FinishKey = ({
       <div
         className="relative"
         style={{
-          // Stejné zmenšené proporce jako klíč v exteriéru.
-          width: "clamp(88px, 24vw, 116px)",
+          width: "clamp(78px, 21vw, 104px)",
           aspectRatio: "122 / 190",
         }}
       >
@@ -86,8 +85,7 @@ const FinishKey = ({
           "
         />
 
-        {/* LOCK hotspot — pravé horní tlačítko (zavřený zámek).
-            615/1030 ≈ 60 % šířky, 320/1540 ≈ 21 % výšky. */}
+        {/* Skutečný hotspot je přesně nad tlačítkem zámku na obrázku klíče. */}
         <button
           type="button"
           onClick={(event) => {
@@ -102,8 +100,8 @@ const FinishKey = ({
             -translate-x-1/2
             -translate-y-1/2
             flex
-            h-12
-            w-12
+            h-11
+            w-11
             items-center
             justify-center
             rounded-full
@@ -116,8 +114,8 @@ const FinishKey = ({
           <span
             className="
               absolute
-              h-12
-              w-12
+              h-11
+              w-11
               animate-ping
               rounded-full
               bg-primary/25
@@ -127,8 +125,8 @@ const FinishKey = ({
           <span
             className="
               absolute
-              h-9
-              w-9
+              h-8
+              w-8
               animate-pulse
               rounded-full
               border
@@ -142,8 +140,8 @@ const FinishKey = ({
             className="
               relative
               flex
-              h-6
-              w-6
+              h-5
+              w-5
               items-center
               justify-center
               rounded-full
@@ -154,7 +152,7 @@ const FinishKey = ({
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-3 w-3"
+              className="h-2.5 w-2.5"
               fill="none"
               stroke="currentColor"
               strokeWidth="2"
@@ -174,6 +172,10 @@ const FinishKey = ({
           </span>
         </button>
       </div>
+
+      <p className="mt-0.5 text-[7px] text-white/30">
+        Zamkni prohlídku
+      </p>
     </div>
   );
 };
@@ -195,13 +197,23 @@ const AutoVideo = ({
     const element = ref.current;
     if (!element) return;
 
-    // Karta se právě otevřela → přehraj vždy od začátku.
     element.currentTime = 0;
     element.muted = true;
-    void element.play().catch(() => undefined);
+
+    const start = async () => {
+      try {
+        await element.play();
+      } catch {
+        // Některé prohlížeče mohou autoplay odmítnout.
+        // Video zůstane připravené a lze jej spustit ručně.
+      }
+    };
+
+    void start();
 
     return () => {
       element.pause();
+      element.currentTime = 0;
     };
   }, [video.src]);
 
@@ -250,7 +262,7 @@ const VideoCardMedia = ({
 );
 
 /* -------------------------------------------------------------------------- */
-/* INFO CARD — VŽDY ROZBALENÁ                                                */
+/* INFO CARD                                                                  */
 /* -------------------------------------------------------------------------- */
 
 const InfoCard = ({
@@ -267,14 +279,8 @@ const InfoCard = ({
   anchoredToPhoto?: boolean;
 }) => {
   /*
-   * COLLAPSED PHOTO CARD
-   *
-   * Když je karta zavřená, její horní hrana je přesně na spodní hraně
-   * fotografie. Karta tedy neleze přes fotografii a zabírá pouze prostor
-   * bezprostředně pod ní.
-   *
-   * Po rozbalení se karta zvedne přes spodní část fotografie a zobrazí
-   * kompletní obsah včetně videa.
+   * Sbalená karta je pouze úzký pruh POD fotografií.
+   * Rozbalená karta se otevře přes spodní část fotografie.
    */
   if (!expanded && anchoredToPhoto) {
     return (
@@ -476,28 +482,30 @@ const InfoCard = ({
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={onToggleExpanded}
-        className="
-          mt-5
-          w-full
-          rounded-full
-          border
-          border-white/10
-          bg-white/[0.04]
-          px-5
-          py-3
-          text-xs
-          font-semibold
-          text-white/70
-          transition
-          hover:bg-white/[0.08]
-          hover:text-white
-        "
-      >
-        Sbalit detail ↑
-      </button>
+      {anchoredToPhoto && (
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="
+            mt-5
+            w-full
+            rounded-full
+            border
+            border-white/10
+            bg-white/[0.04]
+            px-5
+            py-3
+            text-xs
+            font-semibold
+            text-white/70
+            transition
+            hover:bg-white/[0.08]
+            hover:text-white
+          "
+        >
+          Sbalit detail ↑
+        </button>
+      )}
     </div>
   );
 };
@@ -525,10 +533,10 @@ const PhotoStep = ({
 
   useEffect(() => {
     /*
-     * Intro karta se zobrazí automaticky pouze jako SBALENÁ karta.
-     * Její horní hrana sedí přesně na spodní hraně fotografie.
+     * Intro karty jsou automaticky pouze u kroků, které je skutečně mají.
+     * Jsou sbalené. Karty z hotspotů se po kliknutí otevřou rozbalené.
      *
-     * Hotspotové karty se po kliknutí otevřou rovnou rozbalené.
+     * Uconnect a front-console nemají intro, takže se zde nic neotevře.
      */
     if (step.intro) {
       setOpenCard(step.intro);
@@ -544,10 +552,6 @@ const PhotoStep = ({
   const pick = useCallback(
     (hotspot: PhotoHotspot) => {
       if (hotspot.card) {
-        /*
-         * Kliknutí na hotspot otevře kartu kompletně.
-         * To platí například pro Uconnect 360 a rádio/Uconnect.
-         */
         setOpenCard(hotspot.card);
         setExpanded(true);
         return;
@@ -628,7 +632,6 @@ const PhotoStep = ({
                 >
                   <span className="relative grid h-5 w-5 place-items-center">
                     <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
-
                     <span className="relative h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_16px_hsl(var(--primary))]" />
                   </span>
 
@@ -698,24 +701,14 @@ const VideoStep = ({
   step: Extract<InteriorStep, { kind: "video" }>;
 }) => {
   return (
-    <>
-      <div className="absolute inset-0 flex items-center justify-center p-2 pb-24 md:p-6 md:pb-28">
-        <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-white/8 bg-black shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
-          <AutoVideo
-            video={{ src: step.src }}
-            className="h-auto w-full"
-          />
-        </div>
+    <div className="absolute inset-0 flex items-center justify-center p-2 pb-24 md:p-6 md:pb-28">
+      <div className="relative w-full max-w-4xl overflow-hidden rounded-2xl border border-white/8 bg-black shadow-[0_30px_80px_rgba(0,0,0,0.6)]">
+        <AutoVideo
+          video={{ src: step.src }}
+          className="h-auto w-full"
+        />
       </div>
-
-      {/* Video karta je otevřená automaticky. */}
-      <InfoCard
-        card={step.card}
-        expanded={true}
-        onToggleExpanded={() => undefined}
-        onClose={() => undefined}
-      />
-    </>
+    </div>
   );
 };
 
@@ -764,6 +757,16 @@ export const InteriorTour = ({
     );
   }, [index, onExitToExterior]);
 
+  const finishTour = useCallback(() => {
+    /*
+     * Nejdřív zavřít interiérovou vrstvu, potom vrátit uživatele
+     * k 3D vozu. Tím se zabrání tomu, aby rodičovský toggle
+     * znovu otevřel interiérovou prohlídku.
+     */
+    onClose();
+    onExitToExterior();
+  }, [onClose, onExitToExterior]);
+
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "ArrowRight") next();
@@ -801,7 +804,6 @@ export const InteriorTour = ({
             komfortní a praktické funkce vozu.
           </p>
 
-          {/* Znovu projít zůstává uprostřed a není pod klíčem. */}
           <button
             type="button"
             onClick={() => setIndex(0)}
@@ -850,10 +852,7 @@ export const InteriorTour = ({
           </button>
         </div>
 
-        {/* Klíč je samostatně v pravém dolním rohu. */}
-        <FinishKey
-          onLock={onExitToExterior}
-        />
+        <FinishKey onLock={finishTour} />
       </div>
     );
   }

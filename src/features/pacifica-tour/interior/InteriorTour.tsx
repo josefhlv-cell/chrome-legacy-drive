@@ -255,38 +255,150 @@ const VideoCardMedia = ({
 
 const InfoCard = ({
   card,
+  expanded,
+  onToggleExpanded,
   onClose,
+  anchoredToPhoto = false,
 }: {
   card: TourCard;
+  expanded: boolean;
+  onToggleExpanded: () => void;
   onClose: () => void;
+  anchoredToPhoto?: boolean;
 }) => {
+  /*
+   * COLLAPSED PHOTO CARD
+   *
+   * Když je karta zavřená, její horní hrana je přesně na spodní hraně
+   * fotografie. Karta tedy neleze přes fotografii a zabírá pouze prostor
+   * bezprostředně pod ní.
+   *
+   * Po rozbalení se karta zvedne přes spodní část fotografie a zobrazí
+   * kompletní obsah včetně videa.
+   */
+  if (!expanded && anchoredToPhoto) {
+    return (
+      <div
+        className="
+          pointer-events-auto
+          absolute
+          left-0
+          top-full
+          z-50
+          w-full
+          overflow-hidden
+          rounded-b-[28px]
+          border
+          border-t-0
+          border-white/10
+          bg-[#111925]/98
+          shadow-2xl
+          backdrop-blur-xl
+        "
+      >
+        <button
+          type="button"
+          onClick={onClose}
+          aria-label="Zavřít kartu"
+          className="
+            absolute
+            right-3
+            top-3
+            z-10
+            grid
+            h-9
+            w-9
+            place-items-center
+            rounded-full
+            border
+            border-white/10
+            bg-white/[0.03]
+            text-xl
+            text-white/65
+          "
+        >
+          ×
+        </button>
+
+        <button
+          type="button"
+          onClick={onToggleExpanded}
+          className="
+            block
+            w-full
+            px-5
+            py-4
+            pr-16
+            text-left
+            transition
+            hover:bg-white/[0.035]
+            active:bg-white/[0.05]
+          "
+        >
+          <div className="text-[9px] font-medium uppercase tracking-[0.28em] text-[#6b96e8]">
+            {card.eyebrow}
+          </div>
+
+          <div className="mt-1 font-serif text-xl font-semibold leading-tight text-white">
+            {card.title}
+          </div>
+
+          <div className="mt-2 flex items-center justify-between gap-3 text-[10px] uppercase tracking-[0.18em] text-white/40">
+            <span>Detail</span>
+            <span className="text-primary">Rozbalit ↓</span>
+          </div>
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div
-      key={card.title}
-      className="
-        pointer-events-auto
-        absolute
-        inset-x-0
-        bottom-[5.9rem]
-        z-50
-        max-h-[78vh]
-        overflow-y-auto
-        overscroll-contain
-        rounded-t-[28px]
-        border
-        border-white/10
-        bg-[#111925]/98
-        p-5
-        pb-6
-        shadow-2xl
-        backdrop-blur-xl
-        sm:inset-x-auto
-        sm:right-6
-        sm:bottom-24
-        sm:w-[min(560px,calc(100vw-48px))]
-        sm:max-h-[78vh]
-        sm:rounded-[28px]
-      "
+      className={
+        anchoredToPhoto
+          ? `
+            pointer-events-auto
+            absolute
+            inset-x-0
+            bottom-0
+            z-50
+            max-h-[78vh]
+            overflow-y-auto
+            overscroll-contain
+            rounded-t-[28px]
+            border
+            border-white/10
+            bg-[#111925]/98
+            p-5
+            pb-6
+            shadow-2xl
+            backdrop-blur-xl
+          `
+          : `
+            pointer-events-auto
+            absolute
+            inset-x-0
+            bottom-[5.9rem]
+            z-50
+            max-h-[78vh]
+            overflow-y-auto
+            overscroll-contain
+            rounded-t-[28px]
+            border
+            border-white/10
+            bg-[#111925]/98
+            p-5
+            pb-6
+            shadow-2xl
+            backdrop-blur-xl
+            sm:inset-x-auto
+            sm:right-6
+            sm:bottom-24
+            sm:w-[min(560px,calc(100vw-48px))]
+            sm:max-h-[78vh]
+            sm:rounded-[28px]
+          `
+      }
     >
       <button
         type="button"
@@ -296,6 +408,7 @@ const InfoCard = ({
           absolute
           right-4
           top-4
+          z-10
           grid
           h-10
           w-10
@@ -362,6 +475,29 @@ const InfoCard = ({
           {card.note}
         </p>
       )}
+
+      <button
+        type="button"
+        onClick={onToggleExpanded}
+        className="
+          mt-5
+          w-full
+          rounded-full
+          border
+          border-white/10
+          bg-white/[0.04]
+          px-5
+          py-3
+          text-xs
+          font-semibold
+          text-white/70
+          transition
+          hover:bg-white/[0.08]
+          hover:text-white
+        "
+      >
+        Sbalit detail ↑
+      </button>
     </div>
   );
 };
@@ -380,15 +516,28 @@ const PhotoStep = ({
   const [openCard, setOpenCard] =
     useState<TourCard | null>(null);
 
+  const [expanded, setExpanded] =
+    useState(false);
+
   const [mode, setMode] = useState(
     CONFIG_MODES[0].key,
   );
 
   useEffect(() => {
     /*
-     * Každý krok, který má intro, ho otevře automaticky.
+     * Intro karta se zobrazí automaticky pouze jako SBALENÁ karta.
+     * Její horní hrana sedí přesně na spodní hraně fotografie.
+     *
+     * Hotspotové karty se po kliknutí otevřou rovnou rozbalené.
      */
-    setOpenCard(step.intro ?? null);
+    if (step.intro) {
+      setOpenCard(step.intro);
+      setExpanded(false);
+    } else {
+      setOpenCard(null);
+      setExpanded(false);
+    }
+
     setMode(CONFIG_MODES[0].key);
   }, [step]);
 
@@ -396,10 +545,11 @@ const PhotoStep = ({
     (hotspot: PhotoHotspot) => {
       if (hotspot.card) {
         /*
-         * Hotspotová karta se vždy otevře kompletní.
-         * Hodnota collapsible se záměrně ignoruje.
+         * Kliknutí na hotspot otevře kartu kompletně.
+         * To platí například pro Uconnect 360 a rádio/Uconnect.
          */
         setOpenCard(hotspot.card);
+        setExpanded(true);
         return;
       }
 
@@ -417,18 +567,13 @@ const PhotoStep = ({
 
   return (
     <>
-      <div className="absolute inset-0 flex items-center justify-center p-2 pb-24 md:p-6 md:pb-28">
+      <div className="absolute inset-0 flex items-center justify-center overflow-visible p-2 pb-24 md:p-6 md:pb-28">
         <div
           className="
             relative
             w-full
             max-h-full
-            overflow-hidden
-            rounded-2xl
-            border
-            border-white/8
-            bg-black/40
-            shadow-[0_30px_80px_rgba(0,0,0,0.6)]
+            overflow-visible
           "
           style={{
             aspectRatio: "4 / 3",
@@ -436,50 +581,79 @@ const PhotoStep = ({
               "min(100%, calc((100vh - 9rem) * 4 / 3))",
           }}
         >
-          <div className="absolute inset-0">
-            <img
-              src={step.src}
-              alt={step.alt}
-              decoding="async"
-              className="absolute inset-0 h-full w-full object-cover"
-              draggable={false}
-            />
+          <div
+            className="
+              relative
+              h-full
+              w-full
+              overflow-hidden
+              rounded-2xl
+              border
+              border-white/8
+              bg-black/40
+              shadow-[0_30px_80px_rgba(0,0,0,0.6)]
+            "
+          >
+            <div className="absolute inset-0">
+              <img
+                src={step.src}
+                alt={step.alt}
+                decoding="async"
+                className="absolute inset-0 h-full w-full object-cover"
+                draggable={false}
+              />
 
-            {step.hotspots.map((hotspot) => (
-              <button
-                key={hotspot.id}
-                type="button"
-                onClick={() => pick(hotspot)}
-                aria-label={hotspot.label}
-                className="
-                  group
-                  absolute
-                  -translate-x-1/2
-                  -translate-y-1/2
-                  flex
-                  min-h-[44px]
-                  min-w-[44px]
-                  items-center
-                  gap-2
-                  p-2
-                "
-                style={{
-                  left: `${hotspot.x}%`,
-                  top: `${hotspot.y}%`,
-                }}
-              >
-                <span className="relative grid h-5 w-5 place-items-center">
-                  <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
+              {step.hotspots.map((hotspot) => (
+                <button
+                  key={hotspot.id}
+                  type="button"
+                  onClick={() => pick(hotspot)}
+                  aria-label={hotspot.label}
+                  className="
+                    group
+                    absolute
+                    -translate-x-1/2
+                    -translate-y-1/2
+                    flex
+                    min-h-[44px]
+                    min-w-[44px]
+                    items-center
+                    gap-2
+                    p-2
+                  "
+                  style={{
+                    left: `${hotspot.x}%`,
+                    top: `${hotspot.y}%`,
+                  }}
+                >
+                  <span className="relative grid h-5 w-5 place-items-center">
+                    <span className="absolute inset-0 animate-ping rounded-full bg-primary/40" />
 
-                  <span className="relative h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_16px_hsl(var(--primary))]" />
-                </span>
+                    <span className="relative h-2.5 w-2.5 rounded-full bg-primary ring-4 ring-primary/25 shadow-[0_0_16px_hsl(var(--primary))]" />
+                  </span>
 
-                <span className="whitespace-nowrap rounded-full border border-white/15 bg-black/65 px-2.5 py-1 text-[10px] tracking-wide text-white backdrop-blur-md">
-                  {hotspot.label}
-                </span>
-              </button>
-            ))}
+                  <span className="whitespace-nowrap rounded-full border border-white/15 bg-black/65 px-2.5 py-1 text-[10px] tracking-wide text-white backdrop-blur-md">
+                    {hotspot.label}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
+
+          {openCard && (
+            <InfoCard
+              card={openCard}
+              expanded={expanded}
+              anchoredToPhoto={true}
+              onToggleExpanded={() =>
+                setExpanded((value) => !value)
+              }
+              onClose={() => {
+                setOpenCard(null);
+                setExpanded(false);
+              }}
+            />
+          )}
         </div>
       </div>
 
@@ -510,13 +684,6 @@ const PhotoStep = ({
           </div>
         </div>
       )}
-
-      {openCard && (
-        <InfoCard
-          card={openCard}
-          onClose={() => setOpenCard(null)}
-        />
-      )}
     </>
   );
 };
@@ -544,6 +711,8 @@ const VideoStep = ({
       {/* Video karta je otevřená automaticky. */}
       <InfoCard
         card={step.card}
+        expanded={true}
+        onToggleExpanded={() => undefined}
         onClose={() => undefined}
       />
     </>

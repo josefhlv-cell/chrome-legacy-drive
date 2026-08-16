@@ -1,11 +1,9 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowLeft, Play } from "lucide-react";
+import { useEffect, useRef } from "react";
+import { ArrowLeft } from "lucide-react";
 import type { TourHotspot } from "../data/tourData";
 
 type Props = {
   hotspot: TourHotspot;
-  expanded: boolean;
-  onToggleExpanded: () => void;
   onClose: () => void;
   onCta?: () => void;
 };
@@ -18,7 +16,6 @@ const Media = ({
   title: string;
 }) => {
   const video = useRef<HTMLVideoElement>(null);
-  const [needsPlay, setNeedsPlay] = useState(false);
 
   useEffect(() => {
     if (media.type !== "video") return;
@@ -26,7 +23,10 @@ const Media = ({
     const element = video.current;
     if (!element) return;
 
-    setNeedsPlay(false);
+    // Karta se otevřela → video vždy od začátku a hned.
+    element.currentTime = 0;
+    element.muted = true;
+    void element.play().catch(() => undefined);
 
     return () => {
       element.pause();
@@ -38,34 +38,19 @@ const Media = ({
   return (
     <div className="relative mt-4 overflow-hidden rounded-2xl border border-white/8 bg-black/40">
       {media.type === "video" ? (
-        <>
-          <video
-            ref={video}
-            key={media.src}
-            src={media.src}
-            poster={media.poster}
-            controls
-            playsInline
-            preload="metadata"
-            className="block max-h-52 w-full bg-black object-contain"
-          />
-
-          {needsPlay && (
-            <button
-              type="button"
-              onClick={() => {
-                void video.current?.play();
-                setNeedsPlay(false);
-              }}
-              aria-label="Přehrát video"
-              className="absolute inset-0 grid place-items-center bg-black/30"
-            >
-              <span className="grid h-12 w-12 place-items-center rounded-full bg-primary">
-                <Play className="h-5 w-5 text-primary-foreground" />
-              </span>
-            </button>
-          )}
-        </>
+        <video
+          ref={video}
+          key={media.src}
+          src={media.src}
+          poster={media.poster}
+          controls
+          autoPlay
+          muted
+          loop
+          playsInline
+          preload="auto"
+          className="block max-h-52 w-full bg-black object-contain"
+        />
       ) : (
         <img
           src={media.src}

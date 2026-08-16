@@ -6,7 +6,7 @@ import { Box, Loader2, X } from "lucide-react";
 const MODEL_GLB = "/models/pacifica.glb";
 const MODEL_USDZ = "/models/pacifica.usdz";
 
-/** Timeout je pouze pojistka při pomalém nebo přerušeném načítání. */
+/** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */
 const LOAD_TIMEOUT_MS = 30000;
 
 type Platform = "android" | "ios" | "other";
@@ -69,8 +69,6 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
     const currentPlatform = detectPlatform();
     setPlatform(currentPlatform);
 
-    // GLB/model-viewer načítáme pouze na Androidu.
-    // Na iOS se používá přímo USDZ + Apple Quick Look.
     if (currentPlatform === "android") {
       void loadModelViewer().catch((error) => {
         console.error("Nepodařilo se načíst @google/model-viewer:", error);
@@ -116,36 +114,39 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
     [clearLoadTimeout],
   );
 
-  const launchAndroidAR = useCallback(() => {
+  const launchAndroidAR = useCallback(async () => {
     clearLoadTimeout();
 
-    const el = viewerRef.current;
+    try {
+      await loadModelViewer();
 
-    if (!el) {
-      setStatus("error");
-      setErrorReason("generic");
-      return;
-    }
+      await customElements.whenDefined("model-viewer");
 
-    if (!el.canActivateAR) {
-      setStatus("unsupported");
-      return;
-    }
+      const el = viewerRef.current;
 
-    setStatus("ready");
-
-    void el
-      .activateAR()
-      .then(() => {
-        setShowSheet(false);
-        setStatus("idle");
-        onExitAR?.();
-      })
-      .catch((error: unknown) => {
-        console.error("AR aktivace selhala:", error);
+      if (!el) {
         setStatus("error");
         setErrorReason("generic");
-      });
+        return;
+      }
+
+      if (!el.canActivateAR) {
+        setStatus("unsupported");
+        return;
+      }
+
+      setStatus("ready");
+
+      await el.activateAR();
+
+      setShowSheet(false);
+      setStatus("idle");
+      onExitAR?.();
+    } catch (error: unknown) {
+      console.error("AR aktivace selhala:", error);
+      setStatus("error");
+      setErrorReason("generic");
+    }
   }, [clearLoadTimeout, onExitAR]);
 
   const handleActivate = useCallback(() => {
@@ -156,8 +157,6 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
       return;
     }
 
-    // iOS: přímý Apple Quick Look.
-    // Nečekáme na GLB ani na model-viewer, protože iPhone používá USDZ.
     if (currentPlatform === "ios") {
       const link = document.getElementById(
         "pacifica-ar-quick-look",
@@ -175,13 +174,6 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
       return;
     }
 
-    if (!viewerRef.current) {
-      setStatus("error");
-      setErrorReason("generic");
-      setShowSheet(true);
-      return;
-    }
-
     if (loadErrorRef.current) {
       setStatus("error");
       setErrorReason("network");
@@ -189,28 +181,15 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
       return;
     }
 
-    if (modelLoadedRef.current && viewerReady) {
-      setShowSheet(true);
-      launchAndroidAR();
-      return;
-    }
-
     setStatus("loading");
     setErrorReason(null);
     setShowSheet(true);
     startLoadTimeout();
-  }, [viewerReady, launchAndroidAR, startLoadTimeout, onExitAR]);
 
-  useEffect(() => {
-    if (
-      platform === "android" &&
-      viewerReady &&
-      showSheet &&
-      status === "loading"
-    ) {
-      launchAndroidAR();
-    }
-  }, [platform, viewerReady, showSheet, status, launchAndroidAR]);
+    // Nečekáme na kompletní onLoad GLB. Scene Viewer si model načte sám.
+    // Tím se odstraní zbytečná blokace AR startu.
+    void launchAndroidAR();
+  }, [launchAndroidAR, startLoadTimeout, onExitAR]);
 
   const closeSheet = useCallback(() => {
     clearLoadTimeout();
@@ -261,6 +240,7 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
           ar-scale="fixed"
           ar-placement="floor"
           alt="Chrysler Pacifica — 3D model pro AR náhled"
+          loading="eager"
           onLoad={handleViewerLoad}
           onError={handleViewerError}
           style={{

@@ -6,8 +6,12 @@ import { Box, Loader2, X } from "lucide-react";
 const MODEL_GLB = "/models/pacifica.glb";
 const MODEL_USDZ = "/models/pacifica.usdz";
 
+/** Kolik ms čekáme na stažení modelu po kliknutí, než ukážeme chybu. */
+const LOAD_TIMEOUT_MS = 15000;
+
 type Platform = "android" | "ios" | "other";
 type Status = "idle" | "loading" | "ready" | "unsupported" | "error";
+type ErrorReason = "timeout" | "network" | "generic" | null;
 
 type Props = {
   onExitAR?: () => void;
@@ -51,61 +55,82 @@ const loadModelViewer = () => {
 export const ARPreviewButton = ({ onExitAR }: Props) => {
   const [platform, setPlatform] = useState<Platform>("other");
   const [status, setStatus] = useState<Status>("idle");
+  const [errorReason, setErrorReason] = useState<ErrorReason>(null);
   const [showSheet, setShowSheet] = useState(false);
   const [showQR, setShowQR] = useState(false);
   const [viewerReady, setViewerReady] = useState(false);
 
   const viewerRef = useRef<any>(null);
   const modelLoadedRef = useRef(false);
+  // Zaznamená, jestli model-viewer nahlásil chybu ještě předtím, než uživatel
+  // vůbec klikl (model se stahuje na pozadí hned od začátku).
+  const loadErrorRef = useRef(false);
+  const timeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     setPlatform(detectPlatform());
     void loadModelViewer().catch((error) => {
       console.error("Nepodařilo se načíst @google/model-viewer:", error);
+      loadErrorRef.current = true;
     });
   }, []);
 
+  const clearLoadTimeout = useCallback(() => {
+    if (timeoutRef.current !== null) {
+      window.clearTimeout(timeoutRef.current);
+      timeoutRef.current = null;
+    }
+  }, []);
+
+  // Timeout se stará jen o to, aby uživatel nekoukal na "Připravujeme AR
+  // náhled…" donekonečna, pokud se model kvůli slabému/výpadku připojení
+  // nikdy nestáhne a nepřijde ani onLoad, ani onError.
+  const startLoadTimeout = useCallback(() => {
+    clearLoadTimeout();
+    timeoutRef.current = window.setTimeout(() => {
+      setStatus("error");
+      setErrorReason("timeout");
+    }, LOAD_TIMEOUT_MS);
+  }, [clearLoadTimeout]);
+
+  useEffect(() => clearLoadTimeout, [clearLoadTimeout]);
+
   const handleViewerLoad = useCallback(() => {
     modelLoadedRef.current = true;
+    loadErrorRef.current = false;
     setViewerReady(true);
   }, []);
 
   const handleViewerError = useCallback((event: Event) => {
     modelLoadedRef.current = false;
+    loadErrorRef.current = true;
     setViewerReady(false);
     console.error("Nepodařilo se načíst AR model:", event);
-  }, []);
 
-  const handleActivate = useCallback(() => {
-    const currentPlatform = detectPlatform();
+    // Pokud uživatel právě čeká (sheet je otevřený), rovnou mu to ukážeme.
+    clearLoadTimeout();
+    setStatus((prev) => (prev === "loading" ? "error" : prev));
+    setErrorReason("network");
+  }, [clearLoadTimeout]);
 
-    if (currentPlatform === "other") {
-      setShowQR(true);
-      return;
-    }
-
+  /** Skutečné spuštění AR -- voláno buď hned po kliknutí (model je
+   *  už připravený), nebo automaticky, jakmile se model dostáhne. */
+  const launchAR = useCallback(() => {
+    clearLoadTimeout();
     const el = viewerRef.current;
 
     if (!el) {
       setStatus("error");
-      setShowSheet(true);
-      return;
-    }
-
-    if (!modelLoadedRef.current || !viewerReady) {
-      setStatus("loading");
-      setShowSheet(true);
+      setErrorReason("generic");
       return;
     }
 
     if (!el.canActivateAR) {
       setStatus("unsupported");
-      setShowSheet(true);
       return;
     }
 
     setStatus("ready");
-    setShowSheet(true);
 
     void el
       .activateAR()
@@ -117,13 +142,60 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
       .catch((error: unknown) => {
         console.error("AR aktivace selhala:", error);
         setStatus("error");
+        setErrorReason("generic");
       });
-  }, [onExitAR, viewerReady]);
+  }, [clearLoadTimeout, onExitAR]);
+
+  const handleActivate = useCallback(() => {
+    const currentPlatform = detectPlatform();
+
+    if (currentPlatform === "other") {
+      setShowQR(true);
+      return;
+    }
+
+    if (!viewerRef.current) {
+      setStatus("error");
+      setErrorReason("generic");
+      setShowSheet(true);
+      return;
+    }
+
+    if (loadErrorRef.current) {
+      setStatus("error");
+      setErrorReason("network");
+      setShowSheet(true);
+      return;
+    }
+
+    if (modelLoadedRef.current && viewerReady) {
+      setShowSheet(true);
+      launchAR();
+      return;
+    }
+
+    // Model se ještě stahuje -- ukázat loading a počkat na dokončení.
+    // Automatické pokračování zajišťuje useEffect níže (sleduje viewerReady).
+    setStatus("loading");
+    setErrorReason(null);
+    setShowSheet(true);
+    startLoadTimeout();
+  }, [viewerReady, launchAR, startLoadTimeout]);
+
+  // Jakmile se model doráhne na pozadí PO kliknutí (uživatel čeká na
+  // obrazovce "Připravujeme AR náhled…"), automaticky pokračovat k AR.
+  useEffect(() => {
+    if (viewerReady && showSheet && status === "loading") {
+      launchAR();
+    }
+  }, [viewerReady, showSheet, status, launchAR]);
 
   const closeSheet = useCallback(() => {
+    clearLoadTimeout();
     setShowSheet(false);
     setStatus("idle");
-  }, []);
+    setErrorReason(null);
+  }, [clearLoadTimeout]);
 
   return (
     <>
@@ -199,7 +271,7 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
                     Připravujeme AR náhled…
                   </p>
                   <p className="mt-1 text-xs text-white/40">
-                    Model se ještě načítá.
+                    Model se ještě načítá (cca 20&nbsp;MB).
                   </p>
                 </>
               )}
@@ -231,7 +303,16 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
               {status === "error" && (
                 <>
                   <p className="text-sm text-white/85">
-                    AR náhled se nepodařilo spustit.
+                    {errorReason === "timeout"
+                      ? "Model se nepodařilo načíst včas."
+                      : errorReason === "network"
+                        ? "Model se nepodařilo stáhnout."
+                        : "AR náhled se nepodařilo spustit."}
+                  </p>
+                  <p className="mt-1 text-xs text-white/40">
+                    {errorReason === "timeout" || errorReason === "network"
+                      ? "Zkontrolujte připojení k internetu (model má cca 20\u00a0MB) a zkuste to znovu."
+                      : "Zkuste to prosím znovu."}
                   </p>
                   <button
                     type="button"

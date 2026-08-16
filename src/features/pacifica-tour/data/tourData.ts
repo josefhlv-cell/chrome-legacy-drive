@@ -179,7 +179,7 @@ export const HOTSPOTS: TourHotspot[] = [
   {
     id: "driver-entry",
     label: "Nastoupit",
-    position: [-1.04, 1.02, 0.72],
+    position: [-1.35, 0.48, 0.72],
     focus: {
       position: [-3.4, 1.55, 1.4],
       lookAt: [-0.55, 1.05, 0.7],

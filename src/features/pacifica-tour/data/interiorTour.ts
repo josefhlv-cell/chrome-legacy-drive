@@ -200,21 +200,37 @@ export const INTERIOR_STEPS: InteriorStep[] = [
     id: "front-console",
     src: frontConsole,
     alt: "Detail přední části, středové konzoly a ovládacích prvků",
-    intro: {
-      eyebrow: "Vpředu",
-      title: "Přední konzole a ovládání",
-      text:
-        "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Karta obsahuje také reálné video rádia a systému Uconnect konkrétního vozu.",
-      note: EQUIP_NOTE,
-      collapsible: true,
-      videos: [
-        {
-          src: radioUconnectVideo,
-          caption: "Rádio a Uconnect — reálné video konkrétního vozu",
+
+    /*
+     * Karta se při vstupu do tohoto kroku NESMÍ otevřít automaticky.
+     * Na displeji rádia je pouze hotspot / placeholder.
+     * Karta s videem se otevře až po kliknutí na hotspot.
+     *
+     * Souřadnice jsou záměrně umístěné doprostřed fyzického displeje
+     * rádia/Uconnect na fotografii front-console.
+     */
+    hotspots: [
+      {
+        id: "radio-uconnect-video",
+        label: "Rádio a Uconnect",
+        x: 52,
+        y: 25.5,
+        card: {
+          eyebrow: "Vpředu",
+          title: "Přední konzole a ovládání",
+          text:
+            "Detail přední části s dotykovým displejem, ovládáním klimatizace a dalšími ovládacími prvky v dosahu řidiče. Prohlédněte si reálné video rádia a systému Uconnect konkrétního vozu.",
+          note: EQUIP_NOTE,
+          collapsible: false,
+          videos: [
+            {
+              src: radioUconnectVideo,
+              caption: "Rádio a Uconnect — reálné video konkrétního vozu",
+            },
+          ],
         },
-      ],
-    },
-    hotspots: [],
+      },
+    ],
     nextLabel: "Prohlédnout zadní část →",
   },
 

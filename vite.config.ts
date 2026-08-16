@@ -18,6 +18,11 @@ export default defineConfig(({ mode }) => ({
     target: 'es2020',
     modulePreload: { polyfill: false },
     rollupOptions: {
+      // onnxruntime-web/webgpu je volitelná, dynamicky importovaná závislost
+      // uvnitř @imgly/background-removal. Není nainstalovaná (a nepotřebujeme
+      // ji), takže ji necháme jako "external" -- Vite ji přeskočí při buildu
+      // místo toho, aby kvůli chybějícímu modulu spadl celý build.
+      external: ['onnxruntime-web/webgpu'],
       output: {
         manualChunks: {
           'vendor-react': ['react', 'react-dom', 'react-router-dom'],

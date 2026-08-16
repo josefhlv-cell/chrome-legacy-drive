@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import type { TourHotspot } from "../data/tourData";
 
@@ -77,6 +77,20 @@ export const DetailPanel = ({
 }: Props) => {
   const detail = hotspot.detail;
 
+  const [powertrainKey, setPowertrainKey] = useState<
+    "gasoline" | "hybrid"
+  >("gasoline");
+
+  const activePowertrain = detail.powertrainOptions?.find(
+    (option) => option.key === powertrainKey,
+  );
+
+  const activeTitle = activePowertrain?.title ?? detail.title;
+  const activeText = activePowertrain?.text ?? detail.text;
+  const activeBullets =
+    activePowertrain?.bullets ?? detail.bullets;
+  const activeSpecs = activePowertrain?.specs ?? detail.specs;
+
   // Panel je vždy rozbalený.
   // Platí pro exteriér i interiér.
   const isExpanded = true;
@@ -84,7 +98,7 @@ export const DetailPanel = ({
   return (
     <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 md:inset-y-0 md:left-auto md:right-0 md:flex md:items-center md:p-5">
       <section
-        aria-label={detail.title}
+        aria-label={activeTitle}
         className="pointer-events-auto w-full rounded-t-[26px] border border-white/10 bg-[hsl(var(--card)/0.88)] shadow-[0_-16px_60px_rgba(0,0,0,0.55)] backdrop-blur-xl md:w-[420px] md:rounded-3xl md:shadow-[0_30px_70px_rgba(0,0,0,0.55)]"
       >
         <div className="px-5 pt-4 md:px-6 md:pt-5">
@@ -93,22 +107,47 @@ export const DetailPanel = ({
           </p>
 
           <h2 className="mt-1 font-serif text-lg leading-tight text-foreground md:text-xl">
-            {detail.title}
+            {activeTitle}
           </h2>
+
+          {detail.powertrainOptions && (
+            <div
+              className="mt-3 grid grid-cols-2 gap-1 rounded-full border border-white/10 bg-black/25 p-1"
+              role="tablist"
+              aria-label="Volba pohonu"
+            >
+              {detail.powertrainOptions.map((option) => (
+                <button
+                  key={option.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={option.key === powertrainKey}
+                  onClick={() => setPowertrainKey(option.key)}
+                  className={`h-9 rounded-full text-[10px] font-semibold uppercase tracking-[0.14em] transition ${
+                    option.key === powertrainKey
+                      ? "bg-primary text-primary-foreground shadow-sm"
+                      : "text-white/55 hover:bg-white/8 hover:text-white"
+                  }`}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="max-h-[62vh] overflow-y-auto overscroll-contain px-5 md:max-h-[70vh] md:px-6">
-          {isExpanded && detail.media && (
-            <Media media={detail.media} title={detail.title} />
+          {isExpanded && detail.media && !activePowertrain && (
+            <Media media={detail.media} title={activeTitle} />
           )}
 
           <p className="mt-4 text-[13px] leading-relaxed text-muted-foreground">
-            {detail.text}
+            {activeText}
           </p>
 
-          {detail.bullets && detail.bullets.length > 0 && (
+          {activeBullets && activeBullets.length > 0 && (
             <ul className="mt-3.5 space-y-2">
-              {detail.bullets.map((bullet) => (
+              {activeBullets.map((bullet) => (
                 <li
                   key={bullet}
                   className="flex gap-2.5 text-[12.5px] leading-snug text-foreground/85"
@@ -120,9 +159,9 @@ export const DetailPanel = ({
             </ul>
           )}
 
-          {detail.specs && (
+          {activeSpecs && (
             <dl className="mt-4 grid grid-cols-2 gap-2.5">
-              {detail.specs.map((spec) => (
+              {activeSpecs.map((spec) => (
                 <div
                   key={spec.label}
                   className="rounded-xl border border-white/8 bg-white/[0.04] p-3"

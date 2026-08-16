@@ -297,7 +297,7 @@ const InfoCard = ({
           border
           border-t-0
           border-white/10
-          bg-[#111925]/98
+          bg-[#05070b]
           shadow-2xl
           backdrop-blur-xl
         "
@@ -374,7 +374,7 @@ const InfoCard = ({
             rounded-t-[28px]
             border
             border-white/10
-            bg-[#111925]/98
+            bg-[#05070b]
             p-5
             pb-6
             shadow-2xl
@@ -392,7 +392,7 @@ const InfoCard = ({
             rounded-t-[28px]
             border
             border-white/10
-            bg-[#111925]/98
+            bg-[#05070b]
             p-5
             pb-6
             shadow-2xl

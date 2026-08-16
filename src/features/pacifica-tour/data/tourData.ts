@@ -25,6 +25,15 @@ export type HotspotMedia = {
   caption?: string;
 };
 
+export type PowertrainOption = {
+  key: "gasoline" | "hybrid";
+  label: string;
+  title: string;
+  text: string;
+  bullets: string[];
+  specs: { label: string; value: string }[];
+};
+
 export type HotspotDetail = {
   eyebrow: string;
   title: string;
@@ -37,6 +46,7 @@ export type HotspotDetail = {
     action: "interior";
   };
   note?: string;
+  powertrainOptions?: PowertrainOption[];
 };
 
 export type TourHotspot = {
@@ -121,10 +131,11 @@ export const HOTSPOTS: TourHotspot[] = [
       eyebrow: "Pohon",
       title: "3.6L Pentastar V6",
       text:
-        "Pod kapotou je benzinový šestiválec 3.6 litru s výkonem 287 koní (211 kW) a točivým momentem 262 lb-ft. Přenos výkonu zajišťuje 9stupňová automatická převodovka.",
+        "Klasická benzinová verze využívá 3.6L Pentastar V6 s výkonem 287 koní (211 kW) a točivým momentem 262 lb-ft (355 Nm). Přenos výkonu zajišťuje 9stupňová automatická převodovka.",
       bullets: [
+        "3,6 l Pentastar V6",
         "9stupňová automatická převodovka",
-        "AWD — podle systému může být moment přenášen mezi nápravami podle trakce",
+        "AWD — podle konkrétní výbavy vozu",
         "Automatické řízení pohonu pro efektivní provoz",
       ],
       specs: [
@@ -138,7 +149,7 @@ export const HOTSPOTS: TourHotspot[] = [
         },
         {
           label: "Moment",
-          value: "262 lb-ft",
+          value: "262 lb-ft / 355 Nm",
         },
         {
           label: "Převodovka",
@@ -146,6 +157,70 @@ export const HOTSPOTS: TourHotspot[] = [
         },
       ],
       note: EQUIP_NOTE,
+      powertrainOptions: [
+        {
+          key: "gasoline",
+          label: "Benzín",
+          title: "3.6L Pentastar V6",
+          text:
+            "Klasická benzinová verze využívá 3.6L Pentastar V6 s výkonem 287 koní (211 kW) a točivým momentem 262 lb-ft (355 Nm). Přenos výkonu zajišťuje 9stupňová automatická převodovka.",
+          bullets: [
+            "3,6 l Pentastar V6",
+            "9stupňová automatická převodovka",
+            "AWD — podle konkrétní výbavy vozu",
+            "Automatické řízení pohonu pro efektivní provoz",
+          ],
+          specs: [
+            {
+              label: "Objem",
+              value: "3,6 l V6",
+            },
+            {
+              label: "Výkon",
+              value: "287 hp / 211 kW",
+            },
+            {
+              label: "Moment",
+              value: "262 lb-ft / 355 Nm",
+            },
+            {
+              label: "Převodovka",
+              value: "9st. automat",
+            },
+          ],
+        },
+        {
+          key: "hybrid",
+          label: "Hybrid",
+          title: "3.6L Pentastar Plug-in Hybrid",
+          text:
+            "Plug-in hybridní Pacifica kombinuje 3.6L Pentastar V6 s elektrickým pohonem. Systém automaticky využívá benzinový a elektrický pohon podle aktuálních podmínek a při dostatečném nabití umožňuje jízdu čistě na elektřinu.",
+          bullets: [
+            "3,6 l Pentastar V6 v hybridním systému",
+            "Plug-in hybridní pohon se dvěma elektromotory",
+            "Čistě elektrický dojezd až přibližně 51 km (32 mil)",
+            "Automatické přepínání mezi elektrickým a benzinovým pohonem",
+          ],
+          specs: [
+            {
+              label: "Typ",
+              value: "3,6 l V6 PHEV",
+            },
+            {
+              label: "Systémový výkon",
+              value: "260 hp",
+            },
+            {
+              label: "Elektrický dojezd",
+              value: "až 51 km / 32 mil",
+            },
+            {
+              label: "Pohon",
+              value: "Plug-in hybrid",
+            },
+          ],
+        },
+      ],
     },
   },
 

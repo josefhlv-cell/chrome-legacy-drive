@@ -23,6 +23,20 @@
       ]
     },
     {
+      "source": "/models/pacifica.usdz",
+      "headers": [
+        { "key": "Content-Type", "value": "model/vnd.usdz+zip" },
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
+      "source": "/models/pacifica.glb",
+      "headers": [
+        { "key": "Content-Type", "value": "model/gltf-binary" },
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    },
+    {
       "source": "/hero-chrysler.webp",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }

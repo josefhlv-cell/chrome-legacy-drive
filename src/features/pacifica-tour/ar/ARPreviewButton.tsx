@@ -5,6 +5,8 @@ import { Box, Loader2, X } from "lucide-react";
 
 const MODEL_GLB = "/models/pacifica.glb";
 const MODEL_USDZ = "/models/pacifica.usdz";
+// AR Quick Look poster -- viz poznámka u <a rel="ar"> níže.
+const AR_POSTER = "/pacifica-hero.webp";
 
 /** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */
 const LOAD_TIMEOUT_MS = 30000;
@@ -227,15 +229,27 @@ export const ARPreviewButton = ({ onExitAR }: Props) => {
   return (
     <>
       {platform === "ios" ? (
+        // DŮLEŽITÉ: Safari na iOS spustí AR Quick Look pouze tehdy, když je
+        // PRVNÍM potomkem <a rel="ar"> element <img> (nebo <picture>).
+        // Bez něj odkaz jen normálně naviguje na .usdz soubor a AR overlay
+        // se vůbec nespustí. Zdroj: WebKit blog (Viewing AR Assets in Safari).
+        // Proto je <img> skutečně první v DOM, jen vizuálně schovaný pod
+        // ikonou tlačítka (position: absolute, opacity 0 -- ale PŘÍTOMNÝ).
         <a
           id="pacifica-ar-quick-look"
           href={MODEL_USDZ}
           rel="ar"
           aria-label="Zobrazit vůz v rozšířené realitě (AR)"
           title="Zobrazit v AR"
-          className={buttonClass}
+          className={`${buttonClass} relative overflow-hidden`}
         >
-          <Box className="h-4 w-4" />
+          <img
+            src={AR_POSTER}
+            alt=""
+            aria-hidden="true"
+            className="absolute inset-0 h-full w-full object-cover opacity-0"
+          />
+          <Box className="pointer-events-none relative h-4 w-4" />
         </a>
       ) : (
         <button

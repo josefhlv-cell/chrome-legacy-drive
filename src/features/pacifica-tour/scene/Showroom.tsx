@@ -84,16 +84,33 @@ export const Showroom = ({ mobile = false }: Props) => {
         <circleGeometry args={[26, 48]} />
       </mesh>
 
-      <ContactShadows
-        position={[0, 0.01, 0]}
-        opacity={mobile ? 0.58 : 0.72}
-        scale={18}
-        blur={2.8}
-        far={4.2}
-        resolution={mobile ? 128 : 384}
-        frames={1}
-        color="#000000"
-      />
+      {/* Na mobilu jsou dynamické stíny vypnuté kvůli výkonu. Bez jakéhokoli
+          stínu ale auto opticky „plave“ nad podlahou — proto je pod vozem
+          statická kontaktní stínová textura (jeden draw call, nulový náklad). */}
+      {mobile ? (
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
+          <planeGeometry args={[8.4, 4.2]} />
+          <meshBasicMaterial
+            transparent
+            depthWrite={false}
+            opacity={0.72}
+            color="#000000"
+            map={staticShadow}
+          />
+        </mesh>
+      ) : (
+        <ContactShadows
+          position={[0, 0.01, 0]}
+          opacity={0.72}
+          scale={18}
+          blur={2.8}
+          far={4.2}
+          resolution={384}
+          frames={1}
+          color="#000000"
+        />
+      )}
+
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
         <ringGeometry args={[4.2, 4.35, 64]} />

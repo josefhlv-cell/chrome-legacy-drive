@@ -1,1 +1,6 @@
 project_id = "thqyzghifwmwohgfvshf"
+
+# Veřejné formuláře (poptávka z prohlídky, servis, výkup, import, chat) odesílají
+# notifikaci bez přihlášení — proto tato funkce nesmí vyžadovat JWT.
+[functions.send-lead-notification]
+verify_jwt = false

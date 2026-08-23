@@ -712,9 +712,17 @@ export const PacificaShowroom = () => {
       const link = document.createElement("a");
       link.href = url;
       link.download = `chrysler-pacifica-${colorKey}.png`;
+      link.rel = "noopener";
+      // Safari/iOS i některé Chromium buildy stahují jen z připojeného odkazu.
+      link.style.display = "none";
+      document.body.appendChild(link);
       link.click();
 
-      window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+      window.setTimeout(() => {
+        link.remove();
+        URL.revokeObjectURL(url);
+      }, 4000);
+
     }, "image/png");
 
     setFlash(true);

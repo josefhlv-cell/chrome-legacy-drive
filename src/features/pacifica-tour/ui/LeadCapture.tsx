@@ -86,7 +86,10 @@ export const LeadCapture = ({
 
     try {
       await createLead.mutateAsync({
-        type: "pacifica_tour",
+        // Tabulka leads povoluje jen import | trade-in | contact | service.
+        // Původ z prohlídky nese `metadata.source` a text zprávy.
+        type: "contact",
+
         name: name.trim(),
         email: email.trim() || "neuvedeno@chryslerpardubice.site",
         phone: phone.trim(),

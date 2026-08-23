@@ -437,7 +437,12 @@ export const PacificaShowroom = () => {
         navigator.maxTouchPoints > 0;
 
       setIsMobile(mobile);
-      setDpr(mobile ? 1.15 : 1.65);
+      // Desktop jde na plné rozlišení displeje (retina), mobil zůstává střídmý.
+      setDpr(
+        mobile
+          ? 1.2
+          : Math.min(window.devicePixelRatio || 1, 2),
+      );
     };
 
     check();

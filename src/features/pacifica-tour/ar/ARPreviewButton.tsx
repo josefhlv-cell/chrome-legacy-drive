@@ -430,12 +430,11 @@ export const ARPreviewButton = ({
           ar-modes="webxr scene-viewer quick-look"
           ar-scale="fixed"
           ar-placement="floor"
-          {/* Reálné osvětlení z kamery telefonu (WebXR light estimation). */}
           xr-environment
           environment-image="neutral"
           tone-mapping="aces"
           exposure="1"
-          {/* Kontaktní stín pod koly = vjem, že vůz stojí na zemi. */}
+
 
           shadow-intensity="1"
           shadow-softness="0.55"

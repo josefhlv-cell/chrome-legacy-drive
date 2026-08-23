@@ -1,4 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { trackTourEvent } from "../lib/tourAnalytics";
+import { sfx } from "../lib/tourSound";
+
 import {
   ArrowLeft,
   ArrowRight,

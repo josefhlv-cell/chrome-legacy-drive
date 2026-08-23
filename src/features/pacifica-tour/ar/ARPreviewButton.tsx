@@ -598,10 +598,10 @@ export const ARPreviewButton = ({
                 shadow-intensity="1.15"
                 shadow-softness="0.7"
                 exposure="1"
-                camera-orbit="35deg 78deg 105%"
+                camera-orbit="35deg 76deg 82%"
                 min-camera-orbit="auto 25deg auto"
                 max-camera-orbit="auto 90deg 140%"
-                field-of-view="28deg"
+                field-of-view="26deg"
                 loading="eager"
                 style={{
                   width: "100%",

@@ -59,7 +59,7 @@ const prepare = (
   const tuneTexture = (texture: THREE.Texture | null | undefined) => {
     if (!texture) return;
 
-    texture.anisotropy = Math.min(maxAnisotropy, 4);
+    texture.anisotropy = maxAnisotropy;
     texture.needsUpdate = true;
   };
 
@@ -101,11 +101,14 @@ const prepare = (
         color:
           src.color?.clone() ??
           new THREE.Color("#ffffff"),
-        metalness: 0.58,
-        roughness: 0.24,
+        metalness: 0.62,
+        roughness: 0.18,
         clearcoat: 1,
-        clearcoatRoughness: 0.055,
-        envMapIntensity: 1.15,
+        clearcoatRoughness: 0.03,
+        envMapIntensity: 1.4,
+        sheen: 0.25,
+        sheenRoughness: 0.4,
+        sheenColor: new THREE.Color("#ffffff"),
       });
 
       // Zachovat všechny dostupné textury původního materiálu.
@@ -140,18 +143,18 @@ const prepare = (
         material.metalness = 0;
         material.roughness = Math.min(
           material.roughness,
-          0.08,
+          0.05,
         );
-        material.envMapIntensity = 1.25;
+        material.envMapIntensity = 1.5;
       } else if (
         lower.includes("chrome") ||
         lower.includes("rims1") ||
         lower.includes("mirrors") ||
         lower.includes("calipers")
       ) {
-        material.metalness = 0.92;
-        material.roughness = 0.2;
-        material.envMapIntensity = 1.25;
+        material.metalness = 0.95;
+        material.roughness = 0.14;
+        material.envMapIntensity = 1.55;
       } else if (lower.includes("tires")) {
         material.metalness = 0;
         material.roughness = 0.92;
@@ -282,9 +285,9 @@ export const PacificaModel = ({ bodyColor }: Props) => {
     () =>
       Math.min(
         gl.capabilities.getMaxAnisotropy(),
-        4,
+        enableShadows ? 16 : 4,
       ),
-    [gl],
+    [gl, enableShadows],
   );
 
   const prepared = useMemo(

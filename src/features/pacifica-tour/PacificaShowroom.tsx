@@ -72,12 +72,13 @@ const RendererQuality = ({ mobile }: { mobile: boolean }) => {
   useEffect(() => {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = mobile ? 1.0 : 1.08;
+    gl.toneMappingExposure = mobile ? 1.02 : 1.12;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
 
     gl.setPixelRatio(
       Math.min(
         window.devicePixelRatio || 1,
-        mobile ? 1.35 : 2,
+        mobile ? 1.2 : 2,
       ),
     );
   }, [gl, mobile]);
@@ -437,7 +438,12 @@ export const PacificaShowroom = () => {
         navigator.maxTouchPoints > 0;
 
       setIsMobile(mobile);
-      setDpr(mobile ? 1.15 : 1.65);
+      // Desktop jde na plné rozlišení displeje (retina), mobil zůstává střídmý.
+      setDpr(
+        mobile
+          ? 1.2
+          : Math.min(window.devicePixelRatio || 1, 2),
+      );
     };
 
     check();
@@ -999,7 +1005,12 @@ export const PacificaShowroom = () => {
             onIncline={() =>
               setDpr((value) =>
                 Math.min(
-                  isMobile ? 1.35 : 2,
+                  isMobile
+                    ? 1.2
+                    : Math.min(
+                        window.devicePixelRatio || 1,
+                        2,
+                      ),
                   value + 0.1,
                 ),
               )

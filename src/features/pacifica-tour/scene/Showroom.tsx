@@ -65,7 +65,7 @@ export const Showroom = ({ mobile = false }: Props) => {
         intensity={mobile ? 1.75 : 2.2}
         color="#ffffff"
         castShadow={!mobile}
-        shadow-mapSize={[mobile ? 256 : 1024, mobile ? 256 : 1024]}
+        shadow-mapSize={[mobile ? 256 : 2048, mobile ? 256 : 2048]}
         shadow-bias={-0.0004}
       />
 
@@ -81,7 +81,7 @@ export const Showroom = ({ mobile = false }: Props) => {
         color="#9dbcff"
       />
 
-      <Environment resolution={mobile ? 128 : 256}>
+      <Environment resolution={mobile ? 128 : 512}>
         <Lightformer
           intensity={4}
           position={[0, 6, 4]}
@@ -138,9 +138,9 @@ export const Showroom = ({ mobile = false }: Props) => {
           position={[0, 0.01, 0]}
           opacity={0.72}
           scale={18}
-          blur={2.8}
+          blur={2.4}
           far={4.2}
-          resolution={384}
+          resolution={768}
           frames={1}
           color="#000000"
         />

@@ -19,6 +19,41 @@ export const Showroom = ({ mobile = false }: Props) => {
     [],
   );
 
+  /** Statická kontaktní stínová textura (radiální gradient) pro mobil. */
+  const staticShadow = useMemo(() => {
+    if (typeof document === "undefined") return null;
+
+    const size = 256;
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+
+    const gradient = ctx.createRadialGradient(
+      size / 2,
+      size / 2,
+      size * 0.08,
+      size / 2,
+      size / 2,
+      size * 0.5,
+    );
+
+    gradient.addColorStop(0, "rgba(255,255,255,1)");
+    gradient.addColorStop(0.45, "rgba(255,255,255,0.72)");
+    gradient.addColorStop(1, "rgba(255,255,255,0)");
+
+    ctx.fillStyle = gradient;
+    ctx.fillRect(0, 0, size, size);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.colorSpace = THREE.SRGBColorSpace;
+
+    return texture;
+  }, []);
+
+
   return (
     <group>
       <hemisphereLight

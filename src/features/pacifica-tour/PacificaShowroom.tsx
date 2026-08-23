@@ -1005,7 +1005,12 @@ export const PacificaShowroom = () => {
             onIncline={() =>
               setDpr((value) =>
                 Math.min(
-                  isMobile ? 1.35 : 2,
+                  isMobile
+                    ? 1.2
+                    : Math.min(
+                        window.devicePixelRatio || 1,
+                        2,
+                      ),
                   value + 0.1,
                 ),
               )

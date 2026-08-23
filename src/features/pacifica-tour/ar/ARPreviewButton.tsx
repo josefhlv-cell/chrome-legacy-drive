@@ -427,11 +427,20 @@ export const ARPreviewButton = ({
           src={MODEL_GLB}
           ios-src={MODEL_USDZ}
           ar
-          ar-modes="scene-viewer quick-look"
+          ar-modes="webxr scene-viewer quick-look"
           ar-scale="fixed"
           ar-placement="floor"
+          xr-environment
+          environment-image="neutral"
+          tone-mapping="aces"
+          exposure="1"
+
+
+          shadow-intensity="1"
+          shadow-softness="0.55"
           alt="Chrysler Pacifica — 3D model pro AR náhled"
           loading="lazy"
+
           style={{
             position: "fixed",
             width: 1,

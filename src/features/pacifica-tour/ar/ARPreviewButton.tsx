@@ -590,8 +590,18 @@ export const ARPreviewButton = ({
                 alt="Chrysler Pacifica — otočitelný 3D model"
                 camera-controls
                 auto-rotate
-                shadow-intensity="1"
-                exposure="1.05"
+                auto-rotate-delay="600"
+                rotation-per-second="14deg"
+                interaction-prompt="none"
+                environment-image="neutral"
+                tone-mapping="aces"
+                shadow-intensity="1.15"
+                shadow-softness="0.7"
+                exposure="1"
+                camera-orbit="35deg 78deg 105%"
+                min-camera-orbit="auto 25deg auto"
+                max-camera-orbit="auto 90deg 140%"
+                field-of-view="28deg"
                 loading="eager"
                 style={{
                   width: "100%",
@@ -599,6 +609,7 @@ export const ARPreviewButton = ({
                   background: "transparent",
                 }}
               />
+
 
               <div className="flex flex-col items-center gap-4 border-t border-white/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-[11px] text-white/45">

@@ -430,13 +430,13 @@ export const ARPreviewButton = ({
           ar-modes="webxr scene-viewer quick-look"
           ar-scale="fixed"
           ar-placement="floor"
-          /* Reálné osvětlení z kamery telefonu (WebXR light estimation) —
-             vůz přebírá barvu a intenzitu skutečného světla v místnosti. */
+          {/* Reálné osvětlení z kamery telefonu (WebXR light estimation). */}
           xr-environment
           environment-image="neutral"
           tone-mapping="aces"
           exposure="1"
-          /* Kontaktní stín pod koly = vjem, že vůz skutečně stojí na zemi. */
+          {/* Kontaktní stín pod koly = vjem, že vůz stojí na zemi. */}
+
           shadow-intensity="1"
           shadow-softness="0.55"
           alt="Chrysler Pacifica — 3D model pro AR náhled"

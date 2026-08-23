@@ -19,41 +19,6 @@ export const Showroom = ({ mobile = false }: Props) => {
     [],
   );
 
-  /** Statická kontaktní stínová textura (radiální gradient) pro mobil. */
-  const staticShadow = useMemo(() => {
-    if (typeof document === "undefined") return null;
-
-    const size = 256;
-    const canvas = document.createElement("canvas");
-    canvas.width = size;
-    canvas.height = size;
-
-    const ctx = canvas.getContext("2d");
-    if (!ctx) return null;
-
-    const gradient = ctx.createRadialGradient(
-      size / 2,
-      size / 2,
-      size * 0.08,
-      size / 2,
-      size / 2,
-      size * 0.5,
-    );
-
-    gradient.addColorStop(0, "rgba(255,255,255,1)");
-    gradient.addColorStop(0.45, "rgba(255,255,255,0.72)");
-    gradient.addColorStop(1, "rgba(255,255,255,0)");
-
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, size, size);
-
-    const texture = new THREE.CanvasTexture(canvas);
-    texture.colorSpace = THREE.SRGBColorSpace;
-
-    return texture;
-  }, []);
-
-
   return (
     <group>
       <hemisphereLight
@@ -119,33 +84,16 @@ export const Showroom = ({ mobile = false }: Props) => {
         <circleGeometry args={[26, 48]} />
       </mesh>
 
-      {/* Na mobilu jsou dynamické stíny vypnuté kvůli výkonu. Bez jakéhokoli
-          stínu ale auto opticky „plave“ nad podlahou — proto je pod vozem
-          statická kontaktní stínová textura (jeden draw call, nulový náklad). */}
-      {mobile ? (
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.012, 0]}>
-          <planeGeometry args={[8.4, 4.2]} />
-          <meshBasicMaterial
-            transparent
-            depthWrite={false}
-            opacity={0.72}
-            color="#000000"
-            map={staticShadow}
-          />
-        </mesh>
-      ) : (
-        <ContactShadows
-          position={[0, 0.01, 0]}
-          opacity={0.72}
-          scale={18}
-          blur={2.8}
-          far={4.2}
-          resolution={384}
-          frames={1}
-          color="#000000"
-        />
-      )}
-
+      <ContactShadows
+        position={[0, 0.01, 0]}
+        opacity={mobile ? 0.58 : 0.72}
+        scale={18}
+        blur={2.8}
+        far={4.2}
+        resolution={mobile ? 128 : 384}
+        frames={1}
+        color="#000000"
+      />
 
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0.005, 0]}>
         <ringGeometry args={[4.2, 4.35, 64]} />

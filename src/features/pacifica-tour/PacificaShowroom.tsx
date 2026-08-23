@@ -27,11 +27,40 @@ import {
 import Hotspot3D from "./ui/Hotspot3D";
 import DetailPanel from "./ui/DetailPanel";
 import TourNav from "./ui/TourNav";
+import TourProgress from "./ui/TourProgress";
 import LoadingOverlay from "./ui/LoadingOverlay";
 import HeroIntro from "./ui/HeroIntro";
+import LeadCapture from "./ui/LeadCapture";
 import InteriorTour from "./interior/InteriorTour";
 
+import { trackTourEvent } from "./lib/tourAnalytics";
+import {
+  isTourMuted,
+  primeAudio,
+  setTourMuted,
+  sfx,
+  startAmbient,
+  stopAmbient,
+} from "./lib/tourSound";
+import { readTourUrlState, writeTourUrlState } from "./lib/tourUrlState";
+
 const KEY_ASSET = "/pacifica/virtual-tour/interior-key.png";
+
+/** Jak dlouho se u automatické prohlídky zdrží kamera na jednom bodu. */
+const GUIDED_STEP_MS = 9000;
+
+/** Detekce WebGL — bez ní by uživatel skončil na černé obrazovce. */
+const hasWebGL = (): boolean => {
+  try {
+    const canvas = document.createElement("canvas");
+    return !!(
+      window.WebGLRenderingContext &&
+      (canvas.getContext("webgl2") || canvas.getContext("webgl"))
+    );
+  } catch {
+    return false;
+  }
+};
 
 /* -------------------------------------------------------------------------- */
 /* Renderer                                                                    */
@@ -52,6 +81,32 @@ const RendererQuality = ({ mobile }: { mobile: boolean }) => {
       ),
     );
   }, [gl, mobile]);
+
+  return null;
+};
+
+/* -------------------------------------------------------------------------- */
+/* Snapshot bridge — přístup k rendereru pro „Vyfotit vůz“                    */
+/* -------------------------------------------------------------------------- */
+
+type SnapshotApi = {
+  gl: THREE.WebGLRenderer;
+  scene: THREE.Scene;
+  camera: THREE.Camera;
+};
+
+const SnapshotBridge = ({
+  onReady,
+}: {
+  onReady: (api: SnapshotApi) => void;
+}) => {
+  const gl = useThree((state) => state.gl);
+  const scene = useThree((state) => state.scene);
+  const camera = useThree((state) => state.camera);
+
+  useEffect(() => {
+    onReady({ gl, scene, camera });
+  }, [gl, scene, camera, onReady]);
 
   return null;
 };
@@ -172,6 +227,9 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
             justify-center
             rounded-full
             touch-manipulation
+            focus-visible:outline-none
+            focus-visible:ring-2
+            focus-visible:ring-primary
           "
           style={{
             WebkitTapHighlightColor: "transparent",
@@ -252,11 +310,16 @@ const ExteriorKey = ({ onUnlock }: ExteriorKeyProps) => {
 export const PacificaShowroom = () => {
   const navigate = useNavigate();
 
+  const initial = useRef(readTourUrlState());
+
   const wrapper = useRef<HTMLDivElement>(null);
   const rig = useRef<CameraRigHandle>(null);
+  const snapshot = useRef<SnapshotApi | null>(null);
 
-  const [started, setStarted] = useState(false);
-  const [interior, setInterior] = useState(false);
+  const [webgl] = useState(() => hasWebGL());
+
+  const [started, setStarted] = useState(initial.current.started);
+  const [interior, setInterior] = useState(initial.current.interior);
 
   const [focus, setFocus] = useState<{
     position: [number, number, number];
@@ -266,16 +329,25 @@ export const PacificaShowroom = () => {
   const [nonce, setNonce] = useState(0);
 
   const [selected, setSelected] =
-    useState<TourHotspot | null>(null);
+    useState<TourHotspot | null>(
+      () =>
+        HOTSPOTS.find((h) => h.id === initial.current.hotspot) ?? null,
+    );
 
   const [hotspotsVisible, setHotspotsVisible] = useState(true);
   const [fullscreen, setFullscreen] = useState(false);
   const [autoRotate, setAutoRotate] = useState(false);
-  const [colorKey, setColorKey] = useState("original");
+  const [colorKey, setColorKey] = useState(initial.current.color);
   const [isMobile, setIsMobile] = useState(false);
   const [dpr, setDpr] = useState(1.35);
   const [flash, setFlash] = useState(false);
   const [fit, setFit] = useState(1);
+
+  const [soundOn, setSoundOn] = useState(() => !isTourMuted());
+  const [guided, setGuided] = useState(false);
+  const [guidedIndex, setGuidedIndex] = useState(0);
+  const [leadOpen, setLeadOpen] = useState(false);
+  const [leadSource, setLeadSource] = useState("tour");
 
   const [visited, setVisited] = useState<Set<string>>(
     () => new Set(),
@@ -286,6 +358,73 @@ export const PacificaShowroom = () => {
       BODY_COLORS.find((c) => c.key === colorKey)?.hex ?? null,
     [colorKey],
   );
+
+  /* ---------------------------------------------------------------------- */
+  /* Analytika — otevření stránky                                            */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    trackTourEvent("tour_open", {
+      color: initial.current.color,
+      meta: { webgl, deep_link: initial.current.started },
+    });
+  }, [webgl]);
+
+  /* ---------------------------------------------------------------------- */
+  /* Deep-link: stav → URL                                                   */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    writeTourUrlState({
+      started,
+      hotspot: interior ? null : selected?.id ?? null,
+      interior,
+      color: colorKey,
+      ar: false,
+    });
+  }, [started, selected, interior, colorKey]);
+
+  /* Tlačítko „zpět“ v prohlížeči se má chovat uvnitř prohlídky. */
+  useEffect(() => {
+    const onPop = () => {
+      const state = readTourUrlState();
+
+      setStarted(state.started);
+      setInterior(state.interior);
+      setColorKey(state.color);
+      setSelected(HOTSPOTS.find((h) => h.id === state.hotspot) ?? null);
+      setFocus(null);
+      setNonce((n) => n + 1);
+    };
+
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Zvuk                                                                    */
+  /* ---------------------------------------------------------------------- */
+
+  useEffect(() => {
+    if (!started || !soundOn) return;
+
+    startAmbient();
+    return () => stopAmbient();
+  }, [started, soundOn]);
+
+  const toggleSound = useCallback(() => {
+    setSoundOn((value) => {
+      const next = !value;
+      setTourMuted(!next);
+
+      if (next) {
+        primeAudio();
+        sfx.tap();
+      }
+
+      return next;
+    });
+  }, []);
 
   /* ---------------------------------------------------------------------- */
   /* Mobile                                                                  */
@@ -406,6 +545,11 @@ export const PacificaShowroom = () => {
       setAutoRotate(false);
       setSelected(hotspot);
 
+      sfx.tap();
+      sfx.swoosh();
+
+      trackTourEvent("hotspot_view", { step: hotspot.id });
+
       setVisited((previous) => {
         const next = new Set(previous);
         next.add(hotspot.id);
@@ -430,6 +574,49 @@ export const PacificaShowroom = () => {
   );
 
   /* ---------------------------------------------------------------------- */
+  /* Automatická (guided) prohlídka                                          */
+  /* ---------------------------------------------------------------------- */
+
+  const stopGuided = useCallback(() => {
+    setGuided(false);
+  }, []);
+
+  const toggleGuided = useCallback(() => {
+    setGuided((value) => {
+      if (value) return false;
+
+      primeAudio();
+      setGuidedIndex(0);
+      trackTourEvent("guided_start");
+      return true;
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!guided) return;
+
+    const hotspot = HOTSPOTS[guidedIndex];
+
+    if (!hotspot) {
+      setGuided(false);
+      sfx.chime();
+      trackTourEvent("guided_complete");
+      setLeadSource("konec automatické prohlídky");
+      setLeadOpen(true);
+      return;
+    }
+
+    selectHotspot(hotspot);
+
+    const timer = window.setTimeout(
+      () => setGuidedIndex((index) => index + 1),
+      GUIDED_STEP_MS,
+    );
+
+    return () => window.clearTimeout(timer);
+  }, [guided, guidedIndex, selectHotspot]);
+
+  /* ---------------------------------------------------------------------- */
   /* Back to car                                                             */
   /* ---------------------------------------------------------------------- */
 
@@ -450,6 +637,7 @@ export const PacificaShowroom = () => {
     setSelected(null);
     setFocus(null);
     setVisited(new Set());
+    setGuided(false);
 
     setNonce((n) => n + 1);
 
@@ -466,9 +654,74 @@ export const PacificaShowroom = () => {
     setAutoRotate(false);
     setSelected(null);
     setFocus(null);
+    setGuided(false);
+
+    sfx.unlock();
+    trackTourEvent("interior_unlock");
 
     setInterior(true);
   }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Barva laku                                                              */
+  /* ---------------------------------------------------------------------- */
+
+  const changeColor = useCallback((key: string) => {
+    setColorKey(key);
+    sfx.paint();
+    trackTourEvent("color_change", { color: key });
+  }, []);
+
+  /* ---------------------------------------------------------------------- */
+  /* Snapshot — „Vyfotit vůz“                                                */
+  /* ---------------------------------------------------------------------- */
+
+  const takeSnapshot = useCallback(() => {
+    const api = snapshot.current;
+    if (!api) return;
+
+    sfx.shutter();
+
+    api.gl.render(api.scene, api.camera);
+
+    const source = api.gl.domElement;
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width;
+    canvas.height = source.height;
+
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.drawImage(source, 0, 0);
+
+    // Vodoznak — sdílení na sociálních sítích má vždy nést značku prodejce.
+    const pad = Math.round(canvas.width * 0.03);
+    const size = Math.max(14, Math.round(canvas.width * 0.018));
+
+    ctx.font = `600 ${size}px Montserrat, sans-serif`;
+    ctx.textBaseline = "bottom";
+    ctx.fillStyle = "rgba(0,0,0,0.45)";
+    ctx.fillText("CHRYSLER PARDUBICE · chdp.chryslerpardubice.site", pad + 2, canvas.height - pad + 2);
+    ctx.fillStyle = "rgba(255,255,255,0.92)";
+    ctx.fillText("CHRYSLER PARDUBICE · chdp.chryslerpardubice.site", pad, canvas.height - pad);
+
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `chrysler-pacifica-${colorKey}.png`;
+      link.click();
+
+      window.setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }, "image/png");
+
+    setFlash(true);
+    window.setTimeout(() => setFlash(false), 260);
+
+    trackTourEvent("snapshot", { color: colorKey });
+  }, [colorKey]);
 
   /* ---------------------------------------------------------------------- */
   /* Fullscreen                                                              */
@@ -508,18 +761,62 @@ export const PacificaShowroom = () => {
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (event.key !== "Escape") return;
+      const target = event.target as HTMLElement | null;
 
-      if (selected) {
-        backToCar();
+      if (
+        target &&
+        /input|textarea|select/i.test(target.tagName)
+      ) {
         return;
       }
 
-      if (
-        started &&
-        !document.fullscreenElement
-      ) {
-        navigate("/");
+      if (event.key === "Escape") {
+        if (leadOpen) return;
+
+        if (selected) {
+          backToCar();
+          return;
+        }
+
+        if (started && !document.fullscreenElement) {
+          trackTourEvent("tour_exit");
+          navigate("/");
+        }
+
+        return;
+      }
+
+      if (!started || interior) return;
+
+      // Klávesnicová navigace mezi body zájmu.
+      if (event.key === "ArrowRight" || event.key === "ArrowLeft") {
+        event.preventDefault();
+        stopGuided();
+
+        const current = selected
+          ? HOTSPOTS.findIndex((h) => h.id === selected.id)
+          : -1;
+
+        const delta = event.key === "ArrowRight" ? 1 : -1;
+        const next =
+          (current + delta + HOTSPOTS.length) % HOTSPOTS.length;
+
+        selectHotspot(HOTSPOTS[next]);
+        return;
+      }
+
+      if (event.key.toLowerCase() === "h") {
+        setHotspotsVisible((value) => !value);
+        return;
+      }
+
+      if (event.key.toLowerCase() === "p") {
+        toggleGuided();
+        return;
+      }
+
+      if (event.key.toLowerCase() === "f") {
+        toggleFullscreen();
       }
     };
 
@@ -533,8 +830,14 @@ export const PacificaShowroom = () => {
   }, [
     selected,
     started,
+    interior,
+    leadOpen,
     navigate,
     backToCar,
+    selectHotspot,
+    stopGuided,
+    toggleGuided,
+    toggleFullscreen,
   ]);
 
   /* ---------------------------------------------------------------------- */
@@ -544,22 +847,11 @@ export const PacificaShowroom = () => {
   if (!started) {
     return (
       <HeroIntro
-        onStart={() => setStarted(true)}
-        onClose={() => navigate("/")}
-      />
-    );
-  }
-
-  /* ---------------------------------------------------------------------- */
-  /* Interior                                                                */
-  /* ---------------------------------------------------------------------- */
-
-  if (interior) {
-    return (
-      <InteriorTour
-        onExitToExterior={() => {
-          setInterior(false);
-          backToCar();
+        onStart={() => {
+          primeAudio();
+          sfx.unlock();
+          trackTourEvent("tour_start");
+          setStarted(true);
         }}
         onClose={() => navigate("/")}
       />
@@ -567,7 +859,57 @@ export const PacificaShowroom = () => {
   }
 
   /* ---------------------------------------------------------------------- */
-  /* Exterior                                                                */
+  /* WebGL fallback — bez 3D kontextu nabídneme aspoň fotoprohlídku          */
+  /* ---------------------------------------------------------------------- */
+
+  if (!webgl) {
+    return (
+      <div className="fixed inset-0 z-50 overflow-y-auto bg-[#05070b] px-6 py-10 text-center">
+        <img
+          src="/pacifica-hero.webp"
+          alt="Chrysler Pacifica — Chrysler Pardubice"
+          className="mx-auto max-h-[46vh] w-full max-w-xl rounded-2xl object-cover"
+        />
+
+        <h1 className="mt-6 font-serif text-2xl text-white">
+          3D prohlídka není na tomto zařízení dostupná
+        </h1>
+
+        <p className="mx-auto mt-3 max-w-md text-[13px] leading-relaxed text-white/60">
+          Váš prohlížeč nepodporuje WebGL, takže 3D exteriér nelze zobrazit.
+          Fotoprohlídkou interiéru ale projít můžete.
+        </p>
+
+        <div className="mx-auto mt-6 flex max-w-sm flex-col gap-2.5">
+          <button
+            type="button"
+            onClick={() => setInterior(true)}
+            className="h-12 rounded-full bg-primary text-[13px] font-semibold text-primary-foreground"
+          >
+            Prohlídka interiéru (fotografie)
+          </button>
+
+          <button
+            type="button"
+            onClick={() => navigate("/")}
+            className="h-12 rounded-full border border-white/15 bg-white/8 text-[13px] font-semibold text-white"
+          >
+            Zpět na web
+          </button>
+        </div>
+
+        {interior && (
+          <InteriorTour
+            onExitToExterior={() => setInterior(false)}
+            onClose={() => navigate("/")}
+          />
+        )}
+      </div>
+    );
+  }
+
+  /* ---------------------------------------------------------------------- */
+  /* Exterior + interior (Canvas zůstává namontovaný)                        */
   /* ---------------------------------------------------------------------- */
 
   return (
@@ -585,193 +927,283 @@ export const PacificaShowroom = () => {
         duration-500
       "
     >
-      <Canvas
-        shadows={!isMobile}
-        dpr={[1, dpr]}
-        gl={{
-          antialias: true,
-          powerPreference: "high-performance",
-          alpha: false,
-          stencil: false,
-          depth: true,
-        }}
-        camera={{
-          position: DEFAULT_SHOT.position,
-          fov: 42,
-          near: 0.1,
-          far: 120,
-        }}
-        onPointerMissed={() =>
-          selected && backToCar()
-        }
-        style={{
-          touchAction: "none",
-        }}
-      >
-        <RendererQuality mobile={isMobile} />
-
-        <color
-          attach="background"
-          args={["#05070b"]}
-        />
-
-        <PerformanceMonitor
-          bounds={() =>
-            isMobile
-              ? [38, 58]
-              : [50, 60]
-          }
-          onDecline={() =>
-            setDpr((value) =>
-              Math.max(
-                isMobile ? 0.9 : 1.25,
-                value - 0.15,
-              ),
-            )
-          }
-          onIncline={() =>
-            setDpr((value) =>
-              Math.min(
-                isMobile ? 1.35 : 2,
-                value + 0.1,
-              ),
-            )
-          }
-        />
-
-        <Showroom mobile={isMobile} />
-
-        <ModelErrorBoundary
-          fallback={(retry) => (
-            <Html center>
-              <div className="w-64 rounded-2xl border border-white/12 bg-black/70 p-4 text-center backdrop-blur-md">
-                <p className="text-xs text-white/80">
-                  3D model se nepodařilo načíst.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={retry}
-                  className="
-                    mt-3
-                    h-10
-                    w-full
-                    rounded-full
-                    bg-primary
-                    text-xs
-                    font-semibold
-                    text-primary-foreground
-                  "
-                >
-                  Zkusit znovu
-                </button>
-              </div>
-            </Html>
-          )}
-        >
-          <Suspense fallback={null}>
-            <PacificaModel
-              bodyColor={bodyColor}
-            />
-          </Suspense>
-        </ModelErrorBoundary>
-
-        <CameraRig
-          ref={rig}
-          shot={shot}
-          nonce={nonce}
-          autoRotate={
-            autoRotate && !selected
-          }
-          onUserInteract={scheduleIdle}
-        />
-
-        {hotspotsVisible &&
-          HOTSPOTS.map((hotspot) => (
-            <Hotspot3D
-              key={hotspot.id}
-              hotspot={hotspot}
-              active={
-                selected?.id === hotspot.id
-              }
-              visited={visited.has(
-                hotspot.id,
-              )}
-              onSelect={selectHotspot}
-            />
-          ))}
-      </Canvas>
-
-      {/* Vignette */}
+      {/* 3D scéna. Při vstupu do interiéru se NEODMOUNTUJE — jen se skryje
+          a zastaví renderovací smyčka, takže návrat zpět je okamžitý
+          a model se nestahuje znovu. */}
       <div
-        className="
-          pointer-events-none
-          absolute
-          inset-0
-          bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.5)_100%)]
-        "
-      />
-
-      {/* Flash */}
-      <div
-        className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-300 ${
-          flash
-            ? "opacity-[0.06]"
-            : "opacity-0"
+        className={`absolute inset-0 ${
+          interior ? "invisible pointer-events-none" : "visible"
         }`}
-      />
-
-      {/* -------------------------------------------------------------- */}
-      {/* NOVÝ KLÍČ — pevně v exteriéru                                  */}
-      {/* -------------------------------------------------------------- */}
-
-      <ExteriorKey
-        onUnlock={unlockInterior}
-      />
-
-      {/* Navigation */}
-      <TourNav
-        onReset={reset}
-        hotspotsVisible={hotspotsVisible}
-        onToggleHotspots={() =>
-          setHotspotsVisible(
-            (value) => !value,
-          )
-        }
-        fullscreen={fullscreen}
-        onToggleFullscreen={
-          toggleFullscreen
-        }
-        onClose={() => navigate("/")}
-        autoRotate={autoRotate}
-        onToggleAutoRotate={() => {
-          window.clearTimeout(
-            idleTimer.current,
-          );
-
-          setAutoRotate(
-            (value) => !value,
-          );
-        }}
-        colorKey={colorKey}
-        onColor={setColorKey}
-        sheetOpen={!!selected}
-      />
-
-      {/* Detail panel */}
-      {selected && (
-        <DetailPanel
-          hotspot={selected}
-          onClose={backToCar}
-          onCta={
-            selected.detail.cta
-              ? () => setInterior(true)
-              : undefined
+        aria-hidden={interior}
+      >
+        <Canvas
+          shadows={!isMobile}
+          frameloop={interior ? "never" : "always"}
+          dpr={[1, dpr]}
+          gl={{
+            antialias: true,
+            powerPreference: "high-performance",
+            alpha: false,
+            stencil: false,
+            depth: true,
+            preserveDrawingBuffer: true,
+          }}
+          camera={{
+            position: DEFAULT_SHOT.position,
+            fov: 42,
+            near: 0.1,
+            far: 120,
+          }}
+          onPointerMissed={() =>
+            selected && backToCar()
           }
+          style={{
+            touchAction: "none",
+          }}
+        >
+          <RendererQuality mobile={isMobile} />
+
+          <SnapshotBridge
+            onReady={(api) => {
+              snapshot.current = api;
+            }}
+          />
+
+          <color
+            attach="background"
+            args={["#05070b"]}
+          />
+
+          <PerformanceMonitor
+            bounds={() =>
+              isMobile
+                ? [38, 58]
+                : [50, 60]
+            }
+            onDecline={() =>
+              setDpr((value) =>
+                Math.max(
+                  isMobile ? 0.9 : 1.25,
+                  value - 0.15,
+                ),
+              )
+            }
+            onIncline={() =>
+              setDpr((value) =>
+                Math.min(
+                  isMobile ? 1.35 : 2,
+                  value + 0.1,
+                ),
+              )
+            }
+          />
+
+          <Showroom mobile={isMobile} />
+
+          <ModelErrorBoundary
+            fallback={(retry) => (
+              <Html center>
+                <div className="w-64 rounded-2xl border border-white/12 bg-black/70 p-4 text-center backdrop-blur-md">
+                  <p className="text-xs text-white/80">
+                    3D model se nepodařilo načíst.
+                  </p>
+
+                  <button
+                    type="button"
+                    onClick={retry}
+                    className="
+                      mt-3
+                      h-10
+                      w-full
+                      rounded-full
+                      bg-primary
+                      text-xs
+                      font-semibold
+                      text-primary-foreground
+                    "
+                  >
+                    Zkusit znovu
+                  </button>
+                </div>
+              </Html>
+            )}
+          >
+            <Suspense fallback={null}>
+              <PacificaModel
+                bodyColor={bodyColor}
+              />
+            </Suspense>
+          </ModelErrorBoundary>
+
+          <CameraRig
+            ref={rig}
+            shot={shot}
+            nonce={nonce}
+            autoRotate={
+              autoRotate && !selected
+            }
+            onUserInteract={() => {
+              stopGuided();
+              scheduleIdle();
+            }}
+          />
+
+          {hotspotsVisible &&
+            HOTSPOTS.map((hotspot) => (
+              <Hotspot3D
+                key={hotspot.id}
+                hotspot={hotspot}
+                active={
+                  selected?.id === hotspot.id
+                }
+                visited={visited.has(
+                  hotspot.id,
+                )}
+                onSelect={selectHotspot}
+              />
+            ))}
+        </Canvas>
+      </div>
+
+      {!interior && (
+        <>
+          {/* Vignette */}
+          <div
+            className="
+              pointer-events-none
+              absolute
+              inset-0
+              bg-[radial-gradient(ellipse_at_center,transparent_45%,rgba(0,0,0,0.5)_100%)]
+            "
+          />
+
+          {/* Flash */}
+          <div
+            className={`pointer-events-none absolute inset-0 bg-white transition-opacity duration-300 ${
+              flash
+                ? "opacity-[0.06]"
+                : "opacity-0"
+            }`}
+          />
+
+          {/* Klávesnicová a čtečková navigace mezi body zájmu.
+              3D hotspoty samy o sobě nejsou pro čtečku popsatelné. */}
+          <nav aria-label="Body zájmu prohlídky" className="sr-only">
+            <ul>
+              {HOTSPOTS.map((hotspot) => (
+                <li key={hotspot.id}>
+                  <button type="button" onClick={() => selectHotspot(hotspot)}>
+                    {hotspot.label}
+                    {visited.has(hotspot.id) ? " — prohlédnuto" : ""}
+                  </button>
+                </li>
+              ))}
+              <li>
+                <button type="button" onClick={unlockInterior}>
+                  Přejít do prohlídky interiéru
+                </button>
+              </li>
+            </ul>
+          </nav>
+
+          <p aria-live="polite" className="sr-only">
+            Prohlédnuto {visited.size} z {HOTSPOTS.length} bodů zájmu.
+          </p>
+
+          <TourProgress
+            visited={visited.size}
+            total={HOTSPOTS.length}
+            guided={guided}
+            onToggleGuided={toggleGuided}
+            dimmed={!!selected}
+          />
+
+          <ExteriorKey
+            onUnlock={unlockInterior}
+          />
+
+          {/* Navigation */}
+          <TourNav
+            onReset={reset}
+            hotspotsVisible={hotspotsVisible}
+            onToggleHotspots={() =>
+              setHotspotsVisible(
+                (value) => !value,
+              )
+            }
+            fullscreen={fullscreen}
+            onToggleFullscreen={
+              toggleFullscreen
+            }
+            onClose={() => {
+              trackTourEvent("tour_exit");
+              navigate("/");
+            }}
+            autoRotate={autoRotate}
+            onToggleAutoRotate={() => {
+              window.clearTimeout(
+                idleTimer.current,
+              );
+
+              setAutoRotate(
+                (value) => !value,
+              );
+            }}
+            colorKey={colorKey}
+            onColor={changeColor}
+            sheetOpen={!!selected}
+            soundOn={soundOn}
+            onToggleSound={toggleSound}
+            onSnapshot={takeSnapshot}
+            onLead={() => {
+              setLeadSource("prohlídka — exteriér");
+              setLeadOpen(true);
+            }}
+            colorHex={bodyColor}
+            arAutoStart={initial.current.ar}
+          />
+
+          {/* Detail panel */}
+          {selected && (
+            <DetailPanel
+              hotspot={selected}
+              onClose={backToCar}
+              onCta={
+                selected.detail.cta
+                  ? unlockInterior
+                  : undefined
+              }
+            />
+          )}
+
+          <Loader />
+        </>
+      )}
+
+      {interior && (
+        <InteriorTour
+          onExitToExterior={() => {
+            sfx.lock();
+            setInterior(false);
+            backToCar();
+          }}
+          onClose={() => {
+            trackTourEvent("tour_exit");
+            navigate("/");
+          }}
+          onFinished={() => {
+            setLeadSource("konec prohlídky interiéru");
+            setLeadOpen(true);
+          }}
         />
       )}
 
-      <Loader />
+      <LeadCapture
+        open={leadOpen}
+        onClose={() => setLeadOpen(false)}
+        colorKey={colorKey}
+        source={leadSource}
+      />
     </div>
   );
 };

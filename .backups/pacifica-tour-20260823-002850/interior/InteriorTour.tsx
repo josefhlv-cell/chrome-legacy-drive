@@ -1,7 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { trackTourEvent } from "../lib/tourAnalytics";
-import { sfx } from "../lib/tourSound";
-
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,9 +17,6 @@ import {
 type Props = {
   onExitToExterior: () => void;
   onClose: () => void;
-  /** Zavolá se při dosažení posledního kroku (nabídka prohlídky naživo). */
-  onFinished?: () => void;
-
 };
 
 const KEY_ASSET = "/pacifica/virtual-tour/interior-key.png";
@@ -725,52 +719,10 @@ const VideoStep = ({
 export const InteriorTour = ({
   onExitToExterior,
   onClose,
-  onFinished,
 }: Props) => {
   const [index, setIndex] = useState(0);
 
   const step = INTERIOR_STEPS[index];
-
-  const finishedRef = useRef(false);
-
-  /* Měření + zvuk kroku a předběžné načtení dalšího média,
-     aby mezi kroky nic neblikalo. */
-  useEffect(() => {
-    if (!step) return;
-
-    trackTourEvent("interior_step", { step: step.id ?? String(index) });
-
-    if (index > 0) sfx.step();
-
-    const nextStep = INTERIOR_STEPS[index + 1];
-    if (!nextStep) return;
-
-    const src = (nextStep as { src?: string }).src;
-    if (!src) return;
-
-    if (nextStep.kind === "video") {
-      const video = document.createElement("video");
-      video.preload = "auto";
-      video.src = src;
-      video.load();
-      return;
-    }
-
-    const image = new Image();
-    image.decoding = "async";
-    image.src = src;
-  }, [index, step]);
-
-  useEffect(() => {
-    if (step?.kind !== "done" || finishedRef.current) return;
-
-    finishedRef.current = true;
-    sfx.chime();
-    trackTourEvent("interior_complete");
-    onFinished?.();
-  }, [step, onFinished]);
-
-
 
   const visibleSteps = useMemo(
     () =>

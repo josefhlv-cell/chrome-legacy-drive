@@ -897,6 +897,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tour_events: {
+        Row: {
+          color: string | null
+          created_at: string
+          event: string
+          id: string
+          is_new_visitor: boolean | null
+          meta: Json | null
+          path: string | null
+          session_id: string
+          step: string | null
+          visitor_id: string | null
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          event: string
+          id?: string
+          is_new_visitor?: boolean | null
+          meta?: Json | null
+          path?: string | null
+          session_id: string
+          step?: string | null
+          visitor_id?: string | null
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          event?: string
+          id?: string
+          is_new_visitor?: boolean | null
+          meta?: Json | null
+          path?: string | null
+          session_id?: string
+          step?: string | null
+          visitor_id?: string | null
+        }
+        Relationships: []
+      }
       user_roles: {
         Row: {
           id: string

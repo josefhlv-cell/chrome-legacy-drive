@@ -1,4 +1,15 @@
-import { Eye, EyeOff, Maximize2, Minimize2, Orbit, RotateCcw, X } from "lucide-react";
+import {
+  Camera,
+  Eye,
+  EyeOff,
+  Maximize2,
+  Minimize2,
+  Orbit,
+  RotateCcw,
+  Volume2,
+  VolumeX,
+  X,
+} from "lucide-react";
 import { BODY_COLORS, MODEL_ATTRIBUTION } from "../data/tourData";
 import ARPreviewButton from "../ar/ARPreviewButton";
 
@@ -15,6 +26,12 @@ type Props = {
   onColor: (key: string) => void;
   /** Odsadit spodní lištu, když je otevřený detail (mobil). */
   sheetOpen: boolean;
+  soundOn: boolean;
+  onToggleSound: () => void;
+  onSnapshot: () => void;
+  onLead: () => void;
+  colorHex: string | null;
+  arAutoStart?: boolean;
 };
 
 const iconBtn =
@@ -32,6 +49,12 @@ export const TourNav = ({
   colorKey,
   onColor,
   sheetOpen,
+  soundOn,
+  onToggleSound,
+  onSnapshot,
+  onLead,
+  colorHex,
+  arAutoStart = false,
 }: Props) => (
   <>
     <div className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between gap-3 p-3 pt-[max(0.75rem,env(safe-area-inset-top))]">
@@ -43,7 +66,7 @@ export const TourNav = ({
         <p className="mt-0.5 text-[8px] uppercase tracking-[0.16em] text-white/40">{MODEL_ATTRIBUTION}</p>
       </div>
 
-      <div className="pointer-events-auto flex items-center gap-2">
+      <div className="pointer-events-auto flex flex-wrap items-center justify-end gap-2">
         <button
           type="button"
           onClick={onToggleHotspots}
@@ -53,6 +76,7 @@ export const TourNav = ({
         >
           {hotspotsVisible ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
         </button>
+
         <button
           type="button"
           onClick={onToggleAutoRotate}
@@ -62,10 +86,37 @@ export const TourNav = ({
         >
           <Orbit className="h-4 w-4" />
         </button>
+
+        <button
+          type="button"
+          onClick={onToggleSound}
+          aria-label={soundOn ? "Vypnout zvuk prohlídky" : "Zapnout zvuk prohlídky"}
+          aria-pressed={soundOn}
+          className={iconBtn}
+        >
+          {soundOn ? <Volume2 className="h-4 w-4" /> : <VolumeX className="h-4 w-4" />}
+        </button>
+
+        <button
+          type="button"
+          onClick={onSnapshot}
+          aria-label="Vyfotit vůz — uložit aktuální pohled"
+          className={iconBtn}
+        >
+          <Camera className="h-4 w-4" />
+        </button>
+
         <button type="button" onClick={onReset} aria-label="Reset pohledu" className={iconBtn}>
           <RotateCcw className="h-4 w-4" />
         </button>
-        <ARPreviewButton />
+
+        <ARPreviewButton
+          colorHex={colorHex}
+          colorKey={colorKey}
+          onWantLive={onLead}
+          autoStart={arAutoStart}
+        />
+
         <button
           type="button"
           onClick={onToggleFullscreen}
@@ -74,21 +125,23 @@ export const TourNav = ({
         >
           {fullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
         </button>
+
         <button type="button" onClick={onClose} aria-label="Zavřít prohlídku" className={iconBtn}>
           <X className="h-4 w-4" />
         </button>
       </div>
     </div>
 
-    {/* Volba barvy laku */}
+    {/* Volba barvy laku + poptávka */}
     <div
       className={`absolute inset-x-0 z-30 px-3 transition-[bottom] duration-500 ${
         sheetOpen ? "bottom-[calc(env(safe-area-inset-bottom)+7rem)] md:bottom-0" : "bottom-0"
       }`}
     >
       <div className="mx-auto w-full max-w-xl pb-[max(0.7rem,env(safe-area-inset-bottom))]">
-        <div className="mx-auto flex items-center justify-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur-xl">
+        <div className="mx-auto flex flex-wrap items-center justify-center gap-2 rounded-full border border-white/10 bg-black/50 px-3 py-2 backdrop-blur-xl">
           <span className="hidden sm:block text-[9px] uppercase tracking-[0.2em] text-white/45">Barva laku</span>
+
           {BODY_COLORS.map((c) => (
             <button
               key={c.key}
@@ -107,7 +160,19 @@ export const TourNav = ({
               }}
             />
           ))}
+
+          <button
+            type="button"
+            onClick={onLead}
+            className="ml-1 h-9 rounded-full bg-primary px-4 text-[11px] font-semibold uppercase tracking-[0.12em] text-primary-foreground transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 active:scale-95"
+          >
+            Chci ji naživo
+          </button>
         </div>
+
+        <p className="mt-1.5 text-center text-[9px] uppercase tracking-[0.14em] text-white/30">
+          Barvy laku jsou orientační vizualizace
+        </p>
       </div>
     </div>
   </>

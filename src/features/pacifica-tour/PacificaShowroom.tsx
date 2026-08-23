@@ -72,12 +72,13 @@ const RendererQuality = ({ mobile }: { mobile: boolean }) => {
   useEffect(() => {
     gl.outputColorSpace = THREE.SRGBColorSpace;
     gl.toneMapping = THREE.ACESFilmicToneMapping;
-    gl.toneMappingExposure = mobile ? 1.0 : 1.08;
+    gl.toneMappingExposure = mobile ? 1.02 : 1.12;
+    gl.shadowMap.type = THREE.PCFSoftShadowMap;
 
     gl.setPixelRatio(
       Math.min(
         window.devicePixelRatio || 1,
-        mobile ? 1.35 : 2,
+        mobile ? 1.2 : 2,
       ),
     );
   }, [gl, mobile]);

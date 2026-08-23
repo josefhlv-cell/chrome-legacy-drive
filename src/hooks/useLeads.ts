@@ -27,7 +27,7 @@ export const useCreateLead = () => {
         })
         .catch((err) => console.warn("Lead notification failed:", err));
 
-      return data;
+      return lead;
     },
   });
 };

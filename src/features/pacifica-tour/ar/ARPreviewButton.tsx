@@ -380,14 +380,14 @@ export const ARPreviewButton = ({
     void launchAndroidAR();
   }, [colorKey, launchAndroidAR, launchIosAR, startLoadTimeout]);
 
-  /* Deep-link ?ar=1 → AR se pokusí spustit samo. */
+  /* Deep-link ?ar=1 → AR se pokusí spustit samo.
+     Na desktopu se místo AR otevře 3D náhled s QR kódem pro přenos do mobilu. */
   useEffect(() => {
     if (!autoStart || autoStartedRef.current) return;
-    if (platform === "other") return;
 
     autoStartedRef.current = true;
     handleActivate();
-  }, [autoStart, platform, handleActivate]);
+  }, [autoStart, handleActivate]);
 
   const closeSheet = useCallback(() => {
     clearLoadTimeout();

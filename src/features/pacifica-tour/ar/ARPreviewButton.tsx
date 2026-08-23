@@ -4,9 +4,11 @@ import { QRCodeSVG } from "qrcode.react";
 import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
+import usdzAsset from "./pacifica.usdz.asset.json";
 
 const MODEL_GLB = "/models/pacifica.glb";
-const MODEL_USDZ = "/models/pacifica.usdz";
+/** USDZ pro AR Quick Look — externí asset (same-origin URL, bez CORS). */
+const MODEL_USDZ = usdzAsset.url;
 /** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
 const AR_POSTER = "/pacifica-hero.webp";
 

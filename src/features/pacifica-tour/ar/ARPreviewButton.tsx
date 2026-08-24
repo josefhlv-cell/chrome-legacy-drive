@@ -264,10 +264,19 @@ export const ARPreviewButton = ({
   }, [clearLoadTimeout, colorHex, colorKey, onExitAR]);
 
   /* --------------------------------------------------------------------- */
-  /* iOS — s progresem, ne mlčící klik                                     */
+  /* iOS — AR Quick Look musí startovat SYNCHRONNĚ z uživatelského gesta.  */
+  /*                                                                       */
+  /* Dřív jsme USDZ stahovali fetchem, dělali z něj blob: URL a na ni      */
+  /* klikali. To na iPhonu nikdy nemohlo fungovat:                        */
+  /*  1) Quick Look potřebuje reálnou URL končící na .usdz — blob: URL     */
+  /*     bez přípony Safari ignoruje (klik prostě „nic neudělá“).          */
+  /*  2) Klik po `await` už není v user-gesture okně, takže ho Safari      */
+  /*     zablokuje jako programový.                                        */
+  /* Teď klikáme okamžitě na anchor s přímou .usdz URL a v sheetu držíme   */
+  /* i ruční odkaz jako záložní cestu.                                     */
   /* --------------------------------------------------------------------- */
 
-  const launchIosAR = useCallback(async () => {
+  const launchIosAR = useCallback(() => {
     if (!supportsQuickLook()) {
       setStatus("unsupported");
       setShowSheet(true);
@@ -275,48 +284,14 @@ export const ARPreviewButton = ({
       return;
     }
 
-    setStatus("loading");
     setErrorReason(null);
-    setIosProgress(0);
+    setStatus("ready");
     setShowSheet(true);
-    startLoadTimeout();
 
     try {
-      const response = await fetch(MODEL_USDZ);
-
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-      const total = Number(response.headers.get("content-length") || 0);
-      const reader = response.body?.getReader();
-      const chunks: Uint8Array[] = [];
-      let received = 0;
-
-      if (reader) {
-        for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          if (!value) continue;
-
-          chunks.push(value);
-          received += value.byteLength;
-
-          if (total) setIosProgress(Math.min(99, Math.round((received / total) * 100)));
-        }
-      }
-
-      const blob = reader
-        ? new Blob(chunks as BlobPart[], { type: "model/vnd.usdz+zip" })
-        : await response.blob();
-
-      clearLoadTimeout();
-      setIosProgress(100);
-
-      if (usdzUrlRef.current) URL.revokeObjectURL(usdzUrlRef.current);
-      usdzUrlRef.current = URL.createObjectURL(blob);
-
       const link = document.createElement("a");
       link.rel = "ar";
-      link.href = usdzUrlRef.current;
+      link.href = MODEL_USDZ;
 
       // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>.
       const img = document.createElement("img");
@@ -324,6 +299,9 @@ export const ARPreviewButton = ({
       img.alt = "";
       link.appendChild(img);
 
+      link.style.position = "fixed";
+      link.style.opacity = "0";
+      link.style.pointerEvents = "none";
       document.body.appendChild(link);
 
       trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios" } });
@@ -331,18 +309,16 @@ export const ARPreviewButton = ({
       link.click();
       link.remove();
 
-      setStatus("idle");
-      setShowSheet(false);
       setAfterAR(true);
       trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "ios" } });
       onExitAR?.();
     } catch (error) {
       console.error("AR Quick Look selhal:", error);
-      clearLoadTimeout();
       setStatus("error");
-      setErrorReason("network");
+      setErrorReason("generic");
     }
-  }, [clearLoadTimeout, colorKey, onExitAR, startLoadTimeout]);
+  }, [colorKey, onExitAR]);
+
 
   /* --------------------------------------------------------------------- */
 
@@ -499,13 +475,37 @@ export const ARPreviewButton = ({
 
               {status === "ready" && (
                 <>
-                  <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-white/85">Spouštíme AR…</p>
+                  {platform === "ios" ? (
+                    <>
+                      <p className="text-sm text-white/85">AR náhled je připraven</p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Pokud se AR nespustilo automaticky, klepněte na tlačítko níže.
+                      </p>
+
+                      {/* Skutečný odkaz — nejspolehlivější cesta k AR Quick Look:
+                          klepnutí je přímé uživatelské gesto na rel="ar" anchor. */}
+                      <a
+                        rel="ar"
+                        href={MODEL_USDZ}
+                        className="mt-3 flex h-11 w-full items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                      >
+                        <img src={AR_POSTER} alt="" className="h-0 w-0" />
+                        Spustit AR
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-white/85">Spouštíme AR…</p>
+                    </>
+                  )}
+
                   <p className="mt-2 text-[11px] leading-relaxed text-white/40">
                     {AR_SPACE_HINT}
                   </p>
                 </>
               )}
+
 
               {status === "unsupported" && (
                 <>

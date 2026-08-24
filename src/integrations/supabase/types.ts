@@ -1086,6 +1086,7 @@ export type Database = {
       }
       vehicles: {
         Row: {
+          ar_color_hex: string | null
           carfax_enabled: boolean
           carfax_url: string
           color: string
@@ -1132,6 +1133,7 @@ export type Database = {
           year: number
         }
         Insert: {
+          ar_color_hex?: string | null
           carfax_enabled?: boolean
           carfax_url?: string
           color?: string
@@ -1178,6 +1180,7 @@ export type Database = {
           year: number
         }
         Update: {
+          ar_color_hex?: string | null
           carfax_enabled?: boolean
           carfax_url?: string
           color?: string

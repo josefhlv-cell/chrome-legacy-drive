@@ -14,7 +14,7 @@
  */
 
 const SOURCE_URL =
-  "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar/pacifica-v2.usdz";
+  "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar/pacifica-v3.usdz";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

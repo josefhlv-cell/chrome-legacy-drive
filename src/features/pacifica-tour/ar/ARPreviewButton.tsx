@@ -149,6 +149,19 @@ export const ARPreviewButton = ({
   showColorDisclaimer = false,
 }: Props) => {
 
+  /**
+   * Společná měřicí data. U konkrétního vozu chceme v adminu vidět,
+   * které auto si lidi v AR staví k sobě — proto vehicle_id i barva.
+   */
+  const analyticsMeta = useMemo(
+    () => ({
+      vehicle_id: vehicleId ?? null,
+      vehicle_name: vehicleName ?? null,
+      color_hex: colorHex ?? null,
+    }),
+    [vehicleId, vehicleName, colorHex],
+  );
+
   const [platform, setPlatform] = useState<Platform>("other");
   const [status, setStatus] = useState<Status>("idle");
   const [errorReason, setErrorReason] = useState<ErrorReason>(null);
@@ -267,7 +280,7 @@ export const ARPreviewButton = ({
       // Jediný zdroj pravdy o podpoře AR — žádný seznam konkrétních telefonů.
       if (!element.canActivateAR) {
         setStatus("unsupported");
-        trackTourEvent("ar_unsupported", { meta: { platform: "android" } });
+        trackTourEvent("ar_unsupported", { meta: { platform: "android", ...analyticsMeta } });
         return;
       }
 
@@ -276,7 +289,7 @@ export const ARPreviewButton = ({
 
       trackTourEvent("ar_launch", {
         color: colorKey,
-        meta: { platform: "android" },
+        meta: { platform: "android", ...analyticsMeta },
       });
 
       await element.activateAR?.();
@@ -284,14 +297,14 @@ export const ARPreviewButton = ({
       setShowSheet(false);
       setStatus("idle");
       setAfterAR(true);
-      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "android" } });
+      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "android", ...analyticsMeta } });
       onExitAR?.();
     } catch (error: unknown) {
       console.error("AR aktivace selhala:", error);
       setStatus("error");
       setErrorReason("generic");
     }
-  }, [clearLoadTimeout, colorHex, colorKey, onExitAR]);
+  }, [analyticsMeta, clearLoadTimeout, colorHex, colorKey, onExitAR]);
 
   /* --------------------------------------------------------------------- */
   /* iOS — AR Quick Look musí startovat SYNCHRONNĚ z uživatelského gesta.  */
@@ -310,7 +323,7 @@ export const ARPreviewButton = ({
     if (!supportsQuickLook()) {
       setStatus("unsupported");
       setShowSheet(true);
-      trackTourEvent("ar_unsupported", { meta: { platform: "ios" } });
+      trackTourEvent("ar_unsupported", { meta: { platform: "ios", ...analyticsMeta } });
       return;
     }
 
@@ -340,20 +353,20 @@ export const ARPreviewButton = ({
       link.style.pointerEvents = "none";
       document.body.appendChild(link);
 
-      trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios" } });
+      trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
 
       link.click();
       link.remove();
 
       setAfterAR(true);
-      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "ios" } });
+      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
       onExitAR?.();
     } catch (error) {
       console.error("AR Quick Look selhal:", error);
       setStatus("error");
       setErrorReason("generic");
     }
-  }, [colorKey, onExitAR]);
+  }, [analyticsMeta, colorKey, onExitAR]);
 
 
   /* --------------------------------------------------------------------- */
@@ -363,7 +376,7 @@ export const ARPreviewButton = ({
 
     trackTourEvent("ar_open", {
       color: colorKey,
-      meta: { platform: currentPlatform },
+      meta: { platform: currentPlatform, ...analyticsMeta },
     });
 
     if (currentPlatform === "other") {
@@ -392,7 +405,7 @@ export const ARPreviewButton = ({
 
     // Nečekáme na kompletní onLoad GLB. Scene Viewer si model načte sám.
     void launchAndroidAR();
-  }, [colorKey, launchAndroidAR, launchIosAR, startLoadTimeout]);
+  }, [analyticsMeta, colorKey, launchAndroidAR, launchIosAR, startLoadTimeout]);
 
   /* Deep-link ?ar=1 → AR se pokusí spustit samo.
      Na desktopu se místo AR otevře 3D náhled s QR kódem pro přenos do mobilu. */

@@ -4,13 +4,23 @@ import { QRCodeSVG } from "qrcode.react";
 import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
-import usdzAsset from "./pacifica.usdz.asset.json";
 
 const MODEL_GLB = "/models/pacifica.glb";
-/** USDZ pro AR Quick Look — externí asset (same-origin URL, bez CORS). */
-const MODEL_USDZ = usdzAsset.url;
+/**
+ * USDZ pro AR Quick Look.
+ *
+ * POZOR: NEPOUŽÍVAT asset CDN (/__l5e/assets-v1/...). CDN soubor servíruje jako
+ * `application/zip` + `X-Content-Type-Options: nosniff`, takže Safari AR
+ * Quick Look model odmítne a overlay zůstane prázdný ("AR se spustí, ale
+ * model není vidět"). Tato URL je edge funkce `ar-model`, která stejný soubor
+ * doručí jako `model/vnd.usdz+zip` a cesta končí na `.usdz`, jak Quick Look
+ * vyžaduje.
+ */
+const MODEL_USDZ =
+  "https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/pacifica.usdz";
 /** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
-const AR_POSTER = "/pacifica-hero.webp";
+const AR_POSTER = "/pacifica/front.webp";
+
 
 /** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */
 const LOAD_TIMEOUT_MS = 30000;
@@ -293,14 +303,20 @@ export const ARPreviewButton = ({
       link.rel = "ar";
       link.href = MODEL_USDZ;
 
-      // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>.
+      // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>
+      // s nenulovými rozměry.
       const img = document.createElement("img");
       img.src = AR_POSTER;
       img.alt = "";
+      img.width = 32;
+      img.height = 32;
       link.appendChild(img);
 
       link.style.position = "fixed";
-      link.style.opacity = "0";
+      link.style.left = "-9999px";
+      link.style.top = "0";
+      link.style.width = "32px";
+      link.style.height = "32px";
       link.style.pointerEvents = "none";
       document.body.appendChild(link);
 
@@ -487,10 +503,17 @@ export const ARPreviewButton = ({
                       <a
                         rel="ar"
                         href={MODEL_USDZ}
-                        className="mt-3 flex h-11 w-full items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                        className="relative mt-3 flex h-11 w-full items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground"
                       >
-                        <img src={AR_POSTER} alt="" className="h-0 w-0" />
-                        Spustit AR
+                        {/* Safari vyžaduje <img> jako PRVNÍHO potomka <a rel="ar">.
+                            Musí mít nenulové rozměry, aby ho Safari akceptovalo. */}
+                        <img
+                          src={AR_POSTER}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 h-full w-full object-cover opacity-0"
+                        />
+                        <span className="relative">Spustit AR</span>
                       </a>
                     </>
                   ) : (

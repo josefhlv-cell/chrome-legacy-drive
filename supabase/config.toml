@@ -4,3 +4,9 @@ project_id = "thqyzghifwmwohgfvshf"
 # notifikaci bez přihlášení — proto tato funkce nesmí vyžadovat JWT.
 [functions.send-lead-notification]
 verify_jwt = false
+
+# USDZ model pro iOS AR Quick Look — Safari stahuje soubor bez Authorization
+# hlavičky, takže funkce nesmí vyžadovat JWT.
+[functions.ar-model]
+verify_jwt = false
+

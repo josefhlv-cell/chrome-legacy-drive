@@ -17,7 +17,7 @@ const MODEL_GLB = "/models/pacifica.glb";
  * vyžaduje.
  */
 const MODEL_USDZ =
-  "https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/pacifica-v2.usdz";
+  "https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/pacifica-v3.usdz";
 /** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
 const AR_POSTER = "/pacifica/front.webp";
 

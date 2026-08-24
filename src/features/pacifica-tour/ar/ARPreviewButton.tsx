@@ -543,6 +543,17 @@ export const ARPreviewButton = ({
                         Pokud se AR nespustilo automaticky, klepněte na tlačítko níže.
                       </p>
 
+                      {/* iOS AR Quick Look pracuje se statickým USDZ, takže
+                          barvu konkrétního vozu tam přebarvit nelze. Radši to
+                          řekneme dopředu, než aby zákazník čekal svoji barvu. */}
+                      {showColorDisclaimer && (
+                        <p className="mt-2 text-[11px] leading-relaxed text-amber-300/80">
+                          Na iPhonu se zobrazí model v základní barvě — rozměry
+                          i tvar odpovídají skutečnému vozu.
+                        </p>
+                      )}
+
+
                       {/* Skutečný odkaz — nejspolehlivější cesta k AR Quick Look:
                           klepnutí je přímé uživatelské gesto na rel="ar" anchor. */}
                       <a

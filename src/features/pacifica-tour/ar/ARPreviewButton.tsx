@@ -43,7 +43,21 @@ type Props = {
   onWantLive?: () => void;
   /** Automatické spuštění AR (deep-link ?ar=1). */
   autoStart?: boolean;
+  /** Vzhled spouštěče: kruhová ikona (prohlídka) nebo pill s textem (detail vozu). */
+  variant?: "icon" | "pill";
+  /** Text pro pill variantu. */
+  label?: string;
+  /** ID konkrétního vozu — jen pro měření (tour_events.meta). */
+  vehicleId?: string;
+  /** Název konkrétního vozu — titulek 3D náhledu a měření. */
+  vehicleName?: string;
+  /**
+   * Zobrazí upozornění, že na iPhonu je barva vozu jen ilustrační.
+   * iOS AR Quick Look barvu statického USDZ měnit neumí.
+   */
+  showColorDisclaimer?: boolean;
 };
+
 
 const detectPlatform = (): Platform => {
   if (typeof navigator === "undefined") return "other";

@@ -35,6 +35,8 @@ import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
 import { useVehicleStructuredData } from "@/lib/vehicleStructuredData";
 import { useCompare } from "@/contexts/CompareContext";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
+import VehicleARButton from "@/features/pacifica-tour/ar/VehicleARButton";
+
 
 const VehicleDetail = () => {
   const { id } = useParams();

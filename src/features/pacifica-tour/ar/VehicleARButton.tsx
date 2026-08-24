@@ -15,6 +15,7 @@
  *     na iPhonu jde o ilustrační vůz a uživatele na to upozorníme.
  */
 import { AlertTriangle, Loader2 } from "lucide-react";
+import { useSearchParams } from "react-router-dom";
 import { useVehicle } from "@/hooks/useVehicles";
 import ARPreviewButton from "./ARPreviewButton";
 
@@ -52,6 +53,10 @@ export const VehicleARButton = ({
 }: Props) => {
   // Pokud rodič data předal, dotaz vůbec nespouštíme (enabled: false uvnitř
   // hooku by rozbil ostatní volání, proto řešíme přes `skip`).
+  const [searchParams] = useSearchParams();
+  // Deep-link z QR kódu (?ar=1) spustí AR hned po otevření detailu.
+  const autoStart = searchParams.get("ar") === "1";
+
   const skip = Boolean(vehicleName);
   const { data, isLoading, error } = useVehicle(skip ? undefined : vehicleId);
 
@@ -99,6 +104,7 @@ export const VehicleARButton = ({
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
         showColorDisclaimer
+        autoStart={autoStart}
       />
     </div>
   );

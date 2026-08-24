@@ -475,13 +475,37 @@ export const ARPreviewButton = ({
 
               {status === "ready" && (
                 <>
-                  <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-white/85">Spouštíme AR…</p>
+                  {platform === "ios" ? (
+                    <>
+                      <p className="text-sm text-white/85">AR náhled je připraven</p>
+                      <p className="mt-1 text-xs text-white/40">
+                        Pokud se AR nespustilo automaticky, klepněte na tlačítko níže.
+                      </p>
+
+                      {/* Skutečný odkaz — nejspolehlivější cesta k AR Quick Look:
+                          klepnutí je přímé uživatelské gesto na rel="ar" anchor. */}
+                      <a
+                        rel="ar"
+                        href={MODEL_USDZ}
+                        className="mt-3 flex h-11 w-full items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                      >
+                        <img src={AR_POSTER} alt="" className="h-0 w-0" />
+                        Spustit AR
+                      </a>
+                    </>
+                  ) : (
+                    <>
+                      <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
+                      <p className="text-sm text-white/85">Spouštíme AR…</p>
+                    </>
+                  )}
+
                   <p className="mt-2 text-[11px] leading-relaxed text-white/40">
                     {AR_SPACE_HINT}
                   </p>
                 </>
               )}
+
 
               {status === "unsupported" && (
                 <>

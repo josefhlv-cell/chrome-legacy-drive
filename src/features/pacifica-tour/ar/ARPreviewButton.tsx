@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { QRCodeSVG } from "qrcode.react";
 import { Box, Loader2, RotateCcw, X } from "lucide-react";
@@ -43,7 +43,21 @@ type Props = {
   onWantLive?: () => void;
   /** Automatické spuštění AR (deep-link ?ar=1). */
   autoStart?: boolean;
+  /** Vzhled spouštěče: kruhová ikona (prohlídka) nebo pill s textem (detail vozu). */
+  variant?: "icon" | "pill";
+  /** Text pro pill variantu. */
+  label?: string;
+  /** ID konkrétního vozu — jen pro měření (tour_events.meta). */
+  vehicleId?: string;
+  /** Název konkrétního vozu — titulek 3D náhledu a měření. */
+  vehicleName?: string;
+  /**
+   * Zobrazí upozornění, že na iPhonu je barva vozu jen ilustrační.
+   * iOS AR Quick Look barvu statického USDZ měnit neumí.
+   */
+  showColorDisclaimer?: boolean;
 };
+
 
 const detectPlatform = (): Platform => {
   if (typeof navigator === "undefined") return "other";
@@ -128,7 +142,26 @@ export const ARPreviewButton = ({
   colorKey = "original",
   onWantLive,
   autoStart = false,
+  variant = "icon",
+  label = "Zobrazit v AR",
+  vehicleId,
+  vehicleName,
+  showColorDisclaimer = false,
 }: Props) => {
+
+  /**
+   * Společná měřicí data. U konkrétního vozu chceme v adminu vidět,
+   * které auto si lidi v AR staví k sobě — proto vehicle_id i barva.
+   */
+  const analyticsMeta = useMemo(
+    () => ({
+      vehicle_id: vehicleId ?? null,
+      vehicle_name: vehicleName ?? null,
+      color_hex: colorHex ?? null,
+    }),
+    [vehicleId, vehicleName, colorHex],
+  );
+
   const [platform, setPlatform] = useState<Platform>("other");
   const [status, setStatus] = useState<Status>("idle");
   const [errorReason, setErrorReason] = useState<ErrorReason>(null);
@@ -247,7 +280,7 @@ export const ARPreviewButton = ({
       // Jediný zdroj pravdy o podpoře AR — žádný seznam konkrétních telefonů.
       if (!element.canActivateAR) {
         setStatus("unsupported");
-        trackTourEvent("ar_unsupported", { meta: { platform: "android" } });
+        trackTourEvent("ar_unsupported", { meta: { platform: "android", ...analyticsMeta } });
         return;
       }
 
@@ -256,7 +289,7 @@ export const ARPreviewButton = ({
 
       trackTourEvent("ar_launch", {
         color: colorKey,
-        meta: { platform: "android" },
+        meta: { platform: "android", ...analyticsMeta },
       });
 
       await element.activateAR?.();
@@ -264,14 +297,14 @@ export const ARPreviewButton = ({
       setShowSheet(false);
       setStatus("idle");
       setAfterAR(true);
-      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "android" } });
+      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "android", ...analyticsMeta } });
       onExitAR?.();
     } catch (error: unknown) {
       console.error("AR aktivace selhala:", error);
       setStatus("error");
       setErrorReason("generic");
     }
-  }, [clearLoadTimeout, colorHex, colorKey, onExitAR]);
+  }, [analyticsMeta, clearLoadTimeout, colorHex, colorKey, onExitAR]);
 
   /* --------------------------------------------------------------------- */
   /* iOS — AR Quick Look musí startovat SYNCHRONNĚ z uživatelského gesta.  */
@@ -290,7 +323,7 @@ export const ARPreviewButton = ({
     if (!supportsQuickLook()) {
       setStatus("unsupported");
       setShowSheet(true);
-      trackTourEvent("ar_unsupported", { meta: { platform: "ios" } });
+      trackTourEvent("ar_unsupported", { meta: { platform: "ios", ...analyticsMeta } });
       return;
     }
 
@@ -320,20 +353,20 @@ export const ARPreviewButton = ({
       link.style.pointerEvents = "none";
       document.body.appendChild(link);
 
-      trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios" } });
+      trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
 
       link.click();
       link.remove();
 
       setAfterAR(true);
-      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "ios" } });
+      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
       onExitAR?.();
     } catch (error) {
       console.error("AR Quick Look selhal:", error);
       setStatus("error");
       setErrorReason("generic");
     }
-  }, [colorKey, onExitAR]);
+  }, [analyticsMeta, colorKey, onExitAR]);
 
 
   /* --------------------------------------------------------------------- */
@@ -343,7 +376,7 @@ export const ARPreviewButton = ({
 
     trackTourEvent("ar_open", {
       color: colorKey,
-      meta: { platform: currentPlatform },
+      meta: { platform: currentPlatform, ...analyticsMeta },
     });
 
     if (currentPlatform === "other") {
@@ -372,7 +405,7 @@ export const ARPreviewButton = ({
 
     // Nečekáme na kompletní onLoad GLB. Scene Viewer si model načte sám.
     void launchAndroidAR();
-  }, [colorKey, launchAndroidAR, launchIosAR, startLoadTimeout]);
+  }, [analyticsMeta, colorKey, launchAndroidAR, launchIosAR, startLoadTimeout]);
 
   /* Deep-link ?ar=1 → AR se pokusí spustit samo.
      Na desktopu se místo AR otevře 3D náhled s QR kódem pro přenos do mobilu. */
@@ -390,28 +423,58 @@ export const ARPreviewButton = ({
     setErrorReason(null);
   }, [clearLoadTimeout]);
 
-  const buttonClass = `
-    h-11 w-11 rounded-full border border-white/12 bg-white/8
-    backdrop-blur-md grid place-items-center text-white/85
-    transition hover:bg-white/16 focus-visible:outline-none
-    focus-visible:ring-2 focus-visible:ring-primary active:scale-95
-  `;
+  /**
+   * `icon` = kruhové tlačítko v tmavé 3D prohlídce.
+   * `pill` = tlačítko s textem na detailu vozidla (světlý web, design systém
+   * projektu — proto semantické tokeny, ne white/8 z prohlídky).
+   */
+  const buttonClass =
+    variant === "pill"
+      ? `inline-flex h-11 items-center gap-2 rounded-full border border-primary/30
+         bg-primary/10 px-4 text-xs font-semibold uppercase tracking-wider text-primary
+         font-montserrat transition hover:bg-primary/20 focus-visible:outline-none
+         focus-visible:ring-2 focus-visible:ring-primary active:scale-95`
+      : `h-11 w-11 rounded-full border border-white/12 bg-white/8
+         backdrop-blur-md grid place-items-center text-white/85
+         transition hover:bg-white/16 focus-visible:outline-none
+         focus-visible:ring-2 focus-visible:ring-primary active:scale-95`;
+
+  /**
+   * QR pro desktop. U konkrétního vozu musí odkaz vést na jeho detail
+   * s `?ar=1` (deep-link), ne na parametry virtuální prohlídky.
+   */
+  const shareUrl = useMemo(() => {
+    if (!vehicleId) return buildShareUrl({ ar: true, color: colorKey });
+    if (typeof window === "undefined") return "";
+
+    const params = new URLSearchParams({
+      ar: "1",
+      utm_source: "qr",
+      utm_medium: "vehicle-detail",
+      utm_campaign: "vehicle-ar",
+    });
+
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+  }, [vehicleId, colorKey]);
+
+  const ariaLabel =
+    platform === "other"
+      ? `Otevřít 3D náhled vozu${vehicleName ? ` ${vehicleName}` : ""}`
+      : `Zobrazit vůz${vehicleName ? ` ${vehicleName}` : ""} v rozšířené realitě (AR)`;
 
   return (
     <>
       <button
         type="button"
         onClick={handleActivate}
-        aria-label={
-          platform === "other"
-            ? "Otevřít 3D náhled vozu"
-            : "Zobrazit vůz v rozšířené realitě (AR)"
-        }
+        aria-label={ariaLabel}
         className={buttonClass}
         title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
       >
         <Box className="h-4 w-4" />
+        {variant === "pill" && <span>{label}</span>}
       </button>
+
 
       {viewerNeeded && platform === "android" && (
         <model-viewer
@@ -497,6 +560,17 @@ export const ARPreviewButton = ({
                       <p className="mt-1 text-xs text-white/40">
                         Pokud se AR nespustilo automaticky, klepněte na tlačítko níže.
                       </p>
+
+                      {/* iOS AR Quick Look pracuje se statickým USDZ, takže
+                          barvu konkrétního vozu tam přebarvit nelze. Radši to
+                          řekneme dopředu, než aby zákazník čekal svoji barvu. */}
+                      {showColorDisclaimer && (
+                        <p className="mt-2 text-[11px] leading-relaxed text-amber-300/80">
+                          Na iPhonu se zobrazí model v základní barvě — rozměry
+                          i tvar odpovídají skutečnému vozu.
+                        </p>
+                      )}
+
 
                       {/* Skutečný odkaz — nejspolehlivější cesta k AR Quick Look:
                           klepnutí je přímé uživatelské gesto na rel="ar" anchor. */}
@@ -602,8 +676,13 @@ export const ARPreviewButton = ({
                     3D náhled
                   </p>
                   <h2 className="mt-0.5 font-serif text-lg text-white">
-                    Chrysler <span className="italic">Pacifica</span>
+                    {vehicleName ?? (
+                      <>
+                        Chrysler <span className="italic">Pacifica</span>
+                      </>
+                    )}
                   </h2>
+
                 </div>
 
                 <button
@@ -651,7 +730,7 @@ export const ARPreviewButton = ({
 
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-white p-1.5">
-                    <QRCodeSVG value={buildShareUrl({ ar: true, color: colorKey })} size={64} />
+                    <QRCodeSVG value={shareUrl} size={64} />
                   </div>
 
                   <p className="max-w-[190px] text-[11px] leading-relaxed text-white/55">
@@ -676,7 +755,7 @@ export const ARPreviewButton = ({
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mx-auto mb-4 w-fit rounded-xl bg-white p-3">
-                <QRCodeSVG value={buildShareUrl({ ar: true, color: colorKey })} size={168} />
+                <QRCodeSVG value={shareUrl} size={168} />
               </div>
 
               <p className="text-sm text-white/85">Naskenujte mobilem</p>

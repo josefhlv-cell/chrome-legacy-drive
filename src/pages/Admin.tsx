@@ -427,7 +427,7 @@ const VehiclesTab = () => {
 
   const startEdit = (v: DbVehicle) => {
     setEditingId(v.id);
-    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off" } as any);
+    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off", ar_color_hex: (v as any).ar_color_hex || "" } as any);
   };
 
   const saveEdit = () => {
@@ -1185,6 +1185,29 @@ const VehiclesTab = () => {
                     <InputField label="Převodovka" value={editData.transmission || ""} onChange={(v) => setEditData({ ...editData, transmission: v })} />
                     <InputField label="Výkon" value={editData.power || ""} onChange={(v) => setEditData({ ...editData, power: v })} />
                     <InputField label="Barva" value={editData.color || ""} onChange={(v) => setEditData({ ...editData, color: v })} />
+                    {/* Barva laku pro AR/3D náhled. Automaticky se mapuje z textové
+                        barvy, ale admin ji může doladit (např. odstín perleti). */}
+                    <div>
+                      <label className="block text-[11px] font-montserrat uppercase tracking-wider text-muted-foreground mb-1">
+                        Barva v AR (hex)
+                      </label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="color"
+                          aria-label="Vybrat barvu vozu pro AR náhled"
+                          value={/^#[0-9a-fA-F]{6}$/.test((editData as any).ar_color_hex || "") ? (editData as any).ar_color_hex : "#e9eaec"}
+                          onChange={(e) => setEditData({ ...editData, ar_color_hex: e.target.value } as any)}
+                          className="h-9 w-12 rounded-md border border-border bg-secondary/50 p-1"
+                        />
+                        <input
+                          type="text"
+                          placeholder="#e9eaec"
+                          value={(editData as any).ar_color_hex || ""}
+                          onChange={(e) => setEditData({ ...editData, ar_color_hex: e.target.value } as any)}
+                          className="flex-1 px-3 py-2 rounded-md bg-secondary/50 border border-border text-sm text-foreground font-montserrat"
+                        />
+                      </div>
+                    </div>
                     <InputField label="Carfax URL" value={editData.carfax_url || ""} onChange={(v) => setEditData({ ...editData, carfax_url: v })} />
                     <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
                     <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />

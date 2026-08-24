@@ -4,13 +4,23 @@ import { QRCodeSVG } from "qrcode.react";
 import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
-import usdzAsset from "./pacifica.usdz.asset.json";
 
 const MODEL_GLB = "/models/pacifica.glb";
-/** USDZ pro AR Quick Look — externí asset (same-origin URL, bez CORS). */
-const MODEL_USDZ = usdzAsset.url;
+/**
+ * USDZ pro AR Quick Look.
+ *
+ * POZOR: NEPOUŽÍVAT asset CDN (/__l5e/assets-v1/...). CDN soubor servíruje jako
+ * `application/zip` + `X-Content-Type-Options: nosniff`, takže Safari AR
+ * Quick Look model odmítne a overlay zůstane prázdný ("AR se spustí, ale
+ * model není vidět"). Tato URL je edge funkce `ar-model`, která stejný soubor
+ * doručí jako `model/vnd.usdz+zip` a cesta končí na `.usdz`, jak Quick Look
+ * vyžaduje.
+ */
+const MODEL_USDZ =
+  "https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/pacifica.usdz";
 /** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
-const AR_POSTER = "/pacifica-hero.webp";
+const AR_POSTER = "/pacifica/front.webp";
+
 
 /** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */
 const LOAD_TIMEOUT_MS = 30000;

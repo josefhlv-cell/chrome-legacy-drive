@@ -142,7 +142,13 @@ export const ARPreviewButton = ({
   colorKey = "original",
   onWantLive,
   autoStart = false,
+  variant = "icon",
+  label = "Zobrazit v AR",
+  vehicleId,
+  vehicleName,
+  showColorDisclaimer = false,
 }: Props) => {
+
   const [platform, setPlatform] = useState<Platform>("other");
   const [status, setStatus] = useState<Status>("idle");
   const [errorReason, setErrorReason] = useState<ErrorReason>(null);

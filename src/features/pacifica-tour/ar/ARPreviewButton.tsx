@@ -439,6 +439,24 @@ export const ARPreviewButton = ({
          transition hover:bg-white/16 focus-visible:outline-none
          focus-visible:ring-2 focus-visible:ring-primary active:scale-95`;
 
+  /**
+   * QR pro desktop. U konkrétního vozu musí odkaz vést na jeho detail
+   * s `?ar=1` (deep-link), ne na parametry virtuální prohlídky.
+   */
+  const shareUrl = useMemo(() => {
+    if (!vehicleId) return buildShareUrl({ ar: true, color: colorKey });
+    if (typeof window === "undefined") return "";
+
+    const params = new URLSearchParams({
+      ar: "1",
+      utm_source: "qr",
+      utm_medium: "vehicle-detail",
+      utm_campaign: "vehicle-ar",
+    });
+
+    return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
+  }, [vehicleId, colorKey]);
+
   const ariaLabel =
     platform === "other"
       ? `Otevřít 3D náhled vozu${vehicleName ? ` ${vehicleName}` : ""}`
@@ -712,7 +730,7 @@ export const ARPreviewButton = ({
 
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-white p-1.5">
-                    <QRCodeSVG value={buildShareUrl({ ar: true, color: colorKey })} size={64} />
+                    <QRCodeSVG value={shareUrl} size={64} />
                   </div>
 
                   <p className="max-w-[190px] text-[11px] leading-relaxed text-white/55">
@@ -737,7 +755,7 @@ export const ARPreviewButton = ({
               onClick={(event) => event.stopPropagation()}
             >
               <div className="mx-auto mb-4 w-fit rounded-xl bg-white p-3">
-                <QRCodeSVG value={buildShareUrl({ ar: true, color: colorKey })} size={168} />
+                <QRCodeSVG value={shareUrl} size={168} />
               </div>
 
               <p className="text-sm text-white/85">Naskenujte mobilem</p>

@@ -303,14 +303,20 @@ export const ARPreviewButton = ({
       link.rel = "ar";
       link.href = MODEL_USDZ;
 
-      // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>.
+      // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>
+      // s nenulovými rozměry.
       const img = document.createElement("img");
       img.src = AR_POSTER;
       img.alt = "";
+      img.width = 32;
+      img.height = 32;
       link.appendChild(img);
 
       link.style.position = "fixed";
-      link.style.opacity = "0";
+      link.style.left = "-9999px";
+      link.style.top = "0";
+      link.style.width = "32px";
+      link.style.height = "32px";
       link.style.pointerEvents = "none";
       document.body.appendChild(link);
 

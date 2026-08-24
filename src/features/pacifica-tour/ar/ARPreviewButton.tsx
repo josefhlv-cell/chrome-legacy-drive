@@ -658,8 +658,13 @@ export const ARPreviewButton = ({
                     3D náhled
                   </p>
                   <h2 className="mt-0.5 font-serif text-lg text-white">
-                    Chrysler <span className="italic">Pacifica</span>
+                    {vehicleName ?? (
+                      <>
+                        Chrysler <span className="italic">Pacifica</span>
+                      </>
+                    )}
                   </h2>
+
                 </div>
 
                 <button

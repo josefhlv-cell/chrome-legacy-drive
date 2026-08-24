@@ -497,10 +497,17 @@ export const ARPreviewButton = ({
                       <a
                         rel="ar"
                         href={MODEL_USDZ}
-                        className="mt-3 flex h-11 w-full items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+                        className="relative mt-3 flex h-11 w-full items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground"
                       >
-                        <img src={AR_POSTER} alt="" className="h-0 w-0" />
-                        Spustit AR
+                        {/* Safari vyžaduje <img> jako PRVNÍHO potomka <a rel="ar">.
+                            Musí mít nenulové rozměry, aby ho Safari akceptovalo. */}
+                        <img
+                          src={AR_POSTER}
+                          alt=""
+                          aria-hidden="true"
+                          className="absolute inset-0 h-full w-full object-cover opacity-0"
+                        />
+                        <span className="relative">Spustit AR</span>
                       </a>
                     </>
                   ) : (

@@ -423,28 +423,40 @@ export const ARPreviewButton = ({
     setErrorReason(null);
   }, [clearLoadTimeout]);
 
-  const buttonClass = `
-    h-11 w-11 rounded-full border border-white/12 bg-white/8
-    backdrop-blur-md grid place-items-center text-white/85
-    transition hover:bg-white/16 focus-visible:outline-none
-    focus-visible:ring-2 focus-visible:ring-primary active:scale-95
-  `;
+  /**
+   * `icon` = kruhové tlačítko v tmavé 3D prohlídce.
+   * `pill` = tlačítko s textem na detailu vozidla (světlý web, design systém
+   * projektu — proto semantické tokeny, ne white/8 z prohlídky).
+   */
+  const buttonClass =
+    variant === "pill"
+      ? `inline-flex h-11 items-center gap-2 rounded-full border border-primary/30
+         bg-primary/10 px-4 text-xs font-semibold uppercase tracking-wider text-primary
+         font-montserrat transition hover:bg-primary/20 focus-visible:outline-none
+         focus-visible:ring-2 focus-visible:ring-primary active:scale-95`
+      : `h-11 w-11 rounded-full border border-white/12 bg-white/8
+         backdrop-blur-md grid place-items-center text-white/85
+         transition hover:bg-white/16 focus-visible:outline-none
+         focus-visible:ring-2 focus-visible:ring-primary active:scale-95`;
+
+  const ariaLabel =
+    platform === "other"
+      ? `Otevřít 3D náhled vozu${vehicleName ? ` ${vehicleName}` : ""}`
+      : `Zobrazit vůz${vehicleName ? ` ${vehicleName}` : ""} v rozšířené realitě (AR)`;
 
   return (
     <>
       <button
         type="button"
         onClick={handleActivate}
-        aria-label={
-          platform === "other"
-            ? "Otevřít 3D náhled vozu"
-            : "Zobrazit vůz v rozšířené realitě (AR)"
-        }
+        aria-label={ariaLabel}
         className={buttonClass}
         title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
       >
         <Box className="h-4 w-4" />
+        {variant === "pill" && <span>{label}</span>}
       </button>
+
 
       {viewerNeeded && platform === "android" && (
         <model-viewer

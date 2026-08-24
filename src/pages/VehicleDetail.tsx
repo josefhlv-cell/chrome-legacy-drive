@@ -675,6 +675,16 @@ const VehicleDetail = () => {
                 )}
 
               </div>
+
+              {/* AR náhled — jen u modelů, pro které máme 3D model (Pacifica).
+                  Zákazník si postaví vůz v reálné velikosti před sebe. */}
+              <VehicleARButton
+                vehicleId={vehicle.id}
+                vehicleName={vehicle.name}
+                vehicleColorHex={(vehicle as { ar_color_hex?: string | null }).ar_color_hex}
+                className="mt-4"
+              />
+
             </motion.div>
           </div>
 

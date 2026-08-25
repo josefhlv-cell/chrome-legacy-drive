@@ -6,7 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { Canvas } from "@react-three/fiber";
 import { Environment, OrbitControls, ContactShadows } from "@react-three/drei";
 import { Loader2 } from "lucide-react";
-import type * as THREE from "three";
+import * as THREE from "three";
 import { buildVehicleScene } from "./glbBuilder";
 import type { AppearanceProfile } from "./appearance";
 

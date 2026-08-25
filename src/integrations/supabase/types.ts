@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.4"
+    PostgrestVersion: "14.17"
   }
   public: {
     Tables: {
@@ -1160,6 +1160,7 @@ export type Database = {
           ar_color_hex: string | null
           ar_model_ready: boolean
           ar_model_url: string | null
+          ar_model_usdz_url: string | null
           carfax_enabled: boolean
           carfax_url: string
           color: string
@@ -1209,6 +1210,7 @@ export type Database = {
           ar_color_hex?: string | null
           ar_model_ready?: boolean
           ar_model_url?: string | null
+          ar_model_usdz_url?: string | null
           carfax_enabled?: boolean
           carfax_url?: string
           color?: string
@@ -1258,6 +1260,7 @@ export type Database = {
           ar_color_hex?: string | null
           ar_model_ready?: boolean
           ar_model_url?: string | null
+          ar_model_usdz_url?: string | null
           carfax_enabled?: boolean
           carfax_url?: string
           color?: string

@@ -11,6 +11,14 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
 import type { AppearanceProfile } from "./appearance";
+import { compressGLBBuffer, type CompressProgress } from "./compressPipeline";
+
+/** Zprávy z `glbCompress.worker.ts`. */
+type WorkerMessage =
+  | { type: "progress"; progress: CompressProgress }
+  | { type: "done"; buffer: ArrayBuffer | null }
+  | { type: "error"; message: string };
+
 
 export const BASE_MODEL_URL = "/models/pacifica.glb";
 const DRACO_DECODER = "https://www.gstatic.com/draco/versioned/decoders/1.5.6/";
@@ -66,19 +74,89 @@ export async function loadBaseModel(): Promise<THREE.Group> {
   return cachedScene.clone(true) as THREE.Group;
 }
 
+/** Sada map pro karoserii: barva laku + normálová mapa reliéfu poškození. */
+type DamageMaps = { color: THREE.Texture | null; normal: THREE.Texture | null };
+
 /**
- * Vytvoří proceduální texturu s poškozením (škrábance / dolík / odřený lak).
+ * Ze šedotónové výškové mapy spočítá normálovou mapu (Sobel).
+ *
+ * Proč: dolík nakreslený jen do barvy vypadá jako nálepka. Normálová mapa
+ * ohne odraz světla, takže promáčklina se v AR chová jako skutečná
+ * deformace plechu — reflexe se v ní „zlomí“.
+ */
+const heightToNormal = (height: HTMLCanvasElement, strength: number): THREE.Texture | null => {
+  const size = height.width;
+  const src = height.getContext("2d")?.getImageData(0, 0, size, size);
+  if (!src) return null;
+
+  const out = document.createElement("canvas");
+  out.width = size;
+  out.height = size;
+  const ctx = out.getContext("2d");
+  if (!ctx) return null;
+
+  const dst = ctx.createImageData(size, size);
+  const h = (x: number, y: number) => {
+    const cx = Math.min(size - 1, Math.max(0, x));
+    const cy = Math.min(size - 1, Math.max(0, y));
+    return src.data[(cy * size + cx) * 4] / 255;
+  };
+
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const dx =
+        h(x - 1, y - 1) + 2 * h(x - 1, y) + h(x - 1, y + 1) -
+        (h(x + 1, y - 1) + 2 * h(x + 1, y) + h(x + 1, y + 1));
+      const dy =
+        h(x - 1, y - 1) + 2 * h(x, y - 1) + h(x + 1, y - 1) -
+        (h(x - 1, y + 1) + 2 * h(x, y + 1) + h(x + 1, y + 1));
+
+      let nx = dx * strength;
+      let ny = dy * strength;
+      const nz = 1;
+      const len = Math.hypot(nx, ny, nz) || 1;
+      nx /= len;
+      ny /= len;
+
+      const i = (y * size + x) * 4;
+      dst.data[i] = (nx * 0.5 + 0.5) * 255;
+      dst.data[i + 1] = (ny * 0.5 + 0.5) * 255;
+      dst.data[i + 2] = (nz / len) * 255;
+      dst.data[i + 3] = 255;
+    }
+  }
+
+  ctx.putImageData(dst, 0, 0);
+  const texture = new THREE.CanvasTexture(out);
+  // Normálová mapa je vektorová data — NESMÍ projít sRGB konverzí.
+  texture.colorSpace = THREE.NoColorSpace;
+  texture.name = "damage_normal";
+  return texture;
+};
+
+/**
+ * Vytvoří proceduální mapy s poškozením (škrábance / dolík / odřený lak).
  * Nejde o fotorealistickou repliku, ale o poctivé vyznačení místa a rozsahu.
  */
-const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null): THREE.Texture | null => {
-  if (!profile.damages?.length) return null;
+const damageMaps = (profile: AppearanceProfile, base?: THREE.Texture | null): DamageMaps => {
+  if (!profile.damages?.length) return { color: null, normal: null };
 
   const size = 2048;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return null;
+  if (!ctx) return { color: null, normal: null };
+
+  // Druhé plátno = výšková mapa. Šedá 128 = rovný plech.
+  const height = document.createElement("canvas");
+  height.width = size;
+  height.height = size;
+  const hctx = height.getContext("2d");
+  if (hctx) {
+    hctx.fillStyle = "#808080";
+    hctx.fillRect(0, 0, size, size);
+  }
 
   ctx.fillStyle = profile.body_color_hex;
   ctx.fillRect(0, 0, size, size);
@@ -120,6 +198,7 @@ const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null):
     const cy = zy * size;
     // ×2 — textura je 2048 px, aby detaily zůstaly ve stejném fyzickém měřítku.
     const scale = (damage.severity === "vyrazne" ? 1.6 : damage.severity === "stredni" ? 1.1 : 0.7) * 2;
+    const depth = damage.severity === "vyrazne" ? 0.75 : damage.severity === "stredni" ? 0.5 : 0.3;
 
 
     ctx.save();
@@ -131,11 +210,34 @@ const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null):
       ctx.beginPath();
       ctx.arc(cx, cy, 60 * scale, 0, Math.PI * 2);
       ctx.fill();
+
+      if (hctx) {
+        // Promáčklina = plynulé snížení povrchu (tmavší = níž).
+        const hg = hctx.createRadialGradient(cx, cy, 2, cx, cy, 60 * scale);
+        hg.addColorStop(0, `rgba(0,0,0,${depth})`);
+        hg.addColorStop(0.75, `rgba(0,0,0,${depth * 0.25})`);
+        hg.addColorStop(1, "rgba(0,0,0,0)");
+        hctx.fillStyle = hg;
+        hctx.beginPath();
+        hctx.arc(cx, cy, 60 * scale, 0, Math.PI * 2);
+        hctx.fill();
+      }
     } else if (damage.type === "koroze" || damage.type === "odrena_barva") {
       ctx.fillStyle = damage.type === "koroze" ? "rgba(120,60,25,0.75)" : "rgba(190,190,195,0.8)";
       ctx.beginPath();
       ctx.ellipse(cx, cy, 34 * scale, 20 * scale, 0.3, 0, Math.PI * 2);
       ctx.fill();
+
+      if (hctx) {
+        // Koroze/odřenina = drsný, nepravidelný povrch (jemné zvlnění).
+        hctx.save();
+        hctx.globalAlpha = depth * 0.6;
+        hctx.fillStyle = damage.type === "koroze" ? "#4a4a4a" : "#a0a0a0";
+        hctx.beginPath();
+        hctx.ellipse(cx, cy, 34 * scale, 20 * scale, 0.3, 0, Math.PI * 2);
+        hctx.fill();
+        hctx.restore();
+      }
     } else {
       ctx.strokeStyle = "rgba(235,235,240,0.85)";
       ctx.lineWidth = 2.5 * scale;
@@ -143,6 +245,25 @@ const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null):
       ctx.moveTo(cx - 45 * scale, cy - 8 * scale);
       ctx.lineTo(cx + 45 * scale, cy + 6 * scale);
       ctx.stroke();
+
+      if (hctx) {
+        // Škrábanec = úzká rýha; tmavá linka + světlý okraj (vyhrnutý lak).
+        hctx.save();
+        hctx.lineCap = "round";
+        hctx.strokeStyle = `rgba(255,255,255,${depth * 0.5})`;
+        hctx.lineWidth = 4 * scale;
+        hctx.beginPath();
+        hctx.moveTo(cx - 45 * scale, cy - 8 * scale);
+        hctx.lineTo(cx + 45 * scale, cy + 6 * scale);
+        hctx.stroke();
+        hctx.strokeStyle = `rgba(0,0,0,${depth})`;
+        hctx.lineWidth = 2 * scale;
+        hctx.beginPath();
+        hctx.moveTo(cx - 45 * scale, cy - 8 * scale);
+        hctx.lineTo(cx + 45 * scale, cy + 6 * scale);
+        hctx.stroke();
+        hctx.restore();
+      }
     }
     ctx.restore();
   });
@@ -150,8 +271,10 @@ const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null):
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.name = "damage_overlay";
-  return texture;
+
+  return { color: texture, normal: hctx ? heightToNormal(height, 2.4) : null };
 };
+
 
 const wheelTint = (style: string): THREE.Color | null => {
   switch (style) {
@@ -180,7 +303,7 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
     if (!bodyBaseMap && m && !Array.isArray(m) && isBody(m.name || o.name || "")) bodyBaseMap = m.map ?? null;
   });
-  const damage = damageTexture(profile, bodyBaseMap);
+  const damage = damageMaps(profile, bodyBaseMap);
 
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
@@ -195,8 +318,10 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     if (isBody(name)) {
       const paint = new THREE.MeshPhysicalMaterial({
         color: bodyColor,
-        map: damage ?? src.map ?? null,
-        normalMap: src.normalMap ?? null,
+        map: damage.color ?? src.map ?? null,
+        normalMap: damage.normal ?? src.normalMap ?? null,
+        // Reliéf poškození držíme jemný — jinak plech vypadá jako alobal.
+        normalScale: new THREE.Vector2(damage.normal ? 0.85 : 1, damage.normal ? 0.85 : 1),
         metalness: profile.paint_finish === "solid" ? 0.25 : profile.paint_finish === "matte" ? 0.1 : 0.62,
         roughness: profile.paint_finish === "matte" ? 0.65 : profile.roughness,
         clearcoat: profile.paint_finish === "matte" ? 0 : profile.clearcoat,
@@ -209,7 +334,13 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
         specularIntensity: profile.paint_finish === "matte" ? 0.3 : 1,
       });
       // Když kreslíme poškození do mapy, barva už je v textuře — nechceme dvojí tón.
-      if (damage) paint.color = new THREE.Color("#ffffff");
+      if (damage.color) paint.color = new THREE.Color("#ffffff");
+      // Normálová mapa poškození se propíše i do lakového průhledu (clearcoat).
+      if (damage.normal && profile.paint_finish !== "matte") {
+        paint.clearcoatNormalMap = damage.normal;
+        paint.clearcoatNormalScale = new THREE.Vector2(0.6, 0.6);
+      }
+
       paint.name = name || "body_paint";
       mesh.material = paint;
       return;
@@ -334,6 +465,132 @@ export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
 }
 
 /**
+ * Vyexportuje scénu jako USDZ pro iOS AR Quick Look.
+ *
+ * PROČ je to důležité: iPhone neumí GLB. Bez USDZ se na iOS zobrazoval
+ * generický bílý model, takže barva a stav KONKRÉTNÍHO vozu se zákazníkovi
+ * na iPhonu nikdy neukázala. USDZ vyrobíme ze stejné scény jako GLB,
+ * takže lak, skla, kola i poškození jsou identické na obou platformách.
+ */
+export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.28): Promise<Blob> {
+  const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
+
+  /*
+   * USDZ je ZIP BEZ komprese a geometrie se do něj zapisuje TEXTOVĚ — surová
+   * Pacifica (≈890 tis. trojúhelníků) proto dá ~90 MB, což si nikdo na
+   * mobilních datech nestáhne. Před exportem tedy geometrii decimujeme
+   * a textury zmenšíme na 1024 px. Na displeji telefonu je rozdíl
+   * nepostřehnutelný, ale AR se otevře v sekundách místo minut.
+   */
+  const light = await decimateForUSDZ(scene, ratio);
+  const exporter = new USDZExporter();
+  const result = await exporter.parseAsync(light, { maxTextureSize: 1024 });
+  return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
+}
+
+/**
+ * Decimace scény pro USDZ.
+ *
+ * Model Pacifiky je „trojúhelníková polévka" (rozpojené plochy bez sdílených
+ * vrcholů) — standardní simplifikace na něm nezabere. Proto používáme meshopt
+ * přímo s příznaky `Permissive` + `Sparse` + `Prune`, které kolaps hran přes
+ * švy povolují, a výsledek pak zkompaktníme (zahodíme nepoužité vrcholy),
+ * protože právě soupis vrcholů tvoří většinu objemu USDZ.
+ *
+ * Když cokoli selže, vrací se původní scéna — export nikdy nespadne
+ * kvůli optimalizaci.
+ */
+async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<THREE.Object3D> {
+  try {
+    const { MeshoptSimplifier } = (await import("meshoptimizer")) as unknown as {
+      MeshoptSimplifier: {
+        ready: Promise<void>;
+        simplify: (
+          indices: Uint32Array,
+          positions: Float32Array,
+          stride: number,
+          targetIndexCount: number,
+          targetError: number,
+          flags?: string[],
+        ) => [Uint32Array, number];
+      };
+    };
+    await MeshoptSimplifier.ready;
+
+    const clone = scene.clone(true);
+    clone.traverse((object) => {
+      const mesh = object as THREE.Mesh;
+      if (!mesh.isMesh || !mesh.geometry) return;
+
+      const geometry = mesh.geometry as THREE.BufferGeometry;
+      const position = geometry.getAttribute("position") as THREE.BufferAttribute | undefined;
+      if (!position) return;
+
+      const vertexCount = position.count;
+      const indices = geometry.index
+        ? new Uint32Array(geometry.index.array as ArrayLike<number>)
+        : Uint32Array.from({ length: vertexCount }, (_, i) => i);
+
+      const target = Math.max(3, Math.floor((indices.length * ratio) / 3) * 3);
+      if (target >= indices.length) return;
+
+      const positions = new Float32Array(position.array as ArrayLike<number>);
+      const [simplified] = MeshoptSimplifier.simplify(indices, positions, 3, target, 0.05, [
+        "Permissive",
+        "Sparse",
+        "Prune",
+      ]);
+
+      /*
+       * Normály NEpřepočítáváme — původní hladké normály z modelu drží plynulé
+       * odlesky na laku. Přepočet z decimované sítě dělá "fazetový" povrch,
+       * který v AR vypadá jako pomačkaný plech.
+       */
+      compactGeometry(geometry, simplified);
+    });
+
+    return clone;
+  } catch (error) {
+    console.warn("decimateForUSDZ: decimace selhala, exportuji plnou geometrii", error);
+    return scene;
+  }
+}
+
+/**
+ * Zahodí vrcholy, které po decimaci nikdo nepoužívá. USDZ je textový formát,
+ * takže každý zbytečný vrchol = ~60 bajtů navíc ve výsledném souboru.
+ */
+function compactGeometry(geometry: THREE.BufferGeometry, indices: Uint32Array) {
+  const remap = new Map<number, number>();
+  const order: number[] = [];
+  const newIndices = new Uint32Array(indices.length);
+
+  for (let i = 0; i < indices.length; i++) {
+    const old = indices[i];
+    let next = remap.get(old);
+    if (next === undefined) {
+      next = order.length;
+      remap.set(old, next);
+      order.push(old);
+    }
+    newIndices[i] = next;
+  }
+
+  for (const name of Object.keys(geometry.attributes)) {
+    const attribute = geometry.getAttribute(name) as THREE.BufferAttribute;
+    const itemSize = attribute.itemSize;
+    const source = attribute.array as ArrayLike<number>;
+    const packed = new Float32Array(order.length * itemSize);
+    for (let i = 0; i < order.length; i++) {
+      for (let c = 0; c < itemSize; c++) packed[i * itemSize + c] = source[order[i] * itemSize + c];
+    }
+    geometry.setAttribute(name, new THREE.BufferAttribute(packed, itemSize, attribute.normalized));
+  }
+
+  geometry.setIndex(Array.from(newIndices));
+}
+
+/**
  * Zkomprimuje vyexportovaný GLB, aby se dal rozumně stáhnout na mobilu v AR.
  *
  * GLTFExporter umí jen nekomprimovaný výstup — model Pacifiky má skoro milion
@@ -344,41 +601,54 @@ export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
  * Když by komprese z jakéhokoli důvodu selhala, vrací se originál —
  * publikace modelu nikdy nespadne kvůli optimalizaci.
  */
-export async function compressGLB(input: Blob): Promise<Blob> {
+export async function compressGLB(
+  input: Blob,
+  onProgress?: (p: CompressProgress) => void,
+): Promise<Blob> {
   try {
-    const [{ WebIO }, { EXTMeshoptCompression, KHRMeshQuantization }, functions, meshopt] =
-      await Promise.all([
-        import("@gltf-transform/core"),
-        import("@gltf-transform/extensions"),
-        import("@gltf-transform/functions"),
-        import("meshoptimizer"),
-      ]);
-
-    const { MeshoptEncoder } = meshopt as unknown as { MeshoptEncoder: { ready: Promise<void> } };
-    await MeshoptEncoder.ready;
-
-    const io = new WebIO().registerExtensions([EXTMeshoptCompression, KHRMeshQuantization]);
-    io.registerDependencies({ "meshopt.encoder": MeshoptEncoder });
-
-    const doc = await io.readBinary(new Uint8Array(await input.arrayBuffer()));
-
-    await doc.transform(
-      functions.dedup(),
-      functions.prune(),
-      functions.weld(),
-      functions.textureCompress({ targetFormat: "webp", resize: [2048, 2048] }),
-    );
-
-    doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({
-      method: EXTMeshoptCompression.EncoderMethod.QUANTIZE,
-    });
-
-    const out = await io.writeBinary(doc);
-    const blob = new Blob([out as unknown as BlobPart], { type: "model/gltf-binary" });
-    return blob.size > 0 && blob.size < input.size ? blob : input;
+    const out = await compressGLBBuffer(await input.arrayBuffer(), onProgress);
+    return out ? new Blob([out], { type: "model/gltf-binary" }) : input;
   } catch (error) {
     console.warn("compressGLB: komprese selhala, publikuji nekomprimovaný model", error);
     return input;
   }
 }
+
+/**
+ * Stejná komprese, ale ve Web Workeru — hlavní vlákno (a tím i admin UI)
+ * zůstane plynulé a průběh se hlásí přes `onProgress`.
+ *
+ * Když Worker není k dispozici (starší prohlížeč, blokovaný modul),
+ * automaticky se použije synchronní varianta.
+ */
+export async function compressGLBInWorker(
+  input: Blob,
+  onProgress?: (p: CompressProgress) => void,
+): Promise<Blob> {
+  if (typeof Worker === "undefined") return compressGLB(input, onProgress);
+
+  try {
+    const worker = new Worker(new URL("./glbCompress.worker.ts", import.meta.url), {
+      type: "module",
+    });
+    const buffer = await input.arrayBuffer();
+
+    const result = await new Promise<ArrayBuffer | null>((resolve, reject) => {
+      worker.onmessage = (event: MessageEvent<WorkerMessage>) => {
+        const data = event.data;
+        if (data.type === "progress") onProgress?.(data.progress);
+        else if (data.type === "done") resolve(data.buffer);
+        else reject(new Error(data.message));
+      };
+      worker.onerror = (e) => reject(new Error(e.message || "Worker selhal"));
+      worker.postMessage({ buffer }, [buffer]);
+    }).finally(() => worker.terminate());
+
+    return result ? new Blob([result], { type: "model/gltf-binary" }) : input;
+  } catch (error) {
+    console.warn("compressGLBInWorker: fallback do hlavního vlákna", error);
+    return compressGLB(input, onProgress);
+  }
+}
+
 

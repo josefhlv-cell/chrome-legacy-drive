@@ -13,8 +13,28 @@
  *   /functions/v1/ar-model/pacifica.usdz
  */
 
-const SOURCE_URL =
-  "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar/pacifica-v3.usdz";
+const PROJECT_URL = "https://thqyzghifwmwohgfvshf.supabase.co";
+
+/** Generický model Pacifiky (veřejný bucket). */
+const DEFAULT_SOURCE = `${PROJECT_URL}/storage/v1/object/public/vehicles/ar/pacifica-v3.usdz`;
+
+/**
+ * USDZ konkrétního vozu vygenerované v /admin/3d-generator leží v PRIVÁTNÍM
+ * bucketu `vehicle-models`. Quick Look neumí posílat hlavičky ani cookies,
+ * takže soubor musíme přečíst servisním klíčem tady a poslat ho dál.
+ *
+ * URL formát: /functions/v1/ar-model/v/<vehicleId>/vehicle.usdz
+ */
+const resolveSource = (url: URL): { source: string; headers?: Record<string, string> } => {
+  const match = url.pathname.match(/\/ar-model\/v\/([^/]+)\/([^/]+\.usdz)$/);
+  if (!match) return { source: DEFAULT_SOURCE };
+
+  const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+  return {
+    source: `${PROJECT_URL}/storage/v1/object/vehicle-models/${match[1]}/${match[2]}`,
+    headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+  };
+};
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -23,6 +43,7 @@ const corsHeaders = {
   "Access-Control-Expose-Headers": "content-length, content-range, accept-ranges, content-type",
 };
 
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -30,11 +51,13 @@ Deno.serve(async (req) => {
 
   try {
     const range = req.headers.get("range");
+    const { source, headers: authHeaders } = resolveSource(new URL(req.url));
 
-    const upstream = await fetch(SOURCE_URL, {
+    const upstream = await fetch(source, {
       method: req.method === "HEAD" ? "GET" : req.method,
-      headers: range ? { Range: range } : undefined,
+      headers: { ...(authHeaders ?? {}), ...(range ? { Range: range } : {}) },
     });
+
 
     if (!upstream.ok && upstream.status !== 206) {
       return new Response("Model nenalezen", {

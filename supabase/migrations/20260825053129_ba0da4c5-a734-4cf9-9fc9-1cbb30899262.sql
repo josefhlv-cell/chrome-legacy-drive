@@ -1,0 +1,1 @@
+INSERT INTO public.site_contacts (key, value) VALUES ('feature_vehicle_ar_enabled', 'false') ON CONFLICT (key) DO UPDATE SET value = 'false', updated_at = now();

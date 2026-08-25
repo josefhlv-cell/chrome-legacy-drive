@@ -649,3 +649,6 @@ export async function compressGLBInWorker(
 }
 
 
+
+/** Ladicí export decimace (používá se ve vizuálních testech kvality). */
+export const __decimateForUSDZ = decimateForUSDZ;

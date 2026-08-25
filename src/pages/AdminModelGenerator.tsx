@@ -25,7 +25,8 @@ import {
   DAMAGE_PARTS, DEFAULT_PROFILE, TRIM_LABELS, WHEEL_STYLES, isHex,
   type AppearanceProfile, type Damage,
 } from "@/features/model-generator/appearance";
-import { exportGLB, compressGLB } from "@/features/model-generator/glbBuilder";
+import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
+import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
 
 type VehicleRow = { id: string; name: string; vin: string | null; ar_model_ready: boolean | null; ar_model_url: string | null };
@@ -52,7 +53,10 @@ export default function AdminModelGenerator() {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisStep, setAnalysisStep] = useState<string>("");
   const [exporting, setExporting] = useState(false);
+  const [exportStep, setExportStep] = useState<{ label: string; percent: number } | null>(null);
   const [glbSize, setGlbSize] = useState<number | null>(null);
+  const [usdzSize, setUsdzSize] = useState<number | null>(null);
+  const [vinLoading, setVinLoading] = useState(false);
   const sceneRef = useRef<THREE.Group | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
@@ -233,6 +237,65 @@ export default function AdminModelGenerator() {
   };
 
   /* ------------------------------------------------------------------ */
+  /* Předvyplnění z VIN                                                  */
+  /* ------------------------------------------------------------------ */
+
+  /**
+   * Odhad výbavy z VIN.
+   *
+   * Proč to má smysl: VIN spolehlivě prozradí ročník a výbavový stupeň
+   * (Touring / Limited / Pinnacle / LX). Z toho vyplyne typ kol i to, zda
+   * má vůz chromový nebo černý paket. Obsluha tak nezačíná od nuly —
+   * jen zkontroluje a případně přepíše, což šetří minuty na každém vozu
+   * a hlavně brání překlepům v datech, která zákazník uvidí v AR.
+   */
+  const prefillFromVin = async () => {
+    if (!vehicle?.vin) {
+      toast({ title: "Vozidlo nemá vyplněný VIN", variant: "destructive" });
+      return;
+    }
+
+    setVinLoading(true);
+    try {
+      const { data, error } = await supabase.functions.invoke("vin-decode", { body: { vin: vehicle.vin } });
+      if (error) throw error;
+      const decoded = (data as { decoded?: Record<string, string | number> }).decoded;
+      if (!decoded) throw new Error("VIN se nepodařilo dekódovat");
+
+      const trim = String(decoded.trim ?? "").toLowerCase();
+      const wheel =
+        /pinnacle|limited/.test(trim) ? "10spoke"
+        : /touring|s appearance|sport/.test(trim) ? "multispoke"
+        : /lx|base|voyager/.test(trim) ? "steel_cover"
+        : "5spoke";
+      const trimStyle: AppearanceProfile["trim_style"] =
+        /s appearance|blackout|sport/.test(trim) ? "black" : "chrome";
+
+      const summary = [decoded.year, decoded.name, decoded.engine, decoded.drive]
+        .filter(Boolean)
+        .join(" · ");
+
+      setProfile((prev) => {
+        const base = prev ?? DEFAULT_PROFILE(vehicleId);
+        return { ...base, wheel_style: wheel, trim_style: trimStyle, notes: summary };
+      });
+
+      toast({
+        title: "Předvyplněno z VIN",
+        description: summary || "Zkontrolujte kola a paket, pak dolaďte barvu podle fotek.",
+      });
+    } catch (e) {
+      toast({
+        title: "Dekódování VIN selhalo",
+        description: e instanceof Error ? e.message : "Neznámá chyba",
+        variant: "destructive",
+      });
+    } finally {
+      setVinLoading(false);
+    }
+  };
+
+  /* ------------------------------------------------------------------ */
   /* Úpravy profilu                                                      */
   /* ------------------------------------------------------------------ */
 
@@ -278,21 +341,62 @@ export default function AdminModelGenerator() {
     }
 
     setExporting(true);
+    setExportStep({ label: "Exportuji GLB…", percent: 5 });
     try {
-      // Publikovaný model si stahuje mobil v AR — proto ho komprimujeme.
+      // 1) GLB pro Android a desktopový 3D náhled.
       const raw = await exportGLB(sceneRef.current);
-      const blob = await compressGLB(raw);
+
+      // Komprese běží ve Web Workeru — admin UI proto zůstane plynulé.
+      const blob = await compressGLBInWorker(raw, (p: CompressProgress) =>
+        setExportStep({ label: p.label, percent: Math.round(p.percent * 0.7) }),
+      );
       setGlbSize(blob.size);
 
       const path = `${profile.vehicle_id}/vehicle.glb`;
+      setExportStep({ label: "Nahrávám GLB do úložiště…", percent: 74 });
       const { error: upErr } = await supabase.storage
         .from("vehicle-models")
         .upload(path, blob, { upsert: true, contentType: "model/gltf-binary" });
       if (upErr) throw upErr;
 
+      /*
+       * 2) USDZ pro iPhone (AR Quick Look).
+       *
+       * iOS neumí GLB — bez USDZ by zákazník na iPhonu viděl generický bílý
+       * model, ne svůj vůz. Když by export selhal, GLB zůstává publikované
+       * (Android funguje) a jen ohlásíme, že iOS model chybí.
+       */
+      let usdzPath: string | null = null;
+      try {
+        setExportStep({ label: "Exportuji USDZ pro iPhone…", percent: 82 });
+        const usdz = await exportUSDZ(sceneRef.current);
+        setUsdzSize(usdz.size);
+        usdzPath = `${profile.vehicle_id}/vehicle.usdz`;
+        setExportStep({ label: "Nahrávám USDZ do úložiště…", percent: 92 });
+        const { error: usdzErr } = await supabase.storage
+          .from("vehicle-models")
+          .upload(usdzPath, usdz, { upsert: true, contentType: "model/vnd.usdz+zip" });
+        if (usdzErr) throw usdzErr;
+      } catch (e) {
+        usdzPath = null;
+        setUsdzSize(null);
+        console.error("USDZ export selhal:", e);
+        toast({
+          title: "USDZ pro iPhone se nepodařilo vytvořit",
+          description: "Android AR funguje, na iOS se zobrazí generický model.",
+          variant: "destructive",
+        });
+      }
+
+      setExportStep({ label: "Zapisuji do databáze…", percent: 97 });
       const { error: dbErr } = await supabase
         .from("vehicles")
-        .update({ ar_model_url: path, ar_model_ready: publish, ar_color_hex: profile.body_color_hex })
+        .update({
+          ar_model_url: path,
+          ar_model_usdz_url: usdzPath,
+          ar_model_ready: publish,
+          ar_color_hex: profile.body_color_hex,
+        })
         .eq("id", profile.vehicle_id);
       if (dbErr) throw dbErr;
 
@@ -305,9 +409,10 @@ export default function AdminModelGenerator() {
         prev.map((v) => (v.id === profile.vehicle_id ? { ...v, ar_model_url: path, ar_model_ready: publish } : v)),
       );
 
+      setExportStep({ label: "Hotovo", percent: 100 });
       toast({
         title: publish ? "Model publikován pro AR" : "Model uložen",
-        description: `Velikost ${(blob.size / 1024 / 1024).toFixed(1)} MB`,
+        description: `GLB ${(blob.size / 1024 / 1024).toFixed(1)} MB${usdzPath ? " · USDZ pro iPhone připraveno" : ""}`,
       });
     } catch (e) {
       toast({
@@ -317,6 +422,7 @@ export default function AdminModelGenerator() {
       });
     } finally {
       setExporting(false);
+      setTimeout(() => setExportStep(null), 1500);
     }
   };
 
@@ -324,7 +430,9 @@ export default function AdminModelGenerator() {
     if (!sceneRef.current) return;
     setExporting(true);
     try {
-      const blob = await compressGLB(await exportGLB(sceneRef.current));
+      const blob = await compressGLBInWorker(await exportGLB(sceneRef.current), (p) =>
+        setExportStep({ label: p.label, percent: p.percent }),
+      );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -501,15 +609,28 @@ export default function AdminModelGenerator() {
               </div>
             ))}
 
-            <button
-              type="button"
-              onClick={() => void runAnalysis()}
-              disabled={analyzing || Object.keys(uploadedPaths).length === 0}
-              className="chrome-button inline-flex items-center gap-2 text-xs disabled:opacity-50"
-            >
-              {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-              {analyzing ? analysisStep || "Analyzuji…" : "3 · Analyzovat vzhled vozu"}
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => void runAnalysis()}
+                disabled={analyzing || Object.keys(uploadedPaths).length === 0}
+                className="chrome-button inline-flex items-center gap-2 text-xs disabled:opacity-50"
+              >
+                {analyzing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {analyzing ? analysisStep || "Analyzuji…" : "3 · Analyzovat vzhled vozu"}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => void prefillFromVin()}
+                disabled={vinLoading || !vehicle?.vin}
+                title={vehicle?.vin ? `VIN ${vehicle.vin}` : "Vozidlo nemá VIN"}
+                className="outline-button inline-flex items-center gap-2 text-xs disabled:opacity-50"
+              >
+                {vinLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Info className="h-3.5 w-3.5" />}
+                Předvyplnit z VIN
+              </button>
+            </div>
           </section>
         )}
 
@@ -528,11 +649,28 @@ export default function AdminModelGenerator() {
                   }}
                 />
               </div>
-              {glbSize !== null && (
+              {exportStep && (
+                <div className="mt-3" role="status" aria-live="polite">
+                  <div className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{exportStep.label}</span>
+                    <span>{exportStep.percent} %</span>
+                  </div>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-secondary">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all duration-300"
+                      style={{ width: `${exportStep.percent}%` }}
+                    />
+                  </div>
+                </div>
+              )}
+              {(glbSize !== null || usdzSize !== null) && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Poslední export: {(glbSize / 1024 / 1024).toFixed(1)} MB
+                  Poslední export:
+                  {glbSize !== null ? ` GLB ${(glbSize / 1024 / 1024).toFixed(1)} MB` : ""}
+                  {usdzSize !== null ? ` · USDZ ${(usdzSize / 1024 / 1024).toFixed(1)} MB` : ""}
                 </p>
               )}
+
             </div>
 
             <div className="space-y-4 rounded-xl border border-border/60 bg-card p-4">

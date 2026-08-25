@@ -61,6 +61,11 @@ type Props = {
    * Když chybí, použije se základní model Pacifiky.
    */
   modelUrl?: string | null;
+  /**
+   * USDZ konkrétního vozu pro iOS AR Quick Look. iPhone neumí GLB, takže
+   * bez tohoto souboru by se na iOS zobrazil generický bílý model.
+   */
+  usdzUrl?: string | null;
 };
 
 
@@ -153,9 +158,13 @@ export const ARPreviewButton = ({
   vehicleName,
   showColorDisclaimer = false,
   modelUrl = null,
+  usdzUrl = null,
 }: Props) => {
   /** Vlastní model vozu má přednost před generickou Pacificou. */
   const glbSrc = modelUrl || MODEL_GLB;
+  /** USDZ konkrétního vozu (iOS Quick Look) — jinak generická Pacifica. */
+  const usdzSrc = usdzUrl || MODEL_USDZ;
+
 
   /**
    * Společná měřicí data. U konkrétního vozu chceme v adminu vidět,
@@ -342,7 +351,7 @@ export const ARPreviewButton = ({
     try {
       const link = document.createElement("a");
       link.rel = "ar";
-      link.href = MODEL_USDZ;
+      link.href = usdzSrc;
 
       // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>
       // s nenulovými rozměry.
@@ -374,7 +383,7 @@ export const ARPreviewButton = ({
       setStatus("error");
       setErrorReason("generic");
     }
-  }, [analyticsMeta, colorKey, onExitAR]);
+  }, [analyticsMeta, colorKey, onExitAR, usdzSrc]);
 
 
   /* --------------------------------------------------------------------- */
@@ -488,7 +497,7 @@ export const ARPreviewButton = ({
         <model-viewer
           ref={viewerRef as never}
           src={glbSrc}
-          ios-src={MODEL_USDZ}
+          ios-src={usdzSrc}
           ar
           ar-modes="webxr scene-viewer quick-look"
           ar-scale="fixed"
@@ -584,7 +593,7 @@ export const ARPreviewButton = ({
                           klepnutí je přímé uživatelské gesto na rel="ar" anchor. */}
                       <a
                         rel="ar"
-                        href={MODEL_USDZ}
+                        href={usdzSrc}
                         className="relative mt-3 flex h-11 w-full items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground"
                       >
                         {/* Safari vyžaduje <img> jako PRVNÍHO potomka <a rel="ar">.

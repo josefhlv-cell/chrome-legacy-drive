@@ -71,6 +71,11 @@ export const VehicleARButton = ({
    */
   const [ownModelUrl, setOwnModelUrl] = useState<string | null>(null);
   const [modelPath, setModelPath] = useState<string | null>(null);
+  /**
+   * USDZ pro iPhone. Neposílá se podepsaný odkaz — Quick Look neumí hlavičky,
+   * takže soubor doručuje edge funkce `ar-model` se správným MIME typem.
+   */
+  const [ownUsdzUrl, setOwnUsdzUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -78,14 +83,21 @@ export const VehicleARButton = ({
     void (async () => {
       const { data: row } = await supabase
         .from("vehicles")
-        .select("ar_model_url, ar_model_ready")
+        .select("ar_model_url, ar_model_usdz_url, ar_model_ready")
         .eq("id", vehicleId)
         .maybeSingle();
 
       if (cancelled) return;
 
-      const path = row?.ar_model_ready ? row?.ar_model_url ?? null : null;
+      const ready = Boolean(row?.ar_model_ready);
+      const path = ready ? row?.ar_model_url ?? null : null;
+      const usdz = ready ? row?.ar_model_usdz_url ?? null : null;
       setModelPath(path);
+      setOwnUsdzUrl(
+        usdz
+          ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
+          : null,
+      );
       if (!path) return;
 
       const { data: signed } = await supabase.storage
@@ -99,6 +111,7 @@ export const VehicleARButton = ({
       cancelled = true;
     };
   }, [vehicleId]);
+
 
   const name = vehicleName ?? data?.name ?? null;
   const colorHex =
@@ -148,9 +161,11 @@ export const VehicleARButton = ({
         colorKey={colorHex}
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
-        showColorDisclaimer={!ownModelUrl}
+        showColorDisclaimer={!ownUsdzUrl}
         autoStart={autoStart}
         modelUrl={ownModelUrl}
+        usdzUrl={ownUsdzUrl}
+
       />
     </div>
   );

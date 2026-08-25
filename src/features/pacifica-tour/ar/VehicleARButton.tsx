@@ -17,6 +17,7 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useVehicle } from "@/hooks/useVehicles";
+import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import ARPreviewButton from "./ARPreviewButton";
 
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */

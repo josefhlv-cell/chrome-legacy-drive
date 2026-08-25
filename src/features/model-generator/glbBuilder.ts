@@ -118,7 +118,9 @@ const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null):
     const [zx, zy] = zones[damage.part] ?? zones.jine;
     const cx = zx * size;
     const cy = zy * size;
-    const scale = damage.severity === "vyrazne" ? 1.6 : damage.severity === "stredni" ? 1.1 : 0.7;
+    // ×2 — textura je 2048 px, aby detaily zůstaly ve stejném fyzickém měřítku.
+    const scale = (damage.severity === "vyrazne" ? 1.6 : damage.severity === "stredni" ? 1.1 : 0.7) * 2;
+
 
     ctx.save();
     if (damage.type === "dulek") {

@@ -70,10 +70,10 @@ export async function loadBaseModel(): Promise<THREE.Group> {
  * Vytvoří proceduální texturu s poškozením (škrábance / dolík / odřený lak).
  * Nejde o fotorealistickou repliku, ale o poctivé vyznačení místa a rozsahu.
  */
-const damageTexture = (profile: AppearanceProfile): THREE.Texture | null => {
+const damageTexture = (profile: AppearanceProfile, base?: THREE.Texture | null): THREE.Texture | null => {
   if (!profile.damages?.length) return null;
 
-  const size = 1024;
+  const size = 2048;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
@@ -82,6 +82,24 @@ const damageTexture = (profile: AppearanceProfile): THREE.Texture | null => {
 
   ctx.fillStyle = profile.body_color_hex;
   ctx.fillRect(0, 0, size, size);
+
+  // Když má model vlastní texturu karoserie (spáry, loga), necháme ji pod lakem.
+  const baseImage = base?.image as CanvasImageSource | undefined;
+  if (baseImage) {
+    try {
+      ctx.globalAlpha = 0.85;
+      ctx.drawImage(baseImage, 0, 0, size, size);
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = profile.body_color_hex;
+      ctx.fillRect(0, 0, size, size);
+      ctx.globalCompositeOperation = "source-over";
+    } catch {
+      ctx.globalAlpha = 1;
+      ctx.globalCompositeOperation = "source-over";
+    }
+  }
+
 
   // Rozvržení podle částí vozu — hrubá UV mapa (stačí pro čitelnou indikaci).
   const zones: Record<string, [number, number]> = {

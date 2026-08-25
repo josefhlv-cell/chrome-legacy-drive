@@ -1539,6 +1539,7 @@ const ContactsTab = () => {
           { key: "feature_live_chat_enabled", label: "Živý chat", hint: "Plovoucí obálka vpravo dole na celém webu" },
           { key: "feature_vehicle_compare_enabled", label: "Porovnání vozů", hint: "Zaškrtávátko na kartách a stránka /porovnani-vozidel" },
           { key: "feature_pacifica_tour_enabled", label: "Virtuální prohlídka Pacifica", hint: "Interaktivní prezentace Chrysler Pacifica na hlavní stránce a samostatné stránce." },
+          { key: "feature_vehicle_ar_enabled", label: "AR náhled vozu", hint: "Tlačítko „Postavit vůz k sobě (AR)“ na detailu vozu Pacifica." },
         ].map((f) => {
           const enabled = contacts?.[f.key] !== "false";
           return (

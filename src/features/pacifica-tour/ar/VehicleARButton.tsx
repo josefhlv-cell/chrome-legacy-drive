@@ -17,6 +17,7 @@
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useVehicle } from "@/hooks/useVehicles";
+import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import ARPreviewButton from "./ARPreviewButton";
 
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */
@@ -59,11 +60,15 @@ export const VehicleARButton = ({
 
   const skip = Boolean(vehicleName);
   const { data, isLoading, error } = useVehicle(skip ? undefined : vehicleId);
+  // Admin může funkci kdykoli vypnout (site_contacts → feature_vehicle_ar_enabled).
+  const arEnabled = useFeatureFlag("feature_vehicle_ar_enabled");
 
   const name = vehicleName ?? data?.name ?? null;
   const colorHex =
     normalizeHex(vehicleColorHex ?? (data as { ar_color_hex?: string | null } | null)?.ar_color_hex) ??
     DEFAULT_AR_COLOR;
+
+  if (!arEnabled) return null;
 
   if (!skip && isLoading) {
     return (

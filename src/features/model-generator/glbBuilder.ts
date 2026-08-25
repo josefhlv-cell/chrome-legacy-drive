@@ -472,7 +472,7 @@ export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
  * na iPhonu nikdy neukázala. USDZ vyrobíme ze stejné scény jako GLB,
  * takže lak, skla, kola i poškození jsou identické na obou platformách.
  */
-export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.18): Promise<Blob> {
+export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.35): Promise<Blob> {
   const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
 
   /*
@@ -541,9 +541,12 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
         "Prune",
       ]);
 
-      geometry.setIndex(Array.from(simplified));
+      /*
+       * Normály NEpřepočítáváme — původní hladké normály z modelu drží plynulé
+       * odlesky na laku. Přepočet z decimované sítě dělá "fazetový" povrch,
+       * který v AR vypadá jako pomačkaný plech.
+       */
       compactGeometry(geometry, simplified);
-      geometry.computeVertexNormals();
     });
 
     return clone;

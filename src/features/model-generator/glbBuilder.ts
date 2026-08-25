@@ -17,20 +17,38 @@ const DRACO_DECODER = "https://www.gstatic.com/draco/versioned/decoders/1.5.6/";
 
 const isBody = (name: string) => {
   const n = name.toLowerCase();
-  return n.includes("body") || n.includes("paint");
+  return n.includes("body") || n.includes("paint") || n.includes("karoserie");
 };
 const isGlass = (name: string) => {
   const n = name.toLowerCase();
-  return n.includes("glass") || n.includes("window") || n.includes("sklo");
+  return n.includes("glass") || n.includes("window") || n.includes("sklo") || n.includes("windshield");
 };
 const isTrim = (name: string) => {
   const n = name.toLowerCase();
   return n.includes("chrome") || n.includes("trim") || n.includes("grill") || n.includes("molding");
 };
+/** Pneumatika má vlastní matný gumový materiál — nesmí zčernat jako disk. */
+const isTire = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("tire") || n.includes("tyre") || n.includes("rubber") || n.includes("pneu");
+};
 const isWheel = (name: string) => {
   const n = name.toLowerCase();
   return n.includes("wheel") || n.includes("rim") || n.includes("disc") || n.includes("kolo");
 };
+/** Světla — čirý kryt + reflektor, aby v AR nevypadala jako slepá plocha. */
+const isLight = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("light") || n.includes("lamp") || n.includes("head_l") || n.includes("tail");
+};
+const isInterior = (name: string) => {
+  const n = name.toLowerCase();
+  return (
+    n.includes("seat") || n.includes("interior") || n.includes("dashboard") ||
+    n.includes("dash") || n.includes("carpet") || n.includes("sedack")
+  );
+};
+
 
 let cachedScene: THREE.Group | null = null;
 

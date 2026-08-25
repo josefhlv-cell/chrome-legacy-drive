@@ -60,11 +60,15 @@ export const VehicleARButton = ({
 
   const skip = Boolean(vehicleName);
   const { data, isLoading, error } = useVehicle(skip ? undefined : vehicleId);
+  // Admin může funkci kdykoli vypnout (site_contacts → feature_vehicle_ar_enabled).
+  const arEnabled = useFeatureFlag("feature_vehicle_ar_enabled");
 
   const name = vehicleName ?? data?.name ?? null;
   const colorHex =
     normalizeHex(vehicleColorHex ?? (data as { ar_color_hex?: string | null } | null)?.ar_color_hex) ??
     DEFAULT_AR_COLOR;
+
+  if (!arEnabled) return null;
 
   if (!skip && isLoading) {
     return (

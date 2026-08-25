@@ -49,7 +49,7 @@ import ShowroomTab from "@/components/admin/ShowroomTab";
 import HitSongsTab from "@/components/admin/HitSongsTab";
 import { MaraProvider, useMara } from "@/components/admin/MaraAssistant";
 import SmartPriceCheck from "@/components/admin/SmartPriceCheck";
-import { Megaphone, LayoutDashboard, Send, Music } from "lucide-react";
+import { Megaphone, LayoutDashboard, Send, Music, Box } from "lucide-react";
 import { useEffect as useEffectAdmin } from "react";
 
 type VehicleStatus = "skladem" | "na-ceste" | "rezervovano" | "prodano";
@@ -250,6 +250,9 @@ const AdminInner = ({ user, signOut, activeTab, setActiveTab }: {
               <RevertButton />
               <a href="/admin/smart-capture" className="chrome-button inline-flex items-center gap-2 text-sm">
                 <Camera className="w-4 h-4" /> Smart Capture
+              </a>
+              <a href="/admin/3d-generator" className="outline-button inline-flex items-center gap-2 text-sm">
+                <Box className="w-4 h-4" /> 3D generátor
               </a>
               <a href="/admin/tipcars" className="outline-button inline-flex items-center gap-2 text-sm">
                 <Send className="w-4 h-4" /> TipCars import

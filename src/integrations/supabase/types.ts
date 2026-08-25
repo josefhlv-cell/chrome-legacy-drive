@@ -954,6 +954,77 @@ export type Database = {
         }
         Relationships: []
       }
+      vehicle_appearance_profiles: {
+        Row: {
+          analysis: Json
+          body_color_hex: string | null
+          clearcoat: number
+          created_at: string
+          damages: Json
+          glass_opacity: number
+          id: string
+          interior_color_hex: string | null
+          notes: string | null
+          paint_finish: string
+          photos: Json
+          roughness: number
+          status: string
+          trim_style: string
+          updated_at: string
+          vehicle_id: string
+          wheel_condition: string | null
+          wheel_style: string
+        }
+        Insert: {
+          analysis?: Json
+          body_color_hex?: string | null
+          clearcoat?: number
+          created_at?: string
+          damages?: Json
+          glass_opacity?: number
+          id?: string
+          interior_color_hex?: string | null
+          notes?: string | null
+          paint_finish?: string
+          photos?: Json
+          roughness?: number
+          status?: string
+          trim_style?: string
+          updated_at?: string
+          vehicle_id: string
+          wheel_condition?: string | null
+          wheel_style?: string
+        }
+        Update: {
+          analysis?: Json
+          body_color_hex?: string | null
+          clearcoat?: number
+          created_at?: string
+          damages?: Json
+          glass_opacity?: number
+          id?: string
+          interior_color_hex?: string | null
+          notes?: string | null
+          paint_finish?: string
+          photos?: Json
+          roughness?: number
+          status?: string
+          trim_style?: string
+          updated_at?: string
+          vehicle_id?: string
+          wheel_condition?: string | null
+          wheel_style?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vehicle_appearance_profiles_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: true
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vehicle_exports: {
         Row: {
           attempts: number
@@ -1087,6 +1158,8 @@ export type Database = {
       vehicles: {
         Row: {
           ar_color_hex: string | null
+          ar_model_ready: boolean
+          ar_model_url: string | null
           carfax_enabled: boolean
           carfax_url: string
           color: string
@@ -1134,6 +1207,8 @@ export type Database = {
         }
         Insert: {
           ar_color_hex?: string | null
+          ar_model_ready?: boolean
+          ar_model_url?: string | null
           carfax_enabled?: boolean
           carfax_url?: string
           color?: string
@@ -1181,6 +1256,8 @@ export type Database = {
         }
         Update: {
           ar_color_hex?: string | null
+          ar_model_ready?: boolean
+          ar_model_url?: string | null
           carfax_enabled?: boolean
           carfax_url?: string
           color?: string

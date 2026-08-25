@@ -26,6 +26,7 @@ const Admin = lazy(() => import("./pages/Admin.tsx"));
 const AdminExports = lazy(() => import("./pages/AdminExports.tsx"));
 const AdminTipCars = lazy(() => import("./pages/AdminTipCars.tsx"));
 const SmartCapture = lazy(() => import("./pages/SmartCapture.tsx"));
+const AdminModelGenerator = lazy(() => import("./pages/AdminModelGenerator.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));
 const CompareVehicles = lazy(() => import("./pages/CompareVehicles.tsx"));
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="/admin/exports" element={<AdminExports />} />
               <Route path="/admin/tipcars" element={<AdminTipCars />} />
               <Route path="/admin/smart-capture" element={<SmartCapture />} />
+              <Route path="/admin/3d-generator" element={<AdminModelGenerator />} />
               <Route path="*" element={<NotFound />} />
               <Route path="/privacy-policy" element={<PrivacyPolicy />} />
               <Route path="/porovnani-vozidel" element={<CompareVehicles />} />

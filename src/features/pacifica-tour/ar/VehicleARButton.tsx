@@ -14,10 +14,12 @@
  *     Barva se proto aplikuje na Androidu a v desktopovém 3D náhledu;
  *     na iPhonu jde o ilustrační vůz a uživatele na to upozorníme.
  */
+import { useEffect, useState } from "react";
 import { AlertTriangle, Loader2 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { useVehicle } from "@/hooks/useVehicles";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
+import { supabase } from "@/integrations/supabase/client";
 import ARPreviewButton from "./ARPreviewButton";
 
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */
@@ -63,6 +65,41 @@ export const VehicleARButton = ({
   // Admin může funkci kdykoli vypnout (site_contacts → feature_vehicle_ar_enabled).
   const arEnabled = useFeatureFlag("feature_vehicle_ar_enabled");
 
+  /**
+   * Vlastní model vozu vygenerovaný v /admin/3d-generator.
+   * Bucket `vehicle-models` je privátní, takže potřebujeme podepsaný odkaz.
+   */
+  const [ownModelUrl, setOwnModelUrl] = useState<string | null>(null);
+  const [modelPath, setModelPath] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void (async () => {
+      const { data: row } = await supabase
+        .from("vehicles")
+        .select("ar_model_url, ar_model_ready")
+        .eq("id", vehicleId)
+        .maybeSingle();
+
+      if (cancelled) return;
+
+      const path = row?.ar_model_ready ? row?.ar_model_url ?? null : null;
+      setModelPath(path);
+      if (!path) return;
+
+      const { data: signed } = await supabase.storage
+        .from("vehicle-models")
+        .createSignedUrl(path, 3600);
+
+      if (!cancelled) setOwnModelUrl(signed?.signedUrl ?? null);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [vehicleId]);
+
   const name = vehicleName ?? data?.name ?? null;
   const colorHex =
     normalizeHex(vehicleColorHex ?? (data as { ar_color_hex?: string | null } | null)?.ar_color_hex) ??
@@ -95,9 +132,12 @@ export const VehicleARButton = ({
     );
   }
 
-  // Vůz, pro který 3D model nemáme — tlačítko radši neukazujeme,
-  // než abychom zákazníkovi v AR postavili jiný model.
-  if (!isModelSupported(name)) return null;
+  /*
+   * Model vlastního vozu má vždy přednost. Bez něj zobrazíme generickou
+   * Pacificu — a to jen u vozů Pacifica, ať zákazníkovi v AR nepostavíme
+   * úplně jiné auto.
+   */
+  if (!modelPath && !isModelSupported(name)) return null;
 
   return (
     <div className={className}>
@@ -108,8 +148,9 @@ export const VehicleARButton = ({
         colorKey={colorHex}
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
-        showColorDisclaimer
+        showColorDisclaimer={!ownModelUrl}
         autoStart={autoStart}
+        modelUrl={ownModelUrl}
       />
     </div>
   );

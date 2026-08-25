@@ -13,6 +13,9 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@gltf-transform/core": "^4",
+    "@gltf-transform/extensions": "^4",
+    "@gltf-transform/functions": "^4",
     "@google/model-viewer": "^3.5.0",
     "@hookform/resolvers": "^3.10.0",
     "@imgly/background-removal": "^1.7.0",
@@ -59,6 +62,7 @@
     "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.462.0",
+    "meshoptimizer": "^1.2.0",
     "next-themes": "^0.3.0",
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",

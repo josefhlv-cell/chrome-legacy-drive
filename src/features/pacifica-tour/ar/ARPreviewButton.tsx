@@ -56,6 +56,11 @@ type Props = {
    * iOS AR Quick Look barvu statického USDZ měnit neumí.
    */
   showColorDisclaimer?: boolean;
+  /**
+   * GLB konkrétního vozu vygenerovaný v /admin/3d-generator.
+   * Když chybí, použije se základní model Pacifiky.
+   */
+  modelUrl?: string | null;
 };
 
 
@@ -147,7 +152,10 @@ export const ARPreviewButton = ({
   vehicleId,
   vehicleName,
   showColorDisclaimer = false,
+  modelUrl = null,
 }: Props) => {
+  /** Vlastní model vozu má přednost před generickou Pacificou. */
+  const glbSrc = modelUrl || MODEL_GLB;
 
   /**
    * Společná měřicí data. U konkrétního vozu chceme v adminu vidět,
@@ -479,7 +487,7 @@ export const ARPreviewButton = ({
       {viewerNeeded && platform === "android" && (
         <model-viewer
           ref={viewerRef as never}
-          src={MODEL_GLB}
+          src={glbSrc}
           ios-src={MODEL_USDZ}
           ar
           ar-modes="webxr scene-viewer quick-look"
@@ -697,7 +705,7 @@ export const ARPreviewButton = ({
 
               <model-viewer
                 ref={desktopRef as never}
-                src={MODEL_GLB}
+                src={glbSrc}
                 alt="Chrysler Pacifica — otočitelný 3D model"
                 camera-controls
                 auto-rotate

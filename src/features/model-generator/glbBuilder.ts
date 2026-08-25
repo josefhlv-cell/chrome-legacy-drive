@@ -1,0 +1,289 @@
+/**
+ * glbBuilder — přenese "appearance profil" na základní model Pacifiky
+ * a vyexportuje GLB pro AR.
+ *
+ * Proč v prohlížeči a ne v edge funkci: manipulace s meshi a export GLB
+ * potřebuje three.js runtime a WebGL; edge funkce nemají GPU ani binárky
+ * a nesmí běžet minuty.
+ */
+import * as THREE from "three";
+import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
+import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
+import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
+import type { AppearanceProfile } from "./appearance";
+
+export const BASE_MODEL_URL = "/models/pacifica.glb";
+const DRACO_DECODER = "https://www.gstatic.com/draco/versioned/decoders/1.5.6/";
+
+const isBody = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("body") || n.includes("paint");
+};
+const isGlass = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("glass") || n.includes("window") || n.includes("sklo");
+};
+const isTrim = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("chrome") || n.includes("trim") || n.includes("grill") || n.includes("molding");
+};
+const isWheel = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("wheel") || n.includes("rim") || n.includes("disc") || n.includes("kolo");
+};
+
+let cachedScene: THREE.Group | null = null;
+
+/** Načte (a nacachuje) základní model. */
+export async function loadBaseModel(): Promise<THREE.Group> {
+  if (cachedScene) return cachedScene.clone(true) as THREE.Group;
+
+  const loader = new GLTFLoader();
+  const draco = new DRACOLoader();
+  draco.setDecoderPath(DRACO_DECODER);
+  loader.setDRACOLoader(draco);
+
+  const gltf = await loader.loadAsync(BASE_MODEL_URL);
+  cachedScene = gltf.scene as THREE.Group;
+  return cachedScene.clone(true) as THREE.Group;
+}
+
+/**
+ * Vytvoří proceduální texturu s poškozením (škrábance / dolík / odřený lak).
+ * Nejde o fotorealistickou repliku, ale o poctivé vyznačení místa a rozsahu.
+ */
+const damageTexture = (profile: AppearanceProfile): THREE.Texture | null => {
+  if (!profile.damages?.length) return null;
+
+  const size = 1024;
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return null;
+
+  ctx.fillStyle = profile.body_color_hex;
+  ctx.fillRect(0, 0, size, size);
+
+  // Rozvržení podle částí vozu — hrubá UV mapa (stačí pro čitelnou indikaci).
+  const zones: Record<string, [number, number]> = {
+    predni_naraznik: [0.15, 0.8],
+    zadni_naraznik: [0.85, 0.8],
+    dvere_levo: [0.4, 0.45],
+    dvere_pravo: [0.6, 0.45],
+    blatnik: [0.25, 0.6],
+    kapota: [0.2, 0.25],
+    paty_dvere: [0.8, 0.3],
+    strecha: [0.5, 0.12],
+    jine: [0.5, 0.6],
+  };
+
+  profile.damages.forEach((damage) => {
+    const [zx, zy] = zones[damage.part] ?? zones.jine;
+    const cx = zx * size;
+    const cy = zy * size;
+    const scale = damage.severity === "vyrazne" ? 1.6 : damage.severity === "stredni" ? 1.1 : 0.7;
+
+    ctx.save();
+    if (damage.type === "dulek") {
+      const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 60 * scale);
+      grad.addColorStop(0, "rgba(0,0,0,0.45)");
+      grad.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, 60 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    } else if (damage.type === "koroze" || damage.type === "odrena_barva") {
+      ctx.fillStyle = damage.type === "koroze" ? "rgba(120,60,25,0.75)" : "rgba(190,190,195,0.8)";
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, 34 * scale, 20 * scale, 0.3, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      ctx.strokeStyle = "rgba(235,235,240,0.85)";
+      ctx.lineWidth = 2.5 * scale;
+      ctx.beginPath();
+      ctx.moveTo(cx - 45 * scale, cy - 8 * scale);
+      ctx.lineTo(cx + 45 * scale, cy + 6 * scale);
+      ctx.stroke();
+    }
+    ctx.restore();
+  });
+
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.name = "damage_overlay";
+  return texture;
+};
+
+const wheelTint = (style: string): THREE.Color | null => {
+  switch (style) {
+    case "alloy_dark":
+      return new THREE.Color("#3a3d42");
+    case "steel_cover":
+      return new THREE.Color("#8d9096");
+    case "5spoke":
+    case "10spoke":
+    case "multispoke":
+      return new THREE.Color("#c8ccd2");
+    default:
+      return null;
+  }
+};
+
+/** Aplikuje profil na scénu (in-place). */
+export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
+  const bodyColor = new THREE.Color(profile.body_color_hex);
+  const damage = damageTexture(profile);
+  const wheels = wheelTint(profile.wheel_style);
+  const seen = new Set<string>();
+
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh || Array.isArray(mesh.material)) return;
+
+    const src = mesh.material as THREE.MeshStandardMaterial;
+    if (!src || seen.has(src.uuid)) return;
+    seen.add(src.uuid);
+
+    const name = src.name || mesh.name || "";
+
+    if (isBody(name)) {
+      const paint = new THREE.MeshPhysicalMaterial({
+        color: bodyColor,
+        map: damage ?? src.map ?? null,
+        normalMap: src.normalMap ?? null,
+        metalness: profile.paint_finish === "solid" ? 0.25 : profile.paint_finish === "matte" ? 0.1 : 0.62,
+        roughness: profile.paint_finish === "matte" ? 0.65 : profile.roughness,
+        clearcoat: profile.paint_finish === "matte" ? 0 : profile.clearcoat,
+        clearcoatRoughness: 0.03,
+        envMapIntensity: 1.3,
+        sheen: profile.paint_finish === "pearl" ? 0.6 : 0.2,
+        sheenRoughness: 0.4,
+        sheenColor: new THREE.Color("#ffffff"),
+      });
+      // Když kreslíme poškození do mapy, barva už je v textuře — nechceme dvojí tón.
+      if (damage) paint.color = new THREE.Color("#ffffff");
+      paint.name = name || "body_paint";
+      mesh.material = paint;
+      return;
+    }
+
+    if (isGlass(name)) {
+      const glass = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color("#0e1114"),
+        transparent: true,
+        opacity: THREE.MathUtils.clamp(profile.glass_opacity, 0.2, 0.95),
+        roughness: 0.06,
+        metalness: 0,
+        ior: 1.52,
+        transmission: Math.max(0, 0.75 - profile.glass_opacity * 0.6),
+      });
+      glass.name = name || "glass";
+      mesh.material = glass;
+      return;
+    }
+
+    if (isTrim(name)) {
+      const trim = src.clone() as THREE.MeshStandardMaterial;
+      if (profile.trim_style === "black") {
+        trim.color = new THREE.Color("#1b1c1f");
+        trim.metalness = 0.4;
+        trim.roughness = 0.45;
+      } else if (profile.trim_style === "body") {
+        trim.color = bodyColor.clone();
+        trim.metalness = 0.6;
+        trim.roughness = profile.roughness;
+      } else {
+        trim.color = new THREE.Color("#e6e8ea");
+        trim.metalness = 1;
+        trim.roughness = 0.12;
+      }
+      mesh.material = trim;
+      return;
+    }
+
+    if (isWheel(name) && wheels) {
+      const wheel = src.clone() as THREE.MeshStandardMaterial;
+      wheel.color = wheels;
+      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.9;
+      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.22;
+      mesh.material = wheel;
+    }
+  });
+}
+
+/** Postaví scénu konkrétního vozu z base modelu + profilu. */
+export async function buildVehicleScene(profile: AppearanceProfile): Promise<THREE.Group> {
+  const scene = await loadBaseModel();
+  applyProfile(scene, profile);
+  return scene;
+}
+
+/** Vyexportuje scénu jako binární GLB (bez komprese). */
+export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
+  return new Promise((resolve, reject) => {
+    const exporter = new GLTFExporter();
+    exporter.parse(
+      scene,
+      (result) => {
+        if (result instanceof ArrayBuffer) {
+          resolve(new Blob([result], { type: "model/gltf-binary" }));
+        } else {
+          reject(new Error("Export nevrátil binární GLB."));
+        }
+      },
+      (error) => reject(error),
+      { binary: true, onlyVisible: true, maxTextureSize: 2048 },
+    );
+  });
+}
+
+/**
+ * Zkomprimuje vyexportovaný GLB, aby se dal rozumně stáhnout na mobilu v AR.
+ *
+ * GLTFExporter umí jen nekomprimovaný výstup — model Pacifiky má skoro milion
+ * trojúhelníků, takže surový GLB má desítky MB. Tady se proto spustí
+ * `meshopt` (kvantizace pozic/UV + komprese bufferů), což typicky sníží
+ * velikost 4–6× BEZ viditelné ztráty kvality geometrie.
+ *
+ * Když by komprese z jakéhokoli důvodu selhala, vrací se originál —
+ * publikace modelu nikdy nespadne kvůli optimalizaci.
+ */
+export async function compressGLB(input: Blob): Promise<Blob> {
+  try {
+    const [{ WebIO }, { EXTMeshoptCompression, KHRMeshQuantization }, functions, meshopt] =
+      await Promise.all([
+        import("@gltf-transform/core"),
+        import("@gltf-transform/extensions"),
+        import("@gltf-transform/functions"),
+        import("meshoptimizer"),
+      ]);
+
+    const { MeshoptEncoder } = meshopt as unknown as { MeshoptEncoder: { ready: Promise<void> } };
+    await MeshoptEncoder.ready;
+
+    const io = new WebIO().registerExtensions([EXTMeshoptCompression, KHRMeshQuantization]);
+    io.registerDependencies({ "meshopt.encoder": MeshoptEncoder });
+
+    const doc = await io.readBinary(new Uint8Array(await input.arrayBuffer()));
+
+    await doc.transform(
+      functions.dedup(),
+      functions.prune(),
+      functions.weld(),
+      functions.textureCompress({ targetFormat: "webp", resize: [2048, 2048] }),
+    );
+
+    doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({
+      method: EXTMeshoptCompression.EncoderMethod.QUANTIZE,
+    });
+
+    const out = await io.writeBinary(doc);
+    const blob = new Blob([out as unknown as BlobPart], { type: "model/gltf-binary" });
+    return blob.size > 0 && blob.size < input.size ? blob : input;
+  } catch (error) {
+    console.warn("compressGLB: komprese selhala, publikuji nekomprimovaný model", error);
+    return input;
+  }
+}
+

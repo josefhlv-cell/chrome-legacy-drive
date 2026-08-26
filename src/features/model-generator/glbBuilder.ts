@@ -60,9 +60,37 @@ const isInterior = (name: string) => {
 
 let cachedScene: THREE.Group | null = null;
 
+/**
+ * Three.js `scene.clone(true)` sdílí geometrii i materiály. To je u nás
+ * nebezpečné: export USDZ následně geometrii zmenšoval in-place a tím poškodil
+ * i živý náhled / další exporty ze stejné cache. Každý pracovní model proto
+ * dostane vlastní BufferGeometry a vlastní Material instance.
+ */
+const cloneVehicleScene = (source: THREE.Object3D): THREE.Group => {
+  const clone = source.clone(true) as THREE.Group;
+
+  clone.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (!mesh.isMesh) return;
+
+    if (mesh.geometry) mesh.geometry = mesh.geometry.clone();
+
+    if (Array.isArray(mesh.material)) {
+      mesh.material = mesh.material.map((material) => material.clone());
+    } else if (mesh.material) {
+      mesh.material = mesh.material.clone();
+    }
+
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+  });
+
+  return clone;
+};
+
 /** Načte (a nacachuje) základní model. */
 export async function loadBaseModel(): Promise<THREE.Group> {
-  if (cachedScene) return cachedScene.clone(true) as THREE.Group;
+  if (cachedScene) return cloneVehicleScene(cachedScene);
 
   const loader = new GLTFLoader();
   const draco = new DRACOLoader();
@@ -71,7 +99,7 @@ export async function loadBaseModel(): Promise<THREE.Group> {
 
   const gltf = await loader.loadAsync(BASE_MODEL_URL);
   cachedScene = gltf.scene as THREE.Group;
-  return cachedScene.clone(true) as THREE.Group;
+  return cloneVehicleScene(cachedScene);
 }
 
 /** Sada map pro karoserii: barva laku + normálová mapa reliéfu poškození. */
@@ -272,7 +300,14 @@ const damageMaps = (profile: AppearanceProfile, base?: THREE.Texture | null): Da
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.name = "damage_overlay";
 
-  return { color: texture, normal: hctx ? heightToNormal(height, 2.4) : null };
+  /*
+   * DŮLEŽITÉ: normálovou mapu poškození zatím NEvracíme do laku.
+   * Hrubá UV mapa se na některých dílech Pacifiky opakuje přes více panelů a
+   * v iOS USDZ pak deformuje odlesky po celé karoserii — zákazník vidí vůz jako
+   * „pomačkaný po bouračce“. Poškození ponecháváme jako jemnou barevnou stopu,
+   * ale hladké tovární normály karoserie zůstanou nedotčené.
+   */
+  return { color: texture, normal: null };
 };
 
 
@@ -296,7 +331,6 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
   const bodyColor = new THREE.Color(profile.body_color_hex);
   const wheels = wheelTint(profile.wheel_style);
   const interiorColor = new THREE.Color(profile.interior_color_hex || "#2b2b2e");
-  const seen = new Set<string>();
   // Základní texturu karoserie použijeme jako podklad pro overlay poškození.
   let bodyBaseMap: THREE.Texture | null = null;
   root.traverse((o) => {
@@ -310,8 +344,7 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     if (!mesh.isMesh || Array.isArray(mesh.material)) return;
 
     const src = mesh.material as THREE.MeshStandardMaterial;
-    if (!src || seen.has(src.uuid)) return;
-    seen.add(src.uuid);
+    if (!src) return;
 
     const name = src.name || mesh.name || "";
 
@@ -319,28 +352,25 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       const paint = new THREE.MeshPhysicalMaterial({
         color: bodyColor,
         map: damage.color ?? src.map ?? null,
-        normalMap: damage.normal ?? src.normalMap ?? null,
-        // Reliéf poškození držíme jemný — jinak plech vypadá jako alobal.
-        normalScale: new THREE.Vector2(damage.normal ? 0.85 : 1, damage.normal ? 0.85 : 1),
-        metalness: profile.paint_finish === "solid" ? 0.25 : profile.paint_finish === "matte" ? 0.1 : 0.62,
-        roughness: profile.paint_finish === "matte" ? 0.65 : profile.roughness,
+        // Používáme pouze původní hladké normály modelu. Procedurální reliéf
+        // poškození uměl v AR rozbít odlesky a vizuálně „zmačkat“ bok auta.
+        normalMap: src.normalMap ?? null,
+        normalScale: src.normalScale?.clone() ?? new THREE.Vector2(1, 1),
+        // Automobilový lak není chrom. Nízká metalness + čirý clearcoat dá
+        // realistický hluboký lesk bez alobalových deformací odrazů.
+        metalness: profile.paint_finish === "matte" ? 0.02 : profile.paint_finish === "metallic" || profile.paint_finish === "pearl" ? 0.08 : 0.03,
+        roughness: profile.paint_finish === "matte" ? 0.68 : THREE.MathUtils.clamp(profile.roughness, 0.24, 0.48),
         clearcoat: profile.paint_finish === "matte" ? 0 : profile.clearcoat,
-        clearcoatRoughness: profile.paint_finish === "matte" ? 0.6 : 0.03,
-        envMapIntensity: 1.35,
+        clearcoatRoughness: profile.paint_finish === "matte" ? 0.58 : 0.08,
+        envMapIntensity: 1.05,
         // Metalíza/perleť má jemný "flake" lesk — dělá to hloubku laku v AR.
-        sheen: profile.paint_finish === "pearl" ? 0.65 : profile.paint_finish === "metallic" ? 0.3 : 0.1,
+        sheen: profile.paint_finish === "pearl" ? 0.35 : profile.paint_finish === "metallic" ? 0.18 : 0.04,
         sheenRoughness: 0.35,
         sheenColor: new THREE.Color("#ffffff"),
         specularIntensity: profile.paint_finish === "matte" ? 0.3 : 1,
       });
       // Když kreslíme poškození do mapy, barva už je v textuře — nechceme dvojí tón.
       if (damage.color) paint.color = new THREE.Color("#ffffff");
-      // Normálová mapa poškození se propíše i do lakového průhledu (clearcoat).
-      if (damage.normal && profile.paint_finish !== "matte") {
-        paint.clearcoatNormalMap = damage.normal;
-        paint.clearcoatNormalScale = new THREE.Vector2(0.6, 0.6);
-      }
-
       paint.name = name || "body_paint";
       mesh.material = paint;
       return;
@@ -517,7 +547,7 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
     };
     await MeshoptSimplifier.ready;
 
-    const clone = scene.clone(true);
+    const clone = cloneVehicleScene(scene);
     clone.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh || !mesh.geometry) return;

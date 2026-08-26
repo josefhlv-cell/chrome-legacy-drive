@@ -547,7 +547,7 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
     };
     await MeshoptSimplifier.ready;
 
-    const clone = scene.clone(true);
+    const clone = cloneVehicleScene(scene);
     clone.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh || !mesh.geometry) return;

@@ -35,6 +35,13 @@ export default defineConfig(({ mode }) => ({
       },
     },
   },
+  worker: {
+    // The GLB compressor runs as a module worker and uses dynamic imports for
+    // the heavy glTF/meshopt toolchain. Vite's default worker format is IIFE,
+    // which cannot emit the split chunks Rollup creates for those imports.
+    // ES workers keep the chunks valid and fix production/dev builds.
+    format: "es",
+  },
   plugins: [react(), mode === "development" && componentTagger()].filter(Boolean),
   resolve: {
     alias: {

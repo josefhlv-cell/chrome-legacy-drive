@@ -1,0 +1,24 @@
+<!doctype html><html><body style="margin:0;background:#888">
+<script type="module">
+import * as THREE from 'https://esm.sh/three@0.170.0';
+import { GLTFLoader } from 'https://esm.sh/three@0.170.0/examples/jsm/loaders/GLTFLoader.js';
+import { DRACOLoader } from 'https://esm.sh/three@0.170.0/examples/jsm/loaders/DRACOLoader.js';
+import { RoomEnvironment } from 'https://esm.sh/three@0.170.0/examples/jsm/environments/RoomEnvironment.js';
+const url = new URLSearchParams(location.search).get('m') || '/models/pacifica.glb';
+const renderer = new THREE.WebGLRenderer({antialias:true});
+renderer.setSize(1280,900); renderer.toneMapping=THREE.ACESFilmicToneMapping;
+document.body.appendChild(renderer.domElement);
+const scene = new THREE.Scene(); scene.background=new THREE.Color('#9aa');
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.02).texture;
+const cam = new THREE.PerspectiveCamera(35,1280/900,0.1,100);
+const loader = new GLTFLoader();
+const d = new DRACOLoader(); d.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.6/'); loader.setDRACOLoader(d);
+loader.load(url,(g)=>{
+  scene.add(g.scene);
+  const box=new THREE.Box3().setFromObject(g.scene); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());
+  cam.position.set(c.x - s.x*0.8, c.y + s.y*0.35, c.z + s.z*1.5); cam.lookAt(c.x,c.y,c.z);
+  renderer.render(scene,cam);
+  window.__done = {size:[s.x,s.y,s.z]};
+},undefined,(e)=>{window.__err=String(e)});
+</script></body></html>

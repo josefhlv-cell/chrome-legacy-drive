@@ -506,26 +506,33 @@ export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.28): Promise<B
   const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
 
   /*
-   * USDZ je ZIP BEZ komprese a geometrie se do něj zapisuje TEXTOVĚ — surová
-   * Pacifica (≈890 tis. trojúhelníků) proto dá ~90 MB, což si nikdo na
-   * mobilních datech nestáhne. Před exportem tedy geometrii decimujeme
-   * a textury zmenšíme na 1024 px. Na displeji telefonu je rozdíl
-   * nepostřehnutelný, ale AR se otevře v sekundách místo minut.
+   * USDZ je ZIP BEZ komprese a geometrie se do něj zapisuje TEXTOVĚ, proto
+   * geometrii zjednodušujeme — ALE POUZE tam, kde to zákazník nevidí.
+   *
+   * PROČ: dřívější globální decimace (72 % trojúhelníků dolů) kolabovala hrany
+   * i na karoserii, sklech a discích. Model Pacifiky je „trojúhelníková
+   * polévka“ bez sdílených vrcholů, takže kolaps přes švy zvlnil plechy a lak
+   * v AR vypadal jako po bouračce. Vnější povrch teď zůstává přesně takový,
+   * jaký je v původním modelu.
    */
   const light = await decimateForUSDZ(scene, ratio);
   const exporter = new USDZExporter();
-  const result = await exporter.parseAsync(light, { maxTextureSize: 1024 });
+  const result = await exporter.parseAsync(light, { maxTextureSize: 2048 });
   return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
 }
 
 /**
- * Decimace scény pro USDZ.
- *
- * Model Pacifiky je „trojúhelníková polévka" (rozpojené plochy bez sdílených
- * vrcholů) — standardní simplifikace na něm nezabere. Proto používáme meshopt
- * přímo s příznaky `Permissive` + `Sparse` + `Prune`, které kolaps hran přes
- * švy povolují, a výsledek pak zkompaktníme (zahodíme nepoužité vrcholy),
- * protože právě soupis vrcholů tvoří většinu objemu USDZ.
+ * Povrchy, které tvoří vzhled vozu: karoserie, skla, chrom, světla, kola,
+ * pneumatiky. Tyto NIKDY nedecimujeme — každý kolaps hrany se na lesklém
+ * laku projeví jako vlna nebo promáčklina.
+ */
+const isShowSurface = (name: string) =>
+  isBody(name) || isGlass(name) || isTrim(name) || isLight(name) || isWheel(name) || isTire(name);
+
+/**
+ * Decimace scény pro USDZ — jen skrytá/nelesklá geometrie (interiér, podvozek,
+ * vnitřní výplně). Používá `LockBorder`, aby se okraje ploch nehýbaly, takže
+ * nikde nevzniknou dírky ani zvlnění.
  *
  * Když cokoli selže, vrací se původní scéna — export nikdy nespadne
  * kvůli optimalizaci.
@@ -552,6 +559,12 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh || !mesh.geometry) return;
 
+      const material = Array.isArray(mesh.material) ? mesh.material[0] : mesh.material;
+      const name = `${material?.name ?? ""} ${mesh.name ?? ""}`;
+
+      // Vnější, lesklé plochy zůstávají v plné kvalitě.
+      if (isShowSurface(name)) return;
+
       const geometry = mesh.geometry as THREE.BufferGeometry;
       const position = geometry.getAttribute("position") as THREE.BufferAttribute | undefined;
       if (!position) return;
@@ -565,16 +578,15 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
       if (target >= indices.length) return;
 
       const positions = new Float32Array(position.array as ArrayLike<number>);
-      const [simplified] = MeshoptSimplifier.simplify(indices, positions, 3, target, 0.05, [
-        "Permissive",
+      const [simplified] = MeshoptSimplifier.simplify(indices, positions, 3, target, 0.01, [
+        "LockBorder",
         "Sparse",
         "Prune",
       ]);
 
       /*
        * Normály NEpřepočítáváme — původní hladké normály z modelu drží plynulé
-       * odlesky na laku. Přepočet z decimované sítě dělá "fazetový" povrch,
-       * který v AR vypadá jako pomačkaný plech.
+       * odlesky. Přepočet z decimované sítě dělá "fazetový" povrch.
        */
       compactGeometry(geometry, simplified);
     });
@@ -585,6 +597,7 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
     return scene;
   }
 }
+
 
 /**
  * Zahodí vrcholy, které po decimaci nikdo nepoužívá. USDZ je textový formát,

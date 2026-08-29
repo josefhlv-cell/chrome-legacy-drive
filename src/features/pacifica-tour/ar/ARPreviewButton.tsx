@@ -5,7 +5,16 @@ import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
 
-const MODEL_GLB = "/models/pacifica.glb";
+/**
+ * AR varianta modelu.
+ *
+ * `pacifica.glb` (prohlídka) má lak nastavený jako polokov (metalness 0.35,
+ * roughness 0.15). Ve studiovém prostředí prohlídky to vypadá dobře, ale v AR
+ * se karoserie chová jako zrcadlo a odráží zrnitý světelný odhad z kamery —
+ * výsledkem byl "pomačkaný" plech. `pacifica-ar.glb` má identickou geometrii,
+ * jen realistický lak (metalness 0.08, roughness 0.34 + clearcoat).
+ */
+const MODEL_GLB = "/models/pacifica-ar.glb";
 /**
  * USDZ pro AR Quick Look.
  *
@@ -499,10 +508,9 @@ export const ARPreviewButton = ({
           src={glbSrc}
           ios-src={usdzSrc}
           ar
-          ar-modes="webxr scene-viewer quick-look"
+          ar-modes="scene-viewer webxr quick-look"
           ar-scale="fixed"
           ar-placement="floor"
-          xr-environment
           environment-image="neutral"
           tone-mapping="aces"
           exposure="1"

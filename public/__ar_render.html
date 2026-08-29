@@ -20,7 +20,7 @@ const stripes = document.createElement('canvas'); stripes.width=1024; stripes.he
  c.fillStyle='#fff'; for(let i=0;i<8;i++) c.fillRect(i*128+20,40,60,180);}
 const eqt = new THREE.CanvasTexture(stripes); eqt.mapping = THREE.EquirectangularReflectionMapping; eqt.colorSpace=THREE.SRGBColorSpace;
 loader.load(url,(g)=>{
-  if (new URLSearchParams(location.search).get('sharp')==='1') scene.environment = eqt;
+  if (new URLSearchParams(location.search).get('sharp')==='1') { scene.environment = pmrem.fromEquirectangular(eqt).texture; scene.background = scene.environment; }
   if (chrome) g.scene.traverse(o=>{ if(o.isMesh && /body/i.test(o.material?.name||'')){ o.material.metalness=1; o.material.roughness=0.02; }});
   scene.add(g.scene);
   const box=new THREE.Box3().setFromObject(g.scene); const c=box.getCenter(new THREE.Vector3()); const s=box.getSize(new THREE.Vector3());

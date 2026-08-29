@@ -508,11 +508,6 @@ export const ARPreviewButton = ({
           src={glbSrc}
           ios-src={usdzSrc}
           ar
-          {/*
-            Scene Viewer (nativní ARCore) je první — renderuje lak správně.
-            WebXR zůstává jako fallback, ale BEZ `xr-environment`: světelný
-            odhad z kamery vytvářel na karoserii zrcadlové artefakty.
-          */}
           ar-modes="scene-viewer webxr quick-look"
           ar-scale="fixed"
           ar-placement="floor"

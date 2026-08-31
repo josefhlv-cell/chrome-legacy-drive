@@ -422,10 +422,11 @@ export default function AdminModelGenerator() {
       if (vehicle.vin) {
         await prefillFromVin();
       } else {
-        const colorHex = colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+        const paint = colorToPaint(vehicle.ar_color_hex) ?? colorToPaint(vehicle.color);
         setProfile((prev) => ({
           ...(prev ?? DEFAULT_PROFILE(vehicle.id)),
-          body_color_hex: colorHex ?? DEFAULT_PROFILE(vehicle.id).body_color_hex,
+          body_color_hex: paint?.hex ?? DEFAULT_PROFILE(vehicle.id).body_color_hex,
+          paint_finish: paint?.finish ?? DEFAULT_PROFILE(vehicle.id).paint_finish,
         }));
       }
 

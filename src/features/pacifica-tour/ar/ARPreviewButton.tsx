@@ -4,6 +4,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
+import pacificaGlbAsset from "./pacifica.glb.asset.json";
+import pacificaUsdzAsset from "./pacifica.usdz.asset.json";
 
 /**
  * Základní modely Chrysler Pacifica.

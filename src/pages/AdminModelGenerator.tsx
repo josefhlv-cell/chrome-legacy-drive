@@ -225,16 +225,19 @@ export default function AdminModelGenerator() {
 
       if (!urls.length) return 0;
 
+      // Ruční fotky admina mají přednost — plníme jen prázdné sloty.
+      const targets = CARD_SLOT_ORDER.filter((slotId) => !slots[slotId]?.path);
+      const total = Math.min(urls.length, targets.length);
+
       let loaded = 0;
-      for (let i = 0; i < Math.min(urls.length, CARD_SLOT_ORDER.length); i++) {
-        const slotId = CARD_SLOT_ORDER[i];
-        setImporting(`Načítám fotku ${i + 1}/${Math.min(urls.length, CARD_SLOT_ORDER.length)} z karty vozu…`);
+      for (let i = 0; i < total; i++) {
+        setImporting(`Načítám fotku ${i + 1}/${total} z karty vozu…`);
         try {
           const response = await fetch(urls[i], { mode: "cors" });
           if (!response.ok) throw new Error(`HTTP ${response.status}`);
           const blob = await response.blob();
-          const type = blob.type || "image/jpeg";
-          await uploadSlot(slotId, new File([blob], `${slotId}.jpg`, { type }));
+          const type = /^image\/(jpeg|png|webp)$/.test(blob.type) ? blob.type : "image/jpeg";
+          await uploadSlot(targets[i], new File([blob], `${targets[i]}.jpg`, { type }));
           loaded++;
         } catch (e) {
           // Staré inzeráty mají mrtvé odkazy na legacy server — přeskočíme.
@@ -244,8 +247,9 @@ export default function AdminModelGenerator() {
       setImporting(null);
       return loaded;
     },
-    [toast, uploadSlot],
+    [slots, toast, uploadSlot],
   );
+
 
 
   const removeSlot = async (slotId: string) => {

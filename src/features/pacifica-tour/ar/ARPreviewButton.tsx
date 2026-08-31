@@ -188,7 +188,7 @@ export const ARPreviewButton = ({
   const [showQR, setShowQR] = useState(false);
   const [showDesktopViewer, setShowDesktopViewer] = useState(false);
   const [viewerNeeded, setViewerNeeded] = useState(false);
-  const [iosProgress, setIosProgress] = useState(0);
+  
   const [afterAR, setAfterAR] = useState(false);
 
   const viewerRef = useRef<HTMLElement | null>(null);

@@ -10,7 +10,8 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import type { AppearanceProfile } from "./appearance";
+import type { AppearanceProfile, Damage } from "./appearance";
+import { resolveWheel, wheelMaterial } from "./wheelCatalog";
 import { compressGLBBuffer, type CompressProgress } from "./compressPipeline";
 
 /** Zprávy z `glbCompress.worker.ts`. */
@@ -143,243 +144,204 @@ export async function loadBaseModel(): Promise<THREE.Group> {
   return cloneVehicleScene(cachedScene);
 }
 
-/** Sada map pro karoserii: barva laku + normálová mapa reliéfu poškození. */
-type DamageMaps = { color: THREE.Texture | null; normal: THREE.Texture | null };
-
-/**
- * Ze šedotónové výškové mapy spočítá normálovou mapu (Sobel).
+/*
+ * ============================ POŠKOZENÍ ============================
  *
- * Proč: dolík nakreslený jen do barvy vypadá jako nálepka. Normálová mapa
- * ohne odraz světla, takže promáčklina se v AR chová jako skutečná
- * deformace plechu — reflexe se v ní „zlomí“.
+ * PROČ SE ZMĚNIL PŘÍSTUP
+ * Poškození se dřív kreslilo do UV textury karoserie. UV mapa Pacifiky se ale
+ * na několika panelech opakuje, takže:
+ *   a) zadané poškození na dveřích se často nezobrazilo vůbec (padlo do části
+ *      textury, která na dveřích není), a
+ *   b) přemalovaná textura + clearcoat vytvářely na hladkém laku světlé šmouhy,
+ *      které zákazník čte jako škrábance, i když vůz žádné zadané nemá.
+ *
+ * Nově se poškození vkládá jako samostatné „decal“ plošky umístěné geometricky
+ * podle bounding boxu vozu. Zadaná hodnota se tak promítne VŽDY a přesně na
+ * daný panel, a lak samotný zůstane nedotčený — žádné falešné škrábance
+ * z odlesků.
  */
-const heightToNormal = (height: HTMLCanvasElement, strength: number): THREE.Texture | null => {
-  const size = height.width;
-  const src = height.getContext("2d")?.getImageData(0, 0, size, size);
-  if (!src) return null;
 
-  const out = document.createElement("canvas");
-  out.width = size;
-  out.height = size;
-  const ctx = out.getContext("2d");
-  if (!ctx) return null;
+type DecalOrientation = "left" | "right" | "front" | "rear" | "top";
 
-  const dst = ctx.createImageData(size, size);
-  const h = (x: number, y: number) => {
-    const cx = Math.min(size - 1, Math.max(0, x));
-    const cy = Math.min(size - 1, Math.max(0, y));
-    return src.data[(cy * size + cx) * 4] / 255;
-  };
+/** Kde na vozu daný panel leží: podíl délky (0 = předek, 1 = zadek) + výška. */
+const DAMAGE_ANCHORS: Record<
+  string,
+  { along: number; height: number; face: DecalOrientation }
+> = {
+  predni_naraznik: { along: 0.02, height: 0.28, face: "front" },
+  zadni_naraznik: { along: 0.98, height: 0.28, face: "rear" },
+  dvere_levo: { along: 0.5, height: 0.42, face: "left" },
+  dvere_pravo: { along: 0.5, height: 0.42, face: "right" },
+  blatnik: { along: 0.2, height: 0.42, face: "left" },
+  kapota: { along: 0.13, height: 0.99, face: "top" },
+  paty_dvere: { along: 0.96, height: 0.55, face: "rear" },
+  strecha: { along: 0.5, height: 1, face: "top" },
+  jine: { along: 0.62, height: 0.45, face: "left" },
+};
 
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const dx =
-        h(x - 1, y - 1) + 2 * h(x - 1, y) + h(x - 1, y + 1) -
-        (h(x + 1, y - 1) + 2 * h(x + 1, y) + h(x + 1, y + 1));
-      const dy =
-        h(x - 1, y - 1) + 2 * h(x, y - 1) + h(x + 1, y - 1) -
-        (h(x - 1, y + 1) + 2 * h(x, y + 1) + h(x + 1, y + 1));
-
-      let nx = dx * strength;
-      let ny = dy * strength;
-      const nz = 1;
-      const len = Math.hypot(nx, ny, nz) || 1;
-      nx /= len;
-      ny /= len;
-
-      const i = (y * size + x) * 4;
-      dst.data[i] = (nx * 0.5 + 0.5) * 255;
-      dst.data[i + 1] = (ny * 0.5 + 0.5) * 255;
-      dst.data[i + 2] = (nz / len) * 255;
-      dst.data[i + 3] = 255;
-    }
-  }
-
-  ctx.putImageData(dst, 0, 0);
-  const texture = new THREE.CanvasTexture(out);
-  // Normálová mapa je vektorová data — NESMÍ projít sRGB konverzí.
-  texture.colorSpace = THREE.NoColorSpace;
-  texture.name = "damage_normal";
-  return texture;
+const DAMAGE_SIZE_M: Record<string, number> = {
+  lehke: 0.16,
+  stredni: 0.28,
+  vyrazne: 0.44,
 };
 
 /**
- * Vytvoří proceduální mapy s poškozením (škrábance / dolík / odřený lak).
- * Nejde o fotorealistickou repliku, ale o poctivé vyznačení místa a rozsahu.
+ * Textura jednoho poškození s průhledným okolím.
+ * Kreslí se v poměru 1:1 nad velikost decalu, takže rozsah odpovídá severitě.
  */
-const damageMaps = (profile: AppearanceProfile, base?: THREE.Texture | null): DamageMaps => {
-  if (!profile.damages?.length) return { color: null, normal: null };
-
-  const size = 2048;
+const damageDecalTexture = (damage: Damage): THREE.Texture | null => {
+  const size = 512;
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d");
-  if (!ctx) return { color: null, normal: null };
+  if (!ctx) return null;
 
-  // Druhé plátno = výšková mapa. Šedá 128 = rovný plech.
-  const height = document.createElement("canvas");
-  height.width = size;
-  height.height = size;
-  const hctx = height.getContext("2d");
-  if (hctx) {
-    hctx.fillStyle = "#808080";
-    hctx.fillRect(0, 0, size, size);
-  }
+  ctx.clearRect(0, 0, size, size);
+  const c = size / 2;
 
-  ctx.fillStyle = profile.body_color_hex;
-  ctx.fillRect(0, 0, size, size);
-
-  // Když má model vlastní texturu karoserie (spáry, loga), necháme ji pod lakem.
-  const baseImage = base?.image as CanvasImageSource | undefined;
-  if (baseImage) {
-    try {
-      ctx.globalAlpha = 0.85;
-      ctx.drawImage(baseImage, 0, 0, size, size);
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "multiply";
-      ctx.fillStyle = profile.body_color_hex;
-      ctx.fillRect(0, 0, size, size);
-      ctx.globalCompositeOperation = "source-over";
-    } catch {
-      ctx.globalAlpha = 1;
-      ctx.globalCompositeOperation = "source-over";
-    }
-  }
-
-
-  // Rozvržení podle částí vozu — hrubá UV mapa (stačí pro čitelnou indikaci).
-  const zones: Record<string, [number, number]> = {
-    predni_naraznik: [0.15, 0.8],
-    zadni_naraznik: [0.85, 0.8],
-    dvere_levo: [0.4, 0.45],
-    dvere_pravo: [0.6, 0.45],
-    blatnik: [0.25, 0.6],
-    kapota: [0.2, 0.25],
-    paty_dvere: [0.8, 0.3],
-    strecha: [0.5, 0.12],
-    jine: [0.5, 0.6],
-  };
-
-  profile.damages.forEach((damage) => {
-    const [zx, zy] = zones[damage.part] ?? zones.jine;
-    const cx = zx * size;
-    const cy = zy * size;
-    // ×2 — textura je 2048 px, aby detaily zůstaly ve stejném fyzickém měřítku.
-    const scale = (damage.severity === "vyrazne" ? 1.6 : damage.severity === "stredni" ? 1.1 : 0.7) * 2;
-    const depth = damage.severity === "vyrazne" ? 0.75 : damage.severity === "stredni" ? 0.5 : 0.3;
-
-
-    ctx.save();
-    if (damage.type === "dulek") {
-      const grad = ctx.createRadialGradient(cx, cy, 2, cx, cy, 60 * scale);
-      grad.addColorStop(0, "rgba(0,0,0,0.45)");
-      grad.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = grad;
+  if (damage.type === "dulek") {
+    // Promáčklina: tmavé jádro s měkkým přechodem + světlý horní okraj.
+    const grad = ctx.createRadialGradient(c, c * 0.9, 4, c, c, c * 0.9);
+    grad.addColorStop(0, "rgba(0,0,0,0.42)");
+    grad.addColorStop(0.6, "rgba(0,0,0,0.16)");
+    grad.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(c, c, c * 0.9, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (damage.type === "koroze") {
+    ctx.fillStyle = "rgba(112,58,24,0.8)";
+    ctx.beginPath();
+    ctx.ellipse(c, c, c * 0.72, c * 0.46, 0.3, 0, Math.PI * 2);
+    ctx.fill();
+    // Nepravidelný okraj koroze — jinak vypadá jako nálepka.
+    ctx.fillStyle = "rgba(80,40,16,0.55)";
+    for (let i = 0; i < 40; i++) {
+      const a = Math.random() * Math.PI * 2;
+      const r = c * (0.45 + Math.random() * 0.4);
       ctx.beginPath();
-      ctx.arc(cx, cy, 60 * scale, 0, Math.PI * 2);
+      ctx.arc(c + Math.cos(a) * r, c + Math.sin(a) * r * 0.6, 3 + Math.random() * 7, 0, Math.PI * 2);
       ctx.fill();
-
-      if (hctx) {
-        // Promáčklina = plynulé snížení povrchu (tmavší = níž).
-        const hg = hctx.createRadialGradient(cx, cy, 2, cx, cy, 60 * scale);
-        hg.addColorStop(0, `rgba(0,0,0,${depth})`);
-        hg.addColorStop(0.75, `rgba(0,0,0,${depth * 0.25})`);
-        hg.addColorStop(1, "rgba(0,0,0,0)");
-        hctx.fillStyle = hg;
-        hctx.beginPath();
-        hctx.arc(cx, cy, 60 * scale, 0, Math.PI * 2);
-        hctx.fill();
-      }
-    } else if (damage.type === "koroze" || damage.type === "odrena_barva") {
-      ctx.fillStyle = damage.type === "koroze" ? "rgba(120,60,25,0.75)" : "rgba(190,190,195,0.8)";
-      ctx.beginPath();
-      ctx.ellipse(cx, cy, 34 * scale, 20 * scale, 0.3, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (hctx) {
-        // Koroze/odřenina = drsný, nepravidelný povrch (jemné zvlnění).
-        hctx.save();
-        hctx.globalAlpha = depth * 0.6;
-        hctx.fillStyle = damage.type === "koroze" ? "#4a4a4a" : "#a0a0a0";
-        hctx.beginPath();
-        hctx.ellipse(cx, cy, 34 * scale, 20 * scale, 0.3, 0, Math.PI * 2);
-        hctx.fill();
-        hctx.restore();
-      }
-    } else {
-      ctx.strokeStyle = "rgba(235,235,240,0.85)";
-      ctx.lineWidth = 2.5 * scale;
-      ctx.beginPath();
-      ctx.moveTo(cx - 45 * scale, cy - 8 * scale);
-      ctx.lineTo(cx + 45 * scale, cy + 6 * scale);
-      ctx.stroke();
-
-      if (hctx) {
-        // Škrábanec = úzká rýha; tmavá linka + světlý okraj (vyhrnutý lak).
-        hctx.save();
-        hctx.lineCap = "round";
-        hctx.strokeStyle = `rgba(255,255,255,${depth * 0.5})`;
-        hctx.lineWidth = 4 * scale;
-        hctx.beginPath();
-        hctx.moveTo(cx - 45 * scale, cy - 8 * scale);
-        hctx.lineTo(cx + 45 * scale, cy + 6 * scale);
-        hctx.stroke();
-        hctx.strokeStyle = `rgba(0,0,0,${depth})`;
-        hctx.lineWidth = 2 * scale;
-        hctx.beginPath();
-        hctx.moveTo(cx - 45 * scale, cy - 8 * scale);
-        hctx.lineTo(cx + 45 * scale, cy + 6 * scale);
-        hctx.stroke();
-        hctx.restore();
-      }
     }
-    ctx.restore();
-  });
+  } else if (damage.type === "odrena_barva") {
+    ctx.fillStyle = "rgba(178,180,186,0.85)";
+    ctx.beginPath();
+    ctx.ellipse(c, c, c * 0.7, c * 0.4, 0.25, 0, Math.PI * 2);
+    ctx.fill();
+  } else {
+    // Škrábanec / řez: úzká rýha — tmavé dno a jen velmi jemný světlý okraj.
+    ctx.lineCap = "round";
+    ctx.strokeStyle = "rgba(20,20,22,0.75)";
+    ctx.lineWidth = damage.type === "rez" ? 9 : 6;
+    ctx.beginPath();
+    ctx.moveTo(c - c * 0.8, c + c * 0.16);
+    ctx.lineTo(c + c * 0.8, c - c * 0.12);
+    ctx.stroke();
+    ctx.strokeStyle = "rgba(226,228,232,0.4)";
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(c - c * 0.8, c + c * 0.16 + 4);
+    ctx.lineTo(c + c * 0.8, c - c * 0.12 + 4);
+    ctx.stroke();
+  }
 
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
-  texture.name = "damage_overlay";
-
-  /*
-   * DŮLEŽITÉ: normálovou mapu poškození zatím NEvracíme do laku.
-   * Hrubá UV mapa se na některých dílech Pacifiky opakuje přes více panelů a
-   * v iOS USDZ pak deformuje odlesky po celé karoserii — zákazník vidí vůz jako
-   * „pomačkaný po bouračce“. Poškození ponecháváme jako jemnou barevnou stopu,
-   * ale hladké tovární normály karoserie zůstanou nedotčené.
-   */
-  return { color: texture, normal: null };
+  texture.name = `damage_${damage.part}_${damage.type}`;
+  return texture;
 };
 
+/**
+ * Umístí zadaná poškození na povrch vozu jako decal plošky.
+ * Pozice se počítá z bounding boxu, takže funguje nezávisle na UV mapě.
+ */
+const applyDamageDecals = (root: THREE.Object3D, profile: AppearanceProfile) => {
+  const damages = profile.damages ?? [];
+  // Vždy nejdřív odstraníme decaly z předchozího průchodu (idempotentní).
+  root.children
+    .filter((child) => child.name === "damage_decals")
+    .forEach((child) => root.remove(child));
+  if (!damages.length) return;
 
-const wheelTint = (style: string): THREE.Color | null => {
-  switch (style) {
-    case "alloy_dark":
-      return new THREE.Color("#3a3d42");
-    case "steel_cover":
-      return new THREE.Color("#8d9096");
-    case "5spoke":
-    case "10spoke":
-    case "multispoke":
-      return new THREE.Color("#bcc1c8");
+  const box = new THREE.Box3().setFromObject(root);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+  if (!Number.isFinite(size.x) || size.length() === 0) return;
 
-    default:
-      return null;
-  }
+  // Osu délky/šířky určíme z rozměrů (délka > šířka > výška u minivanu).
+  const lengthAxis: "x" | "z" = size.x >= size.z ? "x" : "z";
+  const widthAxis: "x" | "z" = lengthAxis === "x" ? "z" : "x";
+  const lengthSize = lengthAxis === "x" ? size.x : size.z;
+  const widthSize = widthAxis === "x" ? size.x : size.z;
+
+  const group = new THREE.Group();
+  group.name = "damage_decals";
+
+  damages.forEach((damage, index) => {
+    const anchor = DAMAGE_ANCHORS[damage.part] ?? DAMAGE_ANCHORS.jine;
+    const texture = damageDecalTexture(damage);
+    if (!texture) return;
+
+    const plane = DAMAGE_SIZE_M[damage.severity] ?? DAMAGE_SIZE_M.stredni;
+    const mesh = new THREE.Mesh(
+      new THREE.PlaneGeometry(plane * 1.6, plane),
+      new THREE.MeshStandardMaterial({
+        map: texture,
+        transparent: true,
+        depthWrite: false,
+        roughness: damage.type === "dulek" ? 0.35 : 0.7,
+        metalness: 0.05,
+        polygonOffset: true,
+        polygonOffsetFactor: -4,
+        polygonOffsetUnits: -4,
+      }),
+    );
+    mesh.name = `damage_${index}_${damage.part}`;
+    mesh.castShadow = false;
+    mesh.receiveShadow = false;
+
+    const along = box.min[lengthAxis] + anchor.along * lengthSize;
+    const y = box.min.y + anchor.height * size.y;
+    // 1,5 cm nad povrchem — decal nesmí zapadnout do plechu ani plavat ve vzduchu.
+    const lift = 0.015;
+
+    const pos = new THREE.Vector3();
+    if (anchor.face === "left" || anchor.face === "right") {
+      const side = anchor.face === "left" ? -1 : 1;
+      pos[lengthAxis] = along;
+      pos[widthAxis] = box.min[widthAxis] + (side < 0 ? 0 : widthSize) + side * lift;
+      pos.y = y;
+      mesh.rotation.y = widthAxis === "x" ? (side < 0 ? -Math.PI / 2 : Math.PI / 2) : side < 0 ? Math.PI : 0;
+    } else if (anchor.face === "top") {
+      pos[lengthAxis] = along;
+      pos[widthAxis] = box.min[widthAxis] + widthSize / 2;
+      pos.y = box.min.y + anchor.height * size.y + lift;
+      mesh.rotation.x = -Math.PI / 2;
+      if (lengthAxis === "z") mesh.rotation.z = Math.PI / 2;
+    } else {
+      const front = anchor.face === "front" ? -1 : 1;
+      pos[lengthAxis] = box.min[lengthAxis] + (front < 0 ? 0 : lengthSize) + front * lift;
+      pos[widthAxis] = box.min[widthAxis] + widthSize / 2;
+      pos.y = y;
+      mesh.rotation.y = lengthAxis === "z" ? (front < 0 ? Math.PI : 0) : front < 0 ? -Math.PI / 2 : Math.PI / 2;
+    }
+
+    mesh.position.copy(pos);
+    group.add(mesh);
+  });
+
+  root.add(group);
 };
+
 
 /** Aplikuje profil na scénu (in-place). */
 export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
   const bodyColor = new THREE.Color(profile.body_color_hex);
-  const wheels = wheelTint(profile.wheel_style);
+  const wheel = resolveWheel(profile.wheel_style);
+  const wheels = wheelMaterial(wheel.finish);
   const interiorColor = new THREE.Color(profile.interior_color_hex || "#2b2b2e");
-  // Základní texturu karoserie použijeme jako podklad pro overlay poškození.
-  let bodyBaseMap: THREE.Texture | null = null;
-  root.traverse((o) => {
-    const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-    if (!bodyBaseMap && m && !Array.isArray(m) && isBody(m.name || o.name || "")) bodyBaseMap = m.map ?? null;
-  });
-  const damage = damageMaps(profile, bodyBaseMap);
+
 
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
@@ -393,7 +355,7 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     if (isBody(name)) {
       const paint = new THREE.MeshPhysicalMaterial({
         color: bodyColor,
-        map: damage.color ?? src.map ?? null,
+        map: src.map ?? null,
         // Používáme pouze původní hladké normály modelu. Procedurální reliéf
         // poškození uměl v AR rozbít odlesky a vizuálně „zmačkat“ bok auta.
         normalMap: src.normalMap ?? null,
@@ -411,8 +373,6 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
         sheenColor: new THREE.Color("#ffffff"),
         specularIntensity: profile.paint_finish === "matte" ? 0.3 : 1,
       });
-      // Když kreslíme poškození do mapy, barva už je v textuře — nechceme dvojí tón.
-      if (damage.color) paint.color = new THREE.Color("#ffffff");
       paint.name = name || "body_paint";
       mesh.material = paint;
       return;
@@ -565,14 +525,17 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       return;
     }
 
-    if (isWheel(name) && wheels) {
-      const wheel = src.clone() as THREE.MeshStandardMaterial;
-      wheel.color = wheels;
-      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.85;
-      // Leštěná slitina je kartáčovaný kov, ne chromové zrcátko (0.18 → 0.3).
-      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.3;
-      wheel.envMapIntensity = 1.05;
-      mesh.material = wheel;
+    /*
+     * Disky: parametry přebírá vždy konkrétní OEM kolo z katalogu (Mopar
+     * diagram). Žádný fallback „nechat jak je“ — jinak měl každý vůz jiná kola.
+     */
+    if (isWheel(name)) {
+      const rim = src.clone() as THREE.MeshStandardMaterial;
+      rim.color = new THREE.Color(wheels.hex);
+      rim.metalness = wheels.metalness;
+      rim.roughness = wheels.roughness;
+      rim.envMapIntensity = 1.05;
+      mesh.material = rim;
       return;
     }
 
@@ -589,6 +552,9 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     // Ostrost textur na šikmých plochách (kola, spáry) — velký vizuální rozdíl.
     if (src.map) src.map.anisotropy = 8;
   });
+
+  // Poškození až nakonec — decaly se nesmí přebarvit lakem ani plastem.
+  applyDamageDecals(root, profile);
 }
 
 

@@ -3,6 +3,8 @@
  * který se přenáší na základní 3D model Pacifiky.
  */
 
+import { DEFAULT_WHEEL_ID, WHEEL_CATALOG } from "./wheelCatalog";
+
 export type Damage = {
   part: string;
   type: string;
@@ -37,19 +39,19 @@ export const DEFAULT_PROFILE = (vehicleId: string): AppearanceProfile => ({
   roughness: 0.2,
   glass_opacity: 0.55,
   trim_style: "chrome",
-  wheel_style: "default",
+  wheel_style: DEFAULT_WHEEL_ID,
   damages: [],
   interior_color_hex: "#2b2b2e",
 });
 
-export const WHEEL_STYLES: { id: string; label: string }[] = [
-  { id: "default", label: "Původní disk modelu" },
-  { id: "5spoke", label: "5 ramen — leštěná slitina" },
-  { id: "10spoke", label: "10 ramen — stříbrná" },
-  { id: "multispoke", label: "Multispoke — jemná ramena" },
-  { id: "alloy_dark", label: "Tmavá slitina (black)" },
-  { id: "steel_cover", label: "Plech + poklice" },
-];
+/**
+ * Seznam kol pro admin select — jediným zdrojem pravdy je OEM katalog
+ * (Mopar diagram), aby se u dvou stejných vozů nikdy neobjevila jiná kola.
+ */
+export const WHEEL_STYLES: { id: string; label: string }[] = WHEEL_CATALOG.map(
+  ({ id, label }) => ({ id, label }),
+);
+
 
 export const TRIM_LABELS: Record<string, string> = {
   chrome: "Chromový paket",

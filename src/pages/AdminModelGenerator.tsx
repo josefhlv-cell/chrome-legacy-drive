@@ -21,6 +21,7 @@ import {
   GROUP_LABELS, PHOTO_SLOTS, REQUIRED_SLOT_IDS, type SlotGroup,
 } from "@/features/model-generator/photoSlots";
 import { preparePhoto, type ValidationIssue } from "@/features/model-generator/photoUpload";
+import { wheelFromTrim } from "@/features/model-generator/wheelCatalog";
 import {
   DAMAGE_PARTS, DEFAULT_PROFILE, TRIM_LABELS, WHEEL_STYLES, isHex,
   type AppearanceProfile, type Damage,
@@ -303,7 +304,20 @@ export default function AdminModelGenerator() {
       if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
 
       const saved = (data as { profile: AppearanceProfile }).profile;
-      setProfile({ ...DEFAULT_PROFILE(vehicleId), ...saved, damages: saved.damages ?? [] });
+      /*
+       * Kola z fotek NEPŘEBÍRÁME jako pravdu — AI je z odlesků často zamění.
+       * Zdrojem pravdy je mapování výbava/VIN (Mopar katalog), takže dva
+       * stejné vozy dostanou vždy stejné disky.
+       */
+      const wheelFromEquipment = wheelFromTrim(
+        [vehicle?.name, profile?.notes].filter(Boolean).join(" "),
+      ).id;
+      setProfile((prev) => ({
+        ...DEFAULT_PROFILE(vehicleId),
+        ...saved,
+        wheel_style: prev?.wheel_style ?? wheelFromEquipment,
+        damages: saved.damages ?? [],
+      }));
       setAnalysisStep("");
 
       const warnings = ((data as { analysis?: { warnings?: string[] } }).analysis?.warnings ?? []).slice(0, 3);
@@ -356,11 +370,13 @@ export default function AdminModelGenerator() {
        * „Původní disk modelu“ — jinak dostal každý vůz jiný odstín disku
        * a v nabídce si kola u dvou stejných Pacific nesouhlasila.
        */
-      const wheel =
-        /pinnacle|limited/.test(trim) ? "10spoke"
-        : /touring|s appearance|sport/.test(trim) ? "multispoke"
-        : /\blx\b|voyager/.test(trim) ? "steel_cover"
-        : "default";
+      /*
+       * Kola: deterministické mapování výbava → OEM kolo z Mopar katalogu.
+       * Když se výbava z VIN nepřečte, použije se název vozu z karty — a když
+       * ani ten ne, základní tovární 17" kolo. Nikdy se nenechá „původní disk“,
+       * kvůli kterému měly dva stejné vozy jiná kola.
+       */
+      const wheel = wheelFromTrim(`${trim} ${vehicle.name ?? ""}`).id;
 
       const trimStyle: AppearanceProfile["trim_style"] =
         /s appearance|blackout|sport/.test(trim) ? "black" : "chrome";
@@ -978,6 +994,21 @@ export default function AdminModelGenerator() {
                           {DAMAGE_PARTS.map((p) => (
                             <option key={p.id} value={p.id}>{p.label}</option>
                           ))}
+                        </select>
+                        <select
+                          value={damage.type}
+                          onChange={(e) => {
+                            const next = [...profile.damages];
+                            next[index] = { ...damage, type: e.target.value };
+                            patch({ damages: next });
+                          }}
+                          className="rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground"
+                        >
+                          <option value="skrabanec">škrábanec</option>
+                          <option value="rez">řez / hluboký škrábanec</option>
+                          <option value="dulek">promáčklina</option>
+                          <option value="odrena_barva">odřený lak</option>
+                          <option value="koroze">koroze</option>
                         </select>
                         <select
                           value={damage.severity}

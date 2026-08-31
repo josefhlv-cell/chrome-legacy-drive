@@ -20,6 +20,20 @@
 import pacificaGlbAsset from "./pacifica.glb.asset.json";
 import pacificaUsdzAsset from "./pacifica.usdz.asset.json";
 
+/**
+ * Kanonický host, kde Lovable CDN skutečně servíruje `/__l5e/assets-v1/...`.
+ *
+ * PROČ: web běží i na vlastní domény (chrysler.cz na Vercelu), kde tato cesta
+ * neexistuje a vrací 404 — iOS Quick Look pak jen otevře chybovou stránku.
+ * Relativní URL z `.asset.json` proto převádíme na absolutní odkaz na CDN,
+ * které posílá správný MIME typ i `Access-Control-Allow-Origin: *`.
+ */
+const ASSET_CDN_ORIGIN = "https://chrysler-cz.lovable.app";
+
+/** Doplní CDN origin u interních asset cest; externí URL nechá být. */
+export const absoluteAssetUrl = (url: string): string =>
+  url.startsWith("/__l5e/") ? `${ASSET_CDN_ORIGIN}${url}` : url;
+
 /** Fyzické rozměry HQ masteru v metrech — referenční hodnoty pro varianty. */
 export const PACIFICA_DIMENSIONS_M = {
   length: 5.193,
@@ -28,8 +42,8 @@ export const PACIFICA_DIMENSIONS_M = {
 } as const;
 
 /** HQ master (fallback pro každou Pacificu bez vlastního modelu). */
-export const PACIFICA_HQ_GLB = pacificaGlbAsset.url;
-export const PACIFICA_HQ_USDZ = pacificaUsdzAsset.url;
+export const PACIFICA_HQ_GLB = absoluteAssetUrl(pacificaGlbAsset.url);
+export const PACIFICA_HQ_USDZ = absoluteAssetUrl(pacificaUsdzAsset.url);
 
 export type PacificaVariant = {
   /** Stabilní klíč, který se ukládá do `vehicles.model_3d_glb` jako `variant:<key>`. */
@@ -78,7 +92,7 @@ const resolveRef = (
     const variant = findVariant(raw);
     return variant ? variant[kind] : null;
   }
-  return raw;
+  return absoluteAssetUrl(raw);
 };
 
 export type VehicleModelSource = {

@@ -6,6 +6,7 @@ import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
 import pacificaGlbAsset from "./pacifica.glb.asset.json";
 import pacificaUsdzAsset from "./pacifica.usdz.asset.json";
+import { absoluteAssetUrl } from "./pacificaModels";
 
 /**
  * Základní modely Chrysler Pacifica.
@@ -14,8 +15,8 @@ import pacificaUsdzAsset from "./pacifica.usdz.asset.json";
  * Modely se používají PŘESNĚ TAK, jak byly dodány.
  * Žádná decimace, konverze, recompression ani změna geometrie.
  */
-const MODEL_GLB = pacificaGlbAsset.url;
-const MODEL_USDZ = pacificaUsdzAsset.url;
+const MODEL_GLB = absoluteAssetUrl(pacificaGlbAsset.url);
+const MODEL_USDZ = absoluteAssetUrl(pacificaUsdzAsset.url);
 
 /**
  * Poster pro iOS Quick Look.

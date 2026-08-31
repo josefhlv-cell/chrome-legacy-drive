@@ -337,15 +337,10 @@ const applyDamageDecals = (root: THREE.Object3D, profile: AppearanceProfile) => 
 /** Aplikuje profil na scénu (in-place). */
 export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
   const bodyColor = new THREE.Color(profile.body_color_hex);
-  const wheels = wheelTint(profile.wheel_style);
+  const wheel = resolveWheel(profile.wheel_style);
+  const wheels = wheelMaterial(wheel.finish);
   const interiorColor = new THREE.Color(profile.interior_color_hex || "#2b2b2e");
-  // Základní texturu karoserie použijeme jako podklad pro overlay poškození.
-  let bodyBaseMap: THREE.Texture | null = null;
-  root.traverse((o) => {
-    const m = (o as THREE.Mesh).material as THREE.MeshStandardMaterial | undefined;
-    if (!bodyBaseMap && m && !Array.isArray(m) && isBody(m.name || o.name || "")) bodyBaseMap = m.map ?? null;
-  });
-  const damage = damageMaps(profile, bodyBaseMap);
+
 
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;

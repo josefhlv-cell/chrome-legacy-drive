@@ -996,6 +996,21 @@ export default function AdminModelGenerator() {
                           ))}
                         </select>
                         <select
+                          value={damage.type}
+                          onChange={(e) => {
+                            const next = [...profile.damages];
+                            next[index] = { ...damage, type: e.target.value };
+                            patch({ damages: next });
+                          }}
+                          className="rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground"
+                        >
+                          <option value="skrabanec">škrábanec</option>
+                          <option value="rez">řez / hluboký škrábanec</option>
+                          <option value="dulek">promáčklina</option>
+                          <option value="odrena_barva">odřený lak</option>
+                          <option value="koroze">koroze</option>
+                        </select>
+                        <select
                           value={damage.severity}
                           onChange={(e) => {
                             const next = [...profile.damages];

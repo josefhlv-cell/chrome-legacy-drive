@@ -408,23 +408,76 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       return;
     }
 
-    if (isLight(name)) {
+    // Tmavé plasty a mřížka — dřív než chrom, jinak zbělají.
+    if (isDarkPlastic(name)) {
+      const plastic = src.clone() as THREE.MeshStandardMaterial;
+      plastic.color = new THREE.Color("#1c1d21");
+      plastic.metalness = 0.15;
+      plastic.roughness = 0.62;
+      plastic.envMapIntensity = 0.6;
+      mesh.material = plastic;
+      return;
+    }
+
+    // Denní svícení / odrazky — svítí, ale nejsou to bílé plochy.
+    if (isDRL(name)) {
+      const n = name.toLowerCase();
+      const isRear = n.includes("reflector");
+      const drl = new THREE.MeshPhysicalMaterial({
+        color: new THREE.Color(isRear ? "#7a0d12" : "#dfe9ff"),
+        metalness: 0,
+        roughness: 0.22,
+        clearcoat: 1,
+        clearcoatRoughness: 0.06,
+        emissive: new THREE.Color(isRear ? "#5a0a0e" : "#9fc4ff"),
+        emissiveIntensity: isRear ? 0.35 : 0.55,
+        envMapIntensity: 0.9,
+      });
+      drl.name = name || "drl";
+      mesh.material = drl;
+      return;
+    }
+
+    // Tělo světlometu za krytem — tmavé, matné, nikdy bílé.
+    if (isLightHousing(name)) {
+      const housing = src.clone() as THREE.MeshStandardMaterial;
+      housing.color = new THREE.Color("#14161a");
+      housing.metalness = 0.25;
+      housing.roughness = 0.55;
+      housing.envMapIntensity = 0.5;
+      mesh.material = housing;
+      return;
+    }
+
+    if (isLightLens(name)) {
       const lamp = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(name.toLowerCase().includes("tail") ? "#8e1218" : "#f4f7fb"),
+        color: new THREE.Color(name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake") ? "#8e1218" : "#dfe6ef"),
         transparent: true,
-        opacity: 0.9,
+        opacity: 0.85,
         roughness: 0.05,
         metalness: 0,
-        transmission: 0.55,
+        transmission: 0.6,
         ior: 1.45,
         clearcoat: 1,
-        emissive: new THREE.Color(name.toLowerCase().includes("tail") ? "#5a0a0e" : "#1a2430"),
-        emissiveIntensity: 0.35,
+        emissive: new THREE.Color(name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake") ? "#5a0a0e" : "#141c26"),
+        emissiveIntensity: 0.3,
       });
       lamp.name = name || "lamp";
       mesh.material = lamp;
       return;
     }
+
+    // Brzdové třmeny — grafit, aby v kole nesvítil světlý flek.
+    if (isCaliper(name)) {
+      const caliper = src.clone() as THREE.MeshStandardMaterial;
+      caliper.color = new THREE.Color("#33373d");
+      caliper.metalness = 0.75;
+      caliper.roughness = 0.42;
+      caliper.envMapIntensity = 0.8;
+      mesh.material = caliper;
+      return;
+    }
+
 
     if (isGlass(name)) {
       const glass = new THREE.MeshPhysicalMaterial({

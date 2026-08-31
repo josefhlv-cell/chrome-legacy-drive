@@ -1211,6 +1211,55 @@ const VehiclesTab = () => {
                         />
                       </div>
                     </div>
+                    {/* Vlastní 3D/AR model KONKRÉTNÍHO vozu (jen Chrysler Pacifica).
+                        Zadává se přímá URL projektového assetu (/__l5e/assets-v1/…)
+                        nebo odkaz na variantu ve tvaru `variant:<key>`.
+                        Když je prázdné, AR použije HQ Pacifica master. */}
+                    <div className="sm:col-span-2 lg:col-span-3 rounded-md border border-border bg-secondary/30 p-3 space-y-3">
+                      <div>
+                        <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Vlastní 3D model vozu (AR)</p>
+                        <p className="text-[11px] text-muted-foreground">
+                          Prázdné = HQ Pacifica master (5,193 × 2,299 × 1,751 m, 1:1). Zadejte URL projektového assetu nebo{" "}
+                          <code>variant:{PACIFICA_VARIANTS[0].key}</code>.
+                        </p>
+                      </div>
+                      <InputField
+                        label="Model GLB (Android / desktop)"
+                        value={(editData as any).model_3d_glb || ""}
+                        onChange={(v) => setEditData({ ...editData, model_3d_glb: v } as any)}
+                      />
+                      <InputField
+                        label="Model USDZ (iPhone / iPad)"
+                        value={(editData as any).model_3d_usdz || ""}
+                        onChange={(v) => setEditData({ ...editData, model_3d_usdz: v } as any)}
+                      />
+                      <div className="flex flex-wrap gap-2">
+                        {PACIFICA_VARIANTS.map((variant) => (
+                          <button
+                            key={variant.key}
+                            type="button"
+                            className="chrome-button text-[11px] !px-3 !py-1.5"
+                            onClick={() =>
+                              setEditData({
+                                ...editData,
+                                model_3d_glb: `variant:${variant.key}`,
+                                model_3d_usdz: `variant:${variant.key}`,
+                              } as any)
+                            }
+                          >
+                            {variant.label}
+                          </button>
+                        ))}
+                        <button
+                          type="button"
+                          className="chrome-button text-[11px] !px-3 !py-1.5"
+                          onClick={() => setEditData({ ...editData, model_3d_glb: "", model_3d_usdz: "" } as any)}
+                        >
+                          Vymazat (použít fallback)
+                        </button>
+                      </div>
+                    </div>
+
                     <InputField label="Carfax URL" value={editData.carfax_url || ""} onChange={(v) => setEditData({ ...editData, carfax_url: v })} />
                     <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
                     <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />

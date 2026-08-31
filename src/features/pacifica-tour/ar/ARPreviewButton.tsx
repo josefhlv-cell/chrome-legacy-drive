@@ -476,10 +476,30 @@ export const ARPreviewButton = ({
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
   }, [vehicleId, colorKey]);
 
+  /**
+   * iOS anchor: jen měření a stavy. AR spouští samo Safari z href (rel="ar"),
+   * takže tady nic neblokujeme ani nepřerušujeme (žádné preventDefault).
+   */
+  const handleIosAnchorClick = useCallback(() => {
+    trackTourEvent("ar_open", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
+
+    if (!supportsQuickLook()) {
+      setStatus("unsupported");
+      setShowSheet(true);
+      trackTourEvent("ar_unsupported", { meta: { platform: "ios", ...analyticsMeta } });
+      return;
+    }
+
+    trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
+    setAfterAR(true);
+    onExitAR?.();
+  }, [analyticsMeta, colorKey, onExitAR]);
+
   const ariaLabel =
     platform === "other"
       ? `Otevřít 3D náhled vozu${vehicleName ? ` ${vehicleName}` : ""}`
       : `Zobrazit vůz${vehicleName ? ` ${vehicleName}` : ""} v rozšířené realitě (AR)`;
+
 
   return (
     <>

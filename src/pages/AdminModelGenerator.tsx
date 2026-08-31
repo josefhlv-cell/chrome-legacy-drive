@@ -310,7 +310,7 @@ export default function AdminModelGenerator() {
        * stejné vozy dostanou vždy stejné disky.
        */
       const wheelFromEquipment = wheelFromTrim(
-        [vehicle?.name, vehicle?.model, profile?.notes].filter(Boolean).join(" "),
+        [vehicle?.name, profile?.notes].filter(Boolean).join(" "),
       ).id;
       setProfile((prev) => ({
         ...DEFAULT_PROFILE(vehicleId),
@@ -376,7 +376,7 @@ export default function AdminModelGenerator() {
        * ani ten ne, základní tovární 17" kolo. Nikdy se nenechá „původní disk“,
        * kvůli kterému měly dva stejné vozy jiná kola.
        */
-      const wheel = wheelFromTrim(trim || vehicle.name || vehicle.model).id;
+      const wheel = wheelFromTrim(`${trim} ${vehicle.name ?? ""}`).id;
 
       const trimStyle: AppearanceProfile["trim_style"] =
         /s appearance|blackout|sport/.test(trim) ? "black" : "chrome";

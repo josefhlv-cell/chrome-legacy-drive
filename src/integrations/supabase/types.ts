@@ -10,7 +10,7 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.17"
+    PostgrestVersion: "14.5"
   }
   public: {
     Tables: {
@@ -1174,6 +1174,8 @@ export type Database = {
           lpg_description: string
           lpg_enabled: boolean
           mileage: number
+          model_3d_glb: string | null
+          model_3d_usdz: string | null
           name: string
           power: string
           price_with_vat: number
@@ -1224,6 +1226,8 @@ export type Database = {
           lpg_description?: string
           lpg_enabled?: boolean
           mileage?: number
+          model_3d_glb?: string | null
+          model_3d_usdz?: string | null
           name: string
           power?: string
           price_with_vat: number
@@ -1274,6 +1278,8 @@ export type Database = {
           lpg_description?: string
           lpg_enabled?: boolean
           mileage?: number
+          model_3d_glb?: string | null
+          model_3d_usdz?: string | null
           name?: string
           power?: string
           price_with_vat?: number

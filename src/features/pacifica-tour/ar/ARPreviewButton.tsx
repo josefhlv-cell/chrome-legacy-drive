@@ -5,21 +5,23 @@ import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
 
-const MODEL_GLB = "/models/pacifica.glb";
 /**
- * USDZ pro AR Quick Look.
+ * Základní (výchozí) modely Chrysler Pacifica — dodané hotové soubory od autora.
+ * Používají se PŘESNĚ tak, jak přišly: žádná decimace, konverze ani optimalizace.
  *
- * POZOR: NEPOUŽÍVAT asset CDN (/__l5e/assets-v1/...). CDN soubor servíruje jako
- * `application/zip` + `X-Content-Type-Options: nosniff`, takže Safari AR
- * Quick Look model odmítne a overlay zůstane prázdný ("AR se spustí, ale
- * model není vidět"). Tato URL je edge funkce `ar-model`, která stejný soubor
- * doručí jako `model/vnd.usdz+zip` a cesta končí na `.usdz`, jak Quick Look
- * vyžaduje.
+ * Soubory jsou příliš velké pro repozitář (39 MB GLB / 28 MB USDZ), takže leží
+ * ve veřejném Storage bucketu. URL končí na `.glb` / `.usdz` a odpověď nemá
+ * `X-Content-Type-Options: nosniff` — což je jediné, co Safari AR Quick Look
+ * pro spuštění potřebuje (žádná edge funkce, žádný blob:).
  */
-const MODEL_USDZ =
-  "https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/pacifica-v3.usdz";
+const MODEL_BASE =
+  "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar";
+
+const MODEL_GLB = `${MODEL_BASE}/2021_chrysler_pacifica_limitited_s_awd.glb`;
+const MODEL_USDZ = `${MODEL_BASE}/2021_Chrysler_Pacifica_Limitited_S_AWD.usdz`;
 /** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
 const AR_POSTER = "/pacifica/front.webp";
+
 
 
 /** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */
@@ -186,7 +188,7 @@ export const ARPreviewButton = ({
   const [showQR, setShowQR] = useState(false);
   const [showDesktopViewer, setShowDesktopViewer] = useState(false);
   const [viewerNeeded, setViewerNeeded] = useState(false);
-  const [iosProgress, setIosProgress] = useState(0);
+  
   const [afterAR, setAfterAR] = useState(false);
 
   const viewerRef = useRef<HTMLElement | null>(null);
@@ -474,23 +476,72 @@ export const ARPreviewButton = ({
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
   }, [vehicleId, colorKey]);
 
+  /**
+   * iOS anchor: jen měření a stavy. AR spouští samo Safari z href (rel="ar"),
+   * takže tady nic neblokujeme ani nepřerušujeme (žádné preventDefault).
+   */
+  const handleIosAnchorClick = useCallback(() => {
+    trackTourEvent("ar_open", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
+
+    if (!supportsQuickLook()) {
+      setStatus("unsupported");
+      setShowSheet(true);
+      trackTourEvent("ar_unsupported", { meta: { platform: "ios", ...analyticsMeta } });
+      return;
+    }
+
+    trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
+    setAfterAR(true);
+    onExitAR?.();
+  }, [analyticsMeta, colorKey, onExitAR]);
+
   const ariaLabel =
     platform === "other"
       ? `Otevřít 3D náhled vozu${vehicleName ? ` ${vehicleName}` : ""}`
       : `Zobrazit vůz${vehicleName ? ` ${vehicleName}` : ""} v rozšířené realitě (AR)`;
 
+
   return (
     <>
-      <button
-        type="button"
-        onClick={handleActivate}
-        aria-label={ariaLabel}
-        className={buttonClass}
-        title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
-      >
-        <Box className="h-4 w-4" />
-        {variant === "pill" && <span>{label}</span>}
-      </button>
+      {platform === "ios" ? (
+        /*
+         * iOS: HLAVNÍ cesta k AR Quick Look je SKUTEČNÝ <a rel="ar"> odkaz
+         * s přímou .usdz URL. Klepnutí je tak přirozené uživatelské gesto —
+         * žádný fetch, žádný blob:, žádný programový klik po await.
+         * Safari navíc vyžaduje <img> jako PRVNÍHO potomka anchoru.
+         */
+        <a
+          rel="ar"
+          href={usdzSrc}
+          aria-label={ariaLabel}
+          title="Zobrazit v AR"
+          className={`${buttonClass} relative overflow-hidden`}
+          onClick={handleIosAnchorClick}
+        >
+          <img
+            src={AR_POSTER}
+            alt=""
+            aria-hidden="true"
+            width={32}
+            height={32}
+            className="absolute inset-0 h-full w-full object-cover opacity-0"
+          />
+          <Box className="pointer-events-none relative h-4 w-4" />
+          {variant === "pill" && <span className="relative">{label}</span>}
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={handleActivate}
+          aria-label={ariaLabel}
+          className={buttonClass}
+          title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
+        >
+          <Box className="h-4 w-4" />
+          {variant === "pill" && <span>{label}</span>}
+        </button>
+      )}
+
 
 
       {viewerNeeded && platform === "android" && (
@@ -549,19 +600,10 @@ export const ARPreviewButton = ({
                   <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
                   <p className="text-sm text-white/85">Připravujeme AR náhled…</p>
 
-                  {platform === "ios" && (
-                    <>
-                      <div className="mx-auto mt-3 h-1 w-40 overflow-hidden rounded-full bg-white/12">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-200"
-                          style={{ width: `${Math.max(4, iosProgress)}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-white/40">
-                        Stahujeme AR model {iosProgress > 0 ? `(${iosProgress} %)` : ""}
-                      </p>
-                    </>
-                  )}
+                  {/* iOS stahuje USDZ přímo v Quick Look — žádný falešný
+                      progress bar v našem UI. */}
+
+
 
                   <p className="mt-3 text-[11px] leading-relaxed text-white/40">
                     {AR_SPACE_HINT}

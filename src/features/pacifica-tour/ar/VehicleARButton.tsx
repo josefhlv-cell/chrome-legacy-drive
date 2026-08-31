@@ -83,15 +83,45 @@ export const VehicleARButton = ({
     void (async () => {
       const { data: row } = await supabase
         .from("vehicles")
-        .select("ar_model_url, ar_model_usdz_url, ar_model_ready")
+        .select(
+          "ar_model_url, ar_model_usdz_url, ar_model_ready, model_3d_glb, model_3d_usdz",
+        )
         .eq("id", vehicleId)
         .maybeSingle();
 
       if (cancelled) return;
 
-      const ready = Boolean(row?.ar_model_ready);
-      const path = ready ? row?.ar_model_url ?? null : null;
-      const usdz = ready ? row?.ar_model_usdz_url ?? null : null;
+      const record = row as
+        | {
+            ar_model_url?: string | null;
+            ar_model_usdz_url?: string | null;
+            ar_model_ready?: boolean | null;
+            model_3d_glb?: string | null;
+            model_3d_usdz?: string | null;
+          }
+        | null;
+
+      /*
+       * Nejvyšší prioritu má model přiřazený konkrétnímu vozu
+       * (`model_3d_glb` / `model_3d_usdz`) — hotový soubor s veřejnou URL.
+       * Ten se nijak nepřevádí ani neoptimalizuje, jde přímo do AR.
+       * Když chybí, použije se model vygenerovaný v /admin/3d-generator
+       * a jako poslední fallback nový základní model Pacifiky
+       * (řeší ARPreviewButton).
+       */
+      const ownGlb = record?.model_3d_glb?.trim() || null;
+      const ownUsdz = record?.model_3d_usdz?.trim() || null;
+
+      if (ownGlb || ownUsdz) {
+        setOwnModelUrl(ownGlb);
+        setModelPath(ownGlb);
+        setOwnUsdzUrl(ownUsdz);
+        return;
+      }
+
+      const ready = Boolean(record?.ar_model_ready);
+      const path = ready ? record?.ar_model_url ?? null : null;
+      const usdz = ready ? record?.ar_model_usdz_url ?? null : null;
       setModelPath(path);
       setOwnUsdzUrl(
         usdz
@@ -111,6 +141,7 @@ export const VehicleARButton = ({
       cancelled = true;
     };
   }, [vehicleId]);
+
 
 
   const name = vehicleName ?? data?.name ?? null;

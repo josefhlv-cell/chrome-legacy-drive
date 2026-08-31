@@ -38,6 +38,8 @@ import AdminSurprise from "@/components/AdminSurprise";
 import LeadsTab from "@/components/admin/LeadsTab";
 import AdminDailyReport from "@/components/admin/AdminDailyReport";
 import BannerManagerTab from "@/components/admin/BannerManagerTab";
+import { PACIFICA_VARIANTS } from "@/features/pacifica-tour/ar/pacificaModels";
+
 import DashboardTab from "@/components/admin/DashboardTab";
 import TipCarsFields from "@/components/admin/TipCarsFields";
 import TipCarsTab from "@/components/admin/TipCarsTab";

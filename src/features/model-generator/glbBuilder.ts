@@ -361,7 +361,8 @@ const wheelTint = (style: string): THREE.Color | null => {
     case "5spoke":
     case "10spoke":
     case "multispoke":
-      return new THREE.Color("#c8ccd2");
+      return new THREE.Color("#bcc1c8");
+
     default:
       return null;
   }

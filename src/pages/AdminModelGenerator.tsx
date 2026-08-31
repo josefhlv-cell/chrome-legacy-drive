@@ -41,6 +41,22 @@ type SlotState = {
 
 const GROUPS: SlotGroup[] = ["exterior", "detail", "interior"];
 
+/**
+ * Do jakých slotů se plní fotky z karty vozu.
+ *
+ * Proč pevné pořadí: v galerii vozu jsou fotky řazené jako v inzerátu
+ * (katalogový 3/4 pohled, bok, zadek, detaily, interiér). Tímto pořadím
+ * se první snímky dostanou do slotů, které analýza vzhledu skutečně čte
+ * (`ext_45_left`, `ext_90_left`, `ext_180`, `detail_wheel`, `detail_window`,
+ * `int_front`) — obsluha tedy nemusí nahrávat nic ručně.
+ */
+const CARD_SLOT_ORDER = [
+  "ext_45_left", "ext_90_left", "ext_180", "ext_0",
+  "detail_wheel", "detail_window", "int_front",
+  "ext_135_left", "ext_225_right", "ext_270_right", "ext_315_right",
+  "detail_grille", "detail_damage", "int_rear", "int_wheel", "int_cargo",
+];
+
 export default function AdminModelGenerator() {
   const { toast } = useToast();
   const { user, isAdmin, loading: authLoading } = useAuth() as {
@@ -58,8 +74,12 @@ export default function AdminModelGenerator() {
   const [glbSize, setGlbSize] = useState<number | null>(null);
   const [usdzSize, setUsdzSize] = useState<number | null>(null);
   const [vinLoading, setVinLoading] = useState(false);
+  /** Automatické načtení z karty vozu — čeká, dokud nemáme řádek vozidla. */
+  const [autoPending, setAutoPending] = useState(false);
+  const [importing, setImporting] = useState<string | null>(null);
   const sceneRef = useRef<THREE.Group | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
 
   const vehicle = vehicles.find((v) => v.id === vehicleId) ?? null;
 
@@ -88,6 +108,7 @@ export default function AdminModelGenerator() {
       setProfile(null);
       setSlots({});
       setGlbSize(null);
+      setAutoPending(false);
       return;
     }
 
@@ -117,13 +138,18 @@ export default function AdminModelGenerator() {
           }),
         );
         setSlots(next);
+        // Rozdělaný vůz už fotky má — nic nepřepisujeme.
+        setAutoPending(Object.keys(next).length === 0);
       } else {
         setProfile(null);
         setSlots({});
+        // Nový vůz: fotky i data z VIN si natáhneme sami.
+        setAutoPending(true);
       }
       setGlbSize(null);
     })();
   }, [vehicleId]);
+
 
   /* ------------------------------------------------------------------ */
   /* Upload fotek                                                        */
@@ -170,6 +196,61 @@ export default function AdminModelGenerator() {
     },
     [toast, vehicleId],
   );
+
+  /**
+   * Načtení fotek přímo z karty vozu (galerie `vehicle_images`).
+   *
+   * Proč: obsluha už fotky do inzerátu nahrála — nutit ji fotit znovu 16×
+   * do generátoru je zbytečná práce. Bereme je v pořadí z galerie a plníme
+   * jimi sloty, které analýza vzhledu čte. Ruční doplnění dalších fotek
+   * i poškození zůstává beze změny — cokoli tady admin přepíše, platí.
+   */
+  const importFromVehicleCard = useCallback(
+    async (id: string): Promise<number> => {
+      const { data, error } = await supabase
+        .from("vehicle_images")
+        .select("image_url, is_main, sort_order")
+        .eq("vehicle_id", id)
+        .order("is_main", { ascending: false })
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        toast({ title: "Fotky z karty vozu se nepodařilo načíst", description: error.message, variant: "destructive" });
+        return 0;
+      }
+
+      const urls = (data ?? [])
+        .map((row) => (row.image_url ?? "").trim())
+        .filter((url) => /^https?:\/\//.test(url));
+
+      if (!urls.length) return 0;
+
+      // Ruční fotky admina mají přednost — plníme jen prázdné sloty.
+      const targets = CARD_SLOT_ORDER.filter((slotId) => !slots[slotId]?.path);
+      const total = Math.min(urls.length, targets.length);
+
+      let loaded = 0;
+      for (let i = 0; i < total; i++) {
+        setImporting(`Načítám fotku ${i + 1}/${total} z karty vozu…`);
+        try {
+          const response = await fetch(urls[i], { mode: "cors" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          const type = /^image\/(jpeg|png|webp)$/.test(blob.type) ? blob.type : "image/jpeg";
+          await uploadSlot(targets[i], new File([blob], `${targets[i]}.jpg`, { type }));
+          loaded++;
+        } catch (e) {
+          // Staré inzeráty mají mrtvé odkazy na legacy server — přeskočíme.
+          console.warn("Fotku z karty vozu nelze použít:", urls[i], e);
+        }
+      }
+      setImporting(null);
+      return loaded;
+    },
+    [slots, toast, uploadSlot],
+  );
+
+
 
   const removeSlot = async (slotId: string) => {
     const slot = slots[slotId];
@@ -312,6 +393,41 @@ export default function AdminModelGenerator() {
       setVinLoading(false);
     }
   };
+
+  /**
+   * Automatický start: fotky z karty vozu + předvyplnění z VIN.
+   *
+   * Obsluha tak po výběru vozu vidí hotový základ (lak z karty, kola a paket
+   * z VIN, fotky z inzerátu) a jen doladí, co chce. Když fotky ani VIN nejsou,
+   * vychází se z dostupných dat — profil se vytvoří z barvy na kartě vozu.
+   */
+  useEffect(() => {
+    if (!autoPending || !vehicle) return;
+    setAutoPending(false);
+
+    void (async () => {
+      const loaded = await importFromVehicleCard(vehicle.id);
+
+      if (vehicle.vin) {
+        await prefillFromVin();
+      } else {
+        const colorHex = colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+        setProfile((prev) => ({
+          ...(prev ?? DEFAULT_PROFILE(vehicle.id)),
+          body_color_hex: colorHex ?? DEFAULT_PROFILE(vehicle.id).body_color_hex,
+        }));
+      }
+
+      toast({
+        title: loaded ? `Načteno z karty vozu (${loaded} fotek)` : "Karta vozu nemá použitelné fotky",
+        description: loaded
+          ? "Zkontrolujte údaje, případně doplňte fotky a poškození."
+          : "Vycházíme z dostupných dat — fotky můžete doplnit ručně.",
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPending, vehicle?.id]);
+
 
   /* ------------------------------------------------------------------ */
   /* Úpravy profilu                                                      */
@@ -648,7 +764,24 @@ export default function AdminModelGenerator() {
                 {vinLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Info className="h-3.5 w-3.5" />}
                 Předvyplnit z VIN
               </button>
+
+              <button
+                type="button"
+                onClick={() => void importFromVehicleCard(vehicleId)}
+                disabled={!!importing}
+                className="outline-button inline-flex items-center gap-2 text-xs disabled:opacity-50"
+              >
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                Načíst fotky z karty vozu
+              </button>
             </div>
+
+            {importing && (
+              <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+                {importing}
+              </p>
+            )}
+
           </section>
         )}
 

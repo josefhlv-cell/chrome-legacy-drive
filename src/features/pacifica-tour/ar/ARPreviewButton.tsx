@@ -12,11 +12,8 @@ import { buildShareUrl } from "../lib/tourUrlState";
  * Modely se používají PŘESNĚ TAK, jak byly dodány.
  * Žádná decimace, konverze, recompression ani změna geometrie.
  */
-const MODEL_BASE =
-  "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar";
-
-const MODEL_GLB = `${MODEL_BASE}/2021_chrysler_pacifica_limitited_s_awd.glb`;
-const MODEL_USDZ = `${MODEL_BASE}/2021_Chrysler_Pacifica_Limitited_S_AWD.usdz`;
+const MODEL_GLB = pacificaGlbAsset.url;
+const MODEL_USDZ = pacificaUsdzAsset.url;
 
 /**
  * Poster pro iOS Quick Look.

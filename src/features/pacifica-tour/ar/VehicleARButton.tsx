@@ -21,6 +21,11 @@ import { useVehicle } from "@/hooks/useVehicles";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import ARPreviewButton from "./ARPreviewButton";
+import {
+  resolveVehicleModel,
+  type VehicleModelSource,
+} from "./pacificaModels";
+
 
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */
 const DEFAULT_AR_COLOR = "#e9eaec";

@@ -1,10 +1,13 @@
 /**
- * Mapování českých názvů barev z karty vozu na hex.
+ * Mapování barvy z karty vozu na hex laku modelu.
  *
- * Proč: při předvyplnění z VIN dekodér barvu nevrací (VIN ji neobsahuje),
- * takže model zůstával vždy bílý. Barvu ale máme u vozu v poli `color`
- * (případně přesnější `ar_color_hex`) — tady ji převedeme na lak modelu.
+ * Priorita:
+ *  1) OEM vzorník Pacifica (kód z štítku nebo oficiální název) — přesná barva,
+ *  2) hex zadaný ručně,
+ *  3) obecný český název („modrá“) jako poslední záchrana.
  */
+import { resolveOemColor } from "./oemColors";
+
 const TABLE: Array<[RegExp, string]> = [
   [/perleť|pearl/i, "#eceff3"],
   [/bílá|bila|white/i, "#e9eaec"],

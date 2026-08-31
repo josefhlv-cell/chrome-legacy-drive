@@ -5,21 +5,23 @@ import { Box, Loader2, RotateCcw, X } from "lucide-react";
 import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
 
-const MODEL_GLB = "/models/pacifica.glb";
 /**
- * USDZ pro AR Quick Look.
+ * Základní (výchozí) modely Chrysler Pacifica — dodané hotové soubory od autora.
+ * Používají se PŘESNĚ tak, jak přišly: žádná decimace, konverze ani optimalizace.
  *
- * POZOR: NEPOUŽÍVAT asset CDN (/__l5e/assets-v1/...). CDN soubor servíruje jako
- * `application/zip` + `X-Content-Type-Options: nosniff`, takže Safari AR
- * Quick Look model odmítne a overlay zůstane prázdný ("AR se spustí, ale
- * model není vidět"). Tato URL je edge funkce `ar-model`, která stejný soubor
- * doručí jako `model/vnd.usdz+zip` a cesta končí na `.usdz`, jak Quick Look
- * vyžaduje.
+ * Soubory jsou příliš velké pro repozitář (39 MB GLB / 28 MB USDZ), takže leží
+ * ve veřejném Storage bucketu. URL končí na `.glb` / `.usdz` a odpověď nemá
+ * `X-Content-Type-Options: nosniff` — což je jediné, co Safari AR Quick Look
+ * pro spuštění potřebuje (žádná edge funkce, žádný blob:).
  */
-const MODEL_USDZ =
-  "https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/pacifica-v3.usdz";
+const MODEL_BASE =
+  "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar";
+
+const MODEL_GLB = `${MODEL_BASE}/2021_chrysler_pacifica_limitited_s_awd.glb`;
+const MODEL_USDZ = `${MODEL_BASE}/2021_Chrysler_Pacifica_Limitited_S_AWD.usdz`;
 /** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
 const AR_POSTER = "/pacifica/front.webp";
+
 
 
 /** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */

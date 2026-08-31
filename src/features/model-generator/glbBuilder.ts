@@ -361,7 +361,8 @@ const wheelTint = (style: string): THREE.Color | null => {
     case "5spoke":
     case "10spoke":
     case "multispoke":
-      return new THREE.Color("#c8ccd2");
+      return new THREE.Color("#bcc1c8");
+
     default:
       return null;
   }
@@ -433,14 +434,15 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       const n = name.toLowerCase();
       const isRear = n.includes("reflector");
       const drl = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(isRear ? "#7a0d12" : "#dfe9ff"),
+        // Vypnuté LED nejsou bílé — jsou to světle šedé difuzory za čočkou.
+        color: new THREE.Color(isRear ? "#7a0d12" : "#aab6c6"),
         metalness: 0,
-        roughness: 0.22,
+        roughness: 0.3,
         clearcoat: 1,
-        clearcoatRoughness: 0.06,
-        emissive: new THREE.Color(isRear ? "#5a0a0e" : "#9fc4ff"),
-        emissiveIntensity: isRear ? 0.35 : 0.55,
-        envMapIntensity: 0.9,
+        clearcoatRoughness: 0.08,
+        emissive: new THREE.Color(isRear ? "#5a0a0e" : "#7f9dd0"),
+        emissiveIntensity: isRear ? 0.3 : 0.22,
+        envMapIntensity: 0.55,
       });
       drl.name = name || "drl";
       mesh.material = drl;
@@ -450,31 +452,41 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     // Tělo světlometu za krytem — tmavé, matné, nikdy bílé.
     if (isLightHousing(name)) {
       const housing = src.clone() as THREE.MeshStandardMaterial;
-      housing.color = new THREE.Color("#14161a");
-      housing.metalness = 0.25;
-      housing.roughness = 0.55;
-      housing.envMapIntensity = 0.5;
+      housing.color = new THREE.Color("#0f1115");
+      housing.metalness = 0.2;
+      housing.roughness = 0.6;
+      housing.envMapIntensity = 0.35;
       mesh.material = housing;
       return;
     }
 
     if (isLightLens(name)) {
+      const rear = name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake");
+      /*
+       * PROČ TAK TMAVÁ ČOČKA: dřív měla přední čočka barvu #dfe6ef a
+       * emissive, takže se z ní na modelu udělal mléčně bílý flek — přesně ten
+       * „bílý stín ve světlech“, který vypadal jako vada laku. Reálný krytý
+       * světlometu je čirý a bere barvu tmavého vnitřku pod sebou.
+       */
       const lamp = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake") ? "#8e1218" : "#dfe6ef"),
+        color: new THREE.Color(rear ? "#5e0a10" : "#20262e"),
         transparent: true,
-        opacity: 0.85,
-        roughness: 0.05,
+        opacity: rear ? 0.9 : 0.62,
+        roughness: 0.04,
         metalness: 0,
-        transmission: 0.6,
-        ior: 1.45,
+        transmission: rear ? 0.45 : 0.82,
+        ior: 1.5,
+        thickness: 0.004,
         clearcoat: 1,
-        emissive: new THREE.Color(name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake") ? "#5a0a0e" : "#141c26"),
-        emissiveIntensity: 0.3,
+        clearcoatRoughness: 0.02,
+        emissive: new THREE.Color(rear ? "#3d0709" : "#000000"),
+        emissiveIntensity: rear ? 0.22 : 0,
       });
       lamp.name = name || "lamp";
       mesh.material = lamp;
       return;
     }
+
 
     // Brzdové kotouče — tmavá ocel se stopou po broušení, ne světlý flek.
     if (isRotor(name)) {
@@ -528,11 +540,16 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
         trim.metalness = 0.6;
         trim.roughness = profile.roughness;
       } else {
-        trim.color = new THREE.Color("#e6e8ea");
+        /*
+         * Chrom je zrcadlo, ne bílá barva. #e6e8ea s metalness 1 a
+         * envMapIntensity 1,4 přesvítilo lišty i rám mřížky do bílé —
+         * na fotce to vypadalo jako bílý stín kolem masky.
+         */
+        trim.color = new THREE.Color("#b7bcc2");
         trim.metalness = 1;
-        trim.roughness = 0.1;
+        trim.roughness = 0.16;
       }
-      trim.envMapIntensity = 1.4;
+      trim.envMapIntensity = 1;
       mesh.material = trim;
       return;
     }
@@ -551,12 +568,14 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     if (isWheel(name) && wheels) {
       const wheel = src.clone() as THREE.MeshStandardMaterial;
       wheel.color = wheels;
-      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.9;
-      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.18;
-      wheel.envMapIntensity = 1.5;
+      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.85;
+      // Leštěná slitina je kartáčovaný kov, ne chromové zrcátko (0.18 → 0.3).
+      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.3;
+      wheel.envMapIntensity = 1.05;
       mesh.material = wheel;
       return;
     }
+
 
     if (isInterior(name)) {
       const trimIn = src.clone() as THREE.MeshStandardMaterial;

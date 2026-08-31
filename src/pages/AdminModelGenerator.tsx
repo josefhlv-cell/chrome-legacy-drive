@@ -350,11 +350,18 @@ export default function AdminModelGenerator() {
       if (!decoded) throw new Error("VIN se nepodařilo dekódovat");
 
       const trim = String(decoded.trim ?? "").toLowerCase();
+      /*
+       * Kola NEHÁDÁME. Geometrie disku v modelu je jedna a stejná, měníme jen
+       * povrch. Když se výbava z VIN nedá spolehlivě přečíst, zůstane
+       * „Původní disk modelu“ — jinak dostal každý vůz jiný odstín disku
+       * a v nabídce si kola u dvou stejných Pacific nesouhlasila.
+       */
       const wheel =
         /pinnacle|limited/.test(trim) ? "10spoke"
         : /touring|s appearance|sport/.test(trim) ? "multispoke"
-        : /lx|base|voyager/.test(trim) ? "steel_cover"
-        : "5spoke";
+        : /\blx\b|voyager/.test(trim) ? "steel_cover"
+        : "default";
+
       const trimStyle: AppearanceProfile["trim_style"] =
         /s appearance|blackout|sport/.test(trim) ? "black" : "chrome";
 

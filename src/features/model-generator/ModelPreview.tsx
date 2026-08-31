@@ -62,36 +62,41 @@ export const ModelPreview = ({ profile, onSceneReady }: Props) => {
 
       <Canvas
         dpr={[1, 2]}
-        camera={{ position: [6.2, 2.1, 6.6], fov: 32 }}
+        // Celé auto v záběru: 5,2 m dlouhá Pacifica se do fov 30° vejde až
+        // z ~11 m. Dřív kamera startovala na 9 m a minDistance 4, takže se
+        // admin díval na detail dveří a hladké spáry vypadaly jako škrábance.
+        camera={{ position: [8.6, 2.9, 9.4], fov: 30 }}
         shadows="soft"
         gl={{ antialias: true, preserveDrawingBuffer: true }}
         onCreated={({ gl }) => {
           // Filmové mapování tónů + korektní gamma = lak vypadá jako lak, ne jako plast.
           gl.toneMapping = THREE.ACESFilmicToneMapping;
-          gl.toneMappingExposure = 1.05;
+          // 1.05 přepalovalo světlé laky do bílé — barva pak nesouhlasila s vozem.
+          gl.toneMappingExposure = 0.92;
           gl.outputColorSpace = THREE.SRGBColorSpace;
         }}
       >
         <Suspense fallback={null}>
-          <ambientLight intensity={0.35} />
-          <directionalLight position={[5, 8, 4]} intensity={1.5} castShadow shadow-mapSize={[2048, 2048]} />
+          <ambientLight intensity={0.3} />
+          <directionalLight position={[5, 8, 4]} intensity={1.25} castShadow shadow-mapSize={[2048, 2048]} />
           {/* Dvě protisvětla vykreslí boční linie karoserie — klíč k „prémiovému“ dojmu. */}
-          <spotLight position={[-7, 6, -5]} intensity={0.8} angle={0.7} penumbra={1} color="#cfe0ff" />
-          <spotLight position={[0, 7, -8]} intensity={0.6} angle={0.8} penumbra={1} color="#ffffff" />
-          <Environment preset="studio" environmentIntensity={1.1} />
+          <spotLight position={[-7, 6, -5]} intensity={0.7} angle={0.7} penumbra={1} color="#cfe0ff" />
+          <spotLight position={[0, 7, -8]} intensity={0.5} angle={0.8} penumbra={1} color="#ffffff" />
+          <Environment preset="studio" environmentIntensity={0.85} />
           {scene && <primitive object={scene} />}
           <ContactShadows position={[0, 0.01, 0]} opacity={0.6} scale={16} blur={2.2} far={4} resolution={1024} />
           <OrbitControls
             enablePan={false}
             enableDamping
             dampingFactor={0.08}
-            minDistance={4}
-            maxDistance={14}
+            minDistance={7}
+            maxDistance={20}
             maxPolarAngle={Math.PI / 2.05}
             autoRotate
             autoRotateSpeed={0.5}
           />
         </Suspense>
+
       </Canvas>
 
     </div>

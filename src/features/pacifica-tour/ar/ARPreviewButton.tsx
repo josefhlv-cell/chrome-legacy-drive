@@ -483,16 +483,45 @@ export const ARPreviewButton = ({
 
   return (
     <>
-      <button
-        type="button"
-        onClick={handleActivate}
-        aria-label={ariaLabel}
-        className={buttonClass}
-        title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
-      >
-        <Box className="h-4 w-4" />
-        {variant === "pill" && <span>{label}</span>}
-      </button>
+      {platform === "ios" ? (
+        /*
+         * iOS: HLAVNÍ cesta k AR Quick Look je SKUTEČNÝ <a rel="ar"> odkaz
+         * s přímou .usdz URL. Klepnutí je tak přirozené uživatelské gesto —
+         * žádný fetch, žádný blob:, žádný programový klik po await.
+         * Safari navíc vyžaduje <img> jako PRVNÍHO potomka anchoru.
+         */
+        <a
+          rel="ar"
+          href={usdzSrc}
+          aria-label={ariaLabel}
+          title="Zobrazit v AR"
+          className={`${buttonClass} relative overflow-hidden`}
+          onClick={handleIosAnchorClick}
+        >
+          <img
+            src={AR_POSTER}
+            alt=""
+            aria-hidden="true"
+            width={32}
+            height={32}
+            className="absolute inset-0 h-full w-full object-cover opacity-0"
+          />
+          <Box className="pointer-events-none relative h-4 w-4" />
+          {variant === "pill" && <span className="relative">{label}</span>}
+        </a>
+      ) : (
+        <button
+          type="button"
+          onClick={handleActivate}
+          aria-label={ariaLabel}
+          className={buttonClass}
+          title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
+        >
+          <Box className="h-4 w-4" />
+          {variant === "pill" && <span>{label}</span>}
+        </button>
+      )}
+
 
 
       {viewerNeeded && platform === "android" && (

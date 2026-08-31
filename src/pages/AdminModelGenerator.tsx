@@ -363,18 +363,19 @@ export default function AdminModelGenerator() {
         .join(" · ");
 
       /*
-       * VIN barvu neobsahuje, proto ji bereme z karty vozu (ar_color_hex má
-       * přednost, jinak převedeme český název barvy). Bez toho zůstal model
-       * po předvyplnění vždy bílý.
+       * VIN barvu neobsahuje, proto ji bereme z karty vozu. Nejdřív se zkusí
+       * OEM vzorník (kód laku nebo oficiální název) — ten dá i správný typ
+       * povrchu (perleť/metalíza). Teprve pak obecný český název.
        */
-      const colorHex =
-        colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+      const paint =
+        colorToPaint(vehicle.ar_color_hex) ?? colorToPaint(vehicle.color);
 
       setProfile((prev) => {
         const base = prev ?? DEFAULT_PROFILE(vehicleId);
         return {
           ...base,
-          body_color_hex: colorHex ?? base.body_color_hex,
+          body_color_hex: paint?.hex ?? base.body_color_hex,
+          paint_finish: paint?.finish ?? base.paint_finish,
           wheel_style: wheel,
           trim_style: trimStyle,
           notes: summary,
@@ -384,7 +385,12 @@ export default function AdminModelGenerator() {
       toast({
         title: "Předvyplněno z VIN",
         description:
-          [summary, colorHex ? `lak ${vehicle.color ?? colorHex}` : "barvu vozu doplňte ručně"]
+          [
+            summary,
+            paint
+              ? `lak ${paint.oemName ?? vehicle.color ?? paint.hex}`
+              : "barvu vozu doplňte ručně",
+          ]
             .filter(Boolean)
             .join(" · "),
       });

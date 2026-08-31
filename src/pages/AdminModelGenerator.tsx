@@ -108,6 +108,7 @@ export default function AdminModelGenerator() {
       setProfile(null);
       setSlots({});
       setGlbSize(null);
+      setAutoPending(false);
       return;
     }
 
@@ -137,13 +138,18 @@ export default function AdminModelGenerator() {
           }),
         );
         setSlots(next);
+        // Rozdělaný vůz už fotky má — nic nepřepisujeme.
+        setAutoPending(Object.keys(next).length === 0);
       } else {
         setProfile(null);
         setSlots({});
+        // Nový vůz: fotky i data z VIN si natáhneme sami.
+        setAutoPending(true);
       }
       setGlbSize(null);
     })();
   }, [vehicleId]);
+
 
   /* ------------------------------------------------------------------ */
   /* Upload fotek                                                        */

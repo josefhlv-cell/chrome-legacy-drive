@@ -192,7 +192,7 @@ export const VehicleARButton = ({
    * Pacificu — a to jen u vozů Pacifica, ať zákazníkovi v AR nepostavíme
    * úplně jiné auto.
    */
-  if (!modelPath && !isModelSupported(name)) return null;
+  if (!source?.isVehicleSpecific && !isModelSupported(name)) return null;
 
   return (
     <div className={className}>
@@ -203,14 +203,14 @@ export const VehicleARButton = ({
         colorKey={colorHex}
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
-        showColorDisclaimer={!ownUsdzUrl}
+        showColorDisclaimer={!source?.isVehicleSpecific}
         autoStart={autoStart}
-        modelUrl={ownModelUrl}
-        usdzUrl={ownUsdzUrl}
-
+        modelUrl={source?.glb ?? null}
+        usdzUrl={source?.usdz ?? null}
       />
     </div>
   );
+
 };
 
 export default VehicleARButton;

@@ -430,7 +430,7 @@ const VehiclesTab = () => {
 
   const startEdit = (v: DbVehicle) => {
     setEditingId(v.id);
-    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off", ar_color_hex: (v as any).ar_color_hex || "" } as any);
+    setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off", ar_color_hex: (v as any).ar_color_hex || "", model_3d_glb: (v as any).model_3d_glb || "", model_3d_usdz: (v as any).model_3d_usdz || "" } as any);
   };
 
   const saveEdit = () => {

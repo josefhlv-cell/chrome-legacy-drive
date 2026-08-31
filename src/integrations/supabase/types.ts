@@ -1174,6 +1174,8 @@ export type Database = {
           lpg_description: string
           lpg_enabled: boolean
           mileage: number
+          model_3d_glb: string | null
+          model_3d_usdz: string | null
           name: string
           power: string
           price_with_vat: number
@@ -1224,6 +1226,8 @@ export type Database = {
           lpg_description?: string
           lpg_enabled?: boolean
           mileage?: number
+          model_3d_glb?: string | null
+          model_3d_usdz?: string | null
           name: string
           power?: string
           price_with_vat: number
@@ -1274,6 +1278,8 @@ export type Database = {
           lpg_description?: string
           lpg_enabled?: boolean
           mileage?: number
+          model_3d_glb?: string | null
+          model_3d_usdz?: string | null
           name?: string
           power?: string
           price_with_vat?: number

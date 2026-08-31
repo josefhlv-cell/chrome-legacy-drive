@@ -29,11 +29,30 @@ const isBody = (name: string) => {
 };
 const isGlass = (name: string) => {
   const n = name.toLowerCase();
-  return n.includes("glass") || n.includes("window") || n.includes("sklo") || n.includes("windshield");
+  return (
+    (n.includes("window") || n.includes("sklo") || n.includes("windshield")) &&
+    !n.includes("light")
+  );
+};
+/**
+ * Tmavé plasty a mřížka. Musí se řešit DŘÍV než chrom — jinak z černých
+ * lišt a mřížky vznikne bílý „chromový“ flek pod maskou.
+ */
+const isDarkPlastic = (name: string) => {
+  const n = name.toLowerCase();
+  return (
+    n.includes("blacktrim") ||
+    n.includes("black1") ||
+    n.includes("grill") ||
+    n.includes("default_material") ||
+    n === "material" ||
+    /^material_\d+$/.test(n)
+  );
 };
 const isTrim = (name: string) => {
   const n = name.toLowerCase();
-  return n.includes("chrome") || n.includes("trim") || n.includes("grill") || n.includes("molding");
+  if (isDarkPlastic(name)) return false;
+  return n.includes("chrome") || n.includes("trim") || n.includes("molding");
 };
 /** Pneumatika má vlastní matný gumový materiál — nesmí zčernat jako disk. */
 const isTire = (name: string) => {
@@ -44,11 +63,24 @@ const isWheel = (name: string) => {
   const n = name.toLowerCase();
   return n.includes("wheel") || n.includes("rim") || n.includes("disc") || n.includes("kolo");
 };
-/** Světla — čirý kryt + reflektor, aby v AR nevypadala jako slepá plocha. */
-const isLight = (name: string) => {
+/** Brzdové třmeny — grafitový kov, nikdy světlá plocha v kole. */
+const isCaliper = (name: string) => name.toLowerCase().includes("caliper");
+/** Denní svícení — musí svítit, ne být bílý flek v masce. */
+const isDRL = (name: string) => {
   const n = name.toLowerCase();
-  return n.includes("light") || n.includes("lamp") || n.includes("head_l") || n.includes("tail");
+  return n.includes("drl") || n.includes("reflector");
 };
+/** Čirý kryt světla (lens). */
+const isLightLens = (name: string) => {
+  const n = name.toLowerCase();
+  return (n.includes("light") || n.includes("lamp") || n.includes("tail")) && n.includes("glass");
+};
+/** Tělo světlometu za krytem — tmavé, matné. */
+const isLightHousing = (name: string) => {
+  const n = name.toLowerCase();
+  return (n.includes("light") || n.includes("lamp") || n.includes("tail")) && !n.includes("glass");
+};
+const isLight = (name: string) => isLightLens(name) || isLightHousing(name);
 const isInterior = (name: string) => {
   const n = name.toLowerCase();
   return (

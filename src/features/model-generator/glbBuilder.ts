@@ -433,14 +433,15 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       const n = name.toLowerCase();
       const isRear = n.includes("reflector");
       const drl = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(isRear ? "#7a0d12" : "#dfe9ff"),
+        // Vypnuté LED nejsou bílé — jsou to světle šedé difuzory za čočkou.
+        color: new THREE.Color(isRear ? "#7a0d12" : "#aab6c6"),
         metalness: 0,
-        roughness: 0.22,
+        roughness: 0.3,
         clearcoat: 1,
-        clearcoatRoughness: 0.06,
-        emissive: new THREE.Color(isRear ? "#5a0a0e" : "#9fc4ff"),
-        emissiveIntensity: isRear ? 0.35 : 0.55,
-        envMapIntensity: 0.9,
+        clearcoatRoughness: 0.08,
+        emissive: new THREE.Color(isRear ? "#5a0a0e" : "#7f9dd0"),
+        emissiveIntensity: isRear ? 0.3 : 0.22,
+        envMapIntensity: 0.55,
       });
       drl.name = name || "drl";
       mesh.material = drl;
@@ -450,31 +451,41 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     // Tělo světlometu za krytem — tmavé, matné, nikdy bílé.
     if (isLightHousing(name)) {
       const housing = src.clone() as THREE.MeshStandardMaterial;
-      housing.color = new THREE.Color("#14161a");
-      housing.metalness = 0.25;
-      housing.roughness = 0.55;
-      housing.envMapIntensity = 0.5;
+      housing.color = new THREE.Color("#0f1115");
+      housing.metalness = 0.2;
+      housing.roughness = 0.6;
+      housing.envMapIntensity = 0.35;
       mesh.material = housing;
       return;
     }
 
     if (isLightLens(name)) {
+      const rear = name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake");
+      /*
+       * PROČ TAK TMAVÁ ČOČKA: dřív měla přední čočka barvu #dfe6ef a
+       * emissive, takže se z ní na modelu udělal mléčně bílý flek — přesně ten
+       * „bílý stín ve světlech“, který vypadal jako vada laku. Reálný krytý
+       * světlometu je čirý a bere barvu tmavého vnitřku pod sebou.
+       */
       const lamp = new THREE.MeshPhysicalMaterial({
-        color: new THREE.Color(name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake") ? "#8e1218" : "#dfe6ef"),
+        color: new THREE.Color(rear ? "#5e0a10" : "#20262e"),
         transparent: true,
-        opacity: 0.85,
-        roughness: 0.05,
+        opacity: rear ? 0.9 : 0.62,
+        roughness: 0.04,
         metalness: 0,
-        transmission: 0.6,
-        ior: 1.45,
+        transmission: rear ? 0.45 : 0.82,
+        ior: 1.5,
+        thickness: 0.004,
         clearcoat: 1,
-        emissive: new THREE.Color(name.toLowerCase().includes("tail") || name.toLowerCase().includes("brake") ? "#5a0a0e" : "#141c26"),
-        emissiveIntensity: 0.3,
+        clearcoatRoughness: 0.02,
+        emissive: new THREE.Color(rear ? "#3d0709" : "#000000"),
+        emissiveIntensity: rear ? 0.22 : 0,
       });
       lamp.name = name || "lamp";
       mesh.material = lamp;
       return;
     }
+
 
     // Brzdové kotouče — tmavá ocel se stopou po broušení, ne světlý flek.
     if (isRotor(name)) {

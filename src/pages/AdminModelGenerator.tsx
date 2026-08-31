@@ -41,6 +41,22 @@ type SlotState = {
 
 const GROUPS: SlotGroup[] = ["exterior", "detail", "interior"];
 
+/**
+ * Do jakých slotů se plní fotky z karty vozu.
+ *
+ * Proč pevné pořadí: v galerii vozu jsou fotky řazené jako v inzerátu
+ * (katalogový 3/4 pohled, bok, zadek, detaily, interiér). Tímto pořadím
+ * se první snímky dostanou do slotů, které analýza vzhledu skutečně čte
+ * (`ext_45_left`, `ext_90_left`, `ext_180`, `detail_wheel`, `detail_window`,
+ * `int_front`) — obsluha tedy nemusí nahrávat nic ručně.
+ */
+const CARD_SLOT_ORDER = [
+  "ext_45_left", "ext_90_left", "ext_180", "ext_0",
+  "detail_wheel", "detail_window", "int_front",
+  "ext_135_left", "ext_225_right", "ext_270_right", "ext_315_right",
+  "detail_grille", "detail_damage", "int_rear", "int_wheel", "int_cargo",
+];
+
 export default function AdminModelGenerator() {
   const { toast } = useToast();
   const { user, isAdmin, loading: authLoading } = useAuth() as {
@@ -58,8 +74,12 @@ export default function AdminModelGenerator() {
   const [glbSize, setGlbSize] = useState<number | null>(null);
   const [usdzSize, setUsdzSize] = useState<number | null>(null);
   const [vinLoading, setVinLoading] = useState(false);
+  /** Automatické načtení z karty vozu — čeká, dokud nemáme řádek vozidla. */
+  const [autoPending, setAutoPending] = useState(false);
+  const [importing, setImporting] = useState<string | null>(null);
   const sceneRef = useRef<THREE.Group | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+
 
   const vehicle = vehicles.find((v) => v.id === vehicleId) ?? null;
 

@@ -39,7 +39,7 @@ export const DEFAULT_PROFILE = (vehicleId: string): AppearanceProfile => ({
   roughness: 0.2,
   glass_opacity: 0.55,
   trim_style: "chrome",
-  wheel_style: "default",
+  wheel_style: DEFAULT_WHEEL_ID,
   damages: [],
   interior_color_hex: "#2b2b2e",
 });

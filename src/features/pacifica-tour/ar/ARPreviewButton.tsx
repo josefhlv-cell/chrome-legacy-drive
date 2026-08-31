@@ -600,19 +600,10 @@ export const ARPreviewButton = ({
                   <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
                   <p className="text-sm text-white/85">Připravujeme AR náhled…</p>
 
-                  {platform === "ios" && (
-                    <>
-                      <div className="mx-auto mt-3 h-1 w-40 overflow-hidden rounded-full bg-white/12">
-                        <div
-                          className="h-full rounded-full bg-primary transition-all duration-200"
-                          style={{ width: `${Math.max(4, iosProgress)}%` }}
-                        />
-                      </div>
-                      <p className="mt-2 text-xs text-white/40">
-                        Stahujeme AR model {iosProgress > 0 ? `(${iosProgress} %)` : ""}
-                      </p>
-                    </>
-                  )}
+                  {/* iOS stahuje USDZ přímo v Quick Look — žádný falešný
+                      progress bar v našem UI. */}
+
+
 
                   <p className="mt-3 text-[11px] leading-relaxed text-white/40">
                     {AR_SPACE_HINT}

@@ -3,6 +3,8 @@
  * který se přenáší na základní 3D model Pacifiky.
  */
 
+import { DEFAULT_WHEEL_ID, WHEEL_CATALOG } from "./wheelCatalog";
+
 export type Damage = {
   part: string;
   type: string;

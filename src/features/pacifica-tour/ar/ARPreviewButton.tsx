@@ -6,28 +6,26 @@ import { trackTourEvent } from "../lib/tourAnalytics";
 import { buildShareUrl } from "../lib/tourUrlState";
 
 /**
- * Základní (výchozí) modely Chrysler Pacifica — dodané hotové soubory od autora.
- * Používají se PŘESNĚ tak, jak přišly: žádná decimace, konverze ani optimalizace.
+ * Základní modely Chrysler Pacifica.
  *
- * Soubory jsou příliš velké pro repozitář (39 MB GLB / 28 MB USDZ), takže leží
- * ve veřejném Storage bucketu. URL končí na `.glb` / `.usdz` a odpověď nemá
- * `X-Content-Type-Options: nosniff` — což je jediné, co Safari AR Quick Look
- * pro spuštění potřebuje (žádná edge funkce, žádný blob:).
+ * DŮLEŽITÉ:
+ * Modely se používají PŘESNĚ TAK, jak byly dodány.
+ * Žádná decimace, konverze, recompression ani změna geometrie.
  */
 const MODEL_BASE =
   "https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/vehicles/ar";
 
 const MODEL_GLB = `${MODEL_BASE}/2021_chrysler_pacifica_limitited_s_awd.glb`;
 const MODEL_USDZ = `${MODEL_BASE}/2021_Chrysler_Pacifica_Limitited_S_AWD.usdz`;
-/** AR Quick Look poster — viz poznámka u <a rel="ar"> níže. */
+
+/**
+ * Poster pro iOS Quick Look.
+ * Musí existovat v public/pacifica/front.webp.
+ */
 const AR_POSTER = "/pacifica/front.webp";
 
-
-
-/** Pouze pojistka při opravdu pomalém nebo přerušeném načítání. */
 const LOAD_TIMEOUT_MS = 30000;
 
-/** Reálné rozměry vozu — uživatel musí vědět, kolik místa potřebuje. */
 export const AR_SPACE_HINT =
   "Vůz je 5,19 m dlouhý — namiřte telefon na podlahu a mějte kolem sebe alespoň 6 m volného místa.";
 
@@ -37,39 +35,18 @@ type ErrorReason = "timeout" | "network" | "generic" | null;
 
 type Props = {
   onExitAR?: () => void;
-  /** Barva laku zvolená v prohlídce (hex) — přenese se do AR na Androidu. */
   colorHex?: string | null;
-  /** Klíč barvy pro deep-link a měření. */
   colorKey?: string;
-  /** Otevře poptávkový formulář po ukončení AR. */
   onWantLive?: () => void;
-  /** Automatické spuštění AR (deep-link ?ar=1). */
   autoStart?: boolean;
-  /** Vzhled spouštěče: kruhová ikona (prohlídka) nebo pill s textem (detail vozu). */
   variant?: "icon" | "pill";
-  /** Text pro pill variantu. */
   label?: string;
-  /** ID konkrétního vozu — jen pro měření (tour_events.meta). */
   vehicleId?: string;
-  /** Název konkrétního vozu — titulek 3D náhledu a měření. */
   vehicleName?: string;
-  /**
-   * Zobrazí upozornění, že na iPhonu je barva vozu jen ilustrační.
-   * iOS AR Quick Look barvu statického USDZ měnit neumí.
-   */
   showColorDisclaimer?: boolean;
-  /**
-   * GLB konkrétního vozu vygenerovaný v /admin/3d-generator.
-   * Když chybí, použije se základní model Pacifiky.
-   */
   modelUrl?: string | null;
-  /**
-   * USDZ konkrétního vozu pro iOS AR Quick Look. iPhone neumí GLB, takže
-   * bez tohoto souboru by se na iOS zobrazil generický bílý model.
-   */
   usdzUrl?: string | null;
 };
-
 
 const detectPlatform = (): Platform => {
   if (typeof navigator === "undefined") return "other";
@@ -88,15 +65,13 @@ const detectPlatform = (): Platform => {
 };
 
 /**
- * iOS/iPadOS: AR Quick Look funguje jen tam, kde Safari umí `rel="ar"`.
- * Starší iPady a iPady bez podpory AR odkaz jen otevřou jako soubor —
- * proto podporu ověřujeme přes relList a uživatele informujeme,
- * místo aby skončil u mlčícího prázdného okna.
+ * Ověření podpory AR Quick Look.
  */
 const supportsQuickLook = (): boolean => {
   if (typeof document === "undefined") return false;
 
   const link = document.createElement("a");
+
   return !!link.relList?.supports?.("ar");
 };
 
@@ -105,6 +80,7 @@ let modelViewerLoading: Promise<void> | null = null;
 
 const loadModelViewer = () => {
   if (modelViewerLoaded) return Promise.resolve();
+
   if (modelViewerLoading) return modelViewerLoading;
 
   modelViewerLoading = import("@google/model-viewer")
@@ -119,17 +95,33 @@ const loadModelViewer = () => {
   return modelViewerLoading;
 };
 
-/** Přebarví lak v model-viewer scéně (Android AR i desktop náhled). */
+/**
+ * Přenese zvolenou barvu pouze na materiály karoserie.
+ *
+ * GLB se fyzicky nemění.
+ * Mění se pouze runtime materiál v model-viewer.
+ */
 const applyColor = (element: unknown, hex?: string | null) => {
   if (!hex) return;
 
-  const model = (element as { model?: { materials?: unknown[] } } | null)?.model;
+  const model = (
+    element as {
+      model?: {
+        materials?: unknown[];
+      };
+    } | null
+  )?.model;
+
   const materials = model?.materials;
 
   if (!materials) return;
 
-  const rgb = [1, 3, 5].map(
-    (offset) => parseInt(hex.slice(offset, offset + 2), 16) / 255,
+  const cleanHex = hex.replace("#", "");
+
+  if (cleanHex.length !== 6) return;
+
+  const rgb = [0, 2, 4].map(
+    (offset) => parseInt(cleanHex.slice(offset, offset + 2), 16) / 255,
   );
 
   materials.forEach((raw) => {
@@ -142,10 +134,84 @@ const applyColor = (element: unknown, hex?: string | null) => {
 
     const name = (material.name || "").toLowerCase();
 
-    if (!name.includes("body") && !name.includes("paint")) return;
+    const isBody =
+      name.includes("body") ||
+      name.includes("paint") ||
+      name.includes("carpaint") ||
+      name.includes("exterior") ||
+      name.includes("shell");
 
-    material.pbrMetallicRoughness?.setBaseColorFactor?.([...rgb, 1]);
+    if (!isBody) return;
+
+    material.pbrMetallicRoughness?.setBaseColorFactor?.([
+      ...rgb,
+      1,
+    ]);
   });
+};
+
+/**
+ * Nastavení renderingu model-viewer.
+ *
+ * Cíl:
+ * - maximální vizuální kvalita
+ * - realistické PBR nasvícení
+ * - kvalitní stíny
+ * - žádná změna geometrie
+ * - žádná decimace
+ */
+const configureHighQualityViewer = (element: unknown) => {
+  const viewer = element as HTMLElement & {
+    shadowIntensity?: number;
+    shadowSoftness?: number;
+    exposure?: number;
+    environmentImage?: string;
+    toneMapping?: string;
+    interactionPrompt?: string;
+    minCameraOrbit?: string;
+    maxCameraOrbit?: string;
+    fieldOfView?: string;
+  };
+
+  if (!viewer) return;
+
+  viewer.setAttribute("tone-mapping", "aces");
+  viewer.setAttribute("environment-image", "neutral");
+
+  /**
+   * Vyšší expozice pouze lehce.
+   * Nepřehánět, aby se bílé části auta nepřepalovaly.
+   */
+  viewer.setAttribute("exposure", "1.05");
+
+  /**
+   * Výraznější, ale měkký kontakt se zemí.
+   */
+  viewer.setAttribute("shadow-intensity", "1.2");
+  viewer.setAttribute("shadow-softness", "0.42");
+
+  /**
+   * Zabraňuje zbytečným animacím uživatelského promptu.
+   */
+  viewer.setAttribute("interaction-prompt", "none");
+
+  /**
+   * PBR modely vypadají lépe s kontrolovanou kamerou.
+   */
+  viewer.setAttribute("field-of-view", "26deg");
+
+  /**
+   * Necháme uživatele obejít celé auto.
+   */
+  viewer.setAttribute(
+    "min-camera-orbit",
+    "auto 20deg auto",
+  );
+
+  viewer.setAttribute(
+    "max-camera-orbit",
+    "auto 100deg auto",
+  );
 };
 
 export const ARPreviewButton = ({
@@ -162,16 +228,12 @@ export const ARPreviewButton = ({
   modelUrl = null,
   usdzUrl = null,
 }: Props) => {
-  /** Vlastní model vozu má přednost před generickou Pacificou. */
+  /**
+   * Konkrétní model vozidla má vždy přednost.
+   */
   const glbSrc = modelUrl || MODEL_GLB;
-  /** USDZ konkrétního vozu (iOS Quick Look) — jinak generická Pacifica. */
   const usdzSrc = usdzUrl || MODEL_USDZ;
 
-
-  /**
-   * Společná měřicí data. U konkrétního vozu chceme v adminu vidět,
-   * které auto si lidi v AR staví k sobě — proto vehicle_id i barva.
-   */
   const analyticsMeta = useMemo(
     () => ({
       vehicle_id: vehicleId ?? null,
@@ -183,34 +245,61 @@ export const ARPreviewButton = ({
 
   const [platform, setPlatform] = useState<Platform>("other");
   const [status, setStatus] = useState<Status>("idle");
-  const [errorReason, setErrorReason] = useState<ErrorReason>(null);
+  const [errorReason, setErrorReason] =
+    useState<ErrorReason>(null);
+
   const [showSheet, setShowSheet] = useState(false);
   const [showQR, setShowQR] = useState(false);
-  const [showDesktopViewer, setShowDesktopViewer] = useState(false);
+  const [showDesktopViewer, setShowDesktopViewer] =
+    useState(false);
+
   const [viewerNeeded, setViewerNeeded] = useState(false);
-  
+
+  /**
+   * Opravena logika:
+   * afterAR se NESMÍ nastavovat při samotném spuštění iOS AR.
+   *
+   * Quick Look běží mimo DOM aplikace.
+   * Proto zde nabídku pouze připravíme a zobrazíme ji až po návratu
+   * do stránky přes visibilitychange/page focus.
+   */
   const [afterAR, setAfterAR] = useState(false);
 
   const viewerRef = useRef<HTMLElement | null>(null);
   const desktopRef = useRef<HTMLElement | null>(null);
+
   const loadErrorRef = useRef(false);
   const timeoutRef = useRef<number | null>(null);
-  const usdzUrlRef = useRef<string | null>(null);
+
   const autoStartedRef = useRef(false);
+
+  /**
+   * Určuje, zda právě probíhá iOS Quick Look.
+   */
+  const iosARActiveRef = useRef(false);
+
+  /**
+   * Pomáhá rozlišit návrat z Quick Look od běžného
+   * přepnutí karty/aplikace.
+   */
+  const iosARLaunchTimeRef = useRef(0);
 
   useEffect(() => {
     setPlatform(detectPlatform());
   }, []);
 
-  /* --------------------------------------------------------------------- */
-  /* model-viewer: načítáme AŽ když je potřeba (žádných 3,3 MB předem)     */
-  /* --------------------------------------------------------------------- */
-
+  /**
+   * Dynamické načtení model-viewer až při potřebě.
+   */
   useEffect(() => {
     if (!viewerNeeded) return;
 
     void loadModelViewer().catch((error) => {
-      console.error("Nepodařilo se načíst @google/model-viewer:", error);
+      console.error(
+        "Nepodařilo se načíst @google/model-viewer:",
+        error,
+      );
+
       loadErrorRef.current = true;
     });
   }, [viewerNeeded]);
@@ -224,6 +313,7 @@ export const ARPreviewButton = ({
 
   const startLoadTimeout = useCallback(() => {
     clearLoadTimeout();
+
     timeoutRef.current = window.setTimeout(() => {
       setStatus("error");
       setErrorReason("timeout");
@@ -232,32 +322,95 @@ export const ARPreviewButton = ({
 
   useEffect(() => clearLoadTimeout, [clearLoadTimeout]);
 
-  useEffect(
-    () => () => {
-      if (usdzUrlRef.current) URL.revokeObjectURL(usdzUrlRef.current);
-    },
-    [],
-  );
+  /**
+   * iOS Quick Look:
+   * když se uživatel vrátí do Safari po spuštění AR,
+   * nabídneme další CTA.
+   */
+  useEffect(() => {
+    if (typeof document === "undefined") return;
 
-  /* --------------------------------------------------------------------- */
-  /* Skrytý model-viewer (Android) — listenery bez JSX onLoad/onError      */
-  /* --------------------------------------------------------------------- */
+    const handleVisibility = () => {
+      if (
+        document.visibilityState === "visible" &&
+        iosARActiveRef.current
+      ) {
+        const elapsed =
+          Date.now() - iosARLaunchTimeRef.current;
 
+        /**
+         * Ignorujeme velmi rychlé přepnutí.
+         * Reálný návrat z Quick Look má obvykle delší interval.
+         */
+        if (elapsed > 700) {
+          iosARActiveRef.current = false;
+
+          setAfterAR(true);
+
+          trackTourEvent("ar_exit", {
+            color: colorKey,
+            meta: {
+              platform: "ios",
+              ...analyticsMeta,
+            },
+          });
+
+          onExitAR?.();
+        }
+      }
+    };
+
+    document.addEventListener(
+      "visibilitychange",
+      handleVisibility,
+    );
+
+    window.addEventListener("pageshow", handleVisibility);
+
+    return () => {
+      document.removeEventListener(
+        "visibilitychange",
+        handleVisibility,
+      );
+
+      window.removeEventListener(
+        "pageshow",
+        handleVisibility,
+      );
+    };
+  }, [analyticsMeta, colorKey, onExitAR]);
+
+  /**
+   * Android / desktop viewer.
+   */
   useEffect(() => {
     const element = viewerRef.current;
+
     if (!element) return;
+
+    configureHighQualityViewer(element);
 
     const onLoad = () => {
       loadErrorRef.current = false;
+
+      configureHighQualityViewer(element);
       applyColor(element, colorHex);
     };
 
     const onError = (event: Event) => {
       loadErrorRef.current = true;
-      console.error("Nepodařilo se načíst AR model:", event);
+
+      console.error(
+        "Nepodařilo se načíst AR model:",
+        event,
+      );
 
       clearLoadTimeout();
-      setStatus((prev) => (prev === "loading" ? "error" : prev));
+
+      setStatus((prev) =>
+        prev === "loading" ? "error" : prev,
+      );
+
       setErrorReason("network");
     };
 
@@ -268,26 +421,44 @@ export const ARPreviewButton = ({
       element.removeEventListener("load", onLoad);
       element.removeEventListener("error", onError);
     };
-  }, [viewerNeeded, colorHex, clearLoadTimeout]);
+  }, [
+    viewerNeeded,
+    colorHex,
+    clearLoadTimeout,
+  ]);
 
+  /**
+   * Runtime nastavení barvy.
+   */
   useEffect(() => {
     applyColor(viewerRef.current, colorHex);
     applyColor(desktopRef.current, colorHex);
-  }, [colorHex, showDesktopViewer]);
 
-  /* --------------------------------------------------------------------- */
-  /* Android                                                              */
-  /* --------------------------------------------------------------------- */
+    configureHighQualityViewer(viewerRef.current);
+    configureHighQualityViewer(desktopRef.current);
+  }, [
+    colorHex,
+    showDesktopViewer,
+  ]);
 
+  /**
+   * Android AR.
+   */
   const launchAndroidAR = useCallback(async () => {
     clearLoadTimeout();
 
     try {
       await loadModelViewer();
-      await customElements.whenDefined("model-viewer");
+
+      await customElements.whenDefined(
+        "model-viewer",
+      );
 
       const element = viewerRef.current as
-        | (HTMLElement & { canActivateAR?: boolean; activateAR?: () => Promise<void> })
+        | (HTMLElement & {
+            canActivateAR?: boolean;
+            activateAR?: () => Promise<void>;
+          })
         | null;
 
       if (!element) {
@@ -296,123 +467,180 @@ export const ARPreviewButton = ({
         return;
       }
 
-      // Jediný zdroj pravdy o podpoře AR — žádný seznam konkrétních telefonů.
+      configureHighQualityViewer(element);
+
       if (!element.canActivateAR) {
         setStatus("unsupported");
-        trackTourEvent("ar_unsupported", { meta: { platform: "android", ...analyticsMeta } });
+
+        trackTourEvent("ar_unsupported", {
+          meta: {
+            platform: "android",
+            ...analyticsMeta,
+          },
+        });
+
         return;
       }
 
       setStatus("ready");
+
       applyColor(element, colorHex);
 
       trackTourEvent("ar_launch", {
         color: colorKey,
-        meta: { platform: "android", ...analyticsMeta },
+        meta: {
+          platform: "android",
+          ...analyticsMeta,
+        },
       });
 
       await element.activateAR?.();
 
       setShowSheet(false);
       setStatus("idle");
-      setAfterAR(true);
-      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "android", ...analyticsMeta } });
-      onExitAR?.();
     } catch (error: unknown) {
-      console.error("AR aktivace selhala:", error);
+      console.error(
+        "AR aktivace selhala:",
+        error,
+      );
+
       setStatus("error");
       setErrorReason("generic");
     }
-  }, [analyticsMeta, clearLoadTimeout, colorHex, colorKey, onExitAR]);
+  }, [
+    analyticsMeta,
+    clearLoadTimeout,
+    colorHex,
+    colorKey,
+  ]);
 
-  /* --------------------------------------------------------------------- */
-  /* iOS — AR Quick Look musí startovat SYNCHRONNĚ z uživatelského gesta.  */
-  /*                                                                       */
-  /* Dřív jsme USDZ stahovali fetchem, dělali z něj blob: URL a na ni      */
-  /* klikali. To na iPhonu nikdy nemohlo fungovat:                        */
-  /*  1) Quick Look potřebuje reálnou URL končící na .usdz — blob: URL     */
-  /*     bez přípony Safari ignoruje (klik prostě „nic neudělá“).          */
-  /*  2) Klik po `await` už není v user-gesture okně, takže ho Safari      */
-  /*     zablokuje jako programový.                                        */
-  /* Teď klikáme okamžitě na anchor s přímou .usdz URL a v sheetu držíme   */
-  /* i ruční odkaz jako záložní cestu.                                     */
-  /* --------------------------------------------------------------------- */
-
+  /**
+   * iOS Quick Look.
+   *
+   * Zásadní pravidlo:
+   * žádný fetch
+   * žádný blob:
+   * žádný await před kliknutím
+   * žádný programový click
+   *
+   * Safari dostane skutečný <a rel="ar">.
+   */
   const launchIosAR = useCallback(() => {
     if (!supportsQuickLook()) {
       setStatus("unsupported");
       setShowSheet(true);
-      trackTourEvent("ar_unsupported", { meta: { platform: "ios", ...analyticsMeta } });
+
+      trackTourEvent("ar_unsupported", {
+        meta: {
+          platform: "ios",
+          ...analyticsMeta,
+        },
+      });
+
       return;
     }
 
     setErrorReason(null);
     setStatus("ready");
-    setShowSheet(true);
 
-    try {
-      const link = document.createElement("a");
-      link.rel = "ar";
-      link.href = usdzSrc;
+    /**
+     * Zapamatujeme si, že právě spouštíme Quick Look.
+     */
+    iosARActiveRef.current = true;
+    iosARLaunchTimeRef.current = Date.now();
 
-      // Safari spustí Quick Look jen tehdy, když je prvním potomkem <img>
-      // s nenulovými rozměry.
-      const img = document.createElement("img");
-      img.src = AR_POSTER;
-      img.alt = "";
-      img.width = 32;
-      img.height = 32;
-      link.appendChild(img);
+    trackTourEvent("ar_launch", {
+      color: colorKey,
+      meta: {
+        platform: "ios",
+        ...analyticsMeta,
+      },
+    });
 
-      link.style.position = "fixed";
-      link.style.left = "-9999px";
-      link.style.top = "0";
-      link.style.width = "32px";
-      link.style.height = "32px";
-      link.style.pointerEvents = "none";
-      document.body.appendChild(link);
+    /**
+     * Přímý Quick Look anchor.
+     */
+    const link = document.createElement("a");
 
-      trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
+    link.rel = "ar";
+    link.href = usdzSrc;
 
-      link.click();
-      link.remove();
+    /**
+     * Safari Quick Look vyžaduje IMG jako prvního potomka.
+     */
+    const img = document.createElement("img");
 
-      setAfterAR(true);
-      trackTourEvent("ar_exit", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
-      onExitAR?.();
-    } catch (error) {
-      console.error("AR Quick Look selhal:", error);
-      setStatus("error");
-      setErrorReason("generic");
-    }
-  }, [analyticsMeta, colorKey, onExitAR, usdzSrc]);
+    img.src = AR_POSTER;
+    img.alt = "";
+    img.width = 32;
+    img.height = 32;
 
+    link.appendChild(img);
 
-  /* --------------------------------------------------------------------- */
+    link.style.position = "fixed";
+    link.style.left = "-9999px";
+    link.style.top = "0";
+    link.style.width = "32px";
+    link.style.height = "32px";
 
+    document.body.appendChild(link);
+
+    /**
+     * DŮLEŽITÉ:
+     * click proběhne synchronně v rámci uživatelského gesta.
+     */
+    link.click();
+
+    link.remove();
+  }, [
+    analyticsMeta,
+    colorKey,
+    usdzSrc,
+  ]);
+
+  /**
+   * Hlavní aktivace.
+   */
   const handleActivate = useCallback(() => {
     const currentPlatform = detectPlatform();
 
     trackTourEvent("ar_open", {
       color: colorKey,
-      meta: { platform: currentPlatform, ...analyticsMeta },
+      meta: {
+        platform: currentPlatform,
+        ...analyticsMeta,
+      },
     });
 
+    /**
+     * Desktop:
+     * zobrazíme kvalitní 3D viewer.
+     */
     if (currentPlatform === "other") {
       setViewerNeeded(true);
       setShowDesktopViewer(true);
+
       return;
     }
 
+    /**
+     * iOS:
+     * přímý Quick Look.
+     */
     if (currentPlatform === "ios") {
-      void launchIosAR();
+      launchIosAR();
+
       return;
     }
 
+    /**
+     * Android.
+     */
     if (loadErrorRef.current) {
       setStatus("error");
       setErrorReason("network");
       setShowSheet(true);
+
       return;
     }
 
@@ -420,32 +648,42 @@ export const ARPreviewButton = ({
     setStatus("loading");
     setErrorReason(null);
     setShowSheet(true);
+
     startLoadTimeout();
 
-    // Nečekáme na kompletní onLoad GLB. Scene Viewer si model načte sám.
     void launchAndroidAR();
-  }, [analyticsMeta, colorKey, launchAndroidAR, launchIosAR, startLoadTimeout]);
+  }, [
+    analyticsMeta,
+    colorKey,
+    launchAndroidAR,
+    launchIosAR,
+    startLoadTimeout,
+  ]);
 
-  /* Deep-link ?ar=1 → AR se pokusí spustit samo.
-     Na desktopu se místo AR otevře 3D náhled s QR kódem pro přenos do mobilu. */
+  /**
+   * Deep-link ?ar=1.
+   */
   useEffect(() => {
     if (!autoStart || autoStartedRef.current) return;
 
     autoStartedRef.current = true;
+
     handleActivate();
-  }, [autoStart, handleActivate]);
+  }, [
+    autoStart,
+    handleActivate,
+  ]);
 
   const closeSheet = useCallback(() => {
     clearLoadTimeout();
+
     setShowSheet(false);
     setStatus("idle");
     setErrorReason(null);
   }, [clearLoadTimeout]);
 
   /**
-   * `icon` = kruhové tlačítko v tmavé 3D prohlídce.
-   * `pill` = tlačítko s textem na detailu vozidla (světlý web, design systém
-   * projektu — proto semantické tokeny, ne white/8 z prohlídky).
+   * Vizuální tlačítko.
    */
   const buttonClass =
     variant === "pill"
@@ -459,12 +697,19 @@ export const ARPreviewButton = ({
          focus-visible:ring-2 focus-visible:ring-primary active:scale-95`;
 
   /**
-   * QR pro desktop. U konkrétního vozu musí odkaz vést na jeho detail
-   * s `?ar=1` (deep-link), ne na parametry virtuální prohlídky.
+   * QR URL.
    */
   const shareUrl = useMemo(() => {
-    if (!vehicleId) return buildShareUrl({ ar: true, color: colorKey });
-    if (typeof window === "undefined") return "";
+    if (!vehicleId) {
+      return buildShareUrl({
+        ar: true,
+        color: colorKey,
+      });
+    }
+
+    if (typeof window === "undefined") {
+      return "";
+    }
 
     const params = new URLSearchParams({
       ar: "1",
@@ -474,42 +719,76 @@ export const ARPreviewButton = ({
     });
 
     return `${window.location.origin}${window.location.pathname}?${params.toString()}`;
-  }, [vehicleId, colorKey]);
+  }, [
+    vehicleId,
+    colorKey,
+  ]);
 
   /**
-   * iOS anchor: jen měření a stavy. AR spouští samo Safari z href (rel="ar"),
-   * takže tady nic neblokujeme ani nepřerušujeme (žádné preventDefault).
+   * Handler pro přímý iOS anchor.
    */
   const handleIosAnchorClick = useCallback(() => {
-    trackTourEvent("ar_open", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
+    trackTourEvent("ar_open", {
+      color: colorKey,
+      meta: {
+        platform: "ios",
+        ...analyticsMeta,
+      },
+    });
 
     if (!supportsQuickLook()) {
       setStatus("unsupported");
       setShowSheet(true);
-      trackTourEvent("ar_unsupported", { meta: { platform: "ios", ...analyticsMeta } });
+
+      trackTourEvent("ar_unsupported", {
+        meta: {
+          platform: "ios",
+          ...analyticsMeta,
+        },
+      });
+
       return;
     }
 
-    trackTourEvent("ar_launch", { color: colorKey, meta: { platform: "ios", ...analyticsMeta } });
-    setAfterAR(true);
-    onExitAR?.();
-  }, [analyticsMeta, colorKey, onExitAR]);
+    /**
+     * Quick Look se nyní opravdu spouští.
+     * afterAR se nastaví až při návratu.
+     */
+    iosARActiveRef.current = true;
+    iosARLaunchTimeRef.current = Date.now();
+
+    trackTourEvent("ar_launch", {
+      color: colorKey,
+      meta: {
+        platform: "ios",
+        ...analyticsMeta,
+      },
+    });
+  }, [
+    analyticsMeta,
+    colorKey,
+  ]);
 
   const ariaLabel =
     platform === "other"
-      ? `Otevřít 3D náhled vozu${vehicleName ? ` ${vehicleName}` : ""}`
-      : `Zobrazit vůz${vehicleName ? ` ${vehicleName}` : ""} v rozšířené realitě (AR)`;
-
+      ? `Otevřít 3D náhled vozu${
+          vehicleName
+            ? ` ${vehicleName}`
+            : ""
+        }`
+      : `Zobrazit vůz${
+          vehicleName
+            ? ` ${vehicleName}`
+            : ""
+        } v rozšířené realitě (AR)`;
 
   return (
     <>
+      {/* --------------------------------------------------------------- */}
+      {/* iOS AR QUICK LOOK                                               */}
+      {/* --------------------------------------------------------------- */}
+
       {platform === "ios" ? (
-        /*
-         * iOS: HLAVNÍ cesta k AR Quick Look je SKUTEČNÝ <a rel="ar"> odkaz
-         * s přímou .usdz URL. Klepnutí je tak přirozené uživatelské gesto —
-         * žádný fetch, žádný blob:, žádný programový klik po await.
-         * Safari navíc vyžaduje <img> jako PRVNÍHO potomka anchoru.
-         */
         <a
           rel="ar"
           href={usdzSrc}
@@ -526,8 +805,14 @@ export const ARPreviewButton = ({
             height={32}
             className="absolute inset-0 h-full w-full object-cover opacity-0"
           />
+
           <Box className="pointer-events-none relative h-4 w-4" />
-          {variant === "pill" && <span className="relative">{label}</span>}
+
+          {variant === "pill" && (
+            <span className="relative">
+              {label}
+            </span>
+          )}
         </a>
       ) : (
         <button
@@ -535,46 +820,59 @@ export const ARPreviewButton = ({
           onClick={handleActivate}
           aria-label={ariaLabel}
           className={buttonClass}
-          title={platform === "other" ? "3D náhled vozu" : "Zobrazit v AR"}
+          title={
+            platform === "other"
+              ? "3D náhled vozu"
+              : "Zobrazit v AR"
+          }
         >
           <Box className="h-4 w-4" />
-          {variant === "pill" && <span>{label}</span>}
+
+          {variant === "pill" && (
+            <span>{label}</span>
+          )}
         </button>
       )}
 
+      {/* --------------------------------------------------------------- */}
+      {/* ANDROID MODEL VIEWER                                           */}
+      {/* --------------------------------------------------------------- */}
 
+      {viewerNeeded &&
+        platform === "android" && (
+          <model-viewer
+            ref={viewerRef as never}
+            src={glbSrc}
+            ios-src={usdzSrc}
+            ar
+            ar-modes="webxr scene-viewer quick-look"
+            ar-scale="fixed"
+            ar-placement="floor"
+            xr-environment
+            environment-image="neutral"
+            tone-mapping="aces"
+            exposure="1.05"
+            shadow-intensity="1.2"
+            shadow-softness="0.42"
+            interaction-prompt="none"
+            camera-controls
+            loading="eager"
+            alt="3D model vozu pro AR náhled"
+            style={{
+              position: "fixed",
+              width: 1,
+              height: 1,
+              opacity: 0,
+              pointerEvents: "none",
+              left: 0,
+              top: 0,
+            }}
+          />
+        )}
 
-      {viewerNeeded && platform === "android" && (
-        <model-viewer
-          ref={viewerRef as never}
-          src={glbSrc}
-          ios-src={usdzSrc}
-          ar
-          ar-modes="webxr scene-viewer quick-look"
-          ar-scale="fixed"
-          ar-placement="floor"
-          xr-environment
-          environment-image="neutral"
-          tone-mapping="aces"
-          exposure="1"
-
-
-          shadow-intensity="1"
-          shadow-softness="0.55"
-          alt="Chrysler Pacifica — 3D model pro AR náhled"
-          loading="lazy"
-
-          style={{
-            position: "fixed",
-            width: 1,
-            height: 1,
-            opacity: 0,
-            pointerEvents: "none",
-            left: 0,
-            top: 0,
-          }}
-        />
-      )}
+      {/* --------------------------------------------------------------- */}
+      {/* STATUS SHEET                                                   */}
+      {/* --------------------------------------------------------------- */}
 
       {showSheet &&
         createPortal(
@@ -584,7 +882,9 @@ export const ARPreviewButton = ({
           >
             <div
               className="w-full max-w-sm rounded-t-2xl border border-white/10 bg-[#0b0d12] p-5 text-center shadow-2xl sm:rounded-2xl"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) =>
+                event.stopPropagation()
+              }
             >
               <button
                 type="button"
@@ -598,12 +898,10 @@ export const ARPreviewButton = ({
               {status === "loading" && (
                 <>
                   <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-                  <p className="text-sm text-white/85">Připravujeme AR náhled…</p>
 
-                  {/* iOS stahuje USDZ přímo v Quick Look — žádný falešný
-                      progress bar v našem UI. */}
-
-
+                  <p className="text-sm text-white/85">
+                    Připravujeme AR náhled…
+                  </p>
 
                   <p className="mt-3 text-[11px] leading-relaxed text-white/40">
                     {AR_SPACE_HINT}
@@ -615,44 +913,50 @@ export const ARPreviewButton = ({
                 <>
                   {platform === "ios" ? (
                     <>
-                      <p className="text-sm text-white/85">AR náhled je připraven</p>
-                      <p className="mt-1 text-xs text-white/40">
-                        Pokud se AR nespustilo automaticky, klepněte na tlačítko níže.
+                      <p className="text-sm text-white/85">
+                        AR náhled je připraven
                       </p>
 
-                      {/* iOS AR Quick Look pracuje se statickým USDZ, takže
-                          barvu konkrétního vozu tam přebarvit nelze. Radši to
-                          řekneme dopředu, než aby zákazník čekal svoji barvu. */}
+                      <p className="mt-1 text-xs text-white/40">
+                        Pokud se AR nespustilo automaticky,
+                        klepněte na tlačítko níže.
+                      </p>
+
                       {showColorDisclaimer && (
                         <p className="mt-2 text-[11px] leading-relaxed text-amber-300/80">
-                          Na iPhonu se zobrazí model v základní barvě — rozměry
-                          i tvar odpovídají skutečnému vozu.
+                          Na iPhonu se zobrazí model v
+                          základní barvě — rozměry i tvar
+                          odpovídají skutečnému vozu.
                         </p>
                       )}
 
-
-                      {/* Skutečný odkaz — nejspolehlivější cesta k AR Quick Look:
-                          klepnutí je přímé uživatelské gesto na rel="ar" anchor. */}
                       <a
                         rel="ar"
                         href={usdzSrc}
+                        onClick={handleIosAnchorClick}
                         className="relative mt-3 flex h-11 w-full items-center justify-center overflow-hidden rounded-full bg-primary text-xs font-semibold text-primary-foreground"
                       >
-                        {/* Safari vyžaduje <img> jako PRVNÍHO potomka <a rel="ar">.
-                            Musí mít nenulové rozměry, aby ho Safari akceptovalo. */}
                         <img
                           src={AR_POSTER}
                           alt=""
                           aria-hidden="true"
+                          width={32}
+                          height={32}
                           className="absolute inset-0 h-full w-full object-cover opacity-0"
                         />
-                        <span className="relative">Spustit AR</span>
+
+                        <span className="relative">
+                          Spustit AR
+                        </span>
                       </a>
                     </>
                   ) : (
                     <>
                       <Loader2 className="mx-auto mb-3 h-8 w-8 animate-spin text-primary" />
-                      <p className="text-sm text-white/85">Spouštíme AR…</p>
+
+                      <p className="text-sm text-white/85">
+                        Spouštíme AR…
+                      </p>
                     </>
                   )}
 
@@ -662,16 +966,18 @@ export const ARPreviewButton = ({
                 </>
               )}
 
-
               {status === "unsupported" && (
                 <>
                   <p className="text-sm text-white/85">
                     AR náhled na tomto zařízení není dostupný.
                   </p>
+
                   <p className="mt-1 text-xs text-white/40">
-                    Zařízení nepodporuje AR (ARCore na Androidu, AR Quick Look na
-                    iPhonu/iPadu). Vůz si můžete prohlédnout ve 3D prohlídce.
+                    Zařízení nepodporuje potřebné AR
+                    funkce. Vůz si můžete prohlédnout
+                    ve 3D.
                   </p>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -695,11 +1001,14 @@ export const ARPreviewButton = ({
                         ? "Model se nepodařilo stáhnout."
                         : "AR náhled se nepodařilo spustit."}
                   </p>
+
                   <p className="mt-1 text-xs text-white/40">
-                    {errorReason === "timeout" || errorReason === "network"
+                    {errorReason === "timeout" ||
+                    errorReason === "network"
                       ? "Zkontrolujte připojení k internetu a zkuste to znovu."
                       : "Zkuste to prosím znovu."}
                   </p>
+
                   <button
                     type="button"
                     onClick={() => {
@@ -718,35 +1027,47 @@ export const ARPreviewButton = ({
           document.body,
         )}
 
-      {/* Desktop: skutečný 3D náhled, QR kód je jen doplněk. */}
+      {/* --------------------------------------------------------------- */}
+      {/* DESKTOP / TABLET 3D VIEWER                                    */}
+      {/* --------------------------------------------------------------- */}
+
       {showDesktopViewer &&
         createPortal(
           <div
             className="fixed inset-0 z-[60] flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm"
-            onClick={() => setShowDesktopViewer(false)}
+            onClick={() =>
+              setShowDesktopViewer(false)
+            }
           >
             <div
               className="w-full max-w-3xl overflow-hidden rounded-3xl border border-white/10 bg-[#0b0d12] shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) =>
+                event.stopPropagation()
+              }
             >
               <div className="flex items-start justify-between gap-3 px-5 pt-4">
                 <div>
                   <p className="text-[9px] uppercase tracking-[0.3em] text-primary">
                     3D náhled
                   </p>
+
                   <h2 className="mt-0.5 font-serif text-lg text-white">
                     {vehicleName ?? (
                       <>
-                        Chrysler <span className="italic">Pacifica</span>
+                        Chrysler{" "}
+                        <span className="italic">
+                          Pacifica
+                        </span>
                       </>
                     )}
                   </h2>
-
                 </div>
 
                 <button
                   type="button"
-                  onClick={() => setShowDesktopViewer(false)}
+                  onClick={() =>
+                    setShowDesktopViewer(false)
+                  }
                   aria-label="Zavřít 3D náhled"
                   className="grid h-9 w-9 place-items-center rounded-full text-white/50 transition hover:bg-white/10"
                 >
@@ -757,44 +1078,48 @@ export const ARPreviewButton = ({
               <model-viewer
                 ref={desktopRef as never}
                 src={glbSrc}
-                alt="Chrysler Pacifica — otočitelný 3D model"
+                alt="Otočitelný 3D model vozu"
                 camera-controls
                 auto-rotate
-                auto-rotate-delay="600"
-                rotation-per-second="14deg"
+                auto-rotate-delay="1200"
+                rotation-per-second="10deg"
                 interaction-prompt="none"
                 environment-image="neutral"
                 tone-mapping="aces"
-                shadow-intensity="1.15"
-                shadow-softness="0.7"
-                exposure="1"
+                exposure="1.05"
+                shadow-intensity="1.2"
+                shadow-softness="0.42"
                 camera-orbit="35deg 76deg 82%"
-                min-camera-orbit="auto 25deg auto"
-                max-camera-orbit="auto 90deg 140%"
+                min-camera-orbit="auto 20deg auto"
+                max-camera-orbit="auto 100deg auto"
                 field-of-view="26deg"
                 loading="eager"
                 style={{
                   width: "100%",
-                  height: "min(56vh, 420px)",
+                  height: "min(56vh, 460px)",
                   background: "transparent",
                 }}
               />
 
-
               <div className="flex flex-col items-center gap-4 border-t border-white/8 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex items-center gap-2 text-[11px] text-white/45">
                   <RotateCcw className="h-3.5 w-3.5" />
-                  Táhnutím myší vůz otočíte, kolečkem přibližujete.
+
+                  Táhnutím myší vůz otočíte,
+                  kolečkem přibližujete.
                 </div>
 
                 <div className="flex items-center gap-3">
                   <div className="rounded-lg bg-white p-1.5">
-                    <QRCodeSVG value={shareUrl} size={64} />
+                    <QRCodeSVG
+                      value={shareUrl}
+                      size={64}
+                    />
                   </div>
 
                   <p className="max-w-[190px] text-[11px] leading-relaxed text-white/55">
-                    Nebo si vůz postavte k sobě domů — naskenujte kód mobilem
-                    a spustí se AR.
+                    Nebo si vůz postavte k sobě domů —
+                    naskenujte kód mobilem a spustí se AR.
                   </p>
                 </div>
               </div>
@@ -802,6 +1127,10 @@ export const ARPreviewButton = ({
           </div>,
           document.body,
         )}
+
+      {/* --------------------------------------------------------------- */}
+      {/* QR                                                               */}
+      {/* --------------------------------------------------------------- */}
 
       {showQR &&
         createPortal(
@@ -811,26 +1140,38 @@ export const ARPreviewButton = ({
           >
             <div
               className="w-full max-w-xs rounded-2xl border border-white/10 bg-[#0b0d12] p-6 text-center shadow-2xl"
-              onClick={(event) => event.stopPropagation()}
+              onClick={(event) =>
+                event.stopPropagation()
+              }
             >
               <div className="mx-auto mb-4 w-fit rounded-xl bg-white p-3">
-                <QRCodeSVG value={shareUrl} size={168} />
+                <QRCodeSVG
+                  value={shareUrl}
+                  size={168}
+                />
               </div>
 
-              <p className="text-sm text-white/85">Naskenujte mobilem</p>
+              <p className="text-sm text-white/85">
+                Naskenujte mobilem
+              </p>
             </div>
           </div>,
           document.body,
         )}
 
-      {/* Po ukončení AR — nejsilnější „wow“ moment, hned nabídneme prohlídku naživo. */}
+      {/* --------------------------------------------------------------- */}
+      {/* AFTER AR                                                        */}
+      {/* --------------------------------------------------------------- */}
+
       {afterAR &&
         onWantLive &&
         createPortal(
           <div className="fixed inset-x-0 bottom-0 z-[65] p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="mx-auto flex max-w-md items-center gap-3 rounded-2xl border border-white/12 bg-[#0b0d12]/95 p-3 shadow-2xl backdrop-blur-xl">
               <p className="flex-1 text-[12px] leading-snug text-white/80">
-                Chcete Pacificu vidět i naživo v Pardubicích?
+                Chcete{" "}
+                {vehicleName || "tento vůz"} vidět
+                i naživo v Pardubicích?
               </p>
 
               <button
@@ -846,7 +1187,9 @@ export const ARPreviewButton = ({
 
               <button
                 type="button"
-                onClick={() => setAfterAR(false)}
+                onClick={() =>
+                  setAfterAR(false)
+                }
                 aria-label="Zavřít nabídku"
                 className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-white/45 hover:bg-white/10"
               >

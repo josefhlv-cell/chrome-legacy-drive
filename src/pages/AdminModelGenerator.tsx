@@ -197,6 +197,57 @@ export default function AdminModelGenerator() {
     [toast, vehicleId],
   );
 
+  /**
+   * Načtení fotek přímo z karty vozu (galerie `vehicle_images`).
+   *
+   * Proč: obsluha už fotky do inzerátu nahrála — nutit ji fotit znovu 16×
+   * do generátoru je zbytečná práce. Bereme je v pořadí z galerie a plníme
+   * jimi sloty, které analýza vzhledu čte. Ruční doplnění dalších fotek
+   * i poškození zůstává beze změny — cokoli tady admin přepíše, platí.
+   */
+  const importFromVehicleCard = useCallback(
+    async (id: string): Promise<number> => {
+      const { data, error } = await supabase
+        .from("vehicle_images")
+        .select("image_url, is_main, sort_order")
+        .eq("vehicle_id", id)
+        .order("is_main", { ascending: false })
+        .order("sort_order", { ascending: true });
+
+      if (error) {
+        toast({ title: "Fotky z karty vozu se nepodařilo načíst", description: error.message, variant: "destructive" });
+        return 0;
+      }
+
+      const urls = (data ?? [])
+        .map((row) => (row.image_url ?? "").trim())
+        .filter((url) => /^https?:\/\//.test(url));
+
+      if (!urls.length) return 0;
+
+      let loaded = 0;
+      for (let i = 0; i < Math.min(urls.length, CARD_SLOT_ORDER.length); i++) {
+        const slotId = CARD_SLOT_ORDER[i];
+        setImporting(`Načítám fotku ${i + 1}/${Math.min(urls.length, CARD_SLOT_ORDER.length)} z karty vozu…`);
+        try {
+          const response = await fetch(urls[i], { mode: "cors" });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          const type = blob.type || "image/jpeg";
+          await uploadSlot(slotId, new File([blob], `${slotId}.jpg`, { type }));
+          loaded++;
+        } catch (e) {
+          // Staré inzeráty mají mrtvé odkazy na legacy server — přeskočíme.
+          console.warn("Fotku z karty vozu nelze použít:", urls[i], e);
+        }
+      }
+      setImporting(null);
+      return loaded;
+    },
+    [toast, uploadSlot],
+  );
+
+
   const removeSlot = async (slotId: string) => {
     const slot = slots[slotId];
     if (slot?.path) await supabase.storage.from("vehicle-photos").remove([slot.path]);

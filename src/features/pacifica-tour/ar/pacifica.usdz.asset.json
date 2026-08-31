@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "asset_id": "19892115-c944-409e-82ae-0711123f25f2",
+  "asset_id": "c797e594-18cf-466e-b42a-9ac708a1e334",
   "project_id": "c84aefff-909b-427b-9038-4e6708c93b3b",
-  "url": "/__l5e/assets-v1/19892115-c944-409e-82ae-0711123f25f2/pacifica.usdz",
-  "r2_key": "a/v1/c84aefff-909b-427b-9038-4e6708c93b3b/19892115-c944-409e-82ae-0711123f25f2/pacifica.usdz",
-  "original_filename": "pacifica.usdz",
-  "size": 10976695,
-  "content_type": "application/zip",
-  "created_at": "2026-08-23T10:54:35Z"
+  "url": "/__l5e/assets-v1/c797e594-18cf-466e-b42a-9ac708a1e334/pacifica-hq.usdz",
+  "r2_key": "a/v1/c84aefff-909b-427b-9038-4e6708c93b3b/c797e594-18cf-466e-b42a-9ac708a1e334/pacifica-hq.usdz",
+  "original_filename": "pacifica-hq.usdz",
+  "size": 30942379,
+  "content_type": "model/vnd.usdz+zip",
+  "created_at": "2026-08-31T16:27:39Z"
 }

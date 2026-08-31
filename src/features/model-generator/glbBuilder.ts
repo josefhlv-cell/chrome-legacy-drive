@@ -539,11 +539,16 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
         trim.metalness = 0.6;
         trim.roughness = profile.roughness;
       } else {
-        trim.color = new THREE.Color("#e6e8ea");
+        /*
+         * Chrom je zrcadlo, ne bílá barva. #e6e8ea s metalness 1 a
+         * envMapIntensity 1,4 přesvítilo lišty i rám mřížky do bílé —
+         * na fotce to vypadalo jako bílý stín kolem masky.
+         */
+        trim.color = new THREE.Color("#b7bcc2");
         trim.metalness = 1;
-        trim.roughness = 0.1;
+        trim.roughness = 0.16;
       }
-      trim.envMapIntensity = 1.4;
+      trim.envMapIntensity = 1;
       mesh.material = trim;
       return;
     }
@@ -562,12 +567,14 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     if (isWheel(name) && wheels) {
       const wheel = src.clone() as THREE.MeshStandardMaterial;
       wheel.color = wheels;
-      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.9;
-      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.18;
-      wheel.envMapIntensity = 1.5;
+      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.85;
+      // Leštěná slitina je kartáčovaný kov, ne chromové zrcátko (0.18 → 0.3).
+      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.3;
+      wheel.envMapIntensity = 1.05;
       mesh.material = wheel;
       return;
     }
+
 
     if (isInterior(name)) {
       const trimIn = src.clone() as THREE.MeshStandardMaterial;

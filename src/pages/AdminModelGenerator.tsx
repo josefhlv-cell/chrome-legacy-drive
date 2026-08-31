@@ -28,8 +28,9 @@ import {
 import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
+import { colorNameToHex } from "@/features/model-generator/colorNames";
 
-type VehicleRow = { id: string; name: string; vin: string | null; ar_model_ready: boolean | null; ar_model_url: string | null };
+type VehicleRow = { id: string; name: string; vin: string | null; ar_model_ready: boolean | null; ar_model_url: string | null; color: string | null; ar_color_hex: string | null };
 
 type SlotState = {
   previewUrl: string;
@@ -70,7 +71,7 @@ export default function AdminModelGenerator() {
     void (async () => {
       const { data, error } = await supabase
         .from("vehicles")
-        .select("id, name, vin, ar_model_ready, ar_model_url")
+        .select("id, name, vin, ar_model_ready, ar_model_url, color, ar_color_hex")
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -275,14 +276,31 @@ export default function AdminModelGenerator() {
         .filter(Boolean)
         .join(" · ");
 
+      /*
+       * VIN barvu neobsahuje, proto ji bereme z karty vozu (ar_color_hex má
+       * přednost, jinak převedeme český název barvy). Bez toho zůstal model
+       * po předvyplnění vždy bílý.
+       */
+      const colorHex =
+        colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+
       setProfile((prev) => {
         const base = prev ?? DEFAULT_PROFILE(vehicleId);
-        return { ...base, wheel_style: wheel, trim_style: trimStyle, notes: summary };
+        return {
+          ...base,
+          body_color_hex: colorHex ?? base.body_color_hex,
+          wheel_style: wheel,
+          trim_style: trimStyle,
+          notes: summary,
+        };
       });
 
       toast({
         title: "Předvyplněno z VIN",
-        description: summary || "Zkontrolujte kola a paket, pak dolaďte barvu podle fotek.",
+        description:
+          [summary, colorHex ? `lak ${vehicle.color ?? colorHex}` : "barvu vozu doplňte ručně"]
+            .filter(Boolean)
+            .join(" · "),
       });
     } catch (e) {
       toast({

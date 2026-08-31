@@ -28,7 +28,12 @@ import {
 import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
-import { colorNameToHex } from "@/features/model-generator/colorNames";
+import { colorNameToHex, colorToPaint } from "@/features/model-generator/colorNames";
+import {
+  OEM_COLORS,
+  oemLabel,
+  resolveOemColor,
+} from "@/features/model-generator/oemColors";
 
 type VehicleRow = { id: string; name: string; vin: string | null; ar_model_ready: boolean | null; ar_model_url: string | null; color: string | null; ar_color_hex: string | null };
 

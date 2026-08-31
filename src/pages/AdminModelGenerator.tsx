@@ -760,7 +760,24 @@ export default function AdminModelGenerator() {
                 {vinLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Info className="h-3.5 w-3.5" />}
                 Předvyplnit z VIN
               </button>
+
+              <button
+                type="button"
+                onClick={() => void importFromVehicleCard(vehicleId)}
+                disabled={!!importing}
+                className="outline-button inline-flex items-center gap-2 text-xs disabled:opacity-50"
+              >
+                {importing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                Načíst fotky z karty vozu
+              </button>
             </div>
+
+            {importing && (
+              <p className="mt-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+                {importing}
+              </p>
+            )}
+
           </section>
         )}
 

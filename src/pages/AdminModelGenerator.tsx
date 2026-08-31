@@ -842,6 +842,31 @@ export default function AdminModelGenerator() {
               </h2>
 
               <label className="block text-xs text-muted-foreground">
+                OEM lak (vzorník Pacifica)
+                <select
+                  value={
+                    OEM_COLORS.find(
+                      (c) =>
+                        c.hex.toLowerCase() === profile.body_color_hex.trim().toLowerCase() &&
+                        c.finish === profile.paint_finish,
+                    )?.codes[0] ?? ""
+                  }
+                  onChange={(e) => {
+                    const oem = resolveOemColor(e.target.value);
+                    if (oem) patch({ body_color_hex: oem.hex, paint_finish: oem.finish });
+                  }}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+                >
+                  <option value="">— vlastní / neuvedeno —</option>
+                  {OEM_COLORS.map((c) => (
+                    <option key={c.codes[0]} value={c.codes[0]}>
+                      {oemLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs text-muted-foreground">
                 Barva laku
                 <div className="mt-1 flex items-center gap-2">
                   <input
@@ -858,6 +883,7 @@ export default function AdminModelGenerator() {
                   />
                 </div>
               </label>
+
 
               <label className="block text-xs text-muted-foreground">
                 Typ laku

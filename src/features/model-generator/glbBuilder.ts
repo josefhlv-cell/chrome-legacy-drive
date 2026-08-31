@@ -10,7 +10,8 @@ import * as THREE from "three";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { DRACOLoader } from "three/examples/jsm/loaders/DRACOLoader.js";
 import { GLTFExporter } from "three/examples/jsm/exporters/GLTFExporter.js";
-import type { AppearanceProfile } from "./appearance";
+import type { AppearanceProfile, Damage } from "./appearance";
+import { resolveWheel, wheelMaterial } from "./wheelCatalog";
 import { compressGLBBuffer, type CompressProgress } from "./compressPipeline";
 
 /** Zprávy z `glbCompress.worker.ts`. */
@@ -354,7 +355,7 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     if (isBody(name)) {
       const paint = new THREE.MeshPhysicalMaterial({
         color: bodyColor,
-        map: damage.color ?? src.map ?? null,
+        map: src.map ?? null,
         // Používáme pouze původní hladké normály modelu. Procedurální reliéf
         // poškození uměl v AR rozbít odlesky a vizuálně „zmačkat“ bok auta.
         normalMap: src.normalMap ?? null,
@@ -372,8 +373,6 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
         sheenColor: new THREE.Color("#ffffff"),
         specularIntensity: profile.paint_finish === "matte" ? 0.3 : 1,
       });
-      // Když kreslíme poškození do mapy, barva už je v textuře — nechceme dvojí tón.
-      if (damage.color) paint.color = new THREE.Color("#ffffff");
       paint.name = name || "body_paint";
       mesh.material = paint;
       return;
@@ -526,14 +525,17 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       return;
     }
 
-    if (isWheel(name) && wheels) {
-      const wheel = src.clone() as THREE.MeshStandardMaterial;
-      wheel.color = wheels;
-      wheel.metalness = profile.wheel_style === "steel_cover" ? 0.5 : 0.85;
-      // Leštěná slitina je kartáčovaný kov, ne chromové zrcátko (0.18 → 0.3).
-      wheel.roughness = profile.wheel_style === "alloy_dark" ? 0.45 : 0.3;
-      wheel.envMapIntensity = 1.05;
-      mesh.material = wheel;
+    /*
+     * Disky: parametry přebírá vždy konkrétní OEM kolo z katalogu (Mopar
+     * diagram). Žádný fallback „nechat jak je“ — jinak měl každý vůz jiná kola.
+     */
+    if (isWheel(name)) {
+      const rim = src.clone() as THREE.MeshStandardMaterial;
+      rim.color = new THREE.Color(wheels.hex);
+      rim.metalness = wheels.metalness;
+      rim.roughness = wheels.roughness;
+      rim.envMapIntensity = 1.05;
+      mesh.material = rim;
       return;
     }
 
@@ -550,6 +552,9 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
     // Ostrost textur na šikmých plochách (kola, spáry) — velký vizuální rozdíl.
     if (src.map) src.map.anisotropy = 8;
   });
+
+  // Poškození až nakonec — decaly se nesmí přebarvit lakem ani plastem.
+  applyDamageDecals(root, profile);
 }
 
 

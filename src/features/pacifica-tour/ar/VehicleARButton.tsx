@@ -66,16 +66,11 @@ export const VehicleARButton = ({
   const arEnabled = useFeatureFlag("feature_vehicle_ar_enabled");
 
   /**
-   * Vlastní model vozu vygenerovaný v /admin/3d-generator.
-   * Bucket `vehicle-models` je privátní, takže potřebujeme podepsaný odkaz.
+   * Modely konkrétního vozu. `resolveVehicleModel` řeší prioritu
+   * (vlastní model → model z 3D generátoru → HQ Pacifica master),
+   * takže tady jen posbíráme dostupné odkazy.
    */
-  const [ownModelUrl, setOwnModelUrl] = useState<string | null>(null);
-  const [modelPath, setModelPath] = useState<string | null>(null);
-  /**
-   * USDZ pro iPhone. Neposílá se podepsaný odkaz — Quick Look neumí hlavičky,
-   * takže soubor doručuje edge funkce `ar-model` se správným MIME typem.
-   */
-  const [ownUsdzUrl, setOwnUsdzUrl] = useState<string | null>(null);
+  const [source, setSource] = useState<VehicleModelSource | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -102,45 +97,56 @@ export const VehicleARButton = ({
         | null;
 
       /*
-       * Nejvyšší prioritu má model přiřazený konkrétnímu vozu
-       * (`model_3d_glb` / `model_3d_usdz`) — hotový soubor s veřejnou URL.
-       * Ten se nijak nepřevádí ani neoptimalizuje, jde přímo do AR.
-       * Když chybí, použije se model vygenerovaný v /admin/3d-generator
-       * a jako poslední fallback nový základní model Pacifiky
-       * (řeší ARPreviewButton).
+       * 1) Vlastní model konkrétního vozu — přímá URL projektového assetu
+       *    nebo odkaz `variant:<key>` na variantu z registru. Nic se
+       *    nepřevádí ani neoptimalizuje, jde přímo do AR.
        */
       const ownGlb = record?.model_3d_glb?.trim() || null;
       const ownUsdz = record?.model_3d_usdz?.trim() || null;
 
       if (ownGlb || ownUsdz) {
-        setOwnModelUrl(ownGlb);
-        setModelPath(ownGlb);
-        setOwnUsdzUrl(ownUsdz);
+        setSource(resolveVehicleModel({ ownGlb, ownUsdz }));
         return;
       }
 
+      /*
+       * 2) Model vygenerovaný v /admin/3d-generator. GLB leží v privátním
+       *    bucketu (podepsaný odkaz), USDZ doručuje edge funkce `ar-model`
+       *    se správným MIME typem — Quick Look neumí vlastní hlavičky.
+       */
       const ready = Boolean(record?.ar_model_ready);
       const path = ready ? record?.ar_model_url ?? null : null;
       const usdz = ready ? record?.ar_model_usdz_url ?? null : null;
-      setModelPath(path);
-      setOwnUsdzUrl(
-        usdz
-          ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
-          : null,
-      );
-      if (!path) return;
+
+      const generatedUsdz = usdz
+        ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
+        : null;
+
+      if (!path) {
+        // 3) Bez vlastního modelu zůstává HQ Pacifica master.
+        setSource(resolveVehicleModel({ generatedUsdz }));
+        return;
+      }
 
       const { data: signed } = await supabase.storage
         .from("vehicle-models")
         .createSignedUrl(path, 3600);
 
-      if (!cancelled) setOwnModelUrl(signed?.signedUrl ?? null);
+      if (!cancelled) {
+        setSource(
+          resolveVehicleModel({
+            generatedGlb: signed?.signedUrl ?? null,
+            generatedUsdz,
+          }),
+        );
+      }
     })();
 
     return () => {
       cancelled = true;
     };
   }, [vehicleId]);
+
 
 
 

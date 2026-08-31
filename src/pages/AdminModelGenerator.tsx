@@ -28,7 +28,7 @@ import {
 import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
-import { colorNameToHex, colorToPaint } from "@/features/model-generator/colorNames";
+import { colorToPaint } from "@/features/model-generator/colorNames";
 import {
   OEM_COLORS,
   oemLabel,

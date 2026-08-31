@@ -65,6 +65,15 @@ const isWheel = (name: string) => {
 };
 /** Brzdové třmeny — grafitový kov, nikdy světlá plocha v kole. */
 const isCaliper = (name: string) => name.toLowerCase().includes("caliper");
+/**
+ * Brzdové kotouče. Bez vlastního pravidla si nechávaly světlý základní
+ * materiál a přes výplet disku prosvítaly jako bílý flek — přesně ten
+ * „duch v kole“, který byl vidět u každé barvy laku.
+ */
+const isRotor = (name: string) => {
+  const n = name.toLowerCase();
+  return n.includes("rotor") || n.includes("brakedisc") || n.includes("kotouc");
+};
 /** Denní svícení — musí svítit, ne být bílý flek v masce. */
 const isDRL = (name: string) => {
   const n = name.toLowerCase();

@@ -28,7 +28,12 @@ import {
 import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
-import { colorNameToHex } from "@/features/model-generator/colorNames";
+import { colorToPaint } from "@/features/model-generator/colorNames";
+import {
+  OEM_COLORS,
+  oemLabel,
+  resolveOemColor,
+} from "@/features/model-generator/oemColors";
 
 type VehicleRow = { id: string; name: string; vin: string | null; ar_model_ready: boolean | null; ar_model_url: string | null; color: string | null; ar_color_hex: string | null };
 
@@ -358,18 +363,19 @@ export default function AdminModelGenerator() {
         .join(" · ");
 
       /*
-       * VIN barvu neobsahuje, proto ji bereme z karty vozu (ar_color_hex má
-       * přednost, jinak převedeme český název barvy). Bez toho zůstal model
-       * po předvyplnění vždy bílý.
+       * VIN barvu neobsahuje, proto ji bereme z karty vozu. Nejdřív se zkusí
+       * OEM vzorník (kód laku nebo oficiální název) — ten dá i správný typ
+       * povrchu (perleť/metalíza). Teprve pak obecný český název.
        */
-      const colorHex =
-        colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+      const paint =
+        colorToPaint(vehicle.ar_color_hex) ?? colorToPaint(vehicle.color);
 
       setProfile((prev) => {
         const base = prev ?? DEFAULT_PROFILE(vehicleId);
         return {
           ...base,
-          body_color_hex: colorHex ?? base.body_color_hex,
+          body_color_hex: paint?.hex ?? base.body_color_hex,
+          paint_finish: paint?.finish ?? base.paint_finish,
           wheel_style: wheel,
           trim_style: trimStyle,
           notes: summary,
@@ -379,7 +385,12 @@ export default function AdminModelGenerator() {
       toast({
         title: "Předvyplněno z VIN",
         description:
-          [summary, colorHex ? `lak ${vehicle.color ?? colorHex}` : "barvu vozu doplňte ručně"]
+          [
+            summary,
+            paint
+              ? `lak ${paint.oemName ?? vehicle.color ?? paint.hex}`
+              : "barvu vozu doplňte ručně",
+          ]
             .filter(Boolean)
             .join(" · "),
       });
@@ -411,10 +422,11 @@ export default function AdminModelGenerator() {
       if (vehicle.vin) {
         await prefillFromVin();
       } else {
-        const colorHex = colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+        const paint = colorToPaint(vehicle.ar_color_hex) ?? colorToPaint(vehicle.color);
         setProfile((prev) => ({
           ...(prev ?? DEFAULT_PROFILE(vehicle.id)),
-          body_color_hex: colorHex ?? DEFAULT_PROFILE(vehicle.id).body_color_hex,
+          body_color_hex: paint?.hex ?? DEFAULT_PROFILE(vehicle.id).body_color_hex,
+          paint_finish: paint?.finish ?? DEFAULT_PROFILE(vehicle.id).paint_finish,
         }));
       }
 
@@ -830,6 +842,31 @@ export default function AdminModelGenerator() {
               </h2>
 
               <label className="block text-xs text-muted-foreground">
+                OEM lak (vzorník Pacifica)
+                <select
+                  value={
+                    OEM_COLORS.find(
+                      (c) =>
+                        c.hex.toLowerCase() === profile.body_color_hex.trim().toLowerCase() &&
+                        c.finish === profile.paint_finish,
+                    )?.codes[0] ?? ""
+                  }
+                  onChange={(e) => {
+                    const oem = resolveOemColor(e.target.value);
+                    if (oem) patch({ body_color_hex: oem.hex, paint_finish: oem.finish });
+                  }}
+                  className="mt-1 w-full rounded-lg border border-border bg-background px-2 py-1.5 text-sm text-foreground"
+                >
+                  <option value="">— vlastní / neuvedeno —</option>
+                  {OEM_COLORS.map((c) => (
+                    <option key={c.codes[0]} value={c.codes[0]}>
+                      {oemLabel(c)}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="block text-xs text-muted-foreground">
                 Barva laku
                 <div className="mt-1 flex items-center gap-2">
                   <input
@@ -846,6 +883,7 @@ export default function AdminModelGenerator() {
                   />
                 </div>
               </label>
+
 
               <label className="block text-xs text-muted-foreground">
                 Typ laku

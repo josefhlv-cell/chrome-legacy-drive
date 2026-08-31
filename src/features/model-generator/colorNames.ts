@@ -1,10 +1,13 @@
 /**
- * Mapování českých názvů barev z karty vozu na hex.
+ * Mapování barvy z karty vozu na hex laku modelu.
  *
- * Proč: při předvyplnění z VIN dekodér barvu nevrací (VIN ji neobsahuje),
- * takže model zůstával vždy bílý. Barvu ale máme u vozu v poli `color`
- * (případně přesnější `ar_color_hex`) — tady ji převedeme na lak modelu.
+ * Priorita:
+ *  1) OEM vzorník Pacifica (kód z štítku nebo oficiální název) — přesná barva,
+ *  2) hex zadaný ručně,
+ *  3) obecný český název („modrá“) jako poslední záchrana.
  */
+import { resolveOemColor } from "./oemColors";
+
 const TABLE: Array<[RegExp, string]> = [
   [/perleť|pearl/i, "#eceff3"],
   [/bílá|bila|white/i, "#e9eaec"],
@@ -29,9 +32,28 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 export const colorNameToHex = (value?: string | null): string | null => {
   if (!value) return null;
   const raw = value.trim();
+  // OEM vzorník má přednost před obecným názvem i před ručním hexem —
+  // kód z štítku je nejpřesnější informace, kterou o laku máme.
+  const oem = resolveOemColor(raw);
+  if (oem) return oem.hex;
   if (HEX.test(raw)) return raw;
   for (const [pattern, hex] of TABLE) {
     if (pattern.test(raw)) return hex;
   }
   return null;
 };
+
+/**
+ * Barva + typ laku v jednom. Používá admin generátor, aby se s barvou
+ * nastavil i správný povrch (perleť vs. metalíza vs. plná barva).
+ */
+export const colorToPaint = (
+  value?: string | null,
+): { hex: string; finish: "solid" | "metallic" | "pearl" | "matte"; oemName?: string } | null => {
+  if (!value) return null;
+  const oem = resolveOemColor(value);
+  if (oem) return { hex: oem.hex, finish: oem.finish, oemName: oem.name };
+  const hex = colorNameToHex(value);
+  return hex ? { hex, finish: "metallic" } : null;
+};
+

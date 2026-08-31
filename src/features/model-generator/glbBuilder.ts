@@ -476,6 +476,17 @@ export function applyProfile(root: THREE.Object3D, profile: AppearanceProfile) {
       return;
     }
 
+    // Brzdové kotouče — tmavá ocel se stopou po broušení, ne světlý flek.
+    if (isRotor(name)) {
+      const rotor = src.clone() as THREE.MeshStandardMaterial;
+      rotor.color = new THREE.Color("#3a3d42");
+      rotor.metalness = 0.85;
+      rotor.roughness = 0.5;
+      rotor.envMapIntensity = 0.7;
+      mesh.material = rotor;
+      return;
+    }
+
     // Brzdové třmeny — grafit, aby v kole nesvítil světlý flek.
     if (isCaliper(name)) {
       const caliper = src.clone() as THREE.MeshStandardMaterial;

@@ -231,7 +231,16 @@ export const ARPreviewButton = ({
    * Konkrétní model vozidla má vždy přednost.
    */
   const glbSrc = modelUrl || MODEL_GLB;
-  const usdzSrc = usdzUrl || MODEL_USDZ;
+  const usdzBase = usdzUrl || MODEL_USDZ;
+
+  /**
+   * iOS Quick Look: allowsContentScaling=0 zamkne měřítko na 1:1,
+   * takže model odpovídá reálným rozměrům vozu (5,19 m) a uživatel
+   * ho nemůže omylem zvětšit/zmenšit gestem.
+   */
+  const usdzSrc = usdzBase.includes("#")
+    ? usdzBase
+    : `${usdzBase}#allowsContentScaling=0`;
 
   const analyticsMeta = useMemo(
     () => ({

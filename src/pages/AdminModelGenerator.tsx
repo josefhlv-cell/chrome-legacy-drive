@@ -390,6 +390,41 @@ export default function AdminModelGenerator() {
     }
   };
 
+  /**
+   * Automatický start: fotky z karty vozu + předvyplnění z VIN.
+   *
+   * Obsluha tak po výběru vozu vidí hotový základ (lak z karty, kola a paket
+   * z VIN, fotky z inzerátu) a jen doladí, co chce. Když fotky ani VIN nejsou,
+   * vychází se z dostupných dat — profil se vytvoří z barvy na kartě vozu.
+   */
+  useEffect(() => {
+    if (!autoPending || !vehicle) return;
+    setAutoPending(false);
+
+    void (async () => {
+      const loaded = await importFromVehicleCard(vehicle.id);
+
+      if (vehicle.vin) {
+        await prefillFromVin();
+      } else {
+        const colorHex = colorNameToHex(vehicle.ar_color_hex) ?? colorNameToHex(vehicle.color);
+        setProfile((prev) => ({
+          ...(prev ?? DEFAULT_PROFILE(vehicle.id)),
+          body_color_hex: colorHex ?? DEFAULT_PROFILE(vehicle.id).body_color_hex,
+        }));
+      }
+
+      toast({
+        title: loaded ? `Načteno z karty vozu (${loaded} fotek)` : "Karta vozu nemá použitelné fotky",
+        description: loaded
+          ? "Zkontrolujte údaje, případně doplňte fotky a poškození."
+          : "Vycházíme z dostupných dat — fotky můžete doplnit ručně.",
+      });
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoPending, vehicle?.id]);
+
+
   /* ------------------------------------------------------------------ */
   /* Úpravy profilu                                                      */
   /* ------------------------------------------------------------------ */

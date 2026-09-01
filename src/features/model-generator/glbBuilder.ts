@@ -744,11 +744,15 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
       // Vnější, lesklé plochy zůstávají v plné kvalitě.
       if (isShowSurface(name)) return;
 
-      const geometry = mesh.geometry.clone() as THREE.BufferGeometry;
+      const original = mesh.geometry as THREE.BufferGeometry;
+      const position = original.getAttribute("position") as THREE.BufferAttribute | undefined;
+      if (!position) return;
+
+      const geometry = original.clone() as THREE.BufferGeometry;
       mesh.geometry = geometry;
 
-
       const vertexCount = position.count;
+
       const indices = geometry.index
         ? new Uint32Array(geometry.index.array as ArrayLike<number>)
         : Uint32Array.from({ length: vertexCount }, (_, i) => i);

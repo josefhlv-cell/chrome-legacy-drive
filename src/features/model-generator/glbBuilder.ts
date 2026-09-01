@@ -726,7 +726,14 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
     };
     await MeshoptSimplifier.ready;
 
-    const clone = cloneVehicleScene(scene);
+    /*
+     * PAMĚŤ: klonuje se jen struktura uzlů — geometrie a materiály se sdílí
+     * s náhledem. Vlastní kopii geometrie dostane pouze mesh, který se
+     * skutečně decimuje (níže), takže se náhled ani cache nepoškodí.
+     * Plný deep-clone celého vozu tady dřív zabil kartu prohlížeče (OOM)
+     * a publikace „PUBLIKOVAT PRO AR“ spadla ještě před zápisem do databáze.
+     */
+    const clone = scene.clone(true) as THREE.Group;
     clone.traverse((object) => {
       const mesh = object as THREE.Mesh;
       if (!mesh.isMesh || !mesh.geometry) return;
@@ -737,9 +744,9 @@ async function decimateForUSDZ(scene: THREE.Object3D, ratio: number): Promise<TH
       // Vnější, lesklé plochy zůstávají v plné kvalitě.
       if (isShowSurface(name)) return;
 
-      const geometry = mesh.geometry as THREE.BufferGeometry;
-      const position = geometry.getAttribute("position") as THREE.BufferAttribute | undefined;
-      if (!position) return;
+      const geometry = mesh.geometry.clone() as THREE.BufferGeometry;
+      mesh.geometry = geometry;
+
 
       const vertexCount = position.count;
       const indices = geometry.index

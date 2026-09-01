@@ -26,7 +26,13 @@ import {
   DAMAGE_PARTS, DEFAULT_PROFILE, TRIM_LABELS, WHEEL_STYLES, isHex,
   type AppearanceProfile, type Damage,
 } from "@/features/model-generator/appearance";
-import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
+import {
+  exportGLB,
+  exportUSDZ,
+  compressGLBInWorker,
+  prepareForExport,
+} from "@/features/model-generator/glbBuilder";
+
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
 import { colorToPaint } from "@/features/model-generator/colorNames";

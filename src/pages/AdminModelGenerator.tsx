@@ -901,6 +901,19 @@ export default function AdminModelGenerator() {
                   {usdzSize !== null ? ` · USDZ ${(usdzSize / 1024 / 1024).toFixed(1)} MB` : ""}
                 </p>
               )}
+              {dimensions && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Rozměry modelu (1:1): {dimensions.length} × {dimensions.width} ×{" "}
+                  {dimensions.height} m · stojí na Y = 0
+                </p>
+              )}
+              {vehicle?.ar_model_ready && (
+                <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-primary">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Vlastní AR model tohoto vozu je
+                  publikovaný
+                </p>
+              )}
+
 
             </div>
 

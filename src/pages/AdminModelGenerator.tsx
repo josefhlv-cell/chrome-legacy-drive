@@ -643,8 +643,10 @@ export default function AdminModelGenerator() {
   const downloadGLB = async () => {
     if (!sceneRef.current) return;
     setExporting(true);
+    // Stejná normalizace jako při publikaci — stažený soubor je 1:1 v metrech.
+    const bundle = prepareForExport(sceneRef.current);
     try {
-      const blob = await compressGLBInWorker(await exportGLB(sceneRef.current), (p) =>
+      const blob = await compressGLBInWorker(await exportGLB(bundle.scene), (p) =>
         setExportStep({ label: p.label, percent: p.percent }),
       );
       const url = URL.createObjectURL(blob);
@@ -654,9 +656,12 @@ export default function AdminModelGenerator() {
       a.click();
       URL.revokeObjectURL(url);
     } finally {
+      bundle.dispose();
       setExporting(false);
+      setTimeout(() => setExportStep(null), 1000);
     }
   };
+
 
   /* ------------------------------------------------------------------ */
   /* Render                                                              */

@@ -133,9 +133,12 @@ export const VehicleARButton = ({
         return;
       }
 
+      // 24 h — QR kód z tiskového letáku i sdílený odkaz musí fungovat i po
+      // hodinách, ne jen v rámci jedné návštěvy.
       const { data: signed } = await supabase.storage
         .from("vehicle-models")
-        .createSignedUrl(path, 3600);
+        .createSignedUrl(path, 86400);
+
 
       if (!cancelled) {
         setSource(

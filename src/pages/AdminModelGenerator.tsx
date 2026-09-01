@@ -26,7 +26,13 @@ import {
   DAMAGE_PARTS, DEFAULT_PROFILE, TRIM_LABELS, WHEEL_STYLES, isHex,
   type AppearanceProfile, type Damage,
 } from "@/features/model-generator/appearance";
-import { exportGLB, exportUSDZ, compressGLBInWorker } from "@/features/model-generator/glbBuilder";
+import {
+  exportGLB,
+  exportUSDZ,
+  compressGLBInWorker,
+  prepareForExport,
+} from "@/features/model-generator/glbBuilder";
+
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
 import ModelPreview from "@/features/model-generator/ModelPreview";
 import { colorToPaint } from "@/features/model-generator/colorNames";
@@ -79,6 +85,11 @@ export default function AdminModelGenerator() {
   const [exportStep, setExportStep] = useState<{ label: string; percent: number } | null>(null);
   const [glbSize, setGlbSize] = useState<number | null>(null);
   const [usdzSize, setUsdzSize] = useState<number | null>(null);
+  /** Změřený bounding box publikovaného modelu v metrech (kontrola 1:1). */
+  const [dimensions, setDimensions] = useState<
+    { length: number; width: number; height: number } | null
+  >(null);
+
   const [vinLoading, setVinLoading] = useState(false);
   /** Automatické načtení z karty vozu — čeká, dokud nemáme řádek vozidla. */
   const [autoPending, setAutoPending] = useState(false);
@@ -503,6 +514,22 @@ export default function AdminModelGenerator() {
   /* Export GLB                                                          */
   /* ------------------------------------------------------------------ */
 
+  /**
+   * Export + publikace modelu KONKRÉTNÍHO vozu.
+   *
+   * PROČ JE TOK PŘESKLÁDANÝ (příčina dřívějšího pádu):
+   *  1) GLB i USDZ se dřív exportovaly z různých průchodů a USDZ se vyráběl
+   *     z DEEP-CLONE celé scény (~1 M trojúhelníků) v hlavním vlákně. Karta
+   *     prohlížeče vyčerpala paměť a spadla — a to PŘED zápisem do databáze.
+   *     Proto v úložišti ležely GLB soubory, ale vůz neměl žádnou vazbu
+   *     (`ar_model_url = null`), takže po reloadu nebyl model nikde vidět.
+   *  2) Teď se scéna připraví jednou (`prepareForExport`, 1 unit = 1 m,
+   *     vůz stojí na Y = 0) a oba formáty vznikají z NÍ — GLB a USDZ jsou
+   *     tak zaručeně tentýž vůz.
+   *  3) Vazba na `vehicle_id` se zapisuje IHNED po nahrání GLB. I když by
+   *     export USDZ na slabším stroji selhal, publikace se už neztratí
+   *     a USDZ se doplní druhým zápisem.
+   */
   const exportAndUpload = async (publish: boolean) => {
     if (!profile || !sceneRef.current) {
       toast({ title: "Náhled ještě není hotový", variant: "destructive" });
@@ -510,78 +537,94 @@ export default function AdminModelGenerator() {
     }
 
     setExporting(true);
-    setExportStep({ label: "Exportuji GLB…", percent: 5 });
+    setExportStep({ label: "Připravuji model (měřítko 1:1)…", percent: 4 });
+
+    const vehicleKey = profile.vehicle_id;
+    const bundle = prepareForExport(sceneRef.current);
+    setDimensions(bundle.dimensions);
+
     try {
-      // 1) GLB pro Android a desktopový 3D náhled.
-      const raw = await exportGLB(sceneRef.current);
+      /* 1) GLB pro Android AR a desktopový 3D náhled. */
+      setExportStep({ label: "Exportuji GLB…", percent: 8 });
+      const raw = await exportGLB(bundle.scene);
 
       // Komprese běží ve Web Workeru — admin UI proto zůstane plynulé.
       const blob = await compressGLBInWorker(raw, (p: CompressProgress) =>
-        setExportStep({ label: p.label, percent: Math.round(p.percent * 0.7) }),
+        setExportStep({ label: p.label, percent: 10 + Math.round(p.percent * 0.5) }),
       );
       setGlbSize(blob.size);
 
-      const path = `${profile.vehicle_id}/vehicle.glb`;
-      setExportStep({ label: "Nahrávám GLB do úložiště…", percent: 74 });
+      const path = `${vehicleKey}/vehicle.glb`;
+      setExportStep({ label: "Nahrávám GLB do úložiště…", percent: 62 });
       const { error: upErr } = await supabase.storage
         .from("vehicle-models")
         .upload(path, blob, { upsert: true, contentType: "model/gltf-binary" });
       if (upErr) throw upErr;
 
       /*
-       * 2) USDZ pro iPhone (AR Quick Look).
-       *
-       * iOS neumí GLB — bez USDZ by zákazník na iPhonu viděl generický bílý
-       * model, ne svůj vůz. Když by export selhal, GLB zůstává publikované
-       * (Android funguje) a jen ohlásíme, že iOS model chybí.
+       * 2) Vazba vehicle_id → model se zapisuje HNED. Publikace tak přežije
+       *    reload i případné selhání USDZ exportu.
+       */
+      setExportStep({ label: "Propojuji model s vozidlem…", percent: 68 });
+      const { error: dbErr } = await supabase
+        .from("vehicles")
+        .update({
+          ar_model_url: path,
+          ar_model_ready: publish,
+          ar_color_hex: profile.body_color_hex,
+        })
+        .eq("id", vehicleKey);
+      if (dbErr) throw dbErr;
+
+      setVehicles((prev) =>
+        prev.map((v) =>
+          v.id === vehicleKey ? { ...v, ar_model_url: path, ar_model_ready: publish } : v,
+        ),
+      );
+
+      /*
+       * 3) USDZ pro iPhone (AR Quick Look) — ze STEJNÉ scény jako GLB.
+       *    Když selže, GLB zůstává publikované (Android + desktop funguje)
+       *    a jen ohlásíme, že iOS model chybí. Stránka nespadne.
        */
       let usdzPath: string | null = null;
       try {
-        setExportStep({ label: "Exportuji USDZ pro iPhone…", percent: 82 });
-        const usdz = await exportUSDZ(sceneRef.current);
+        setExportStep({ label: "Exportuji USDZ pro iPhone…", percent: 78 });
+        const usdz = await exportUSDZ(bundle.scene);
         setUsdzSize(usdz.size);
-        usdzPath = `${profile.vehicle_id}/vehicle.usdz`;
-        setExportStep({ label: "Nahrávám USDZ do úložiště…", percent: 92 });
+        usdzPath = `${vehicleKey}/vehicle.usdz`;
+        setExportStep({ label: "Nahrávám USDZ do úložiště…", percent: 90 });
         const { error: usdzErr } = await supabase.storage
           .from("vehicle-models")
           .upload(usdzPath, usdz, { upsert: true, contentType: "model/vnd.usdz+zip" });
         if (usdzErr) throw usdzErr;
+
+        const { error: usdzDbErr } = await supabase
+          .from("vehicles")
+          .update({ ar_model_usdz_url: usdzPath })
+          .eq("id", vehicleKey);
+        if (usdzDbErr) throw usdzDbErr;
       } catch (e) {
         usdzPath = null;
         setUsdzSize(null);
         console.error("USDZ export selhal:", e);
         toast({
           title: "USDZ pro iPhone se nepodařilo vytvořit",
-          description: "Android AR funguje, na iOS se zobrazí generický model.",
+          description: "Android i desktop AR fungují, na iOS se zobrazí generický model.",
           variant: "destructive",
         });
       }
 
-      setExportStep({ label: "Zapisuji do databáze…", percent: 97 });
-      const { error: dbErr } = await supabase
-        .from("vehicles")
-        .update({
-          ar_model_url: path,
-          ar_model_usdz_url: usdzPath,
-          ar_model_ready: publish,
-          ar_color_hex: profile.body_color_hex,
-        })
-        .eq("id", profile.vehicle_id);
-      if (dbErr) throw dbErr;
-
+      setExportStep({ label: "Zapisuji stav publikace…", percent: 97 });
       await supabase
         .from("vehicle_appearance_profiles")
         .update({ status: publish ? "published" : "exported" })
-        .eq("vehicle_id", profile.vehicle_id);
-
-      setVehicles((prev) =>
-        prev.map((v) => (v.id === profile.vehicle_id ? { ...v, ar_model_url: path, ar_model_ready: publish } : v)),
-      );
+        .eq("vehicle_id", vehicleKey);
 
       setExportStep({ label: "Hotovo", percent: 100 });
       toast({
         title: publish ? "Model publikován pro AR" : "Model uložen",
-        description: `GLB ${(blob.size / 1024 / 1024).toFixed(1)} MB${usdzPath ? " · USDZ pro iPhone připraveno" : ""}`,
+        description: `GLB ${(blob.size / 1024 / 1024).toFixed(1)} MB${usdzPath ? " · USDZ pro iPhone připraveno" : ""} · ${bundle.dimensions.length} × ${bundle.dimensions.width} × ${bundle.dimensions.height} m`,
       });
     } catch (e) {
       toast({
@@ -590,16 +633,20 @@ export default function AdminModelGenerator() {
         variant: "destructive",
       });
     } finally {
+      bundle.dispose();
       setExporting(false);
       setTimeout(() => setExportStep(null), 1500);
     }
   };
 
+
   const downloadGLB = async () => {
     if (!sceneRef.current) return;
     setExporting(true);
+    // Stejná normalizace jako při publikaci — stažený soubor je 1:1 v metrech.
+    const bundle = prepareForExport(sceneRef.current);
     try {
-      const blob = await compressGLBInWorker(await exportGLB(sceneRef.current), (p) =>
+      const blob = await compressGLBInWorker(await exportGLB(bundle.scene), (p) =>
         setExportStep({ label: p.label, percent: p.percent }),
       );
       const url = URL.createObjectURL(blob);
@@ -609,9 +656,12 @@ export default function AdminModelGenerator() {
       a.click();
       URL.revokeObjectURL(url);
     } finally {
+      bundle.dispose();
       setExporting(false);
+      setTimeout(() => setExportStep(null), 1000);
     }
   };
+
 
   /* ------------------------------------------------------------------ */
   /* Render                                                              */
@@ -856,6 +906,19 @@ export default function AdminModelGenerator() {
                   {usdzSize !== null ? ` · USDZ ${(usdzSize / 1024 / 1024).toFixed(1)} MB` : ""}
                 </p>
               )}
+              {dimensions && (
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Rozměry modelu (1:1): {dimensions.length} × {dimensions.width} ×{" "}
+                  {dimensions.height} m · stojí na Y = 0
+                </p>
+              )}
+              {vehicle?.ar_model_ready && (
+                <p className="mt-1 inline-flex items-center gap-1.5 text-xs text-primary">
+                  <CheckCircle2 className="h-3.5 w-3.5" /> Vlastní AR model tohoto vozu je
+                  publikovaný
+                </p>
+              )}
+
 
             </div>
 

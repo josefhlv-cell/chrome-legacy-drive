@@ -85,6 +85,11 @@ export default function AdminModelGenerator() {
   const [exportStep, setExportStep] = useState<{ label: string; percent: number } | null>(null);
   const [glbSize, setGlbSize] = useState<number | null>(null);
   const [usdzSize, setUsdzSize] = useState<number | null>(null);
+  /** Změřený bounding box publikovaného modelu v metrech (kontrola 1:1). */
+  const [dimensions, setDimensions] = useState<
+    { length: number; width: number; height: number } | null
+  >(null);
+
   const [vinLoading, setVinLoading] = useState(false);
   /** Automatické načtení z karty vozu — čeká, dokud nemáme řádek vozidla. */
   const [autoPending, setAutoPending] = useState(false);

@@ -1,7 +1,6 @@
 // ⚡ JSZip se načítá až při exportu (lazy) — nezdržuje start Smart Capture.
 import { slugifyShot, type ShotType } from "./types";
 
-
 export interface ExportPhoto {
   shotType: ShotType;
   originalBlob?: Blob;
@@ -30,7 +29,9 @@ async function urlToBlob(url: string): Promise<Blob | null> {
     const r = await fetch(url);
     if (!r.ok) return null;
     return await r.blob();
-  } catch { return null; }
+  } catch {
+    return null;
+  }
 }
 
 /**
@@ -40,29 +41,57 @@ async function urlToBlob(url: string): Promise<Blob | null> {
  */
 async function reencodeJpeg(
   src: Blob,
-  opts: { maxLongSide: number; quality: number; targetMaxBytes?: number },
+  opts: {
+    maxLongSide: number;
+    quality: number;
+    targetMaxBytes?: number;
+  },
 ): Promise<Blob> {
   const bmp = await createImageBitmap(src);
 
-  const renderAt = async (longSide: number, quality: number): Promise<Blob> => {
-    const scale = Math.min(1, longSide / Math.max(bmp.width, bmp.height));
+  const renderAt = async (
+    longSide: number,
+    quality: number,
+  ): Promise<Blob> => {
+    const scale = Math.min(
+      1,
+      longSide / Math.max(bmp.width, bmp.height),
+    );
+
     const w = Math.max(1, Math.round(bmp.width * scale));
     const h = Math.max(1, Math.round(bmp.height * scale));
-    const canvas = typeof OffscreenCanvas !== "undefined"
-      ? new OffscreenCanvas(w, h)
-      : Object.assign(document.createElement("canvas"), { width: w, height: h });
+
+    const canvas =
+      typeof OffscreenCanvas !== "undefined"
+        ? new OffscreenCanvas(w, h)
+        : Object.assign(document.createElement("canvas"), {
+            width: w,
+            height: h,
+          });
+
     const ctx = (canvas as HTMLCanvasElement).getContext("2d")!;
+
     ctx.drawImage(bmp, 0, 0, w, h);
+
     if (canvas instanceof OffscreenCanvas) {
-      return await canvas.convertToBlob({ type: "image/jpeg", quality });
+      return await canvas.convertToBlob({
+        type: "image/jpeg",
+        quality,
+      });
     }
+
     return await new Promise<Blob>((res) =>
-      (canvas as HTMLCanvasElement).toBlob((b) => res(b!), "image/jpeg", quality),
+      (canvas as HTMLCanvasElement).toBlob(
+        (b) => res(b!),
+        "image/jpeg",
+        quality,
+      ),
     );
   };
 
   let longSide = opts.maxLongSide;
   let q = opts.quality;
+
   let blob = await renderAt(longSide, q);
 
   if (opts.targetMaxBytes) {
@@ -71,28 +100,44 @@ async function reencodeJpeg(
       q -= 0.07;
       blob = await renderAt(longSide, q);
     }
-    // Step 2: if still over, shrink dimensions in 15% steps (guarantees ≤ target)
+
+    // Step 2: if still over, shrink dimensions in 15% steps
+    // (guarantees ≤ target)
     while (blob.size > opts.targetMaxBytes && longSide > 800) {
       longSide = Math.round(longSide * 0.85);
       q = Math.max(q, 0.7);
+
       blob = await renderAt(longSide, q);
+
       while (blob.size > opts.targetMaxBytes && q > 0.45) {
         q -= 0.07;
         blob = await renderAt(longSide, q);
       }
     }
   }
+
   return blob;
 }
 
-function buildInfoTxt(info: VehicleInfo, photoCount: number): string {
+function buildInfoTxt(
+  info: VehicleInfo,
+  photoCount: number,
+): string {
   const line = (k: string, v?: string | number) =>
-    v !== undefined && v !== null && String(v).trim() !== "" ? `${k}: ${v}\n` : "";
+    v !== undefined &&
+    v !== null &&
+    String(v).trim() !== ""
+      ? `${k}: ${v}\n`
+      : "";
+
   const date = new Date().toLocaleString("cs-CZ");
+
   let out = "";
+
   out += "================================================\n";
   out += "  CHRYSLER & DODGE PARDUBICE — VOZIDLO\n";
   out += "================================================\n\n";
+
   out += line("Značka", info.brand);
   out += line("Model", info.model);
   out += line("Rok", info.year);
@@ -103,17 +148,22 @@ function buildInfoTxt(info: VehicleInfo, photoCount: number): string {
   out += line("Převodovka", info.transmission);
   out += line("Barva", info.color);
   out += line("Výkon", info.power);
+
   out += "\n------------------------------------------------\n";
   out += "POPIS VOZIDLA\n";
   out += "------------------------------------------------\n";
+
   out += (info.description?.trim() || "(bez popisu)") + "\n\n";
+
   out += "------------------------------------------------\n";
   out += `Export vytvořen: ${date}\n`;
   out += `Počet fotografií: ${photoCount}\n`;
+
   out += "Složky v ZIP:\n";
   out += "  /original  — originální fotografie (bez komprese)\n";
   out += "  /inzertni  — JPEG, max 1 MB (pro inzertní portály)\n";
   out += "  /web       — JPEG, malé pro web (~300 KB)\n";
+
   return out;
 }
 
@@ -122,19 +172,49 @@ export async function buildSessionZip(
   info: VehicleInfo,
 ): Promise<Blob> {
   const { default: JSZip } = await import("jszip");
+
   const zip = new JSZip();
 
+  // Jedno datum pro celý export.
+  // Používá se jak pro ZIP složku, tak pro názvy všech fotografií.
   const date = new Date().toISOString().slice(0, 10);
-  const safeBrand = (info.brand || "Vozidlo").replace(/[^a-zA-Z0-9-]/g, "");
-  const safeModel = (info.model || "Model").replace(/[^a-zA-Z0-9-]/g, "");
-  const root = zip.folder(`${safeBrand}-${safeModel}-${date}`)!;
+
+  const safeBrand = (info.brand || "Vozidlo").replace(
+    /[^a-zA-Z0-9-]/g,
+    "",
+  );
+
+  const safeModel = (info.model || "Model").replace(
+    /[^a-zA-Z0-9-]/g,
+    "",
+  );
+
+  const root = zip.folder(
+    `${safeBrand}-${safeModel}-${date}`,
+  )!;
+
   const original = root.folder("original")!;
   const inzertni = root.folder("inzertni")!;
   const web = root.folder("web")!;
 
   for (const p of photos) {
-    const name = slugifyShot(p.shotType, p.index);
-    const orig = p.originalBlob ?? (p.originalUrl ? await urlToBlob(p.originalUrl) : null);
+    // Zachová původní pojmenování Smart Capture
+    // a pouze přidá datum exportu před příponu.
+    const baseName = slugifyShot(p.shotType, p.index);
+
+    const dotIndex = baseName.lastIndexOf(".");
+
+    const name =
+      dotIndex > 0
+        ? `${baseName.slice(0, dotIndex)}-${date}${baseName.slice(dotIndex)}`
+        : `${baseName}-${date}`;
+
+    const orig =
+      p.originalBlob ??
+      (p.originalUrl
+        ? await urlToBlob(p.originalUrl)
+        : null);
+
     if (!orig) continue;
 
     // 1) Original — beze změny
@@ -147,6 +227,7 @@ export async function buildSessionZip(
         quality: 0.85,
         targetMaxBytes: 1024 * 1024,
       });
+
       inzertni.file(name, inz);
     } catch {
       inzertni.file(name, orig);
@@ -159,6 +240,7 @@ export async function buildSessionZip(
         quality: 0.78,
         targetMaxBytes: 350 * 1024,
       });
+
       web.file(name, w);
     } catch {
       web.file(name, orig);
@@ -166,15 +248,35 @@ export async function buildSessionZip(
   }
 
   // info.txt
-  root.file("info.txt", buildInfoTxt(info, photos.length));
+  root.file(
+    "info.txt",
+    buildInfoTxt(info, photos.length),
+  );
 
-  return await zip.generateAsync({ type: "blob", compression: "DEFLATE", compressionOptions: { level: 6 } });
+  return await zip.generateAsync({
+    type: "blob",
+    compression: "DEFLATE",
+    compressionOptions: {
+      level: 6,
+    },
+  });
 }
 
-export function downloadBlob(blob: Blob, filename: string) {
+export function downloadBlob(
+  blob: Blob,
+  filename: string,
+) {
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement("a");
-  a.href = url; a.download = filename;
-  document.body.appendChild(a); a.click(); a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  a.href = url;
+  a.download = filename;
+
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+
+  setTimeout(() => {
+    URL.revokeObjectURL(url);
+  }, 1000);
 }

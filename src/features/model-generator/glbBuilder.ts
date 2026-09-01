@@ -565,6 +565,87 @@ export async function buildVehicleScene(profile: AppearanceProfile): Promise<THR
   return scene;
 }
 
+/**
+ * Skutečné fyzické rozměry Chrysler Pacifica (RU, MY2017+) v metrech.
+ * Slouží jako referenční délka pro 1:1 měřítko v AR — stejná hodnota jako
+ * u HQ masteru v `pacificaModels.ts`, aby vůz z nabídky nebyl maketa.
+ */
+export const REAL_DIMENSIONS_M = {
+  length: 5.193,
+  width: 2.2989,
+  height: 1.7514,
+} as const;
+
+export type ExportBundle = {
+  /** Scéna připravená k exportu (1 unit = 1 m, Y-up, stojí na Y = 0). */
+  scene: THREE.Group;
+  /** Změřený bounding box po normalizaci — v metrech. */
+  dimensions: { length: number; width: number; height: number };
+  /** Uvolní pomocné objekty po exportu. */
+  dispose: () => void;
+};
+
+/**
+ * Připraví JEDNU scénu, ze které se exportuje GLB i USDZ.
+ *
+ * PROČ JEDNA SCÉNA PRO OBA FORMÁTY: dřív se GLB i USDZ exportovaly ze dvou
+ * různých průchodů; když jeden z nich selhal, u vozu skončil GLB v jedné
+ * konfiguraci a USDZ v jiné (nebo vůbec). Takhle jsou oba soubory zaručeně
+ * tentýž vůz — stejná geometrie, barva, kola i poškození.
+ *
+ * MĚŘÍTKO: obal (`Group`) dostane uniformní scale tak, aby délka vozu byla
+ * přesně 5,193 m a spodek pneumatik ležel na Y = 0. Scale se aplikuje TADY,
+ * při exportu — nikdy runtime v AR, takže GLB i USDZ jsou fyzicky konzistentní.
+ *
+ * PAMĚŤ: klonuje se pouze struktura uzlů (`clone(true)` sdílí BufferGeometry
+ * i materiály). Plný deep-clone milionu trojúhelníků byl hlavní příčinou pádu
+ * karty prohlížeče při publikaci.
+ */
+export function prepareForExport(source: THREE.Object3D): ExportBundle {
+  const wrapper = new THREE.Group();
+  wrapper.name = "vehicle_root";
+
+  const model = source.clone(true) as THREE.Group;
+  wrapper.add(model);
+  wrapper.updateMatrixWorld(true);
+
+  const box = new THREE.Box3().setFromObject(model);
+  const size = new THREE.Vector3();
+  box.getSize(size);
+
+  // Délka = největší horizontální rozměr (model může být orientovaný na X i Z).
+  const measuredLength = Math.max(size.x, size.z);
+  const scale = measuredLength > 0.01 ? REAL_DIMENSIONS_M.length / measuredLength : 1;
+
+  model.scale.multiplyScalar(scale);
+  wrapper.updateMatrixWorld(true);
+
+  // Posadit na Y = 0 a vycentrovat vodorovně (AR anchor = střed vozu).
+  const scaled = new THREE.Box3().setFromObject(model);
+  const center = new THREE.Vector3();
+  scaled.getCenter(center);
+  model.position.x -= center.x;
+  model.position.z -= center.z;
+  model.position.y -= scaled.min.y;
+  wrapper.updateMatrixWorld(true);
+
+  const final = new THREE.Box3().setFromObject(model);
+  const finalSize = new THREE.Vector3();
+  final.getSize(finalSize);
+
+  return {
+    scene: wrapper,
+    dimensions: {
+      length: Number(Math.max(finalSize.x, finalSize.z).toFixed(4)),
+      width: Number(Math.min(finalSize.x, finalSize.z).toFixed(4)),
+      height: Number(finalSize.y.toFixed(4)),
+    },
+    dispose: () => {
+      wrapper.clear();
+    },
+  };
+}
+
 /** Vyexportuje scénu jako binární GLB (bez komprese). */
 export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -610,6 +691,7 @@ export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.28): Promise<B
   const result = await exporter.parseAsync(light, { maxTextureSize: 2048 });
   return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
 }
+
 
 /**
  * Povrchy, které tvoří vzhled vozu: karoserie, skla, chrom, světla, kola,

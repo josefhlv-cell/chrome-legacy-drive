@@ -86,26 +86,38 @@ export const VehicleARButton = ({
    * takže tady jen posbíráme dostupné odkazy.
    */
   const [source, setSource] = useState<VehicleModelSource | null>(null);
+  const [sourceLoading, setSourceLoading] = useState(true);
+  const [sourceError, setSourceError] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
+    setSource(null);
+    setSourceLoading(true);
+    setSourceError(false);
 
     void (async () => {
-      const { data: row } = await supabase
+      const { data: row, error: modelError } = await supabase
         .from("vehicles")
         .select(
-          "ar_model_url, ar_model_usdz_url, ar_model_ready, model_3d_glb, model_3d_usdz",
+          "ar_model_url, ar_model_usdz_url, ar_model_ready, ar_model_config, model_3d_glb, model_3d_usdz",
         )
         .eq("id", vehicleId)
         .maybeSingle();
 
       if (cancelled) return;
+      if (modelError || !row) {
+        console.error("Model konkrétního vozidla se nepodařilo načíst:", modelError);
+        setSourceError(true);
+        setSourceLoading(false);
+        return;
+      }
 
       const record = row as
         | {
             ar_model_url?: string | null;
             ar_model_usdz_url?: string | null;
             ar_model_ready?: boolean | null;
+            ar_model_config?: unknown;
             model_3d_glb?: string | null;
             model_3d_usdz?: string | null;
           }
@@ -119,15 +131,11 @@ export const VehicleARButton = ({
       const ownGlb = record?.model_3d_glb?.trim() || null;
       const ownUsdz = record?.model_3d_usdz?.trim() || null;
 
-      if (ownGlb || ownUsdz) {
-        setSource(resolveVehicleModel({ ownGlb, ownUsdz }));
-        return;
-      }
-
       /*
-       * 2) Model vygenerovaný v /admin/3d-generator. GLB leží v privátním
-       *    bucketu (podepsaný odkaz), USDZ doručuje edge funkce `ar-model`
-       *    se správným MIME typem — Quick Look neumí vlastní hlavičky.
+       * 2) Model vygenerovaný v /admin/3d-generator. Oba formáty leží v
+       *    privátním bucketu a veřejná funkce `ar-model` je bezpečně doručí
+       *    zákazníkům. Přímé podepisování z anonymního klienta by storage RLS
+       *    správně odmítlo a dříve tím aktivovalo HQ fallback.
        */
       const ready = Boolean(record?.ar_model_ready);
       const path = ready ? record?.ar_model_url ?? null : null;
@@ -136,29 +144,43 @@ export const VehicleARButton = ({
       const generatedUsdz = usdz
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
         : null;
+      const generatedGlb = path
+        ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${path}`
+        : null;
 
-      if (!path) {
-        // 3) Bez vlastního modelu zůstává HQ Pacifica master.
-        setSource(resolveVehicleModel({ generatedUsdz }));
+      if (!path || ownGlb) {
+        /*
+         * Přímý model má absolutní prioritu. Je-li z přímé dvojice dostupný
+         * jen GLB nebo USDZ, druhý formát smí doplnit publikovaná revize
+         * stejného vehicle_id — nikdy HQ fallback.
+         */
+        setSource(resolveVehicleModel({
+          ownGlb,
+          ownUsdz,
+          generatedGlb,
+          generatedUsdz,
+        }));
+        setSourceLoading(false);
         return;
       }
-
-      // 24 h — QR kód z tiskového letáku i sdílený odkaz musí fungovat i po
-      // hodinách, ne jen v rámci jedné návštěvy.
-      const { data: signed } = await supabase.storage
-        .from("vehicle-models")
-        .createSignedUrl(path, 86400);
-
 
       if (!cancelled) {
         setSource(
           resolveVehicleModel({
-            generatedGlb: signed?.signedUrl ?? null,
+            ownGlb,
+            ownUsdz,
+            generatedGlb,
             generatedUsdz,
           }),
         );
+        setSourceLoading(false);
       }
-    })();
+    })().catch((modelError: unknown) => {
+      if (cancelled) return;
+      console.error("Model konkrétního vozidla se nepodařilo připravit:", modelError);
+      setSourceError(true);
+      setSourceLoading(false);
+    });
 
     return () => {
       cancelled = true;
@@ -174,6 +196,32 @@ export const VehicleARButton = ({
     DEFAULT_AR_COLOR;
 
   if (!arEnabled) return null;
+
+  /* Dokud neznáme skutečný zdroj vozidla, tlačítko nesmí dostat HQ fallback. */
+  if (sourceLoading) {
+    return (
+      <div
+        className={`inline-flex h-11 items-center gap-2 rounded-full border border-border bg-secondary/40 px-4 text-xs text-muted-foreground ${className ?? ""}`}
+        role="status"
+        aria-live="polite"
+      >
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        Ověřuji model tohoto vozu…
+      </div>
+    );
+  }
+
+  if (sourceError || !source) {
+    return (
+      <div
+        className={`inline-flex h-11 items-center gap-2 rounded-full border border-destructive/30 bg-destructive/10 px-4 text-xs text-destructive ${className ?? ""}`}
+        role="alert"
+      >
+        <AlertTriangle className="h-3.5 w-3.5" />
+        AR model vozu se nepodařilo ověřit
+      </div>
+    );
+  }
 
   if (!skip && isLoading) {
     return (
@@ -237,6 +285,7 @@ export const VehicleARButton = ({
         autoStart={autoStart}
         modelUrl={source?.glb ?? null}
         usdzUrl={source?.usdz ?? null}
+        allowModelFallback={false}
       />
     </div>
   );

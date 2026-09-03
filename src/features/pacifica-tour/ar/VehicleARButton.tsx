@@ -22,9 +22,11 @@ import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import ARPreviewButton from "./ARPreviewButton";
 import {
+  PACIFICA_HQ_USDZ,
   resolveVehicleModel,
   type VehicleModelSource,
 } from "./pacificaModels";
+
 
 
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */

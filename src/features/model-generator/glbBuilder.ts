@@ -688,7 +688,8 @@ export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.85): Promise<B
    */
   const light = await decimateForUSDZ(scene, ratio);
   const exporter = new USDZExporter();
-  const result = await exporter.parseAsync(light, { maxTextureSize: 2048 });
+  // 4096 px textury: lak, dekaly a interiér zůstanou ostré i na iPhonu.
+  const result = await exporter.parseAsync(light, { maxTextureSize: 4096 });
   return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
 }
 

@@ -34,7 +34,10 @@ import {
 } from "@/features/model-generator/glbBuilder";
 
 import type { CompressProgress } from "@/features/model-generator/compressPipeline";
+import { publishVehicleModel } from "@/features/model-generator/publishModel";
+import AutoModelPrepare from "@/components/admin/AutoModelPrepare";
 import ModelPreview from "@/features/model-generator/ModelPreview";
+
 import { colorToPaint } from "@/features/model-generator/colorNames";
 import {
   OEM_COLORS,

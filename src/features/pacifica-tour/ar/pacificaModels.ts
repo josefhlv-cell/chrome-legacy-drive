@@ -98,8 +98,12 @@ const resolveRef = (
 export type VehicleModelSource = {
   /** GLB pro Android AR a desktopový náhled. */
   glb: string;
-  /** USDZ pro iOS Quick Look. */
-  usdz: string;
+  /**
+   * USDZ pro iOS Quick Look. `null` znamená: vůz má VLASTNÍ model, ale iOS
+   * verze ještě není hotová — v tom případě NESMÍME podstrčit HQ master,
+   * zákazník by v AR viděl jiný vůz, než si prohlíží.
+   */
+  usdz: string | null;
   /** True, pokud jde o model konkrétního vozu (ne HQ fallback). */
   isVehicleSpecific: boolean;
 };
@@ -125,9 +129,14 @@ export const resolveVehicleModel = (input: {
   const genGlb = resolveRef(input.generatedGlb, "glb");
   const genUsdz = resolveRef(input.generatedUsdz, "usdz");
 
+  const vehicleGlb = ownGlb ?? genGlb;
+  const vehicleUsdz = ownUsdz ?? genUsdz;
+  const isVehicleSpecific = Boolean(vehicleGlb || vehicleUsdz);
+
   return {
-    glb: ownGlb ?? genGlb ?? PACIFICA_HQ_GLB,
-    usdz: ownUsdz ?? genUsdz ?? PACIFICA_HQ_USDZ,
-    isVehicleSpecific: Boolean(ownGlb || ownUsdz || genGlb || genUsdz),
+    glb: vehicleGlb ?? PACIFICA_HQ_GLB,
+    // U konkrétního vozu bez vlastního USDZ vracíme null (viz komentář výše).
+    usdz: isVehicleSpecific ? vehicleUsdz ?? null : PACIFICA_HQ_USDZ,
+    isVehicleSpecific,
   };
 };

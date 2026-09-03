@@ -661,14 +661,17 @@ export default function AdminModelGenerator() {
         .update({ status: publish ? "published" : "exported" })
         .eq("vehicle_id", vehicleKey);
 
-      /* Staré revize mažeme až poté, co databáze bezpečně ukazuje na novou. */
-      const obsoletePaths = [previousModel?.ar_model_url, previousModel?.ar_model_usdz_url]
-        .filter((value): value is string => Boolean(value && value !== path && value !== usdzPath));
-      if (obsoletePaths.length > 0) {
-        const { error: cleanupError } = await supabase.storage
-          .from("vehicle-models")
-          .remove(obsoletePaths);
-        if (cleanupError) console.warn("Starou revizi AR modelu se nepodařilo odstranit:", cleanupError);
+      /*
+       * PŘEDCHOZÍ REVIZI NEMAŽEME. Každá publikace vytváří novou verzi v
+       * cestě `<vehicle_id>/<revize>/…`, takže starý model zůstává v úložišti
+       * jako archiv — dá se k němu vrátit, pokud nová verze nevyjde. Dřív se
+       * stará revize automaticky mazala a přepis byl nevratný.
+       */
+      if (previousModel?.ar_model_url && previousModel.ar_model_url !== path) {
+        console.info(
+          "Předchozí revize AR modelu zachována jako verze:",
+          previousModel.ar_model_url,
+        );
       }
 
       setExportStep({ label: "Hotovo", percent: 100 });

@@ -22,9 +22,11 @@ import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import ARPreviewButton from "./ARPreviewButton";
 import {
+  PACIFICA_HQ_USDZ,
   resolveVehicleModel,
   type VehicleModelSource,
 } from "./pacificaModels";
+
 
 
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */
@@ -256,18 +258,20 @@ export const VehicleARButton = ({
   if (!source?.isVehicleSpecific && !isModelSupported(name)) return null;
 
   /*
-   * iPhone/iPad umí jen USDZ. Když má vůz vlastní model, ale iOS verze ještě
-   * není vygenerovaná, radši řekneme pravdu, než abychom podstrčili generickou
-   * Pacificu v jiné barvě a konfiguraci.
+   * iPhone/iPad umí jen USDZ. Když u vozu vlastní iOS verze (ještě) není,
+   * NEZOBRAZUJEME slepou hlášku — zákazník na iPhonu by tak AR neviděl vůbec.
+   * Místo toho pustíme AR s referenčním modelem Pacifiky a jasně řekneme, že
+   * jde o ilustrační vůz (barva a výbava se mohou lišit).
    */
-  if (isIOSDevice() && source?.isVehicleSpecific && !source.usdz) {
+  const iosNeedsFallback = isIOSDevice() && Boolean(source?.isVehicleSpecific) && !source?.usdz;
+  if (iosNeedsFallback && !isModelSupported(name)) {
     return (
       <div
         className={`inline-flex h-11 items-center gap-2 rounded-full border border-border bg-secondary/40 px-4 text-xs text-muted-foreground ${className ?? ""}`}
         role="status"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
-        AR pro iPhone ještě není připraveno
+        AR tohoto vozu je dostupné na Androidu a počítači
       </div>
     );
   }
@@ -281,14 +285,15 @@ export const VehicleARButton = ({
         colorKey={colorHex}
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
-        showColorDisclaimer={!source?.isVehicleSpecific}
+        showColorDisclaimer={!source?.isVehicleSpecific || iosNeedsFallback}
         autoStart={autoStart}
         modelUrl={source?.glb ?? null}
-        usdzUrl={source?.usdz ?? null}
+        usdzUrl={source?.usdz ?? (iosNeedsFallback ? PACIFICA_HQ_USDZ : null)}
         allowModelFallback={false}
       />
     </div>
   );
+
 
 };
 

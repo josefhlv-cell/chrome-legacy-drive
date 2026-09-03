@@ -285,6 +285,7 @@ export const VehicleARButton = ({
         autoStart={autoStart}
         modelUrl={source?.glb ?? null}
         usdzUrl={source?.usdz ?? null}
+        allowModelFallback={false}
       />
     </div>
   );

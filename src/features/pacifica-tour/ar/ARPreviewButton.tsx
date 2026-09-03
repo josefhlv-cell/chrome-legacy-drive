@@ -46,6 +46,8 @@ type Props = {
   showColorDisclaimer?: boolean;
   modelUrl?: string | null;
   usdzUrl?: string | null;
+  /** Jen hlavní prohlídka smí použít HQ fallback; karta konkrétního vozu ne. */
+  allowModelFallback?: boolean;
 };
 
 const detectPlatform = (): Platform => {
@@ -227,19 +229,20 @@ export const ARPreviewButton = ({
   showColorDisclaimer = false,
   modelUrl = null,
   usdzUrl = null,
+  allowModelFallback = true,
 }: Props) => {
   /**
    * Konkrétní model vozidla má vždy přednost.
    */
-  const glbSrc = modelUrl || MODEL_GLB;
-  const usdzBase = usdzUrl || MODEL_USDZ;
+  const glbSrc = modelUrl || (allowModelFallback ? MODEL_GLB : "");
+  const usdzBase = usdzUrl || (allowModelFallback ? MODEL_USDZ : "");
 
   /**
    * iOS Quick Look: allowsContentScaling=0 zamkne měřítko na 1:1,
    * takže model odpovídá reálným rozměrům vozu (5,19 m) a uživatel
    * ho nemůže omylem zvětšit/zmenšit gestem.
    */
-  const usdzSrc = usdzBase.includes("#")
+  const usdzSrc = !usdzBase || usdzBase.includes("#")
     ? usdzBase
     : `${usdzBase}#allowsContentScaling=0`;
 

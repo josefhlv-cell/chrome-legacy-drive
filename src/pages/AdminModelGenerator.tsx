@@ -542,6 +542,8 @@ export default function AdminModelGenerator() {
     const vehicleKey = profile.vehicle_id;
     const bundle = prepareForExport(sceneRef.current);
     setDimensions(bundle.dimensions);
+    let uploadedGlbPath: string | null = null;
+    let uploadedUsdzPath: string | null = null;
 
     try {
       /* 1) GLB pro Android AR a desktopový 3D náhled. */
@@ -562,8 +564,6 @@ export default function AdminModelGenerator() {
       const generatedAt = new Date().toISOString();
       const revision = `v-${Date.now().toString(36)}`;
       const path = `${vehicleKey}/${revision}/vehicle.glb`;
-      let uploadedGlbPath: string | null = null;
-      let uploadedUsdzPath: string | null = null;
 
       const { data: previousModel } = await supabase
         .from("vehicles")

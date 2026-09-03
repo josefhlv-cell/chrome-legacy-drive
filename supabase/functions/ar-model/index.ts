@@ -23,15 +23,31 @@ const DEFAULT_SOURCE = `${PROJECT_URL}/storage/v1/object/public/vehicles/ar/paci
  * bucketu `vehicle-models`. Quick Look neumí posílat hlavičky ani cookies,
  * takže soubor musíme přečíst servisním klíčem tady a poslat ho dál.
  *
- * URL formát: /functions/v1/ar-model/v/<vehicleId>/vehicle.usdz
+ * URL formát:
+ *   /functions/v1/ar-model/v/<vehicleId>/vehicle.usdz
+ *   /functions/v1/ar-model/v/<vehicleId>/<revision>/vehicle.usdz
  */
 const resolveSource = (url: URL): { source: string; headers?: Record<string, string> } => {
-  const match = url.pathname.match(/\/ar-model\/v\/([^/]+)\/([^/]+\.usdz)$/);
+  const match = url.pathname.match(/\/ar-model\/v\/(.+\.usdz)$/);
   if (!match) return { source: DEFAULT_SOURCE };
+
+  const storagePath = match[1]
+    .split("/")
+    .map((part) => decodeURIComponent(part))
+    .join("/");
+
+  // Funkce smí číst jen očekávané relativní cesty k USDZ souborům.
+  if (
+    storagePath.includes("..") ||
+    storagePath.startsWith("/") ||
+    !/^[0-9a-zA-Z._/-]+\.usdz$/.test(storagePath)
+  ) {
+    return { source: DEFAULT_SOURCE };
+  }
 
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   return {
-    source: `${PROJECT_URL}/storage/v1/object/vehicle-models/${match[1]}/${match[2]}`,
+    source: `${PROJECT_URL}/storage/v1/object/vehicle-models/${storagePath}`,
     headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
   };
 };

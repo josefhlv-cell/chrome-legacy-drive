@@ -72,11 +72,18 @@ export async function compressGLBBuffer(
   report("prune");
   await doc.transform(functions.prune());
   report("weld");
-  await doc.transform(functions.weld());
+  /*
+   * tolerance 0 = svařují se jen BITOVĚ shodné vrcholy. Výchozí tolerance
+   * slučovala i blízké vrcholy přes UV/normálové švy, což na lesklém laku
+   * dělalo vlny a fazety. Kvalita vzhledu má prioritu nad velikostí.
+   */
+  await doc.transform(functions.weld({ tolerance: 0 }));
 
   report("textures");
   try {
-    await doc.transform(functions.textureCompress({ targetFormat: "webp", resize: [4096, 4096] }));
+    await doc.transform(
+      functions.textureCompress({ targetFormat: "webp", resize: [4096, 4096], quality: 95 }),
+    );
   } catch (error) {
     // WebP kodek nemusí být v daném prostředí dostupný — geometrii to nebrání.
     console.warn("compressPipeline: komprese textur přeskočena", error);

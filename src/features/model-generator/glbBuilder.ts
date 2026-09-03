@@ -673,7 +673,7 @@ export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
  * na iPhonu nikdy neukázala. USDZ vyrobíme ze stejné scény jako GLB,
  * takže lak, skla, kola i poškození jsou identické na obou platformách.
  */
-export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.85): Promise<Blob> {
+export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.7): Promise<Blob> {
   const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
 
   /*
@@ -687,11 +687,22 @@ export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.85): Promise<B
    * jaký je v původním modelu.
    */
   const light = await decimateForUSDZ(scene, ratio);
+
+  // Necháme prohlížeč vydechnout (uvolní paměť po decimaci) — bez tohoto
+  // yieldu se USDZ export a decimace potkaly ve stejném GC okně a karta padala.
+  await new Promise((resolve) => setTimeout(resolve, 50));
+
   const exporter = new USDZExporter();
-  // 4096 px textury: lak, dekaly a interiér zůstanou ostré i na iPhonu.
-  const result = await exporter.parseAsync(light, { maxTextureSize: 4096 });
+  /*
+   * 2048 px textury. PROČ NE 4096: USDZ nese textury NEKOMPRIMOVANÉ a
+   * exportér si je nejdřív celé vyrenderuje do canvasu v paměti. Se 4096 px
+   * a plnou geometrií karta prohlížeče vyčerpala paměť a spadla ještě před
+   * dokončením publikace. 2048 px je na iPhonu vizuálně nerozlišitelné.
+   */
+  const result = await exporter.parseAsync(light, { maxTextureSize: 2048 });
   return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
 }
+
 
 
 /**

@@ -554,12 +554,29 @@ export default function AdminModelGenerator() {
       );
       setGlbSize(blob.size);
 
-      const path = `${vehicleKey}/vehicle.glb`;
+      /*
+       * Každá publikace dostane novou, stabilní revizi cesty. Nepřepisujeme
+       * `vehicle.glb` na stejné URL: CDN/model-viewer by jinak mohly i po
+       * publikaci vrátit předchozí binární obsah ze své cache.
+       */
+      const generatedAt = new Date().toISOString();
+      const revision = `v-${Date.now().toString(36)}`;
+      const path = `${vehicleKey}/${revision}/vehicle.glb`;
+      let uploadedGlbPath: string | null = null;
+      let uploadedUsdzPath: string | null = null;
+
+      const { data: previousModel } = await supabase
+        .from("vehicles")
+        .select("ar_model_url, ar_model_usdz_url")
+        .eq("id", vehicleKey)
+        .maybeSingle();
+
       setExportStep({ label: "Nahrávám GLB do úložiště…", percent: 62 });
       const { error: upErr } = await supabase.storage
         .from("vehicle-models")
-        .upload(path, blob, { upsert: true, contentType: "model/gltf-binary" });
+        .upload(path, blob, { upsert: false, contentType: "model/gltf-binary" });
       if (upErr) throw upErr;
+      uploadedGlbPath = path;
 
       /*
        * 2) Vazba vehicle_id → model se zapisuje HNED. Publikace tak přežije
@@ -583,13 +600,15 @@ export default function AdminModelGenerator() {
             wheel_condition: profile.wheel_condition ?? null,
             interior_color_hex: profile.interior_color_hex ?? null,
             damages: profile.damages ?? [],
-            generated_at: new Date().toISOString(),
+            generated_at: generatedAt,
+            revision,
           } as never,
           // Starý USDZ se maže — jinak by iPhone ukazoval předchozí verzi vozu.
           ar_model_usdz_url: null,
         })
         .eq("id", vehicleKey);
       if (dbErr) throw dbErr;
+      uploadedGlbPath = null;
 
       setVehicles((prev) =>
         prev.map((v) =>
@@ -607,25 +626,31 @@ export default function AdminModelGenerator() {
         setExportStep({ label: "Exportuji USDZ pro iPhone…", percent: 78 });
         const usdz = await exportUSDZ(bundle.scene);
         setUsdzSize(usdz.size);
-        usdzPath = `${vehicleKey}/vehicle.usdz`;
+        usdzPath = `${vehicleKey}/${revision}/vehicle.usdz`;
         setExportStep({ label: "Nahrávám USDZ do úložiště…", percent: 90 });
         const { error: usdzErr } = await supabase.storage
           .from("vehicle-models")
-          .upload(usdzPath, usdz, { upsert: true, contentType: "model/vnd.usdz+zip" });
+          .upload(usdzPath, usdz, { upsert: false, contentType: "model/vnd.usdz+zip" });
         if (usdzErr) throw usdzErr;
+        uploadedUsdzPath = usdzPath;
 
         const { error: usdzDbErr } = await supabase
           .from("vehicles")
           .update({ ar_model_usdz_url: usdzPath })
           .eq("id", vehicleKey);
         if (usdzDbErr) throw usdzDbErr;
+        uploadedUsdzPath = null;
       } catch (e) {
+        if (uploadedUsdzPath) {
+          await supabase.storage.from("vehicle-models").remove([uploadedUsdzPath]);
+          uploadedUsdzPath = null;
+        }
         usdzPath = null;
         setUsdzSize(null);
         console.error("USDZ export selhal:", e);
         toast({
           title: "USDZ pro iPhone se nepodařilo vytvořit",
-          description: "Android i desktop AR fungují, na iOS se zobrazí generický model.",
+          description: "Android i desktop AR fungují, na iOS se zobrazí bezpečný stav bez náhrady jiným vozem.",
           variant: "destructive",
         });
       }
@@ -636,12 +661,28 @@ export default function AdminModelGenerator() {
         .update({ status: publish ? "published" : "exported" })
         .eq("vehicle_id", vehicleKey);
 
+      /* Staré revize mažeme až poté, co databáze bezpečně ukazuje na novou. */
+      const obsoletePaths = [previousModel?.ar_model_url, previousModel?.ar_model_usdz_url]
+        .filter((value): value is string => Boolean(value && value !== path && value !== usdzPath));
+      if (obsoletePaths.length > 0) {
+        const { error: cleanupError } = await supabase.storage
+          .from("vehicle-models")
+          .remove(obsoletePaths);
+        if (cleanupError) console.warn("Starou revizi AR modelu se nepodařilo odstranit:", cleanupError);
+      }
+
       setExportStep({ label: "Hotovo", percent: 100 });
       toast({
         title: publish ? "Model publikován pro AR" : "Model uložen",
         description: `GLB ${(blob.size / 1024 / 1024).toFixed(1)} MB${usdzPath ? " · USDZ pro iPhone připraveno" : ""} · ${bundle.dimensions.length} × ${bundle.dimensions.width} × ${bundle.dimensions.height} m`,
       });
     } catch (e) {
+      /* Pokud selže vazba do DB, nově nahraný soubor nesmí zůstat orphan. */
+      const orphanPaths = [uploadedGlbPath, uploadedUsdzPath]
+        .filter((value): value is string => Boolean(value));
+      if (orphanPaths.length > 0) {
+        await supabase.storage.from("vehicle-models").remove(orphanPaths);
+      }
       toast({
         title: "Export selhal",
         description: e instanceof Error ? e.message : "Neznámá chyba",

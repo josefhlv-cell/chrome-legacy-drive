@@ -572,6 +572,21 @@ export default function AdminModelGenerator() {
           ar_model_url: path,
           ar_model_ready: publish,
           ar_color_hex: profile.body_color_hex,
+          // Skutečné rozměry ověřené při normalizaci scény (1 unit = 1 m).
+          ar_model_dimensions: bundle.dimensions as never,
+          // Konfigurace, ze které model vznikl — po reloadu je dohledatelná.
+          ar_model_config: {
+            body_color_hex: profile.body_color_hex,
+            paint_finish: profile.paint_finish,
+            trim_style: profile.trim_style,
+            wheel_style: profile.wheel_style,
+            wheel_condition: profile.wheel_condition ?? null,
+            interior_color_hex: profile.interior_color_hex ?? null,
+            damages: profile.damages ?? [],
+            generated_at: new Date().toISOString(),
+          } as never,
+          // Starý USDZ se maže — jinak by iPhone ukazoval předchozí verzi vozu.
+          ar_model_usdz_url: null,
         })
         .eq("id", vehicleKey);
       if (dbErr) throw dbErr;

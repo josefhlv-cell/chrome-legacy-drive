@@ -76,7 +76,7 @@ export async function compressGLBBuffer(
 
   report("textures");
   try {
-    await doc.transform(functions.textureCompress({ targetFormat: "webp", resize: [2048, 2048] }));
+    await doc.transform(functions.textureCompress({ targetFormat: "webp", resize: [4096, 4096] }));
   } catch (error) {
     // WebP kodek nemusí být v daném prostředí dostupný — geometrii to nebrání.
     console.warn("compressPipeline: komprese textur přeskočena", error);

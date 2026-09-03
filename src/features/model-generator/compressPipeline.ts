@@ -73,11 +73,10 @@ export async function compressGLBBuffer(
   await doc.transform(functions.prune());
   report("weld");
   /*
-   * tolerance 0 = svařují se jen BITOVĚ shodné vrcholy. Výchozí tolerance
-   * slučovala i blízké vrcholy přes UV/normálové švy, což na lesklém laku
-   * dělalo vlny a fazety. Kvalita vzhledu má prioritu nad velikostí.
+   * weld() v této verzi slučuje pouze BITOVĚ shodné vrcholy, takže UV ani
+   * normálové švy na laku nezmizí (žádné vlny ani fazety na karoserii).
    */
-  await doc.transform(functions.weld({ tolerance: 0 }));
+  await doc.transform(functions.weld());
 
   report("textures");
   try {

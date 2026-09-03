@@ -197,6 +197,23 @@ export const VehicleARButton = ({
    */
   if (!source?.isVehicleSpecific && !isModelSupported(name)) return null;
 
+  /*
+   * iPhone/iPad umí jen USDZ. Když má vůz vlastní model, ale iOS verze ještě
+   * není vygenerovaná, radši řekneme pravdu, než abychom podstrčili generickou
+   * Pacificu v jiné barvě a konfiguraci.
+   */
+  if (isIOSDevice() && source?.isVehicleSpecific && !source.usdz) {
+    return (
+      <div
+        className={`inline-flex h-11 items-center gap-2 rounded-full border border-border bg-secondary/40 px-4 text-xs text-muted-foreground ${className ?? ""}`}
+        role="status"
+      >
+        <AlertTriangle className="h-3.5 w-3.5" />
+        AR pro iPhone ještě není připraveno
+      </div>
+    );
+  }
+
   return (
     <div className={className}>
       <ARPreviewButton

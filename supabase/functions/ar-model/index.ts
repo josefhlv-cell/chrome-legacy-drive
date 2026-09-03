@@ -1,5 +1,6 @@
 /**
- * ar-model — doručí USDZ model pro iOS AR Quick Look se SPRÁVNÝM MIME typem.
+ * ar-model — doručí privátní GLB/USDZ konkrétního vozu bez odhalení
+ * servisního klíče. USDZ zároveň dostane správný MIME typ pro Quick Look.
  *
  * Proč to existuje:
  *  - Safari (AR Quick Look) spustí AR jen tehdy, když soubor přijde jako
@@ -27,9 +28,9 @@ const DEFAULT_SOURCE = `${PROJECT_URL}/storage/v1/object/public/vehicles/ar/paci
  *   /functions/v1/ar-model/v/<vehicleId>/vehicle.usdz
  *   /functions/v1/ar-model/v/<vehicleId>/<revision>/vehicle.usdz
  */
-const resolveSource = (url: URL): { source: string; headers?: Record<string, string> } => {
-  const match = url.pathname.match(/\/ar-model\/v\/(.+\.usdz)$/);
-  if (!match) return { source: DEFAULT_SOURCE };
+const resolveSource = (url: URL): { source: string; headers?: Record<string, string>; kind: "glb" | "usdz" } => {
+  const match = url.pathname.match(/\/ar-model\/v\/(.+\.(glb|usdz))$/);
+  if (!match) return { source: DEFAULT_SOURCE, kind: "usdz" };
 
   const storagePath = match[1]
     .split("/")
@@ -40,15 +41,16 @@ const resolveSource = (url: URL): { source: string; headers?: Record<string, str
   if (
     storagePath.includes("..") ||
     storagePath.startsWith("/") ||
-    !/^[0-9a-zA-Z._/-]+\.usdz$/.test(storagePath)
+    !/^[0-9a-zA-Z._/-]+\.(glb|usdz)$/.test(storagePath)
   ) {
-    return { source: DEFAULT_SOURCE };
+    return { source: DEFAULT_SOURCE, kind: "usdz" };
   }
 
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
   return {
     source: `${PROJECT_URL}/storage/v1/object/vehicle-models/${storagePath}`,
     headers: { Authorization: `Bearer ${serviceKey}`, apikey: serviceKey },
+    kind: match[2] === "glb" ? "glb" : "usdz",
   };
 };
 
@@ -67,7 +69,7 @@ Deno.serve(async (req) => {
 
   try {
     const range = req.headers.get("range");
-    const { source, headers: authHeaders } = resolveSource(new URL(req.url));
+    const { source, headers: authHeaders, kind } = resolveSource(new URL(req.url));
 
     const upstream = await fetch(source, {
       method: req.method === "HEAD" ? "GET" : req.method,
@@ -83,8 +85,10 @@ Deno.serve(async (req) => {
     }
 
     const headers = new Headers(corsHeaders);
-    // Klíčová část: správný USDZ MIME typ pro AR Quick Look.
-    headers.set("Content-Type", "model/vnd.usdz+zip");
+    headers.set(
+      "Content-Type",
+      kind === "glb" ? "model/gltf-binary" : "model/vnd.usdz+zip",
+    );
     headers.set("Cache-Control", "public, max-age=31536000, immutable");
     headers.set("Accept-Ranges", "bytes");
 

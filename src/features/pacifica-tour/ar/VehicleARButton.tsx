@@ -132,9 +132,10 @@ export const VehicleARButton = ({
       const ownUsdz = record?.model_3d_usdz?.trim() || null;
 
       /*
-       * 2) Model vygenerovaný v /admin/3d-generator. GLB leží v privátním
-       *    bucketu (podepsaný odkaz), USDZ doručuje edge funkce `ar-model`
-       *    se správným MIME typem — Quick Look neumí vlastní hlavičky.
+       * 2) Model vygenerovaný v /admin/3d-generator. Oba formáty leží v
+       *    privátním bucketu a veřejná funkce `ar-model` je bezpečně doručí
+       *    zákazníkům. Přímé podepisování z anonymního klienta by storage RLS
+       *    správně odmítlo a dříve tím aktivovalo HQ fallback.
        */
       const ready = Boolean(record?.ar_model_ready);
       const path = ready ? record?.ar_model_url ?? null : null;
@@ -142,6 +143,9 @@ export const VehicleARButton = ({
 
       const generatedUsdz = usdz
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
+        : null;
+      const generatedGlb = path
+        ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${path}`
         : null;
 
       if (!path || ownGlb) {
@@ -153,29 +157,19 @@ export const VehicleARButton = ({
         setSource(resolveVehicleModel({
           ownGlb,
           ownUsdz,
+          generatedGlb,
           generatedUsdz,
         }));
         setSourceLoading(false);
         return;
       }
 
-      // 24 h — QR kód z tiskového letáku i sdílený odkaz musí fungovat i po
-      // hodinách, ne jen v rámci jedné návštěvy.
-      const { data: signed } = await supabase.storage
-        .from("vehicle-models")
-        .createSignedUrl(path, 86400);
-
       if (!cancelled) {
-        if (!signed?.signedUrl) {
-          setSourceError(true);
-          setSourceLoading(false);
-          return;
-        }
         setSource(
           resolveVehicleModel({
             ownGlb,
             ownUsdz,
-            generatedGlb: signed?.signedUrl ?? null,
+            generatedGlb,
             generatedUsdz,
           }),
         );

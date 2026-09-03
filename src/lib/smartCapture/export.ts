@@ -1,5 +1,5 @@
 // ⚡ JSZip se načítá až při exportu (lazy) — nezdržuje start Smart Capture.
-import { slugifyShot, type ShotType } from "./types";
+import { type ShotType } from "./types";
 
 export interface ExportPhoto {
   shotType: ShotType;
@@ -8,6 +8,46 @@ export interface ExportPhoto {
   originalUrl?: string;
   processedUrl?: string;
   index: number;
+  /** Skutečné datum pořízení fotografie (ISO). Použije se v názvu souboru. */
+  capturedAt?: string | null;
+}
+
+/**
+ * Název fotografie v ZIP exportu:
+ *   POŘADÍ_ZNAČKA_MODEL_ROK_BARVA_DATUM.jpg
+ * např. 01_CHRYSLER_PACIFICA_2022_GRANITE_CRYSTAL_2026-09-03.jpg
+ *
+ * PROČ: obchodník potřebuje z názvu okamžitě poznat vůz i den fotografování,
+ * aniž by otevíral složku. Fotky samotné (kvalita, rozlišení, komprese)
+ * se tímto nijak nemění — přejmenovává se pouze při exportu.
+ */
+const asciiToken = (value?: string | number | null): string =>
+  String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+const isoDate = (value?: string | null): string => {
+  const d = value ? new Date(value) : new Date();
+  return (Number.isNaN(d.getTime()) ? new Date() : d).toISOString().slice(0, 10);
+};
+
+export function buildPhotoFileName(
+  photo: ExportPhoto,
+  info: VehicleInfo,
+): string {
+  const order = String(photo.index + 1).padStart(2, "0");
+  const parts = [
+    order,
+    asciiToken(info.brand) || "VOZIDLO",
+    asciiToken(info.model) || "MODEL",
+    asciiToken(info.year),
+    asciiToken(info.color),
+    isoDate(photo.capturedAt),
+  ].filter(Boolean);
+  return `${parts.join("_")}.jpg`;
 }
 
 export interface VehicleInfo {
@@ -198,16 +238,8 @@ export async function buildSessionZip(
   const web = root.folder("web")!;
 
   for (const p of photos) {
-    // Zachová původní pojmenování Smart Capture
-    // a pouze přidá datum exportu před příponu.
-    const baseName = slugifyShot(p.shotType, p.index);
-
-    const dotIndex = baseName.lastIndexOf(".");
-
-    const name =
-      dotIndex > 0
-        ? `${baseName.slice(0, dotIndex)}-${date}${baseName.slice(dotIndex)}`
-        : `${baseName}-${date}`;
+    // POŘADÍ_ZNAČKA_MODEL_ROK_BARVA_DATUM.jpg
+    const name = buildPhotoFileName(p, info);
 
     const orig =
       p.originalBlob ??

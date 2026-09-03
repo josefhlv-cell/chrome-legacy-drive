@@ -603,10 +603,15 @@ export default function SmartCapture() {
       });
 
       const items: ExportPhoto[] = photos.map((p, i) => {
-        const row = p as { shot_type: ShotType; original_url: string; processed_url: string };
+        const row = p as {
+          shot_type: ShotType; original_url: string; processed_url: string;
+          created_at?: string;
+        };
         return {
           shotType: row.shot_type, index: i,
           originalUrl: row.original_url, processedUrl: row.processed_url,
+          // Skutečné datum pořízení → součást názvu souboru v ZIPu.
+          capturedAt: row.created_at ?? null,
         };
       });
       const zip = await buildSessionZip(items, vehicleInfo);

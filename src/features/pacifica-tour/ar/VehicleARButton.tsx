@@ -30,6 +30,16 @@ import {
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */
 const DEFAULT_AR_COLOR = "#e9eaec";
 
+/** iOS (včetně iPadOS 13+, které se hlásí jako Mac s touchem). */
+const isIOSDevice = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1)
+  );
+};
+
 /** Jediný model, který máme k dispozici ve 3D/AR. */
 const isModelSupported = (name?: string | null): boolean =>
   !!name && /pacifica/i.test(name);
@@ -196,6 +206,23 @@ export const VehicleARButton = ({
    * úplně jiné auto.
    */
   if (!source?.isVehicleSpecific && !isModelSupported(name)) return null;
+
+  /*
+   * iPhone/iPad umí jen USDZ. Když má vůz vlastní model, ale iOS verze ještě
+   * není vygenerovaná, radši řekneme pravdu, než abychom podstrčili generickou
+   * Pacificu v jiné barvě a konfiguraci.
+   */
+  if (isIOSDevice() && source?.isVehicleSpecific && !source.usdz) {
+    return (
+      <div
+        className={`inline-flex h-11 items-center gap-2 rounded-full border border-border bg-secondary/40 px-4 text-xs text-muted-foreground ${className ?? ""}`}
+        role="status"
+      >
+        <AlertTriangle className="h-3.5 w-3.5" />
+        AR pro iPhone ještě není připraveno
+      </div>
+    );
+  }
 
   return (
     <div className={className}>

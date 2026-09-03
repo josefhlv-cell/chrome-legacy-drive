@@ -30,6 +30,16 @@ import {
 /** Fallback, když vůz nemá vyplněné `ar_color_hex` — perleťově bílá. */
 const DEFAULT_AR_COLOR = "#e9eaec";
 
+/** iOS (včetně iPadOS 13+, které se hlásí jako Mac s touchem). */
+const isIOSDevice = (): boolean => {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  return (
+    /iPad|iPhone|iPod/.test(ua) ||
+    (/Macintosh/.test(ua) && (navigator.maxTouchPoints ?? 0) > 1)
+  );
+};
+
 /** Jediný model, který máme k dispozici ve 3D/AR. */
 const isModelSupported = (name?: string | null): boolean =>
   !!name && /pacifica/i.test(name);

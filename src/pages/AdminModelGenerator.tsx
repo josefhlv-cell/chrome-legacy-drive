@@ -649,7 +649,14 @@ export default function AdminModelGenerator() {
       </header>
 
       <main className="container mx-auto space-y-6 px-4 py-6">
+        {/*
+          Automatická příprava modelů pro celou nabídku. Běží hned po otevření
+          stránky, takže nově přidané vozy mají AR připravené bez zásahu.
+        */}
+        <AutoModelPrepare />
+
         {/* 1) Výběr vozu */}
+
         <section className="rounded-xl border border-border/60 bg-card p-4">
           <h2 className="mb-3 font-montserrat text-sm font-semibold uppercase tracking-wider text-foreground">
             1 · Vozidlo

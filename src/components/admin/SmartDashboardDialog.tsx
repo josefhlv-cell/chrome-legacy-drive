@@ -100,9 +100,18 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
       const items: ExportPhoto[] = rows.map((r, i) => ({
         shotType: r.shot_type, index: i,
         originalUrl: r.original_url, processedUrl: r.processed_url,
+        // Datum pořízení fotky (fallback: vznik session) → název souboru.
+        capturedAt: (r as { created_at?: string }).created_at ?? selected.created_at,
       }));
-      const decoded = (selected.decoded_data ?? {}) as { make?: string; model?: string };
-      const blob = await buildSessionZip(items, { brand: decoded.make || "Vozidlo", model: decoded.model || "Model" });
+      const decoded = (selected.decoded_data ?? {}) as {
+        make?: string; model?: string; year?: string | number; color?: string;
+      };
+      const blob = await buildSessionZip(items, {
+        brand: decoded.make || "Vozidlo",
+        model: decoded.model || "Model",
+        year: decoded.year,
+        color: decoded.color,
+      });
       downloadBlob(blob, `smart-capture-${selected.id.slice(0, 8)}.zip`);
     } catch (e) {
       toast({ title: "Export ZIP selhal", description: String(e), variant: "destructive" });

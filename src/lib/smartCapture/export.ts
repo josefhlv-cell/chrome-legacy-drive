@@ -1,5 +1,5 @@
 // ⚡ JSZip se načítá až při exportu (lazy) — nezdržuje start Smart Capture.
-import { slugifyShot, type ShotType } from "./types";
+import { type ShotType } from "./types";
 
 export interface ExportPhoto {
   shotType: ShotType;

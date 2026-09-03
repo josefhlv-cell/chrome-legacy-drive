@@ -1158,6 +1158,8 @@ export type Database = {
       vehicles: {
         Row: {
           ar_color_hex: string | null
+          ar_model_config: Json | null
+          ar_model_dimensions: Json | null
           ar_model_ready: boolean
           ar_model_url: string | null
           ar_model_usdz_url: string | null
@@ -1210,6 +1212,8 @@ export type Database = {
         }
         Insert: {
           ar_color_hex?: string | null
+          ar_model_config?: Json | null
+          ar_model_dimensions?: Json | null
           ar_model_ready?: boolean
           ar_model_url?: string | null
           ar_model_usdz_url?: string | null
@@ -1262,6 +1266,8 @@ export type Database = {
         }
         Update: {
           ar_color_hex?: string | null
+          ar_model_config?: Json | null
+          ar_model_dimensions?: Json | null
           ar_model_ready?: boolean
           ar_model_url?: string | null
           ar_model_usdz_url?: string | null

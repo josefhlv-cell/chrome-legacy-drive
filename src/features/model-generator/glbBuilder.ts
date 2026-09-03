@@ -673,7 +673,7 @@ export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
  * na iPhonu nikdy neukázala. USDZ vyrobíme ze stejné scény jako GLB,
  * takže lak, skla, kola i poškození jsou identické na obou platformách.
  */
-export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.55): Promise<Blob> {
+export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.85): Promise<Blob> {
   const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
 
   /*
@@ -688,7 +688,8 @@ export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.55): Promise<B
    */
   const light = await decimateForUSDZ(scene, ratio);
   const exporter = new USDZExporter();
-  const result = await exporter.parseAsync(light, { maxTextureSize: 2048 });
+  // 4096 px textury: lak, dekaly a interiér zůstanou ostré i na iPhonu.
+  const result = await exporter.parseAsync(light, { maxTextureSize: 4096 });
   return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
 }
 

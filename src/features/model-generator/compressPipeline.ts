@@ -72,11 +72,17 @@ export async function compressGLBBuffer(
   report("prune");
   await doc.transform(functions.prune());
   report("weld");
+  /*
+   * weld() v této verzi slučuje pouze BITOVĚ shodné vrcholy, takže UV ani
+   * normálové švy na laku nezmizí (žádné vlny ani fazety na karoserii).
+   */
   await doc.transform(functions.weld());
 
   report("textures");
   try {
-    await doc.transform(functions.textureCompress({ targetFormat: "webp", resize: [4096, 4096] }));
+    await doc.transform(
+      functions.textureCompress({ targetFormat: "webp", resize: [4096, 4096], quality: 95 }),
+    );
   } catch (error) {
     // WebP kodek nemusí být v daném prostředí dostupný — geometrii to nebrání.
     console.warn("compressPipeline: komprese textur přeskočena", error);

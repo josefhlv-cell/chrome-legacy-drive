@@ -152,35 +152,55 @@ export async function publishVehicleModel(input: {
     let usdzPath: string | null = null;
     let usdzSize: number | null = null;
     if (withUsdz) {
-      try {
-        report("Exportuji USDZ pro iPhone…", 78);
-        const usdz = await exportUSDZ(bundle.scene);
-        usdzSize = usdz.size;
-        const candidate = `${vehicleKey}/${revision}/vehicle.usdz`;
+      /*
+       * USDZ se zkouší VŽDY hned po GLB — bez něj by iPhone spadl na ilustrační
+       * Pacificu. Když první (nejkvalitnější) pokus vyčerpá paměť, zkusíme ještě
+       * úspornější variantu; lehce zjednodušený vlastní model je pro zákazníka
+       * pořád mnohem pravdivější než cizí vůz.
+       */
+      const attempts: Array<{ ratio: number; label: string }> = [
+        { ratio: 0.7, label: "Exportuji USDZ pro iPhone…" },
+        { ratio: 0.35, label: "USDZ znovu, úsporněji…" },
+      ];
+      let lastError: unknown = null;
 
-        report("Nahrávám USDZ do úložiště…", 90);
-        const { error: usdzErr } = await supabase.storage
-          .from("vehicle-models")
-          .upload(candidate, usdz, { upsert: false, contentType: "model/vnd.usdz+zip" });
-        if (usdzErr) throw usdzErr;
-        uploadedUsdzPath = candidate;
+      for (const attempt of attempts) {
+        try {
+          report(attempt.label, 78);
+          const usdz = await exportUSDZ(bundle.scene, attempt.ratio);
+          usdzSize = usdz.size;
+          const candidate = `${vehicleKey}/${revision}/vehicle.usdz`;
 
-        const { error: usdzDbErr } = await supabase
-          .from("vehicles")
-          .update({ ar_model_usdz_url: candidate })
-          .eq("id", vehicleKey);
-        if (usdzDbErr) throw usdzDbErr;
-        uploadedUsdzPath = null;
-        usdzPath = candidate;
-      } catch (e) {
-        if (uploadedUsdzPath) {
-          await supabase.storage.from("vehicle-models").remove([uploadedUsdzPath]);
+          report("Nahrávám USDZ do úložiště…", 90);
+          const { error: usdzErr } = await supabase.storage
+            .from("vehicle-models")
+            .upload(candidate, usdz, { upsert: true, contentType: "model/vnd.usdz+zip" });
+          if (usdzErr) throw usdzErr;
+          uploadedUsdzPath = candidate;
+
+          const { error: usdzDbErr } = await supabase
+            .from("vehicles")
+            .update({ ar_model_usdz_url: candidate })
+            .eq("id", vehicleKey);
+          if (usdzDbErr) throw usdzDbErr;
           uploadedUsdzPath = null;
+          usdzPath = candidate;
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e;
+          if (uploadedUsdzPath) {
+            await supabase.storage.from("vehicle-models").remove([uploadedUsdzPath]);
+            uploadedUsdzPath = null;
+          }
+          usdzSize = null;
+          console.error("USDZ export selhal (ratio " + attempt.ratio + "):", e);
+          // Pauza uvolní paměť po neúspěšném exportu, aby druhý pokus měl šanci.
+          await new Promise((resolve) => setTimeout(resolve, 300));
         }
-        usdzSize = null;
-        console.error("USDZ export selhal:", e);
-        onUsdzError?.(e);
       }
+
+      if (lastError) onUsdzError?.(lastError);
     }
 
     report("Zapisuji stav publikace…", 97);

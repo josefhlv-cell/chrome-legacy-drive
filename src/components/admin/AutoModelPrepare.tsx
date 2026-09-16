@@ -40,6 +40,8 @@ let runningGlobally = false;
 export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) => {
   const { toast } = useToast();
   const [pending, setPending] = useState<PendingVehicle[] | null>(null);
+  /** Hotové vozy se starým, těžkým souborem pro iPhone (přebalení na kliknutí). */
+  const [stale, setStale] = useState<PendingVehicle[]>([]);
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState<{ name: string; label: string; percent: number } | null>(
     null,

@@ -165,22 +165,34 @@ export async function publishVehicleModel(input: {
        * úspornější variantu; lehce zjednodušený vlastní model je pro zákazníka
        * pořád mnohem pravdivější než cizí vůz.
        */
-      const attempts: Array<{ ratio: number; label: string }> = [
-        { ratio: 0.7, label: "Exportuji USDZ pro iPhone…" },
-        { ratio: 0.35, label: "USDZ znovu, úsporněji…" },
+      /*
+       * Pořadí pokusů: nejdřív se šetří TEXTURY, geometrie se sahá až nakonec.
+       * PROČ: zvlněná karoserie je vidět na první pohled, menší textura ne.
+       *  1) plná geometrie + malé textury (1024)
+       *  2) plná geometrie + ještě menší textury (512)
+       *  3) teprve pak snížíme geometrii (ratio)
+       */
+      const attempts: Array<{ ratio: number; maxTextureSize: number; label: string }> = [
+        { ratio: 1, maxTextureSize: 1024, label: "Exportuji USDZ pro iPhone…" },
+        { ratio: 1, maxTextureSize: 512, label: "USDZ znovu, menší textury…" },
+        { ratio: 0.7, maxTextureSize: 512, label: "USDZ znovu, úsporněji…" },
+        { ratio: 0.35, maxTextureSize: 512, label: "USDZ poslední pokus…" },
       ];
       let lastError: unknown = null;
 
       for (const attempt of attempts) {
         try {
           report(attempt.label, 78);
-          const usdz = await exportUSDZ(bundle.scene, attempt.ratio);
+          const usdz = await exportUSDZ(bundle.scene, attempt.ratio, {
+            maxTextureSize: attempt.maxTextureSize,
+          });
           usdzSize = usdz.size;
           const candidate = `${vehicleKey}/${revision}/vehicle.usdz`;
 
           report("Nahrávám USDZ do úložiště…", 90);
           const { error: usdzErr } = await supabase.storage
             .from("vehicle-models")
+
             .upload(candidate, usdz, { upsert: true, contentType: "model/vnd.usdz+zip" });
           if (usdzErr) throw usdzErr;
           uploadedUsdzPath = candidate;

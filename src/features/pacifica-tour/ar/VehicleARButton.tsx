@@ -303,8 +303,16 @@ export const VehicleARButton = ({
         usdzUrl={source?.usdz ?? null}
         allowModelFallback={false}
       />
+
+      {/* Poctivá poznámka: model vznikl jen z údajů z inzerátu, ne z fotek. */}
+      {approximateModel && (
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          Barva a kola podle údajů z inzerátu — rozměry odpovídají skutečnému vozu.
+        </p>
+      )}
     </div>
   );
+
 
 
 

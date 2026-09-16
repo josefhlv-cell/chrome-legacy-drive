@@ -127,18 +127,30 @@ Deno.serve(async (req) => {
     if (!vehicleId) return json({ error: "vehicleId je povinné" }, 400);
     if (!Object.keys(photos).length) return json({ error: "Chybí fotografie" }, 400);
 
-    // 1) Fotky pro analýzu → base64 (odkazy Gemini limituje, base64 ne).
+    // 1) Vybereme max MAX_PHOTOS fotek v prioritním pořadí (jedna analýza na vůz).
+    const selected: string[] = [];
+    for (const slot of ANALYSIS_SLOTS) {
+      if (selected.length >= MAX_PHOTOS) break;
+      if (photos[slot]) selected.push(slot);
+    }
+    for (const slot of OPTIONAL_SLOTS) {
+      if (selected.length >= MAX_PHOTOS) break;
+      if (photos[slot]) selected.push(slot);
+    }
+
+    // 2) Fotky → base64 (odkazy Gemini limituje, base64 ne).
     const parts: unknown[] = [
       {
         type: "text",
         text:
           "Analyzuj tento konkrétní vůz z přiložených fotografií a vrať JSON profil vzhledu. " +
           "Fotky jsou v pořadí: " +
-          ANALYSIS_SLOTS.filter((s) => photos[s]).join(", "),
+          selected.join(", ") +
+          ". U každé vady uveď do photo_slot název fotky, na které je vidět.",
       },
     ];
 
-    for (const slot of ANALYSIS_SLOTS) {
+    for (const slot of selected) {
       const path = photos[slot];
       if (!path) continue;
 
@@ -157,6 +169,7 @@ Deno.serve(async (req) => {
     }
 
     if (parts.length < 2) return json({ error: "Žádnou fotografii se nepodařilo načíst" }, 400);
+
 
     // 2) Vision analýza (bez umělého timeoutu — model si vezme, co potřebuje).
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {

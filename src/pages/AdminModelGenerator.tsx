@@ -23,7 +23,7 @@ import {
 import { preparePhoto, type ValidationIssue } from "@/features/model-generator/photoUpload";
 import { wheelFromTrim } from "@/features/model-generator/wheelCatalog";
 import {
-  DAMAGE_PARTS, DEFAULT_PROFILE, TRIM_LABELS, WHEEL_STYLES, isHex,
+  DAMAGE_FACES, DAMAGE_PARTS, DEFAULT_PROFILE, TRIM_LABELS, WHEEL_STYLES, isHex,
   type AppearanceProfile, type Damage,
 } from "@/features/model-generator/appearance";
 import {

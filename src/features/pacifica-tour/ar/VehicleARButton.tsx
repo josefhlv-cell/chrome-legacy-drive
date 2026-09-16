@@ -99,6 +99,8 @@ export const VehicleARButton = ({
     setSource(null);
     setSourceLoading(true);
     setSourceError(false);
+    setApproximateModel(false);
+
 
     void (async () => {
       const { data: row, error: modelError } = await supabase

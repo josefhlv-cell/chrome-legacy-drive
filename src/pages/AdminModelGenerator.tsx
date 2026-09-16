@@ -331,7 +331,10 @@ export default function AdminModelGenerator() {
         ...saved,
         wheel_style: prev?.wheel_style ?? wheelFromEquipment,
         damages: saved.damages ?? [],
+        // Vzhled je z FOTEK tohoto vozu — na kartě se smí ukázat jako „toto auto“.
+        source: "photos",
       }));
+
       setAnalysisStep("");
 
       const warnings = ((data as { analysis?: { warnings?: string[] } }).analysis?.warnings ?? []).slice(0, 3);

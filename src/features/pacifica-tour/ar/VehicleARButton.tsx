@@ -138,10 +138,19 @@ export const VehicleARButton = ({
        *    privátním bucketu a veřejná funkce `ar-model` je bezpečně doručí
        *    zákazníkům. Přímé podepisování z anonymního klienta by storage RLS
        *    správně odmítlo a dříve tím aktivovalo HQ fallback.
+       *
+       *    PRAVDA NA KARTĚ: jako „tento vůz“ bereme jen model postavený podle
+       *    FOTEK vozu (`source: "photos"`) nebo ručně doladěný adminem
+       *    (`"manual"`). Model složený jen z barvy z inzerátu (`"card"`) je
+       *    interní náhled — zákazníkovi by tvrdil něco, co jsme neověřili.
        */
+      const config = (record?.ar_model_config ?? null) as { source?: string } | null;
+      const configSource = typeof config?.source === "string" ? config.source : "card";
+      const trusted = configSource === "photos" || configSource === "manual";
+
       const ready = Boolean(record?.ar_model_ready);
-      const path = ready ? record?.ar_model_url ?? null : null;
-      const usdz = ready ? record?.ar_model_usdz_url ?? null : null;
+      const path = ready && trusted ? record?.ar_model_url ?? null : null;
+      const usdz = ready && trusted ? record?.ar_model_usdz_url ?? null : null;
 
       const generatedUsdz = usdz
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
@@ -150,23 +159,12 @@ export const VehicleARButton = ({
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${path}`
         : null;
 
-      if (!path || ownGlb) {
+      if (!cancelled) {
         /*
          * Přímý model má absolutní prioritu. Je-li z přímé dvojice dostupný
          * jen GLB nebo USDZ, druhý formát smí doplnit publikovaná revize
          * stejného vehicle_id — nikdy HQ fallback.
          */
-        setSource(resolveVehicleModel({
-          ownGlb,
-          ownUsdz,
-          generatedGlb,
-          generatedUsdz,
-        }));
-        setSourceLoading(false);
-        return;
-      }
-
-      if (!cancelled) {
         setSource(
           resolveVehicleModel({
             ownGlb,
@@ -188,6 +186,7 @@ export const VehicleARButton = ({
       cancelled = true;
     };
   }, [vehicleId]);
+
 
 
 

@@ -74,7 +74,18 @@ export const DEFAULT_PROFILE = (vehicleId: string): AppearanceProfile => ({
   wheel_style: DEFAULT_WHEEL_ID,
   damages: [],
   interior_color_hex: "#2b2b2e",
+  source: "card",
 });
+
+/** Popisky stran pro admin select u vady. */
+export const DAMAGE_FACES: { id: DamageFace; label: string }[] = [
+  { id: "left", label: "Levý bok" },
+  { id: "right", label: "Pravý bok" },
+  { id: "front", label: "Předek" },
+  { id: "rear", label: "Zadek" },
+  { id: "top", label: "Kapota / střecha" },
+];
+
 
 /**
  * Seznam kol pro admin select — jediným zdrojem pravdy je OEM katalog

@@ -40,6 +40,8 @@ let runningGlobally = false;
 export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) => {
   const { toast } = useToast();
   const [pending, setPending] = useState<PendingVehicle[] | null>(null);
+  /** Hotové vozy se starým, těžkým souborem pro iPhone (přebalení na kliknutí). */
+  const [stale, setStale] = useState<PendingVehicle[]>([]);
   const [running, setRunning] = useState(false);
   const [current, setCurrent] = useState<{ name: string; label: string; percent: number } | null>(
     null,
@@ -51,28 +53,49 @@ export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) 
   const loadPending = useCallback(async () => {
     const { data, error } = await supabase
       .from("vehicles")
-      .select("id, name, color, ar_color_hex, ar_model_ready, ar_model_usdz_url, status")
+      .select(
+        "id, name, color, ar_color_hex, ar_model_ready, ar_model_usdz_url, ar_model_config, status",
+      )
       .neq("status", "prodano")
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Seznam vozů pro přípravu modelů se nepodařilo načíst:", error);
       setPending([]);
+      setStale([]);
       return [] as PendingVehicle[];
     }
 
-    const list = (data ?? [])
-      .filter((v) => SUPPORTED.test(v.name ?? ""))
+    const supported = (data ?? []).filter((v) => SUPPORTED.test(v.name ?? ""));
+    const seed = (v: (typeof supported)[number]): PendingVehicle => ({
+      id: v.id,
+      name: v.name ?? "Vozidlo",
+      color: v.color,
+      ar_color_hex: v.ar_color_hex,
+    });
+
+    const list = supported
       // Chybí GLB (Android/desktop) NEBO USDZ (iPhone) → model není hotový.
       .filter((v) => !v.ar_model_ready || !v.ar_model_usdz_url)
-      .map((v) => ({
-        id: v.id,
-        name: v.name ?? "Vozidlo",
-        color: v.color,
-        ar_color_hex: v.ar_color_hex,
-      }));
+      .map(seed);
+
+    /*
+     * Hotové vozy, které vznikly ještě starým (těžkým) exportem pro iPhone.
+     * Nepřepisujeme je automaticky — jen je nabídneme obsluze k přebalení.
+     */
+    const staleList = supported
+      .filter((v) => v.ar_model_ready && v.ar_model_usdz_url)
+      .filter((v) => {
+        const config = (v.ar_model_config ?? null) as
+          | { usdz_profile?: string; glb_size?: number }
+          | null;
+        // Starý profil NEBO soubor, u kterého se nepovedla komprese geometrie.
+        return config?.usdz_profile !== "light" || (config?.glb_size ?? Infinity) > 12_000_000;
+      })
+      .map(seed);
 
     setPending(list);
+    setStale(staleList);
     return list;
   }, []);
 
@@ -141,21 +164,40 @@ export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) 
           </p>
         </div>
 
-        <button
-          type="button"
-          className="outline-button inline-flex items-center gap-1.5 text-xs"
-          onClick={() => void run()}
-          disabled={running || count === 0}
-        >
-          {running ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : count === 0 ? (
-            <CheckCircle2 className="h-3.5 w-3.5" />
-          ) : (
-            <Play className="h-3.5 w-3.5" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="outline-button inline-flex items-center gap-1.5 text-xs"
+            onClick={() => void run()}
+            disabled={running || count === 0}
+          >
+            {running ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : count === 0 ? (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {running ? "Připravuji…" : count === 0 ? "Vše připraveno" : `Připravit (${count})`}
+          </button>
+
+          {/*
+            Přebalení jen na výslovné kliknutí — hotové modely se nikdy
+            nepřepisují samy.
+          */}
+          {stale.length > 0 && (
+            <button
+              type="button"
+              className="outline-button inline-flex items-center gap-1.5 text-xs"
+              onClick={() => void run(stale)}
+              disabled={running}
+              title="Znovu vytvoří soubor pro iPhone v úsporném formátu (vzhled vozu zůstane)"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Zmenšit pro iPhone ({stale.length})
+            </button>
           )}
-          {running ? "Připravuji…" : count === 0 ? "Vše připraveno" : `Připravit (${count})`}
-        </button>
+        </div>
       </div>
 
       {current && (

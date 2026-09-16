@@ -69,9 +69,20 @@ export async function compressGLBBuffer(
   let dracoReady = false;
   try {
     const draco3d = (await import("draco3dgltf")).default as {
-      createEncoderModule: () => Promise<unknown>;
+      createEncoderModule: (config?: { locateFile?: (file: string) => string }) => Promise<unknown>;
     };
-    io.registerDependencies({ "draco3d.encoder": await draco3d.createEncoderModule() });
+    /*
+     * Kodér si sám hledá `draco_encoder.wasm` vedle svého JS — to v balíčku
+     * neexistuje, server vrátil index.html a komprese tiše spadla na pouhou
+     * kvantizaci (model pak zůstal ~4× větší). Soubor proto servírujeme
+     * z /draco/ a cestu k němu předáme napevno.
+     */
+    io.registerDependencies({
+      "draco3d.encoder": await draco3d.createEncoderModule({
+        locateFile: (file: string) =>
+          file.endsWith(".wasm") ? "/draco/draco_encoder.wasm" : file,
+      }),
+    });
     dracoReady = true;
   } catch (error) {
     console.warn("compressPipeline: Draco kodér není dostupný, použiji kvantizaci", error);

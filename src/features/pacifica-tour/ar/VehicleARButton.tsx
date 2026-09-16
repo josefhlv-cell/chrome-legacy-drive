@@ -22,10 +22,10 @@ import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import ARPreviewButton from "./ARPreviewButton";
 import {
-  PACIFICA_HQ_USDZ,
   resolveVehicleModel,
   type VehicleModelSource,
 } from "./pacificaModels";
+
 
 
 

@@ -51,21 +51,34 @@ export async function compressGLBBuffer(
 
   report("load");
 
-  const [{ WebIO }, { EXTMeshoptCompression, KHRMeshQuantization }, functions, meshopt] =
-    await Promise.all([
-      import("@gltf-transform/core"),
-      import("@gltf-transform/extensions"),
-      import("@gltf-transform/functions"),
-      import("meshoptimizer"),
-    ]);
+  const [{ WebIO }, extensions, functions] = await Promise.all([
+    import("@gltf-transform/core"),
+    import("@gltf-transform/extensions"),
+    import("@gltf-transform/functions"),
+  ]);
+  const { KHRDracoMeshCompression, KHRMeshQuantization } = extensions;
 
-  const { MeshoptEncoder } = meshopt as unknown as { MeshoptEncoder: { ready: Promise<void> } };
-  await MeshoptEncoder.ready;
+  const io = new WebIO().registerExtensions([KHRDracoMeshCompression, KHRMeshQuantization]);
 
-  const io = new WebIO().registerExtensions([EXTMeshoptCompression, KHRMeshQuantization]);
-  io.registerDependencies({ "meshopt.encoder": MeshoptEncoder });
+  /*
+   * Draco je jediná komprese geometrie, kterou model-viewer (Android AR
+   * i desktopový náhled) umí dekódovat sám. Kdyby se kodér v prohlížeči
+   * nepodařilo nahrát, spadneme na čistou kvantizaci — ta je podporovaná
+   * všude, jen je soubor větší.
+   */
+  let dracoReady = false;
+  try {
+    const draco3d = (await import("draco3dgltf")).default as {
+      createEncoderModule: () => Promise<unknown>;
+    };
+    io.registerDependencies({ "draco3d.encoder": await draco3d.createEncoderModule() });
+    dracoReady = true;
+  } catch (error) {
+    console.warn("compressPipeline: Draco kodér není dostupný, použiji kvantizaci", error);
+  }
 
   const doc = await io.readBinary(new Uint8Array(input));
+
 
   report("dedup");
   await doc.transform(functions.dedup());
@@ -89,9 +102,33 @@ export async function compressGLBBuffer(
   }
 
   report("encode");
-  doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({
-    method: EXTMeshoptCompression.EncoderMethod.QUANTIZE,
-  });
+  /*
+   * KRITICKÉ: nikdy nepoužívat EXT_meshopt_compression.
+   *
+   * PROČ: model-viewer (Android AR i desktopový náhled) umí Draco a KTX2,
+   * ale meshopt dekodér neobsahuje — takto komprimované modely se nikdy
+   * nenačetly ("setMeshoptDecoder must be called") a zákazník viděl v AR
+   * prázdnou scénu. Draco zmenší geometrii ~4×, kvantizace je záloha.
+   */
+  if (dracoReady) {
+    await doc.transform(
+      functions.draco({
+        method: "edgebreaker",
+        quantizePosition: 14,
+        quantizeNormal: 10,
+        quantizeTexcoord: 12,
+      }),
+    );
+  } else {
+    await doc.transform(
+      functions.quantize({
+        quantizePosition: 14,
+        quantizeNormal: 10,
+        quantizeTexcoord: 12,
+      }),
+    );
+  }
+
 
   const out = await io.writeBinary(doc);
   report("done");
@@ -99,3 +136,4 @@ export async function compressGLBBuffer(
   const buffer = (out as Uint8Array).buffer as ArrayBuffer;
   return buffer.byteLength > 0 && buffer.byteLength < input.byteLength ? buffer : null;
 }
+

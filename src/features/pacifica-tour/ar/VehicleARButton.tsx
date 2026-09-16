@@ -90,12 +90,17 @@ export const VehicleARButton = ({
   const [source, setSource] = useState<VehicleModelSource | null>(null);
   const [sourceLoading, setSourceLoading] = useState(true);
   const [sourceError, setSourceError] = useState(false);
+  /** True = model vznikl jen z údajů z inzerátu (barva je orientační). */
+  const [approximateModel, setApproximateModel] = useState(false);
+
 
   useEffect(() => {
     let cancelled = false;
     setSource(null);
     setSourceLoading(true);
     setSourceError(false);
+    setApproximateModel(false);
+
 
     void (async () => {
       const { data: row, error: modelError } = await supabase
@@ -146,11 +151,19 @@ export const VehicleARButton = ({
        */
       const config = (record?.ar_model_config ?? null) as { source?: string } | null;
       const configSource = typeof config?.source === "string" ? config.source : "card";
-      const trusted = configSource === "photos" || configSource === "manual";
+      /*
+       * Model postavený podle FOTEK vozu (`photos`) nebo ručně doladěný
+       * adminem (`manual`) je věrný. Model složený jen z barvy z inzerátu
+       * (`card`) se také ukazuje — je to pořád TENTO vůz ve své barvě a se
+       * svými koly, jen u něj doplníme upozornění, že lak je orientační.
+       * Nikdy se místo něj nesmí podstrčit cizí (bílá ilustrační) Pacifica.
+       */
+      const approximate = configSource !== "photos" && configSource !== "manual";
 
       const ready = Boolean(record?.ar_model_ready);
-      const path = ready && trusted ? record?.ar_model_url ?? null : null;
-      const usdz = ready && trusted ? record?.ar_model_usdz_url ?? null : null;
+      const path = ready ? record?.ar_model_url ?? null : null;
+      const usdz = ready ? record?.ar_model_usdz_url ?? null : null;
+
 
       const generatedUsdz = usdz
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
@@ -165,16 +178,17 @@ export const VehicleARButton = ({
          * jen GLB nebo USDZ, druhý formát smí doplnit publikovaná revize
          * stejného vehicle_id — nikdy HQ fallback.
          */
-        setSource(
-          resolveVehicleModel({
-            ownGlb,
-            ownUsdz,
-            generatedGlb,
-            generatedUsdz,
-          }),
-        );
+        const resolved = resolveVehicleModel({
+          ownGlb,
+          ownUsdz,
+          generatedGlb,
+          generatedUsdz,
+        });
+        setApproximateModel(resolved.isVehicleSpecific && approximate && !ownGlb && !ownUsdz);
+        setSource(resolved);
         setSourceLoading(false);
       }
+
     })().catch((modelError: unknown) => {
       if (cancelled) return;
       console.error("Model konkrétního vozidla se nepodařilo připravit:", modelError);
@@ -289,8 +303,16 @@ export const VehicleARButton = ({
         usdzUrl={source?.usdz ?? null}
         allowModelFallback={false}
       />
+
+      {/* Poctivá poznámka: model vznikl jen z údajů z inzerátu, ne z fotek. */}
+      {approximateModel && (
+        <p className="mt-1 text-[11px] leading-snug text-muted-foreground">
+          Barva a kola podle údajů z inzerátu — rozměry odpovídají skutečnému vozu.
+        </p>
+      )}
     </div>
   );
+
 
 
 

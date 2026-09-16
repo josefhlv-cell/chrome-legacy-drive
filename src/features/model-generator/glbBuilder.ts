@@ -274,9 +274,18 @@ const damageDecalTexture = (damage: Damage, px?: number): THREE.Texture | null =
 
 /**
  * Umístí zadaná poškození na povrch vozu jako decal plošky.
- * Pozice se počítá z bounding boxu, takže funguje nezávisle na UV mapě.
+ * Pozice se počítá z bounding boxu, takže funguje nezávisle na UV mapě —
+ * do textury karoserie se NIKDY nemaluje.
+ *
+ * Přesnou polohu bere z analýzy fotek (`along`, `height`, `face`); když
+ * chybí, použije pevnou kotvu podle dílu (DAMAGE_ANCHORS).
  */
-const applyDamageDecals = (root: THREE.Object3D, profile: AppearanceProfile) => {
+const applyDamageDecals = (
+  root: THREE.Object3D,
+  profile: AppearanceProfile,
+  options?: { texturePx?: number },
+) => {
+
   const damages = profile.damages ?? [];
   // Vždy nejdřív odstraníme decaly z předchozího průchodu (idempotentní).
   root.children

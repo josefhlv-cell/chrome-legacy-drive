@@ -513,7 +513,10 @@ export default function AdminModelGenerator() {
       toast({ title: "Uložení selhalo", description: error.message, variant: "destructive" });
       return;
     }
+    // Ručně doladěný vzhled je pro kartu vozu důvěryhodný zdroj.
+    patch({ source: "manual" });
     toast({ title: "Nastavení vzhledu uloženo" });
+
   };
 
   /* ------------------------------------------------------------------ */

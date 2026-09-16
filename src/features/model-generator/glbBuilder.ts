@@ -309,12 +309,25 @@ const applyDamageDecals = (
 
   damages.forEach((damage, index) => {
     const anchor = DAMAGE_ANCHORS[damage.part] ?? DAMAGE_ANCHORS.jine;
-    const texture = damageDecalTexture(damage);
+    const texture = damageDecalTexture(damage, options?.texturePx);
     if (!texture) return;
 
+    // Poloha: z fotek (along/height/face), jinak pevná kotva podle dílu.
+    const alongRatio =
+      typeof damage.along === "number" ? Math.min(1, Math.max(0, damage.along)) : anchor.along;
+    const heightRatio =
+      typeof damage.height === "number" ? Math.min(1, Math.max(0, damage.height)) : anchor.height;
+    const face = damage.face ?? anchor.face;
+
+    // Velikost: skutečné rozměry z analýzy, jinak podle vážnosti vady.
     const plane = DAMAGE_SIZE_M[damage.severity] ?? DAMAGE_SIZE_M.stredni;
+    const planeW =
+      typeof damage.width_m === "number" && damage.width_m > 0 ? damage.width_m : plane * 1.6;
+    const planeH =
+      typeof damage.height_m === "number" && damage.height_m > 0 ? damage.height_m : plane;
+
     const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(plane * 1.6, plane),
+      new THREE.PlaneGeometry(planeW, planeH),
       new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
@@ -330,31 +343,37 @@ const applyDamageDecals = (
     mesh.castShadow = false;
     mesh.receiveShadow = false;
 
-    const along = box.min[lengthAxis] + anchor.along * lengthSize;
-    const y = box.min.y + anchor.height * size.y;
-    // 1,5 cm nad povrchem — decal nesmí zapadnout do plechu ani plavat ve vzduchu.
-    const lift = 0.015;
+    const along = box.min[lengthAxis] + alongRatio * lengthSize;
+    const y = box.min.y + heightRatio * size.y;
+    /*
+     * 6 mm nad povrchem. PROČ MÍŇ NEŽ DŘÍV (15 mm): karoserie je zaoblená,
+     * takže decal ve 1,5 cm nad bokem vozu viditelně „plaval“ ve vzduchu
+     * a v AR se u něj objevoval vlastní stín. 6 mm ještě spolehlivě
+     * zabrání probleskování plechu, ale vada už leží na voze.
+     */
+    const lift = 0.006;
 
     const pos = new THREE.Vector3();
-    if (anchor.face === "left" || anchor.face === "right") {
-      const side = anchor.face === "left" ? -1 : 1;
+    if (face === "left" || face === "right") {
+      const side = face === "left" ? -1 : 1;
       pos[lengthAxis] = along;
       pos[widthAxis] = box.min[widthAxis] + (side < 0 ? 0 : widthSize) + side * lift;
       pos.y = y;
       mesh.rotation.y = widthAxis === "x" ? (side < 0 ? -Math.PI / 2 : Math.PI / 2) : side < 0 ? Math.PI : 0;
-    } else if (anchor.face === "top") {
+    } else if (face === "top") {
       pos[lengthAxis] = along;
       pos[widthAxis] = box.min[widthAxis] + widthSize / 2;
-      pos.y = box.min.y + anchor.height * size.y + lift;
+      pos.y = box.min.y + heightRatio * size.y + lift;
       mesh.rotation.x = -Math.PI / 2;
       if (lengthAxis === "z") mesh.rotation.z = Math.PI / 2;
     } else {
-      const front = anchor.face === "front" ? -1 : 1;
+      const front = face === "front" ? -1 : 1;
       pos[lengthAxis] = box.min[lengthAxis] + (front < 0 ? 0 : lengthSize) + front * lift;
       pos[widthAxis] = box.min[widthAxis] + widthSize / 2;
       pos.y = y;
       mesh.rotation.y = lengthAxis === "z" ? (front < 0 ? Math.PI : 0) : front < 0 ? -Math.PI / 2 : Math.PI / 2;
     }
+
 
     mesh.position.copy(pos);
     group.add(mesh);

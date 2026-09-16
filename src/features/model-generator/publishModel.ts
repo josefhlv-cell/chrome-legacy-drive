@@ -144,6 +144,12 @@ export async function publishVehicleModel(input: {
           generated_at: generatedAt,
           revision,
           /*
+           * Značky formátu — podle nich admin pozná, které vozy ještě mají
+           * starý (těžký) soubor pro iPhone a nabídne jejich přebalení.
+           */
+          geometry_codec: "draco",
+          usdz_profile: "light",
+          /*
            * Odkud vzhled pochází. Karta vozu bere jako „toto auto“ jen
            * `photos` nebo `manual`; `card` je pouze interní náhled
            * (barva z inzerátu), zákazníkovi se jako věrný model neukazuje.

@@ -145,10 +145,12 @@ export async function publishVehicleModel(input: {
           revision,
           /*
            * Značky formátu — podle nich admin pozná, které vozy ještě mají
-           * starý (těžký) soubor pro iPhone a nabídne jejich přebalení.
+           * starý (těžký) soubor a nabídne jejich přebalení. `glb_size` je
+           * skutečná velikost: když se kodér Draco nepodařilo nahrát, soubor
+           * je několikanásobně větší a admin to musí poznat bez hádání.
            */
-          geometry_codec: "draco",
           usdz_profile: "light",
+          glb_size: blob.size,
           /*
            * Odkud vzhled pochází. Karta vozu bere jako „toto auto“ jen
            * `photos` nebo `manual`; `card` je pouze interní náhled

@@ -51,28 +51,46 @@ export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) 
   const loadPending = useCallback(async () => {
     const { data, error } = await supabase
       .from("vehicles")
-      .select("id, name, color, ar_color_hex, ar_model_ready, ar_model_usdz_url, status")
+      .select(
+        "id, name, color, ar_color_hex, ar_model_ready, ar_model_usdz_url, ar_model_config, status",
+      )
       .neq("status", "prodano")
       .order("created_at", { ascending: false });
 
     if (error) {
       console.error("Seznam vozů pro přípravu modelů se nepodařilo načíst:", error);
       setPending([]);
+      setStale([]);
       return [] as PendingVehicle[];
     }
 
-    const list = (data ?? [])
-      .filter((v) => SUPPORTED.test(v.name ?? ""))
+    const supported = (data ?? []).filter((v) => SUPPORTED.test(v.name ?? ""));
+    const seed = (v: (typeof supported)[number]): PendingVehicle => ({
+      id: v.id,
+      name: v.name ?? "Vozidlo",
+      color: v.color,
+      ar_color_hex: v.ar_color_hex,
+    });
+
+    const list = supported
       // Chybí GLB (Android/desktop) NEBO USDZ (iPhone) → model není hotový.
       .filter((v) => !v.ar_model_ready || !v.ar_model_usdz_url)
-      .map((v) => ({
-        id: v.id,
-        name: v.name ?? "Vozidlo",
-        color: v.color,
-        ar_color_hex: v.ar_color_hex,
-      }));
+      .map(seed);
+
+    /*
+     * Hotové vozy, které vznikly ještě starým (těžkým) exportem pro iPhone.
+     * Nepřepisujeme je automaticky — jen je nabídneme obsluze k přebalení.
+     */
+    const staleList = supported
+      .filter((v) => v.ar_model_ready && v.ar_model_usdz_url)
+      .filter((v) => {
+        const config = (v.ar_model_config ?? null) as { usdz_profile?: string } | null;
+        return config?.usdz_profile !== "light";
+      })
+      .map(seed);
 
     setPending(list);
+    setStale(staleList);
     return list;
   }, []);
 

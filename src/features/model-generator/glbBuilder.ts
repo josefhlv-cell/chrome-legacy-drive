@@ -204,23 +204,21 @@ const DAMAGE_TEXTURE_PX_USDZ: Record<string, number> = {
  * Kreslí se v poměru 1:1 nad velikost decalu, takže rozsah odpovídá severitě.
  * `size` je 128–512 px: decal je malá ploška, větší textura jen žere paměť.
  */
-const damageDecalTexture = (damage: Damage, size?: number): THREE.Texture | null => {
-  const px = size ?? DAMAGE_TEXTURE_PX[damage.severity] ?? 512;
+const damageDecalTexture = (damage: Damage, px?: number): THREE.Texture | null => {
+  const target = px ?? DAMAGE_TEXTURE_PX[damage.severity] ?? 512;
   const canvas = document.createElement("canvas");
-  canvas.width = px;
-  canvas.height = px;
+  canvas.width = target;
+  canvas.height = target;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
-  // Kresba níž je psaná v poměrech k `size`, takže stačí přeškálovat.
-  const scale = px / 512;
-  ctx.scale(scale, scale);
-  const size2 = 512;
-  const sizeAlias = size2;
-  void sizeAlias;
 
+  // Kresba je psaná v souřadnicích 512×512 — jen ji přeškálujeme na cíl.
+  const size = 512;
+  ctx.scale(target / size, target / size);
 
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;
+
 
   if (damage.type === "dulek") {
     // Promáčklina: tmavé jádro s měkkým přechodem + světlý horní okraj.

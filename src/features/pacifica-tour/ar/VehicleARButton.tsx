@@ -90,6 +90,9 @@ export const VehicleARButton = ({
   const [source, setSource] = useState<VehicleModelSource | null>(null);
   const [sourceLoading, setSourceLoading] = useState(true);
   const [sourceError, setSourceError] = useState(false);
+  /** True = model vznikl jen z údajů z inzerátu (barva je orientační). */
+  const [approximateModel, setApproximateModel] = useState(false);
+
 
   useEffect(() => {
     let cancelled = false;

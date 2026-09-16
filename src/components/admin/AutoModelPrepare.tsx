@@ -161,21 +161,40 @@ export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) 
           </p>
         </div>
 
-        <button
-          type="button"
-          className="outline-button inline-flex items-center gap-1.5 text-xs"
-          onClick={() => void run()}
-          disabled={running || count === 0}
-        >
-          {running ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-          ) : count === 0 ? (
-            <CheckCircle2 className="h-3.5 w-3.5" />
-          ) : (
-            <Play className="h-3.5 w-3.5" />
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="outline-button inline-flex items-center gap-1.5 text-xs"
+            onClick={() => void run()}
+            disabled={running || count === 0}
+          >
+            {running ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : count === 0 ? (
+              <CheckCircle2 className="h-3.5 w-3.5" />
+            ) : (
+              <Play className="h-3.5 w-3.5" />
+            )}
+            {running ? "Připravuji…" : count === 0 ? "Vše připraveno" : `Připravit (${count})`}
+          </button>
+
+          {/*
+            Přebalení jen na výslovné kliknutí — hotové modely se nikdy
+            nepřepisují samy.
+          */}
+          {stale.length > 0 && (
+            <button
+              type="button"
+              className="outline-button inline-flex items-center gap-1.5 text-xs"
+              onClick={() => void run(stale)}
+              disabled={running}
+              title="Znovu vytvoří soubor pro iPhone v úsporném formátu (vzhled vozu zůstane)"
+            >
+              <RefreshCw className="h-3.5 w-3.5" />
+              Zmenšit pro iPhone ({stale.length})
+            </button>
           )}
-          {running ? "Připravuji…" : count === 0 ? "Vše připraveno" : `Připravit (${count})`}
-        </button>
+        </div>
       </div>
 
       {current && (

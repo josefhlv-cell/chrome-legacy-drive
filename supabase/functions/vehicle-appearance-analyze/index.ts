@@ -208,6 +208,41 @@ Deno.serve(async (req) => {
     const hex = (v: unknown, fallback: string) =>
       typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim().toLowerCase() : fallback;
 
+    /*
+     * Vady: model vrací i polohu (along/height/face). Nedůvěryhodné vady
+     * (confidence < 0.45) zahazujeme — vymyšlená vada na kartě ojetiny je
+     * horší než žádná. Chybějící polohu necháme prázdnou, model si pak
+     * vezme pevnou kotvu podle dílu.
+     */
+    const FACES = ["left", "right", "front", "rear", "top"];
+    const optNum = (v: unknown, min: number, max: number) => {
+      const n = typeof v === "number" ? v : Number(v);
+      if (!Number.isFinite(n)) return undefined;
+      return Math.min(max, Math.max(min, n));
+    };
+
+    const damages = (Array.isArray(profile.damages) ? profile.damages : [])
+      .filter((d): d is Record<string, unknown> => !!d && typeof d === "object")
+      .filter((d) => {
+        const c = optNum(d.confidence, 0, 1);
+        return c === undefined ? true : c >= MIN_DAMAGE_CONFIDENCE;
+      })
+      .map((d) => ({
+        part: typeof d.part === "string" ? d.part : "jine",
+        type: typeof d.type === "string" ? d.type : "skrabanec",
+        severity: ["lehke", "stredni", "vyrazne"].includes(String(d.severity))
+          ? String(d.severity)
+          : "lehke",
+        note: typeof d.note === "string" ? d.note : undefined,
+        along: optNum(d.along, 0, 1),
+        height: optNum(d.height, 0, 1),
+        face: FACES.includes(String(d.face)) ? String(d.face) : undefined,
+        width_m: optNum(d.width_m, 0.02, 1.2),
+        height_m: optNum(d.height_m, 0.02, 1.2),
+        photo_slot: typeof d.photo_slot === "string" ? d.photo_slot : undefined,
+        confidence: optNum(d.confidence, 0, 1),
+      }));
+
     const row = {
       vehicle_id: vehicleId,
       body_color_hex: hex(profile.body_color_hex, "#e9eaec"),
@@ -222,8 +257,9 @@ Deno.serve(async (req) => {
         : "chrome",
       wheel_style: typeof profile.wheel_style === "string" ? profile.wheel_style : "default",
       wheel_condition: typeof profile.wheel_condition === "string" ? profile.wheel_condition : null,
-      damages: Array.isArray(profile.damages) ? profile.damages : [],
+      damages,
       interior_color_hex: hex(profile.interior_color_hex, "#2b2b2e"),
+
       photos,
       analysis: profile,
       status: "analyzed",

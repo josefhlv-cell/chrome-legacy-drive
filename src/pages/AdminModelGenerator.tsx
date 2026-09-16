@@ -1046,9 +1046,79 @@ export default function AdminModelGenerator() {
                           <Trash2 className="h-3.5 w-3.5" />
                         </button>
                       </div>
+                      {/*
+                        Přesná poloha vady na voze. Bez těchto hodnot se decal
+                        položí na pevnou kotvu podle dílu (střed panelu), což
+                        u fotky s vadou na kraji dveří nesouhlasí.
+                      */}
+                      <div className="mt-2 grid gap-1.5">
+                        <select
+                          value={damage.face ?? ""}
+                          onChange={(e) => {
+                            const next = [...profile.damages];
+                            next[index] = {
+                              ...damage,
+                              face: (e.target.value || undefined) as Damage["face"],
+                            };
+                            patch({ damages: next });
+                          }}
+                          className="rounded border border-border bg-background px-1.5 py-1 text-xs text-foreground"
+                        >
+                          <option value="">Strana podle dílu</option>
+                          {DAMAGE_FACES.map((f) => (
+                            <option key={f.id} value={f.id}>{f.label}</option>
+                          ))}
+                        </select>
+
+                        <label className="text-[11px] text-muted-foreground">
+                          Podél vozu (předek → zadek): {Math.round((damage.along ?? 0.5) * 100)} %
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={damage.along ?? 0.5}
+                            onChange={(e) => {
+                              const next = [...profile.damages];
+                              next[index] = { ...damage, along: Number(e.target.value) };
+                              patch({ damages: next });
+                            }}
+                            className="w-full"
+                          />
+                        </label>
+
+                        <label className="text-[11px] text-muted-foreground">
+                          Výška (spodek → střecha): {Math.round((damage.height ?? 0.5) * 100)} %
+                          <input
+                            type="range"
+                            min={0}
+                            max={1}
+                            step={0.01}
+                            value={damage.height ?? 0.5}
+                            onChange={(e) => {
+                              const next = [...profile.damages];
+                              next[index] = { ...damage, height: Number(e.target.value) };
+                              patch({ damages: next });
+                            }}
+                            className="w-full"
+                          />
+                        </label>
+                      </div>
+
+                      {/* Fotka, ze které vada pochází — porovnání s 3D náhledem. */}
+                      {damage.photo_slot && slots[damage.photo_slot]?.previewUrl && (
+                        <img
+                          src={slots[damage.photo_slot]!.previewUrl}
+                          alt={`Fotografie vady (${damage.photo_slot})`}
+                          className="mt-2 h-24 w-full rounded object-cover"
+                          loading="lazy"
+                        />
+                      )}
+
                       {damage.note && (
                         <div className="mt-1 text-[11px] text-muted-foreground">{damage.note}</div>
                       )}
+
                     </div>
                   ))}
                 </div>

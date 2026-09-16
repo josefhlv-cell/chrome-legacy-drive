@@ -21,15 +21,29 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-/** Fotky, které pro analýzu vzhledu nesou nejvíc informace. */
+/**
+ * Fotky pro analýzu v PRIORITNÍM pořadí. Do modelu jde nejvýš MAX_PHOTOS
+ * snímků v JEDNOM requestu (jedna analýza na vůz = nejnižší cena).
+ * `detail_damage` je první — jinak se vady nikdy nedostanou k modelu.
+ */
 const ANALYSIS_SLOTS = [
+  "detail_damage",
   "ext_45_left",
   "ext_90_left",
   "ext_180",
+  "ext_0",
+  "ext_270_right",
   "detail_wheel",
   "detail_window",
-  "int_front",
 ] as const;
+
+/** Interiér jen když ve limitu zbyde místo. */
+const OPTIONAL_SLOTS = ["int_front"] as const;
+
+const MAX_PHOTOS = 8;
+
+/** Vady s nižší jistotou zahazujeme — nevymyšlené vady jsou horší než žádné. */
+const MIN_DAMAGE_CONFIDENCE = 0.45;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -39,7 +53,12 @@ const json = (body: unknown, status = 200) =>
 
 const SYSTEM_PROMPT = `Jsi technik automobilového showroomu. Z fotografií JEDNOHO konkrétního vozu
 popiš jeho vzhled tak, aby se dal přenést na existující 3D model.
-Nikdy si nevymýšlej to, co na fotkách není. Když si nejsi jistý, přiznej nízkou jistotu.
+NIKDY si nevymýšlej poškození — když vadu na fotce nevidíš, prostě ji nevracej.
+Barvu laku ber VÝHRADNĚ z plochy karoserie (dveře, blatník), nikdy z asfaltu,
+stínu, odlesku oblohy ani z pozadí.
+U KAŽDÉ vady vrať polohu: "along" (0 = předek vozu, 1 = zadek), "height"
+(0 = spodní hrana, 1 = střecha) a "face" (na které straně vady je).
+Ke každé vadě vrať i "confidence"; vady s jistotou pod 0.45 nevracej.
 Odpověz VÝHRADNĚ jedním JSON objektem v tomto tvaru:
 {
   "body_color_hex": "#rrggbb",        // skutečná barva laku v neutrálním světle
@@ -53,10 +72,11 @@ Odpověz VÝHRADNĚ jedním JSON objektem v tomto tvaru:
   "wheel_condition": "string",         // česky, opotřebení pneu/disku
   "interior_color_hex": "#rrggbb",
   "interior_material": "string",
-  "damages": [ { "part": "predni_naraznik|zadni_naraznik|dvere_levo|dvere_pravo|blatnik|kapota|paty_dvere|strecha|jine", "type": "skrabanec|dulek|rez|koroze|odrena_barva", "severity": "lehke|stredni|vyrazne", "note": "string" } ],
+  "damages": [ { "part": "predni_naraznik|zadni_naraznik|dvere_levo|dvere_pravo|blatnik|kapota|paty_dvere|strecha|jine", "type": "skrabanec|dulek|rez|koroze|odrena_barva", "severity": "lehke|stredni|vyrazne", "along": 0.0-1.0, "height": 0.0-1.0, "face": "left|right|front|rear|top", "width_m": 0.02-1.2, "height_m": 0.02-1.2, "photo_slot": "string", "confidence": 0.0-1.0, "note": "string" } ],
   "confidence": 0.0-1.0,
   "warnings": ["string"]               // špatné fotky, odlesky, chybějící pohledy
 }`;
+
 
 async function assertAdmin(req: Request) {
   const jwt = (req.headers.get("Authorization") || "").replace("Bearer ", "");

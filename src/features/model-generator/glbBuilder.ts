@@ -185,17 +185,39 @@ const DAMAGE_SIZE_M: Record<string, number> = {
   vyrazne: 0.44,
 };
 
+/** Rozlišení decalu podle vážnosti vady — víc než tohle není v AR poznat. */
+const DAMAGE_TEXTURE_PX: Record<string, number> = {
+  lehke: 256,
+  stredni: 512,
+  vyrazne: 512,
+};
+
+/** Levné textury vad pro USDZ (iPhone) — 128 px u lehkých, 256 u ostatních. */
+const DAMAGE_TEXTURE_PX_USDZ: Record<string, number> = {
+  lehke: 128,
+  stredni: 256,
+  vyrazne: 256,
+};
+
 /**
  * Textura jednoho poškození s průhledným okolím.
  * Kreslí se v poměru 1:1 nad velikost decalu, takže rozsah odpovídá severitě.
+ * `size` je 128–512 px: decal je malá ploška, větší textura jen žere paměť.
  */
-const damageDecalTexture = (damage: Damage): THREE.Texture | null => {
-  const size = 512;
+const damageDecalTexture = (damage: Damage, size?: number): THREE.Texture | null => {
+  const px = size ?? DAMAGE_TEXTURE_PX[damage.severity] ?? 512;
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = px;
+  canvas.height = px;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
+  // Kresba níž je psaná v poměrech k `size`, takže stačí přeškálovat.
+  const scale = px / 512;
+  ctx.scale(scale, scale);
+  const size2 = 512;
+  const sizeAlias = size2;
+  void sizeAlias;
+
 
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;

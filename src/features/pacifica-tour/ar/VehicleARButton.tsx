@@ -178,16 +178,17 @@ export const VehicleARButton = ({
          * jen GLB nebo USDZ, druhý formát smí doplnit publikovaná revize
          * stejného vehicle_id — nikdy HQ fallback.
          */
-        setSource(
-          resolveVehicleModel({
-            ownGlb,
-            ownUsdz,
-            generatedGlb,
-            generatedUsdz,
-          }),
-        );
+        const resolved = resolveVehicleModel({
+          ownGlb,
+          ownUsdz,
+          generatedGlb,
+          generatedUsdz,
+        });
+        setApproximateModel(resolved.isVehicleSpecific && approximate && !ownGlb && !ownUsdz);
+        setSource(resolved);
         setSourceLoading(false);
       }
+
     })().catch((modelError: unknown) => {
       if (cancelled) return;
       console.error("Model konkrétního vozidla se nepodařilo připravit:", modelError);

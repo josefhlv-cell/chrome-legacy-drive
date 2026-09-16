@@ -140,7 +140,14 @@ export async function publishVehicleModel(input: {
           damages: profile.damages ?? [],
           generated_at: generatedAt,
           revision,
+          /*
+           * Odkud vzhled pochází. Karta vozu bere jako „toto auto“ jen
+           * `photos` nebo `manual`; `card` je pouze interní náhled
+           * (barva z inzerátu), zákazníkovi se jako věrný model neukazuje.
+           */
+          source: profile.source ?? "card",
         } as never,
+
         // Starý USDZ nesmí zůstat — jinak iPhone ukáže předchozí verzi vozu.
         ar_model_usdz_url: null,
       })

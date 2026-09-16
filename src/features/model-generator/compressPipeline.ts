@@ -103,21 +103,32 @@ export async function compressGLBBuffer(
 
   report("encode");
   /*
-   * KRITICKÉ: geometrii kvantizujeme POUZE přes KHR_mesh_quantization.
+   * KRITICKÉ: nikdy nepoužívat EXT_meshopt_compression.
    *
    * PROČ: model-viewer (Android AR i desktopový náhled) umí Draco a KTX2,
-   * ale NEUMÍ EXT_meshopt_compression — modely komprimované meshoptem se
-   * nikdy nenačetly ("setMeshoptDecoder must be called") a zákazník viděl
-   * v AR prázdnou scénu. Kvantizace je podporovaná všude a soubor zmenší
-   * bez rizika.
+   * ale meshopt dekodér neobsahuje — takto komprimované modely se nikdy
+   * nenačetly ("setMeshoptDecoder must be called") a zákazník viděl v AR
+   * prázdnou scénu. Draco zmenší geometrii ~4×, kvantizace je záloha.
    */
-  await doc.transform(
-    functions.quantize({
-      quantizePosition: 14,
-      quantizeNormal: 10,
-      quantizeTexcoord: 12,
-    }),
-  );
+  if (dracoReady) {
+    await doc.transform(
+      functions.draco({
+        method: "edgebreaker",
+        quantizePosition: 14,
+        quantizeNormal: 10,
+        quantizeTexcoord: 12,
+      }),
+    );
+  } else {
+    await doc.transform(
+      functions.quantize({
+        quantizePosition: 14,
+        quantizeNormal: 10,
+        quantizeTexcoord: 12,
+      }),
+    );
+  }
+
 
   const out = await io.writeBinary(doc);
   report("done");

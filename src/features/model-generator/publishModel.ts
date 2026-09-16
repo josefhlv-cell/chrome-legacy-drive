@@ -169,18 +169,19 @@ export async function publishVehicleModel(input: {
        * pořád mnohem pravdivější než cizí vůz.
        */
       /*
-       * Pořadí pokusů: nejdřív se šetří TEXTURY, geometrie se sahá až nakonec.
-       * PROČ: zvlněná karoserie je vidět na první pohled, menší textura ne.
-       *  1) plná geometrie + malé textury (1024)
-       *  2) plná geometrie + ještě menší textury (512)
-       *  3) teprve pak snížíme geometrii (ratio)
+       * Pořadí pokusů: šetří se TEXTURY a SKRYTÁ geometrie, viditelný vnější
+       * povrch zůstává v plné kvalitě (viz decimateForUSDZ → isShowSurface).
+       * PROČ ratio < 1 už v prvním pokusu: USDZ ukládá geometrii jako text,
+       * takže plný interiér vozu dělal soubor ~90 MB a iPhone ho na datech
+       * stahoval nesnesitelně dlouho. Karoserie, skla ani kola se nemění.
        */
       const attempts: Array<{ ratio: number; maxTextureSize: number; label: string }> = [
-        { ratio: 1, maxTextureSize: 1024, label: "Exportuji USDZ pro iPhone…" },
-        { ratio: 1, maxTextureSize: 512, label: "USDZ znovu, menší textury…" },
-        { ratio: 0.7, maxTextureSize: 512, label: "USDZ znovu, úsporněji…" },
-        { ratio: 0.35, maxTextureSize: 512, label: "USDZ poslední pokus…" },
+        { ratio: 0.5, maxTextureSize: 1024, label: "Exportuji USDZ pro iPhone…" },
+        { ratio: 0.5, maxTextureSize: 512, label: "USDZ znovu, menší textury…" },
+        { ratio: 0.3, maxTextureSize: 512, label: "USDZ znovu, úsporněji…" },
+        { ratio: 0.15, maxTextureSize: 512, label: "USDZ poslední pokus…" },
       ];
+
       let lastError: unknown = null;
 
       for (const attempt of attempts) {

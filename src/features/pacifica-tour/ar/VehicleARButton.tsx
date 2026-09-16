@@ -257,20 +257,19 @@ export const VehicleARButton = ({
   if (!source?.isVehicleSpecific && !isModelSupported(name)) return null;
 
   /*
-   * iPhone/iPad umí jen USDZ. Když u vozu vlastní iOS verze (ještě) není,
-   * NEZOBRAZUJEME slepou hlášku — zákazník na iPhonu by tak AR neviděl vůbec.
-   * Místo toho pustíme AR s referenčním modelem Pacifiky a jasně řekneme, že
-   * jde o ilustrační vůz (barva a výbava se mohou lišit).
+   * iPhone/iPad umí jen USDZ. Když u KONKRÉTNÍHO vozu iOS verze ještě není,
+   * NESMÍME pustit ilustrační Pacificu — zákazník by v AR viděl cizí auto
+   * a bral by ho za tuhle ojetinu. Radši krátká hláška a nic víc.
    */
-  const iosNeedsFallback = isIOSDevice() && Boolean(source?.isVehicleSpecific) && !source?.usdz;
-  if (iosNeedsFallback && !isModelSupported(name)) {
+  const iosMissingUsdz = isIOSDevice() && Boolean(source?.isVehicleSpecific) && !source?.usdz;
+  if (iosMissingUsdz) {
     return (
       <div
         className={`inline-flex h-11 items-center gap-2 rounded-full border border-border bg-secondary/40 px-4 text-xs text-muted-foreground ${className ?? ""}`}
         role="status"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
-        AR tohoto vozu je dostupné na Androidu a počítači
+        AR tohoto vozu je na iPhonu v přípravě
       </div>
     );
   }
@@ -284,14 +283,15 @@ export const VehicleARButton = ({
         colorKey={colorHex}
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
-        showColorDisclaimer={!source?.isVehicleSpecific || iosNeedsFallback}
+        showColorDisclaimer={!source?.isVehicleSpecific}
         autoStart={autoStart}
         modelUrl={source?.glb ?? null}
-        usdzUrl={source?.usdz ?? (iosNeedsFallback ? PACIFICA_HQ_USDZ : null)}
+        usdzUrl={source?.usdz ?? null}
         allowModelFallback={false}
       />
     </div>
   );
+
 
 
 };

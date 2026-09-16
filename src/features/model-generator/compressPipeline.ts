@@ -89,9 +89,22 @@ export async function compressGLBBuffer(
   }
 
   report("encode");
-  doc.createExtension(EXTMeshoptCompression).setRequired(true).setEncoderOptions({
-    method: EXTMeshoptCompression.EncoderMethod.QUANTIZE,
-  });
+  /*
+   * KRITICKÉ: geometrii kvantizujeme POUZE přes KHR_mesh_quantization.
+   *
+   * PROČ: model-viewer (Android AR i desktopový náhled) umí Draco a KTX2,
+   * ale NEUMÍ EXT_meshopt_compression — modely komprimované meshoptem se
+   * nikdy nenačetly ("setMeshoptDecoder must be called") a zákazník viděl
+   * v AR prázdnou scénu. Kvantizace je podporovaná všude a soubor zmenší
+   * bez rizika.
+   */
+  await doc.transform(
+    functions.quantize({
+      quantizePosition: 14,
+      quantizeNormal: 10,
+      quantizeTexcoord: 12,
+    }),
+  );
 
   const out = await io.writeBinary(doc);
   report("done");
@@ -99,3 +112,4 @@ export async function compressGLBBuffer(
   const buffer = (out as Uint8Array).buffer as ArrayBuffer;
   return buffer.byteLength > 0 && buffer.byteLength < input.byteLength ? buffer : null;
 }
+

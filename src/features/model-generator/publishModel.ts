@@ -192,8 +192,8 @@ export async function publishVehicleModel(input: {
           report("Nahrávám USDZ do úložiště…", 90);
           const { error: usdzErr } = await supabase.storage
             .from("vehicle-models")
-
             .upload(candidate, usdz, { upsert: true, contentType: "model/vnd.usdz+zip" });
+
           if (usdzErr) throw usdzErr;
           uploadedUsdzPath = candidate;
 

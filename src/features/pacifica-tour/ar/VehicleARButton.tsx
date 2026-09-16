@@ -146,11 +146,19 @@ export const VehicleARButton = ({
        */
       const config = (record?.ar_model_config ?? null) as { source?: string } | null;
       const configSource = typeof config?.source === "string" ? config.source : "card";
-      const trusted = configSource === "photos" || configSource === "manual";
+      /*
+       * Model postavený podle FOTEK vozu (`photos`) nebo ručně doladěný
+       * adminem (`manual`) je věrný. Model složený jen z barvy z inzerátu
+       * (`card`) se také ukazuje — je to pořád TENTO vůz ve své barvě a se
+       * svými koly, jen u něj doplníme upozornění, že lak je orientační.
+       * Nikdy se místo něj nesmí podstrčit cizí (bílá ilustrační) Pacifica.
+       */
+      const approximate = configSource !== "photos" && configSource !== "manual";
 
       const ready = Boolean(record?.ar_model_ready);
-      const path = ready && trusted ? record?.ar_model_url ?? null : null;
-      const usdz = ready && trusted ? record?.ar_model_usdz_url ?? null : null;
+      const path = ready ? record?.ar_model_url ?? null : null;
+      const usdz = ready ? record?.ar_model_usdz_url ?? null : null;
+
 
       const generatedUsdz = usdz
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`

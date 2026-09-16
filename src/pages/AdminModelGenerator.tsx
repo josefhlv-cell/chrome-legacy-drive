@@ -140,11 +140,22 @@ export default function AdminModelGenerator() {
         .maybeSingle();
 
       if (data) {
+        /*
+         * Zdroj vzhledu při návratu do generátoru: profil s fotkami vznikl
+         * z analýzy fotek, ručně uložený („tuned“) je manuální, jinak jde
+         * jen o interní náhled z karty vozu.
+         */
+        const savedPhotos = Object.keys((data.photos ?? {}) as Record<string, string>).length;
+        const savedSource =
+          data.status === "tuned" ? "manual" : savedPhotos > 0 ? "photos" : "card";
+
         setProfile({
           ...DEFAULT_PROFILE(vehicleId),
           ...(data as unknown as AppearanceProfile),
           damages: (data.damages as unknown as Damage[]) ?? [],
+          source: savedSource,
         });
+
 
         // Fotky už v úložišti — vytáhneme podepsané náhledy.
         const photos = (data.photos ?? {}) as Record<string, string>;

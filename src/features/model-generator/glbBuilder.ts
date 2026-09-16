@@ -185,20 +185,40 @@ const DAMAGE_SIZE_M: Record<string, number> = {
   vyrazne: 0.44,
 };
 
+/** Rozlišení decalu podle vážnosti vady — víc než tohle není v AR poznat. */
+const DAMAGE_TEXTURE_PX: Record<string, number> = {
+  lehke: 256,
+  stredni: 512,
+  vyrazne: 512,
+};
+
+/** Levné textury vad pro USDZ (iPhone) — 128 px u lehkých, 256 u ostatních. */
+const DAMAGE_TEXTURE_PX_USDZ: Record<string, number> = {
+  lehke: 128,
+  stredni: 256,
+  vyrazne: 256,
+};
+
 /**
  * Textura jednoho poškození s průhledným okolím.
  * Kreslí se v poměru 1:1 nad velikost decalu, takže rozsah odpovídá severitě.
+ * `size` je 128–512 px: decal je malá ploška, větší textura jen žere paměť.
  */
-const damageDecalTexture = (damage: Damage): THREE.Texture | null => {
-  const size = 512;
+const damageDecalTexture = (damage: Damage, px?: number): THREE.Texture | null => {
+  const target = px ?? DAMAGE_TEXTURE_PX[damage.severity] ?? 512;
   const canvas = document.createElement("canvas");
-  canvas.width = size;
-  canvas.height = size;
+  canvas.width = target;
+  canvas.height = target;
   const ctx = canvas.getContext("2d");
   if (!ctx) return null;
 
+  // Kresba je psaná v souřadnicích 512×512 — jen ji přeškálujeme na cíl.
+  const size = 512;
+  ctx.scale(target / size, target / size);
+
   ctx.clearRect(0, 0, size, size);
   const c = size / 2;
+
 
   if (damage.type === "dulek") {
     // Promáčklina: tmavé jádro s měkkým přechodem + světlý horní okraj.
@@ -254,9 +274,18 @@ const damageDecalTexture = (damage: Damage): THREE.Texture | null => {
 
 /**
  * Umístí zadaná poškození na povrch vozu jako decal plošky.
- * Pozice se počítá z bounding boxu, takže funguje nezávisle na UV mapě.
+ * Pozice se počítá z bounding boxu, takže funguje nezávisle na UV mapě —
+ * do textury karoserie se NIKDY nemaluje.
+ *
+ * Přesnou polohu bere z analýzy fotek (`along`, `height`, `face`); když
+ * chybí, použije pevnou kotvu podle dílu (DAMAGE_ANCHORS).
  */
-const applyDamageDecals = (root: THREE.Object3D, profile: AppearanceProfile) => {
+const applyDamageDecals = (
+  root: THREE.Object3D,
+  profile: AppearanceProfile,
+  options?: { texturePx?: number },
+) => {
+
   const damages = profile.damages ?? [];
   // Vždy nejdřív odstraníme decaly z předchozího průchodu (idempotentní).
   root.children
@@ -280,12 +309,25 @@ const applyDamageDecals = (root: THREE.Object3D, profile: AppearanceProfile) => 
 
   damages.forEach((damage, index) => {
     const anchor = DAMAGE_ANCHORS[damage.part] ?? DAMAGE_ANCHORS.jine;
-    const texture = damageDecalTexture(damage);
+    const texture = damageDecalTexture(damage, options?.texturePx);
     if (!texture) return;
 
+    // Poloha: z fotek (along/height/face), jinak pevná kotva podle dílu.
+    const alongRatio =
+      typeof damage.along === "number" ? Math.min(1, Math.max(0, damage.along)) : anchor.along;
+    const heightRatio =
+      typeof damage.height === "number" ? Math.min(1, Math.max(0, damage.height)) : anchor.height;
+    const face = damage.face ?? anchor.face;
+
+    // Velikost: skutečné rozměry z analýzy, jinak podle vážnosti vady.
     const plane = DAMAGE_SIZE_M[damage.severity] ?? DAMAGE_SIZE_M.stredni;
+    const planeW =
+      typeof damage.width_m === "number" && damage.width_m > 0 ? damage.width_m : plane * 1.6;
+    const planeH =
+      typeof damage.height_m === "number" && damage.height_m > 0 ? damage.height_m : plane;
+
     const mesh = new THREE.Mesh(
-      new THREE.PlaneGeometry(plane * 1.6, plane),
+      new THREE.PlaneGeometry(planeW, planeH),
       new THREE.MeshStandardMaterial({
         map: texture,
         transparent: true,
@@ -301,31 +343,37 @@ const applyDamageDecals = (root: THREE.Object3D, profile: AppearanceProfile) => 
     mesh.castShadow = false;
     mesh.receiveShadow = false;
 
-    const along = box.min[lengthAxis] + anchor.along * lengthSize;
-    const y = box.min.y + anchor.height * size.y;
-    // 1,5 cm nad povrchem — decal nesmí zapadnout do plechu ani plavat ve vzduchu.
-    const lift = 0.015;
+    const along = box.min[lengthAxis] + alongRatio * lengthSize;
+    const y = box.min.y + heightRatio * size.y;
+    /*
+     * 6 mm nad povrchem. PROČ MÍŇ NEŽ DŘÍV (15 mm): karoserie je zaoblená,
+     * takže decal ve 1,5 cm nad bokem vozu viditelně „plaval“ ve vzduchu
+     * a v AR se u něj objevoval vlastní stín. 6 mm ještě spolehlivě
+     * zabrání probleskování plechu, ale vada už leží na voze.
+     */
+    const lift = 0.006;
 
     const pos = new THREE.Vector3();
-    if (anchor.face === "left" || anchor.face === "right") {
-      const side = anchor.face === "left" ? -1 : 1;
+    if (face === "left" || face === "right") {
+      const side = face === "left" ? -1 : 1;
       pos[lengthAxis] = along;
       pos[widthAxis] = box.min[widthAxis] + (side < 0 ? 0 : widthSize) + side * lift;
       pos.y = y;
       mesh.rotation.y = widthAxis === "x" ? (side < 0 ? -Math.PI / 2 : Math.PI / 2) : side < 0 ? Math.PI : 0;
-    } else if (anchor.face === "top") {
+    } else if (face === "top") {
       pos[lengthAxis] = along;
       pos[widthAxis] = box.min[widthAxis] + widthSize / 2;
-      pos.y = box.min.y + anchor.height * size.y + lift;
+      pos.y = box.min.y + heightRatio * size.y + lift;
       mesh.rotation.x = -Math.PI / 2;
       if (lengthAxis === "z") mesh.rotation.z = Math.PI / 2;
     } else {
-      const front = anchor.face === "front" ? -1 : 1;
+      const front = face === "front" ? -1 : 1;
       pos[lengthAxis] = box.min[lengthAxis] + (front < 0 ? 0 : lengthSize) + front * lift;
       pos[widthAxis] = box.min[widthAxis] + widthSize / 2;
       pos.y = y;
       mesh.rotation.y = lengthAxis === "z" ? (front < 0 ? Math.PI : 0) : front < 0 ? -Math.PI / 2 : Math.PI / 2;
     }
+
 
     mesh.position.copy(pos);
     group.add(mesh);
@@ -666,42 +714,167 @@ export function exportGLB(scene: THREE.Object3D): Promise<Blob> {
 }
 
 /**
+ * Zjednoduší materiály a textury KLONU scény pro USDZ.
+ *
+ * PROČ: USDZ je ZIP bez komprese a textury v něm leží jako PNG. Materiály
+ * MeshPhysical (transmission/sheen/clearcoat mapy) navíc iOS Quick Look
+ * neumí — jen zvětšují soubor. Model tedy zůstává geometricky STEJNÝ,
+ * mění se jen materiály: jednoduchý PBR, skla barva + opacity bez textury,
+ * karoserie jen barva (bez 2K mapy), textury kol sdílené místo 4 kopií.
+ */
+async function simplifyMaterialsForUSDZ(root: THREE.Object3D): Promise<void> {
+  /** Zmenší texturu na maxPx a u neprůhledných projede JPEG 0.75. */
+  const cache = new Map<string, THREE.Texture | null>();
+
+  const bake = async (
+    texture: THREE.Texture,
+    maxPx: number,
+    opaque: boolean,
+  ): Promise<THREE.Texture | null> => {
+    const image = texture.image as (HTMLImageElement | ImageBitmap | HTMLCanvasElement) | undefined;
+    const width = (image as { width?: number })?.width ?? 0;
+    const height = (image as { height?: number })?.height ?? 0;
+    if (!image || !width || !height) return texture;
+
+    const key = `${texture.uuid}|${maxPx}|${opaque ? "j" : "p"}`;
+    if (cache.has(key)) return cache.get(key) ?? null;
+
+    const scale = Math.min(1, maxPx / Math.max(width, height));
+    const w = Math.max(1, Math.round(width * scale));
+    const h = Math.max(1, Math.round(height * scale));
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) {
+      cache.set(key, texture);
+      return texture;
+    }
+    ctx.drawImage(image as CanvasImageSource, 0, 0, w, h);
+
+    let source: HTMLCanvasElement | ImageBitmap = canvas;
+    if (opaque) {
+      // JPEG 0.75 — u neprůhledných map ušetří nejvíc dat a v AR to není vidět.
+      const blob = await new Promise<Blob | null>((resolve) =>
+        canvas.toBlob((b) => resolve(b), "image/jpeg", 0.75),
+      );
+      if (blob) source = await createImageBitmap(blob);
+    }
+
+    const baked = new THREE.Texture(source as unknown as HTMLCanvasElement);
+    baked.colorSpace = texture.colorSpace;
+    baked.wrapS = texture.wrapS;
+    baked.wrapT = texture.wrapT;
+    baked.flipY = texture.flipY;
+    baked.name = texture.name;
+    baked.needsUpdate = true;
+
+    cache.set(key, baked);
+    return baked;
+  };
+
+  const meshes: THREE.Mesh[] = [];
+  root.traverse((object) => {
+    const mesh = object as THREE.Mesh;
+    if (mesh.isMesh) meshes.push(mesh);
+  });
+
+  for (const mesh of meshes) {
+    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+    const next: THREE.Material[] = [];
+
+    for (const material of materials) {
+      const src = material as THREE.MeshStandardMaterial & { transmission?: number };
+      if (!src) continue;
+
+      const name = `${mesh.name} ${material?.name ?? ""}`.toLowerCase();
+      const isDecal = mesh.name.startsWith("damage_");
+      const glass = isGlass(name) || (src.transmission ?? 0) > 0;
+      const light = isLight(name);
+
+      const flat = new THREE.MeshStandardMaterial({
+        color: src.color?.clone() ?? new THREE.Color(0xffffff),
+        roughness: src.roughness ?? 0.4,
+        metalness: src.metalness ?? 0,
+        side: src.side,
+        name: src.name,
+      });
+
+      if (glass || light) {
+        // Skla a čočky: jen barva + průhlednost, žádná textura.
+        flat.transparent = true;
+        flat.opacity = glass ? Math.min(0.85, src.opacity || 0.6) : (src.opacity ?? 1);
+        flat.depthWrite = !glass;
+      } else if (isDecal) {
+        // Vada: PNG kvůli alfě, ale malá (128 lehké / 256 ostatní).
+        const geometry = mesh.geometry as THREE.PlaneGeometry;
+        const small = (geometry?.parameters?.width ?? 0.3) < 0.3;
+        flat.transparent = true;
+        flat.depthWrite = false;
+        if (src.map) flat.map = await bake(src.map, small ? 128 : 256, false);
+      } else if (isBody(name)) {
+        // Karoserie: žádná 2K mapa, barva z profilu je věrnější než textura.
+        flat.map = null;
+      } else if (src.map) {
+        const maxPx = isWheel(name) || isTire(name) ? 512 : isInterior(name) ? 256 : 1024;
+        flat.map = await bake(src.map, maxPx, true);
+      }
+
+      next.push(flat);
+      src.dispose?.();
+    }
+
+    mesh.material = Array.isArray(mesh.material) ? next : next[0];
+  }
+}
+
+/**
  * Vyexportuje scénu jako USDZ pro iOS AR Quick Look.
  *
  * PROČ je to důležité: iPhone neumí GLB. Bez USDZ se na iOS zobrazoval
  * generický bílý model, takže barva a stav KONKRÉTNÍHO vozu se zákazníkovi
  * na iPhonu nikdy neukázala. USDZ vyrobíme ze stejné scény jako GLB,
- * takže lak, skla, kola i poškození jsou identické na obou platformách.
+ * takže lak, skla, kola i poškození jsou identické na obou platformách —
+ * jen s levnějšími texturami.
  */
-export async function exportUSDZ(scene: THREE.Object3D, ratio = 0.7): Promise<Blob> {
+export async function exportUSDZ(
+  scene: THREE.Object3D,
+  ratio = 1,
+  options?: { maxTextureSize?: number; simplifyMaterials?: boolean },
+): Promise<Blob> {
   const { USDZExporter } = await import("three/examples/jsm/exporters/USDZExporter.js");
 
   /*
-   * USDZ je ZIP BEZ komprese a geometrie se do něj zapisuje TEXTOVĚ, proto
-   * geometrii zjednodušujeme — ALE POUZE tam, kde to zákazník nevidí.
-   *
-   * PROČ: dřívější globální decimace (72 % trojúhelníků dolů) kolabovala hrany
-   * i na karoserii, sklech a discích. Model Pacifiky je „trojúhelníková
-   * polévka“ bez sdílených vrcholů, takže kolaps přes švy zvlnil plechy a lak
-   * v AR vypadal jako po bouračce. Vnější povrch teď zůstává přesně takový,
-   * jaký je v původním modelu.
+   * Pracujeme na KLONU: jinak by zjednodušení materiálů poškodilo živý
+   * náhled i GLB export ze stejné scény.
    */
-  const light = await decimateForUSDZ(scene, ratio);
+  const working = cloneVehicleScene(scene);
+
+  if (options?.simplifyMaterials !== false) {
+    await simplifyMaterialsForUSDZ(working);
+    await new Promise((resolve) => setTimeout(resolve, 30));
+  }
+
+  /*
+   * Geometrii snižujeme jen tam, kde to zákazník nevidí (interiér, podvozek),
+   * a jen když o to volající vysloveně požádá (ratio < 1). Vnější povrch
+   * zůstává přesně takový, jaký je v původním modelu — dřívější globální
+   * decimace zvlňovala lak a skla.
+   */
+  const light = ratio < 1 ? await decimateForUSDZ(working, ratio) : working;
 
   // Necháme prohlížeč vydechnout (uvolní paměť po decimaci) — bez tohoto
   // yieldu se USDZ export a decimace potkaly ve stejném GC okně a karta padala.
   await new Promise((resolve) => setTimeout(resolve, 50));
 
   const exporter = new USDZExporter();
-  /*
-   * 2048 px textury. PROČ NE 4096: USDZ nese textury NEKOMPRIMOVANÉ a
-   * exportér si je nejdřív celé vyrenderuje do canvasu v paměti. Se 4096 px
-   * a plnou geometrií karta prohlížeče vyčerpala paměť a spadla ještě před
-   * dokončením publikace. 2048 px je na iPhonu vizuálně nerozlišitelné.
-   */
-  const result = await exporter.parseAsync(light, { maxTextureSize: 2048 });
+  const result = await exporter.parseAsync(light, {
+    maxTextureSize: options?.maxTextureSize ?? 1024,
+  });
   return new Blob([result as unknown as BlobPart], { type: "model/vnd.usdz+zip" });
 }
+
 
 
 

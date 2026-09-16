@@ -21,15 +21,29 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const AI_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-/** Fotky, které pro analýzu vzhledu nesou nejvíc informace. */
+/**
+ * Fotky pro analýzu v PRIORITNÍM pořadí. Do modelu jde nejvýš MAX_PHOTOS
+ * snímků v JEDNOM requestu (jedna analýza na vůz = nejnižší cena).
+ * `detail_damage` je první — jinak se vady nikdy nedostanou k modelu.
+ */
 const ANALYSIS_SLOTS = [
+  "detail_damage",
   "ext_45_left",
   "ext_90_left",
   "ext_180",
+  "ext_0",
+  "ext_270_right",
   "detail_wheel",
   "detail_window",
-  "int_front",
 ] as const;
+
+/** Interiér jen když ve limitu zbyde místo. */
+const OPTIONAL_SLOTS = ["int_front"] as const;
+
+const MAX_PHOTOS = 8;
+
+/** Vady s nižší jistotou zahazujeme — nevymyšlené vady jsou horší než žádné. */
+const MIN_DAMAGE_CONFIDENCE = 0.45;
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -39,7 +53,12 @@ const json = (body: unknown, status = 200) =>
 
 const SYSTEM_PROMPT = `Jsi technik automobilového showroomu. Z fotografií JEDNOHO konkrétního vozu
 popiš jeho vzhled tak, aby se dal přenést na existující 3D model.
-Nikdy si nevymýšlej to, co na fotkách není. Když si nejsi jistý, přiznej nízkou jistotu.
+NIKDY si nevymýšlej poškození — když vadu na fotce nevidíš, prostě ji nevracej.
+Barvu laku ber VÝHRADNĚ z plochy karoserie (dveře, blatník), nikdy z asfaltu,
+stínu, odlesku oblohy ani z pozadí.
+U KAŽDÉ vady vrať polohu: "along" (0 = předek vozu, 1 = zadek), "height"
+(0 = spodní hrana, 1 = střecha) a "face" (na které straně vady je).
+Ke každé vadě vrať i "confidence"; vady s jistotou pod 0.45 nevracej.
 Odpověz VÝHRADNĚ jedním JSON objektem v tomto tvaru:
 {
   "body_color_hex": "#rrggbb",        // skutečná barva laku v neutrálním světle
@@ -53,10 +72,11 @@ Odpověz VÝHRADNĚ jedním JSON objektem v tomto tvaru:
   "wheel_condition": "string",         // česky, opotřebení pneu/disku
   "interior_color_hex": "#rrggbb",
   "interior_material": "string",
-  "damages": [ { "part": "predni_naraznik|zadni_naraznik|dvere_levo|dvere_pravo|blatnik|kapota|paty_dvere|strecha|jine", "type": "skrabanec|dulek|rez|koroze|odrena_barva", "severity": "lehke|stredni|vyrazne", "note": "string" } ],
+  "damages": [ { "part": "predni_naraznik|zadni_naraznik|dvere_levo|dvere_pravo|blatnik|kapota|paty_dvere|strecha|jine", "type": "skrabanec|dulek|rez|koroze|odrena_barva", "severity": "lehke|stredni|vyrazne", "along": 0.0-1.0, "height": 0.0-1.0, "face": "left|right|front|rear|top", "width_m": 0.02-1.2, "height_m": 0.02-1.2, "photo_slot": "string", "confidence": 0.0-1.0, "note": "string" } ],
   "confidence": 0.0-1.0,
   "warnings": ["string"]               // špatné fotky, odlesky, chybějící pohledy
 }`;
+
 
 async function assertAdmin(req: Request) {
   const jwt = (req.headers.get("Authorization") || "").replace("Bearer ", "");
@@ -107,18 +127,30 @@ Deno.serve(async (req) => {
     if (!vehicleId) return json({ error: "vehicleId je povinné" }, 400);
     if (!Object.keys(photos).length) return json({ error: "Chybí fotografie" }, 400);
 
-    // 1) Fotky pro analýzu → base64 (odkazy Gemini limituje, base64 ne).
+    // 1) Vybereme max MAX_PHOTOS fotek v prioritním pořadí (jedna analýza na vůz).
+    const selected: string[] = [];
+    for (const slot of ANALYSIS_SLOTS) {
+      if (selected.length >= MAX_PHOTOS) break;
+      if (photos[slot]) selected.push(slot);
+    }
+    for (const slot of OPTIONAL_SLOTS) {
+      if (selected.length >= MAX_PHOTOS) break;
+      if (photos[slot]) selected.push(slot);
+    }
+
+    // 2) Fotky → base64 (odkazy Gemini limituje, base64 ne).
     const parts: unknown[] = [
       {
         type: "text",
         text:
           "Analyzuj tento konkrétní vůz z přiložených fotografií a vrať JSON profil vzhledu. " +
           "Fotky jsou v pořadí: " +
-          ANALYSIS_SLOTS.filter((s) => photos[s]).join(", "),
+          selected.join(", ") +
+          ". U každé vady uveď do photo_slot název fotky, na které je vidět.",
       },
     ];
 
-    for (const slot of ANALYSIS_SLOTS) {
+    for (const slot of selected) {
       const path = photos[slot];
       if (!path) continue;
 
@@ -137,6 +169,7 @@ Deno.serve(async (req) => {
     }
 
     if (parts.length < 2) return json({ error: "Žádnou fotografii se nepodařilo načíst" }, 400);
+
 
     // 2) Vision analýza (bez umělého timeoutu — model si vezme, co potřebuje).
     const aiRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
@@ -175,6 +208,41 @@ Deno.serve(async (req) => {
     const hex = (v: unknown, fallback: string) =>
       typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v.trim()) ? v.trim().toLowerCase() : fallback;
 
+    /*
+     * Vady: model vrací i polohu (along/height/face). Nedůvěryhodné vady
+     * (confidence < 0.45) zahazujeme — vymyšlená vada na kartě ojetiny je
+     * horší než žádná. Chybějící polohu necháme prázdnou, model si pak
+     * vezme pevnou kotvu podle dílu.
+     */
+    const FACES = ["left", "right", "front", "rear", "top"];
+    const optNum = (v: unknown, min: number, max: number) => {
+      const n = typeof v === "number" ? v : Number(v);
+      if (!Number.isFinite(n)) return undefined;
+      return Math.min(max, Math.max(min, n));
+    };
+
+    const damages = (Array.isArray(profile.damages) ? profile.damages : [])
+      .filter((d): d is Record<string, unknown> => !!d && typeof d === "object")
+      .filter((d) => {
+        const c = optNum(d.confidence, 0, 1);
+        return c === undefined ? true : c >= MIN_DAMAGE_CONFIDENCE;
+      })
+      .map((d) => ({
+        part: typeof d.part === "string" ? d.part : "jine",
+        type: typeof d.type === "string" ? d.type : "skrabanec",
+        severity: ["lehke", "stredni", "vyrazne"].includes(String(d.severity))
+          ? String(d.severity)
+          : "lehke",
+        note: typeof d.note === "string" ? d.note : undefined,
+        along: optNum(d.along, 0, 1),
+        height: optNum(d.height, 0, 1),
+        face: FACES.includes(String(d.face)) ? String(d.face) : undefined,
+        width_m: optNum(d.width_m, 0.02, 1.2),
+        height_m: optNum(d.height_m, 0.02, 1.2),
+        photo_slot: typeof d.photo_slot === "string" ? d.photo_slot : undefined,
+        confidence: optNum(d.confidence, 0, 1),
+      }));
+
     const row = {
       vehicle_id: vehicleId,
       body_color_hex: hex(profile.body_color_hex, "#e9eaec"),
@@ -189,8 +257,9 @@ Deno.serve(async (req) => {
         : "chrome",
       wheel_style: typeof profile.wheel_style === "string" ? profile.wheel_style : "default",
       wheel_condition: typeof profile.wheel_condition === "string" ? profile.wheel_condition : null,
-      damages: Array.isArray(profile.damages) ? profile.damages : [],
+      damages,
       interior_color_hex: hex(profile.interior_color_hex, "#2b2b2e"),
+
       photos,
       analysis: profile,
       status: "analyzed",

@@ -22,10 +22,10 @@ import { useFeatureFlag } from "@/hooks/useFeatureFlags";
 import { supabase } from "@/integrations/supabase/client";
 import ARPreviewButton from "./ARPreviewButton";
 import {
-  PACIFICA_HQ_USDZ,
   resolveVehicleModel,
   type VehicleModelSource,
 } from "./pacificaModels";
+
 
 
 
@@ -138,10 +138,19 @@ export const VehicleARButton = ({
        *    privátním bucketu a veřejná funkce `ar-model` je bezpečně doručí
        *    zákazníkům. Přímé podepisování z anonymního klienta by storage RLS
        *    správně odmítlo a dříve tím aktivovalo HQ fallback.
+       *
+       *    PRAVDA NA KARTĚ: jako „tento vůz“ bereme jen model postavený podle
+       *    FOTEK vozu (`source: "photos"`) nebo ručně doladěný adminem
+       *    (`"manual"`). Model složený jen z barvy z inzerátu (`"card"`) je
+       *    interní náhled — zákazníkovi by tvrdil něco, co jsme neověřili.
        */
+      const config = (record?.ar_model_config ?? null) as { source?: string } | null;
+      const configSource = typeof config?.source === "string" ? config.source : "card";
+      const trusted = configSource === "photos" || configSource === "manual";
+
       const ready = Boolean(record?.ar_model_ready);
-      const path = ready ? record?.ar_model_url ?? null : null;
-      const usdz = ready ? record?.ar_model_usdz_url ?? null : null;
+      const path = ready && trusted ? record?.ar_model_url ?? null : null;
+      const usdz = ready && trusted ? record?.ar_model_usdz_url ?? null : null;
 
       const generatedUsdz = usdz
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${usdz}`
@@ -150,23 +159,12 @@ export const VehicleARButton = ({
         ? `https://thqyzghifwmwohgfvshf.supabase.co/functions/v1/ar-model/v/${path}`
         : null;
 
-      if (!path || ownGlb) {
+      if (!cancelled) {
         /*
          * Přímý model má absolutní prioritu. Je-li z přímé dvojice dostupný
          * jen GLB nebo USDZ, druhý formát smí doplnit publikovaná revize
          * stejného vehicle_id — nikdy HQ fallback.
          */
-        setSource(resolveVehicleModel({
-          ownGlb,
-          ownUsdz,
-          generatedGlb,
-          generatedUsdz,
-        }));
-        setSourceLoading(false);
-        return;
-      }
-
-      if (!cancelled) {
         setSource(
           resolveVehicleModel({
             ownGlb,
@@ -188,6 +186,7 @@ export const VehicleARButton = ({
       cancelled = true;
     };
   }, [vehicleId]);
+
 
 
 
@@ -258,20 +257,19 @@ export const VehicleARButton = ({
   if (!source?.isVehicleSpecific && !isModelSupported(name)) return null;
 
   /*
-   * iPhone/iPad umí jen USDZ. Když u vozu vlastní iOS verze (ještě) není,
-   * NEZOBRAZUJEME slepou hlášku — zákazník na iPhonu by tak AR neviděl vůbec.
-   * Místo toho pustíme AR s referenčním modelem Pacifiky a jasně řekneme, že
-   * jde o ilustrační vůz (barva a výbava se mohou lišit).
+   * iPhone/iPad umí jen USDZ. Když u KONKRÉTNÍHO vozu iOS verze ještě není,
+   * NESMÍME pustit ilustrační Pacificu — zákazník by v AR viděl cizí auto
+   * a bral by ho za tuhle ojetinu. Radši krátká hláška a nic víc.
    */
-  const iosNeedsFallback = isIOSDevice() && Boolean(source?.isVehicleSpecific) && !source?.usdz;
-  if (iosNeedsFallback && !isModelSupported(name)) {
+  const iosMissingUsdz = isIOSDevice() && Boolean(source?.isVehicleSpecific) && !source?.usdz;
+  if (iosMissingUsdz) {
     return (
       <div
         className={`inline-flex h-11 items-center gap-2 rounded-full border border-border bg-secondary/40 px-4 text-xs text-muted-foreground ${className ?? ""}`}
         role="status"
       >
         <AlertTriangle className="h-3.5 w-3.5" />
-        AR tohoto vozu je dostupné na Androidu a počítači
+        AR tohoto vozu je na iPhonu v přípravě
       </div>
     );
   }
@@ -285,14 +283,15 @@ export const VehicleARButton = ({
         colorKey={colorHex}
         vehicleId={vehicleId}
         vehicleName={name ?? undefined}
-        showColorDisclaimer={!source?.isVehicleSpecific || iosNeedsFallback}
+        showColorDisclaimer={!source?.isVehicleSpecific}
         autoStart={autoStart}
         modelUrl={source?.glb ?? null}
-        usdzUrl={source?.usdz ?? (iosNeedsFallback ? PACIFICA_HQ_USDZ : null)}
+        usdzUrl={source?.usdz ?? null}
         allowModelFallback={false}
       />
     </div>
   );
+
 
 
 };

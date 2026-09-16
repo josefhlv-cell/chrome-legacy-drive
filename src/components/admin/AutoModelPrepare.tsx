@@ -86,8 +86,11 @@ export const AutoModelPrepare = ({ autoStart = true }: { autoStart?: boolean }) 
     const staleList = supported
       .filter((v) => v.ar_model_ready && v.ar_model_usdz_url)
       .filter((v) => {
-        const config = (v.ar_model_config ?? null) as { usdz_profile?: string } | null;
-        return config?.usdz_profile !== "light";
+        const config = (v.ar_model_config ?? null) as
+          | { usdz_profile?: string; glb_size?: number }
+          | null;
+        // Starý profil NEBO soubor, u kterého se nepovedla komprese geometrie.
+        return config?.usdz_profile !== "light" || (config?.glb_size ?? Infinity) > 12_000_000;
       })
       .map(seed);
 

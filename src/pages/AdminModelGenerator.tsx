@@ -28,7 +28,7 @@ import {
 } from "@/features/model-generator/appearance";
 import {
   exportGLB,
-  exportUSDZ,
+  
   compressGLBInWorker,
   prepareForExport,
 } from "@/features/model-generator/glbBuilder";

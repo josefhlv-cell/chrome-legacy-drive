@@ -71,7 +71,10 @@ export const profileFromVehicle = (vehicle: VehicleSeed): AppearanceProfile => {
     paint_finish: paint?.finish ?? "metallic",
     wheel_style: wheel.id,
     trim_style: trimStyle,
+    // Jen z inzerátu — interní náhled, na kartě to není „toto auto“.
+    source: "card",
   };
+
 };
 
 /**

@@ -143,7 +143,7 @@ const AppBanner = () => {
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-5">
               <div className="flex-1 text-center md:text-left order-2 md:order-1">
                 <h2 className="text-lg md:text-xl font-bold text-foreground font-serif mb-3">
-                  Brzy spustíme naši aplikaci
+                  Naše aplikace je tu!
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
                   {APP_MESSAGE}

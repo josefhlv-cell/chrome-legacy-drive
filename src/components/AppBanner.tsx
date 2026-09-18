@@ -7,7 +7,7 @@ const SHOWN_KEY = "app-modal-shown";
 const AUTO_CLOSE_MS = 20000;
 
 const APP_MESSAGE =
-  "Milí zákazníci, naše aplikace pro vás je v poslední fázi testování a brzy bude spuštěna. Připravili jsme si pro vás něco, co jinde neuvidíte. Představte si váš osobní kapesní servis, kde máte vše, co je potřeba: objednání servisu, servisní knížku, náhradní díly, vaše servisní intervaly a především online diagnostiku vašeho vozu s podporou našich mechaniků, i když s ním budete třeba mimo republiku. Budeme vaše podpora, ať jste kdekoliv. A mnoho dalšího! Máte se na co těšit! Bude to jízda! Společná jízda!";
+  "Milí zákazníci, naše aplikace CHDP Garáž je konečně ke stažení! Váš osobní kapesní servis vždy po ruce – objednání servisu, servisní knížka, náhradní díly, servisní intervaly a především online diagnostika vašeho vozu s podporou našich mechaniků, i když budete s vozem třeba mimo republiku. Budeme vaše podpora, ať jste kdekoliv. Stáhněte si ji ještě dnes a mějte celý servis v kapse.";
 
 const AppBanner = () => {
   const [open, setOpen] = useState(false);

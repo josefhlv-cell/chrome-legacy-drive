@@ -10,6 +10,7 @@ import { usePageTracking } from "@/hooks/usePageTracking";
 import ScrollToTop from "./components/ScrollToTop.tsx";
 import LiveChatWidget from "./components/LiveChatWidget.tsx";
 import CompareBar from "./components/CompareBar.tsx";
+import AppDownloadBar from "./components/AppDownloadBar.tsx";
 import { CompareProvider } from "./contexts/CompareContext.tsx";
 
 // Lazy load all routes — keeps the initial bundle minimal and lets each page stream its own chunk
@@ -82,6 +83,7 @@ const App = () => (
           </Suspense>
           <LiveChatWidget />
           <CompareBar />
+          <AppDownloadBar />
           </CompareProvider>
         </BrowserRouter>
       </TooltipProvider>

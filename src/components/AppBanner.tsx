@@ -7,7 +7,7 @@ const SHOWN_KEY = "app-modal-shown";
 const AUTO_CLOSE_MS = 20000;
 
 const APP_MESSAGE =
-  "Milí zákazníci, naše aplikace pro vás je v poslední fázi testování a brzy bude spuštěna. Připravili jsme si pro vás něco, co jinde neuvidíte. Představte si váš osobní kapesní servis, kde máte vše, co je potřeba: objednání servisu, servisní knížku, náhradní díly, vaše servisní intervaly a především online diagnostiku vašeho vozu s podporou našich mechaniků, i když s ním budete třeba mimo republiku. Budeme vaše podpora, ať jste kdekoliv. A mnoho dalšího! Máte se na co těšit! Bude to jízda! Společná jízda!";
+  "Milí zákazníci, naše aplikace CHDP Garáž je konečně ke stažení! Váš osobní kapesní servis vždy po ruce – objednání servisu, servisní knížka, náhradní díly, servisní intervaly a především online diagnostika vašeho vozu s podporou našich mechaniků, i když budete s vozem třeba mimo republiku. Budeme vaše podpora, ať jste kdekoliv. Stáhněte si ji ještě dnes a mějte celý servis v kapse.";
 
 const AppBanner = () => {
   const [open, setOpen] = useState(false);
@@ -143,18 +143,28 @@ const AppBanner = () => {
             <div className="flex flex-col md:flex-row items-center gap-6 md:gap-5">
               <div className="flex-1 text-center md:text-left order-2 md:order-1">
                 <h2 className="text-lg md:text-xl font-bold text-foreground font-serif mb-3">
-                  Brzy spustíme naši aplikaci
+                  Naše aplikace je tu!
                 </h2>
                 <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
                   {APP_MESSAGE}
                 </p>
-                <a
-                  href="https://chryslerpardubice.site/__l5e/assets-v1/77ce6d1c-f5bd-416f-9bb9-788e36b96ff6/chdp-garaz-android.apk"
-                  download
-                  className="inline-block mt-4 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold font-montserrat"
-                >
-                  Stáhnout pro Android
-                </a>
+                <div className="mt-4 flex flex-wrap justify-center md:justify-start gap-3">
+                  <a
+                    href="https://chryslerpardubice.site/__l5e/assets-v1/77ce6d1c-f5bd-416f-9bb9-788e36b96ff6/chdp-garaz-android.apk"
+                    download
+                    className="inline-block px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold font-montserrat"
+                  >
+                    Stáhnout pro Android
+                  </a>
+                  <a
+                    href="https://apps.apple.com/app/id6807151165"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-block px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold font-montserrat"
+                  >
+                    Stáhnout pro iOS
+                  </a>
+                </div>
               </div>
               <div className="shrink-0 w-40 md:w-44 order-1 md:order-2">
                 <img

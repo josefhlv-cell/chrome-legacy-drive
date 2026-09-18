@@ -148,6 +148,13 @@ const AppBanner = () => {
                 <p className="text-sm text-muted-foreground leading-relaxed font-montserrat">
                   {APP_MESSAGE}
                 </p>
+                <a
+                  href="https://chryslerpardubice.site/__l5e/assets-v1/77ce6d1c-f5bd-416f-9bb9-788e36b96ff6/chdp-garaz-android.apk"
+                  download
+                  className="inline-block mt-4 px-5 py-2.5 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 transition-colors text-sm font-semibold font-montserrat"
+                >
+                  Stáhnout pro Android
+                </a>
               </div>
               <div className="shrink-0 w-40 md:w-44 order-1 md:order-2">
                 <img

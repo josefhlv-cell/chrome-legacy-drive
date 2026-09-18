@@ -65,6 +65,8 @@ const AppBanner = () => {
       const anchor = target.closest("a") as HTMLAnchorElement | null;
       if (!anchor) return;
       const href = anchor.getAttribute("href") || "";
+      // Stažení instalačního souboru aplikace (.apk) se nikdy neblokuje.
+      if (href.endsWith(".apk")) return;
       if (
         href.includes("chryslerpardubice.site") &&
         !href.includes("chdp.chryslerpardubice.site")

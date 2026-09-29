@@ -190,7 +190,10 @@ Deno.serve(async (req) => {
       const existing = (vinKey && existingByVin.get(vinKey)) || existingByName.get(nameKey);
 
       if (existing) {
-        await supabase.from("vehicles").update(vehicleData).eq("id", existing.id);
+        // Never overwrite admin-set flags on existing vehicles — the nightly sync
+        // must not reset the DPH toggle (or similar) that was set manually.
+        const { show_vat: _ignoredShowVat, ...updateData } = vehicleData;
+        await supabase.from("vehicles").update(updateData).eq("id", existing.id);
         vehicleId = existing.id;
         updatedCount++;
       } else {

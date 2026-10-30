@@ -52,6 +52,8 @@ export default function SmartCapture() {
   const progressRef = useRef(progress);
   const metadataChain = useRef<Promise<unknown>>(Promise.resolve());
   const [progressError, setProgressError] = useState(false);
+  const [progressSaving, setProgressSaving] = useState(false);
+  const progressWrites = useRef(0);
   const initializedSession = useRef<string>();
   const completionStep = useRef<number | null>(null);
 
@@ -59,7 +61,7 @@ export default function SmartCapture() {
     if (!sid) return;
     progressRef.current = next; setProgress(next);
     try { localStorage.setItem(`capture-progress:${sid}`, JSON.stringify(next)); } catch { /* Remote saving still proceeds. */ }
-    setProgressError(true);
+    progressWrites.current++; setProgressSaving(true);
     metadataChain.current = metadataChain.current.catch(() => undefined).then(async () => {
       const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
       if (error) throw error;
@@ -72,6 +74,9 @@ export default function SmartCapture() {
     }).catch(() => {
       setProgressError(true);
       toast({ title: "Průběh zatím uložen jen v tomto zařízení", description: "Zkuste uložení znovu před otevřením na PC.", variant: "destructive" });
+    }).finally(() => {
+      progressWrites.current = Math.max(0, progressWrites.current - 1);
+      setProgressSaving(progressWrites.current > 0);
     });
   }, [sessionId, toast]);
 
@@ -104,11 +109,11 @@ export default function SmartCapture() {
   useEffect(() => { if (sessionId && queueCount === 0) void refetchPhotos(); }, [sessionId, queueCount, refetchPhotos]);
   useEffect(() => {
     const guard = (event: BeforeUnloadEvent) => {
-      if (queued.some(p => p.status !== "done") || progressError) { event.preventDefault(); event.returnValue = ""; }
+      if (queued.some(p => p.status !== "done") || progressError || progressSaving) { event.preventDefault(); event.returnValue = ""; }
     };
     window.addEventListener("beforeunload", guard);
     return () => window.removeEventListener("beforeunload", guard);
-  }, [queued, progressError]);
+  }, [queued, progressError, progressSaving]);
   const deletePhoto = useDeleteSessionPhoto();
   const updateSession = useUpdateSession();
   const { data: settings } = useSmartCaptureSettings();
@@ -464,10 +469,10 @@ export default function SmartCapture() {
 
 
   useEffect(() => {
-    if (mobile || phase !== "review" || !session || progressError) return;
+    if (mobile || phase !== "review" || !session || progressError || progressSaving) return;
     const next = readProgress(session.metadata);
     progressRef.current = next; setProgress(next);
-  }, [session, mobile, phase, progressError]);
+  }, [session, mobile, phase, progressError, progressSaving]);
 
   const infoSessionRef = useRef<string>();
   // Prefill vehicle info from VIN-decoded data + saved session metadata

@@ -43,7 +43,7 @@ describe("accepted photo background pipeline", () => {
     const bitmap = { width: 4032, height: 3024, close: vi.fn() };
     vi.stubGlobal("createImageBitmap", vi.fn(async () => bitmap));
     const drawImage = vi.fn();
-    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage } as unknown as CanvasRenderingContext2D);
+    vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation((() => ({ drawImage })) as typeof HTMLCanvasElement.prototype.getContext);
     vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(callback => callback(new Blob(["small"])));
     mocks.invoke.mockImplementation(() => new Promise(() => {}));
     await uploadCapturePhoto({ ...photo(), aiEnabled: true });

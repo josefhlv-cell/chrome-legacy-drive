@@ -245,12 +245,11 @@ export default function SmartCapture() {
     const v = videoRef.current;
     if (!v || !stream) return;
     setCameraReady(false);
-    let timeout: ReturnType<typeof setTimeout>;
     const ready = () => {
       if (v.videoWidth > 0 && v.videoHeight > 0 && v.readyState >= 2) { setCameraReady(true); clearTimeout(timeout); }
     };
     v.addEventListener("loadeddata", ready); v.addEventListener("playing", ready);
-    timeout = setTimeout(() => {
+    const timeout = setTimeout(() => {
       if (!v.videoWidth || v.readyState < 2) setCameraError("Kamera se neprobudila. Klepněte na Zkusit znovu.");
     }, 10000);
     try {

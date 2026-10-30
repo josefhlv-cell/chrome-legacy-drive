@@ -5,7 +5,7 @@ afterEach(() => vi.unstubAllGlobals());
 describe("iPhone-compatible camera requests", () => {
   it("requests the front camera when selected instead of forcing the rear lens", async () => {
     const stream = { getVideoTracks: () => [] };
-    const getUserMedia = vi.fn(async () => stream);
+    const getUserMedia = vi.fn(async (_constraints: MediaStreamConstraints) => stream);
     vi.stubGlobal("navigator", { mediaDevices: { getUserMedia } });
     expect(await openCamera("user")).toBe(stream);
     expect(getUserMedia.mock.calls[0][0]).toMatchObject({ audio: false, video: { facingMode: { ideal: "user" }, width: { ideal: 4032 }, height: { ideal: 3024 } } });

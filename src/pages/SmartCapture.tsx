@@ -351,7 +351,7 @@ export default function SmartCapture() {
         if (token === pendingToken.current && score < 35) setPendingTip("Fotka vypadá mírně rozmazaná");
       }).catch(() => undefined);
     } finally {
-      setTimeout(() => { shootingRef.current = false; }, 200);
+      shootingRef.current = false;
     }
   };
 

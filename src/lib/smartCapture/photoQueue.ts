@@ -90,7 +90,14 @@ async function run(photo: QueuedPhoto) {
     await store({ ...photo, status: "uploading" });
     await uploadCapturePhoto(photo);
     change(photo.id, { status: "done" });
-    await store(photo, true);
+    // A local cleanup error must not turn a successfully saved photo into failure.
+    await store(photo, true).catch(() => undefined);
+    const saved = items.find(p => p.id === photo.id);
+    if (saved) {
+      URL.revokeObjectURL(saved.preview);
+      const publicUrl = supabase.storage.from("smart-capture").getPublicUrl(`${photo.sessionId}/${photo.id}_${photo.shotIndex}_${photo.shotType}_web.jpg`).data.publicUrl;
+      change(photo.id, { preview: publicUrl, blob: new Blob() });
+    }
   } catch (e) {
     change(photo.id, { status: "error", error: e instanceof Error ? e.message : String(e) });
     await store({ ...photo, status: "error" }).catch(() => undefined);
@@ -114,6 +121,9 @@ export function enqueuePhoto(input: Omit<QueuedPhoto, "id" | "status" | "preview
 }
 export function retryPhoto(id: string) {
   change(id, { status: "uploading", error: undefined }); pump();
+}
+export function retrySessionPhotos(sessionId: string) {
+  for (const photo of items) if (photo.sessionId === sessionId && photo.status === "error") retryPhoto(photo.id);
 }
 export async function restoreQueue(sessionId: string) {
   const db = await database();

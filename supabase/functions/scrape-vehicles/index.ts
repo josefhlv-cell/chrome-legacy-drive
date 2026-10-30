@@ -72,6 +72,72 @@ async function downloadImageToStorage(
   }
 }
 
+/** Smaže Smart Capture fotky napojené na prodané vozidlo (stejná logika jako edge cleanup-sold-vehicle). */
+async function cleanupSmartCapture(
+  // deno-lint-ignore no-explicit-any
+  supabase: any,
+  vehicleId: string,
+) {
+  try {
+    const { data: session } = await supabase
+      .from("smart_capture_sessions")
+      .select("id, metadata")
+      .eq("published_vehicle_id", vehicleId)
+      .maybeSingle();
+
+    if (!session?.id) return;
+
+    const sessionId = session.id as string;
+    const BUCKET = "smart-capture";
+
+    const pathFromUrl = (url: string | null | undefined): string | null => {
+      if (!url || typeof url !== "string") return null;
+      const marker = `/object/public/${BUCKET}/`;
+      const idx = url.indexOf(marker);
+      if (idx === -1) return null;
+      let path = url.slice(idx + marker.length);
+      const q = path.indexOf("?");
+      if (q !== -1) path = path.slice(0, q);
+      return path || null;
+    };
+
+    const { data: photos } = await supabase
+      .from("smart_capture_photos")
+      .select("original_url, processed_url")
+      .eq("session_id", sessionId);
+
+    const paths = new Set<string>();
+    for (const p of photos ?? []) {
+      const o = pathFromUrl(p.original_url);
+      const pr = pathFromUrl(p.processed_url);
+      if (o) paths.add(o);
+      if (pr) paths.add(pr);
+    }
+
+    const meta = (session.metadata ?? {}) as Record<string, unknown>;
+    const thumb = pathFromUrl(typeof meta.thumbnail_url === "string" ? meta.thumbnail_url : null);
+    if (thumb) paths.add(thumb);
+
+    const { data: listed } = await supabase.storage.from(BUCKET).list(sessionId, { limit: 1000 });
+    if (listed?.length) {
+      for (const f of listed) {
+        if (f.name) paths.add(`${sessionId}/${f.name}`);
+      }
+    }
+
+    const pathList = [...paths];
+    if (pathList.length > 0) {
+      await supabase.storage.from(BUCKET).remove(pathList);
+    }
+
+    await supabase.from("smart_capture_photos").delete().eq("session_id", sessionId);
+    await supabase.from("smart_capture_sessions").delete().eq("id", sessionId);
+    console.log(`[cleanup] Smart Capture session ${sessionId} for vehicle ${vehicleId} removed`);
+  } catch (e) {
+    console.warn(`[cleanup] failed for vehicle ${vehicleId}:`, e);
+  }
+}
+
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") {
     return new Response(null, { headers: corsHeaders });
@@ -252,10 +318,20 @@ Deno.serve(async (req) => {
       }
     }
 
-    // Step 4: Mark missing vehicles as sold
+    // Step 4: Mark missing vehicles as sold + cleanup Smart Capture
     for (const [name, { id }] of existingByName) {
       if (!seenNames.has(name)) {
-        await supabase.from("vehicles").update({ status: "prodano" }).eq("id", id).neq("status", "prodano");
+        const { data: updated } = await supabase
+          .from("vehicles")
+          .update({ status: "prodano" })
+          .eq("id", id)
+          .neq("status", "prodano")
+          .select("id");
+
+        // Cleanup jen pokud se stav skutečně změnil na prodano
+        if (updated && updated.length > 0) {
+          await cleanupSmartCapture(supabase, id);
+        }
       }
     }
 

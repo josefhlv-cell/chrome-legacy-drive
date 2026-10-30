@@ -87,7 +87,8 @@ export const useSessionPhotos = (sessionId: string | undefined) => {
       return data ?? [];
     },
     enabled: !!sessionId,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5000,
   });
 };
 
@@ -121,8 +122,7 @@ export const useUploadPhoto = () => {
       if (o.error) throw o.error;
       if (p.error) throw p.error;
 
-      const base = (path: string) =>
-        `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}/${path}`;
+      const base = (path: string) => supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 
       const payload = {
         session_id: input.sessionId,

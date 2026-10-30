@@ -41,6 +41,7 @@ export const useUpdateSmartCaptureSettings = () => {
 };
 
 export const useCreateSession = () => {
+  const qc = useQueryClient();
   return useMutation({
     mutationFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -53,6 +54,7 @@ export const useCreateSession = () => {
       if (error) throw error;
       return data;
     },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["smart-capture-sessions"] }),
   });
 };
 
@@ -70,6 +72,7 @@ export const useSession = (sessionId: string | undefined) => {
       return data;
     },
     enabled: !!sessionId,
+    refetchInterval: 5000,
   });
 };
 
@@ -87,7 +90,8 @@ export const useSessionPhotos = (sessionId: string | undefined) => {
       return data ?? [];
     },
     enabled: !!sessionId,
-    refetchOnWindowFocus: false,
+    refetchOnWindowFocus: true,
+    refetchInterval: 5000,
   });
 };
 
@@ -121,8 +125,7 @@ export const useUploadPhoto = () => {
       if (o.error) throw o.error;
       if (p.error) throw p.error;
 
-      const base = (path: string) =>
-        `https://thqyzghifwmwohgfvshf.supabase.co/storage/v1/object/public/${BUCKET}/${path}`;
+      const base = (path: string) => supabase.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
 
       const payload = {
         session_id: input.sessionId,
@@ -180,6 +183,7 @@ export const useUpdateSession = () => {
     },
     onSuccess: (_, vars) => {
       qc.invalidateQueries({ queryKey: ["smart-capture-session", vars.id] });
+      qc.invalidateQueries({ queryKey: ["smart-capture-sessions"] });
     },
   });
 };

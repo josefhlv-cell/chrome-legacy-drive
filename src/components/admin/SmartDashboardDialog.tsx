@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -10,7 +11,7 @@ import { useSessions, useSessionPhotos, useDeleteSessionPhoto } from "@/hooks/us
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
-import { buildSessionZip, downloadBlob, type ExportPhoto } from "@/lib/smartCapture/export";
+import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
 import type { ShotType } from "@/lib/smartCapture/types";
 import type { BufferedPhoto } from "./NewVehiclePhotoUploader";
 
@@ -28,6 +29,7 @@ type SessionRow = {
   has_360: boolean;
   vin: string;
   decoded_data: Record<string, unknown>;
+  metadata?: { vehicle_info?: Partial<VehicleInfo> };
 };
 
 type PhotoRow = {
@@ -41,6 +43,7 @@ type PhotoRow = {
 };
 
 export default function SmartDashboardDialog({ open, onOpenChange, onImport }: Props) {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: sessions = [], isLoading, refetch } = useSessions();
@@ -111,6 +114,7 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
         model: decoded.model || "Model",
         year: decoded.year,
         color: decoded.color,
+        ...selected.metadata?.vehicle_info,
       });
       downloadBlob(blob, `smart-capture-${selected.id.slice(0, 8)}.zip`);
     } catch (e) {
@@ -226,7 +230,8 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
                       {selected.has_360 && <Badge variant="secondary" className="text-[10px]">360° kompletní</Badge>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); navigate(`/admin/smart-capture?session=${selected.id}`); }}><Camera className="w-4 h-4 mr-1.5" /> Otevřít relaci / doplnit</Button>
                     <Button variant="outline" size="sm" onClick={handleZip} disabled={zipping || rows.length === 0}>
                       {zipping ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileArchive className="w-4 h-4 mr-1.5" />}
                       ZIP

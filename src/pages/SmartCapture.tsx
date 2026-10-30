@@ -1,42 +1,29 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle, Mic, MicOff, SkipForward, Compass, SwitchCamera, ChevronLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
 import { supabase } from "@/integrations/supabase/client";
 import {
-  useCreateSession, useSession, useSessionPhotos, useUploadPhoto,
+  useCreateSession, useSession, useSessionPhotos, useSessions,
   useUpdateSession, useDeleteSessionPhoto, useSmartCaptureSettings,
 } from "@/hooks/useSmartCapture";
 import { SHOT_SEQUENCE, SHOT_LABEL_MAP, type ShotType } from "@/lib/smartCapture/types";
-import { processImage, computeBlurScore, fileToBase64 } from "@/lib/smartCapture/imageProcessing";
+import { computeBlurScore } from "@/lib/smartCapture/imageProcessing";
 import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
 import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
-import { CAPTURE_BG_URL, THUMB_PLACEMENT, composeThumbnail, frameToThumbnail } from "@/lib/smartCapture/thumbnail";
 import { guideForShot } from "@/lib/smartCapture/dealerGuide";
+import { CaptureFilmstrip } from "@/components/admin/CaptureFilmstrip";
+import { enqueuePhoto, photoQueue, restoreQueue, retrySessionPhotos } from "@/lib/smartCapture/photoQueue";
+import { advanceProgress, readProgress, type CaptureProgress } from "@/lib/smartCapture/workflow";
+import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
 
 
 
-interface AnalysisResult {
-  shot_type?: string;
-  quality_score?: number;
-  sharpness?: number;
-  exposure?: number;
-  composition?: number;
-  issues?: string[];
-  tip?: string;
-  is_blurry?: boolean;
-  is_overexposed?: boolean;
-  is_underexposed?: boolean;
-  dirty_lens?: boolean;
-  obstructions?: boolean;
-}
-
-type Phase = "intro" | "capturing" | "vin" | "review";
+type Phase = "intro" | "capturing" | "review";
 
 export default function SmartCapture() {
   const navigate = useNavigate();
@@ -46,10 +33,87 @@ export default function SmartCapture() {
 
   const sessionIdFromUrl = searchParams.get("session");
   const [sessionId, setSessionId] = useState<string | undefined>(sessionIdFromUrl ?? undefined);
+  useEffect(() => {
+    if ((sessionIdFromUrl ?? undefined) !== sessionId) { setSessionId(sessionIdFromUrl ?? undefined); setPhase(sessionIdFromUrl ? "review" : "intro"); }
+  // URL navigation, not local session creation, drives this synchronization.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIdFromUrl]);
   const createSession = useCreateSession();
-  const { data: session } = useSession(sessionId);
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useSession(sessionId);
+  const { data: sessions = [], refetch: refetchSessions } = useSessions();
   const { data: photos = [], refetch: refetchPhotos } = useSessionPhotos(sessionId);
-  const uploadPhoto = useUploadPhoto();
+  const allQueued = useSyncExternalStore(photoQueue.subscribe, photoQueue.getSnapshot);
+  const queued = useMemo(() => allQueued.filter(p => p.sessionId === sessionId), [allQueued, sessionId]);
+  const queueCount = queued.filter(p => p.status === "uploading").length;
+  const [starting, setStarting] = useState(false);
+  const startRef = useRef(false);
+  const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia("(pointer: coarse)").matches;
+  const [progress, setProgress] = useState<CaptureProgress>({ skipped_steps: [], next_step: 0 });
+  const progressRef = useRef(progress);
+  const metadataChain = useRef<Promise<unknown>>(Promise.resolve());
+  const [progressError, setProgressError] = useState(false);
+  const [progressSaving, setProgressSaving] = useState(false);
+  const progressWrites = useRef(0);
+  const initializedSession = useRef<string>();
+  const completionStep = useRef<number | null>(null);
+
+  const saveProgress = useCallback((next: CaptureProgress, sid = sessionId) => {
+    if (!sid) return;
+    progressRef.current = next; setProgress(next);
+    try { localStorage.setItem(`capture-progress:${sid}`, JSON.stringify(next)); } catch { /* Remote saving still proceeds. */ }
+    progressWrites.current++; setProgressSaving(true);
+    metadataChain.current = metadataChain.current.catch(() => undefined).then(async () => {
+      const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
+      if (error) throw error;
+      const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+      const result = await supabase.from("smart_capture_sessions").update({ metadata: { ...metadata, ...next } }).eq("id", sid);
+      if (result.error) throw result.error;
+      // Only remove the local checkpoint when it is still the same revision.
+      if (localStorage.getItem(`capture-progress:${sid}`) === JSON.stringify(next)) localStorage.removeItem(`capture-progress:${sid}`);
+      setProgressError(false);
+    }).catch(() => {
+      setProgressError(true);
+      toast({ title: "Průběh zatím uložen jen v tomto zařízení", description: "Zkuste uložení znovu před otevřením na PC.", variant: "destructive" });
+    }).finally(() => {
+      progressWrites.current = Math.max(0, progressWrites.current - 1);
+      setProgressSaving(progressWrites.current > 0);
+    });
+  }, [sessionId, toast]);
+
+  const copyLink = async () => {
+    if (!sessionId) return;
+    try {
+      await navigator.clipboard.writeText(`${window.location.origin}/admin/smart-capture?session=${sessionId}`);
+      toast({ title: "Odkaz zkopírován" });
+    } catch { toast({ title: "Odkaz nelze zkopírovat", description: "Zkopírujte adresu z adresního řádku.", variant: "destructive" }); }
+  };
+
+  useEffect(() => {
+    if (!sessionId || !session || initializedSession.current === sessionId) return;
+    initializedSession.current = sessionId;
+    let next = readProgress(session.metadata);
+    const checkpoint = localStorage.getItem(`capture-progress:${sessionId}`);
+    if (checkpoint) { try { next = readProgress(JSON.parse(checkpoint)); saveProgress(next); } catch { /* invalid checkpoint */ } }
+    progressRef.current = next; setProgress(next);
+    setCurrentStepIdx(Math.min(19, next.next_step));
+    setPhase("review");
+    void restoreQueue(sessionId).catch(() => toast({ title: "Místní frontu se nepodařilo obnovit", variant: "destructive" }));
+  }, [sessionId, session, saveProgress, toast]);
+
+  useEffect(() => {
+    const online = () => { if (sessionId) { saveProgress(progressRef.current); retrySessionPhotos(sessionId); } void refetchPhotos(); };
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, [sessionId, saveProgress, refetchPhotos]);
+
+  useEffect(() => { if (sessionId && queueCount === 0) void refetchPhotos(); }, [sessionId, queueCount, refetchPhotos]);
+  useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => {
+      if (queued.some(p => p.status !== "done") || progressError || progressSaving) { event.preventDefault(); event.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [queued, progressError, progressSaving]);
   const deletePhoto = useDeleteSessionPhoto();
   const updateSession = useUpdateSession();
   const { data: settings } = useSmartCaptureSettings();
@@ -58,17 +122,15 @@ export default function SmartCapture() {
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [busy, setBusy] = useState(false);
-  const [queueCount, setQueueCount] = useState(0);   // ⚡ kolik fotek se zpracovává na pozadí
   const [shutterFlash, setShutterFlash] = useState(false);
   /** Právě pořízený snímek — čeká na „Použít fotografii“ / „Vyfotit znovu“.
    *  Kamera přitom BĚŽÍ dál (žádná reinicializace MediaStreamu). */
   const [pending, setPending] = useState<{ blob: Blob; url: string; stepIdx: number } | null>(null);
   /** Skutečný poměr stran streamu — zjištěn z videoWidth/videoHeight, ne z CSS. */
-  const [videoAspect, setVideoAspect] = useState<number | null>(null);
   const [cameraError, setCameraError] = useState<string | null>(null);
-  const [lastAnalysis, setLastAnalysis] = useState<AnalysisResult | null>(null);
-  const [vinScanning, setVinScanning] = useState(false);
-  const [vinValue, setVinValue] = useState("");
+  const [pendingTip, setPendingTip] = useState<string>();
+  const pendingToken = useRef(0);
+  const pendingRef = useRef<{ url: string } | null>(null);
   const [vehicleInfo, setVehicleInfo] = useState<VehicleInfo>({
     brand: "", model: "", year: "", vin: "", mileage: "",
     price: "", fuel: "", transmission: "", color: "", power: "",
@@ -107,17 +169,13 @@ export default function SmartCapture() {
    * "suggest" = pozadí se jen zobrazí v hledáčku jako vodítko (nic se neskládá)
    * "on"      = navíc se z prvního záběru automaticky složí miniatura
    */
-  const thumbBgMode = useMemo(() => {
-    return ((settings as { thumbnail_background?: string })?.thumbnail_background ?? "off") as "on" | "suggest" | "off";
-  }, [settings]);
-  const thumbOverlayEnabled = thumbBgMode !== "off";
-  const thumbComposeEnabled = thumbBgMode === "on";
+  const thumbOverlayEnabled = false;
   /** Dealer Mode — jednotné měřítko a kompozice u všech vozidel (default OFF). */
   const dealerMode = useMemo(() => !!(settings as { dealer_mode?: boolean })?.dealer_mode, [settings]);
 
-  const [thumbBusy, setThumbBusy] = useState(false);
+  const thumbBusy = false;
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [thumbOverlayOn, setThumbOverlayOn] = useState(true);
+
 
   /** Skutečné rozměry viewportu (ne CSS odhad) — přepočítají se i po otočení. */
   const [viewport, setViewport] = useState(() => ({
@@ -139,27 +197,10 @@ export default function SmartCapture() {
   }, []);
   const landscapeMode = isLandscape && landscapeEnabled;
 
-/**
- * Camera viewport zabírá celý dostupný displej.
- * Live preview zachovává poměr stran kamery bez deformace.
- * Dealer overlay je ukotvený na celý viewport.
- */
 
-  const frameBox = useMemo(() => {
-  const vw = viewport.w || 1;
-  const vh = viewport.h || 1;
-
-  return {
-    left: 0,
-    top: 0,
-    width: vw,
-    height: vh,
-  };
-}, [viewport]);
-  const [voiceActive, setVoiceActive] = useState(false);
   const [voiceUnsupported, setVoiceUnsupported] = useState(false);
   const [dictating, setDictating] = useState(false);
-  const [voiceLegendOpen, setVoiceLegendOpen] = useState(false);
+
   const [horizonAngle, setHorizonAngle] = useState(0);
   const voiceRef = useRef<ReturnType<typeof createVoiceController> | null>(null);
   const horizonRef = useRef<ReturnType<typeof createHorizonController> | null>(null);
@@ -211,22 +252,31 @@ export default function SmartCapture() {
   }, []);
 
 
-  // Start: switch UI immediately, create session in background, request camera
-  // as the FIRST await (gesture-preserving on iOS).
+  // Request camera inside the click gesture, but enable capture only after a valid session.
   const handleStart = async () => {
-    setCameraError(null);
-    setPhase("capturing");
-    if (!sessionId) {
-      createSession.mutateAsync()
-        .then((sess) => { setSessionId(sess.id); setSearchParams({ session: sess.id }); })
-        .catch((e) => toast({ title: "Relace se nevytvořila", description: String(e), variant: "destructive" }));
-    }
+    if (startRef.current || (sessionId && !session)) return;
+    startRef.current = true; setStarting(true); setCameraError(null);
+    let acquired: MediaStream | undefined;
+    const cameraPromise = requestCamera().then(value => { acquired = value; return value; }).catch(e => {
+      setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); return undefined;
+    });
     try {
-      const s = await requestCamera();
-      setStream(s);
+      if (!sessionId) {
+        const created = await createSession.mutateAsync();
+        initializedSession.current = created.id;
+        setSessionId(created.id); setSearchParams({ session: created.id });
+        progressRef.current = { skipped_steps: [], next_step: 0 }; setProgress(progressRef.current);
+        setCurrentStepIdx(0); void refetchSessions();
+      }
+      const camera = await cameraPromise;
+      if (camera) setStream(camera);
+      setPhase("capturing");
     } catch (e) {
-      setCameraError(e instanceof Error ? e.message : "Kamera nedostupná");
-    }
+      toast({ title: "Relace se nevytvořila", description: String(e), variant: "destructive" });
+      void cameraPromise.then(value => value?.getTracks().forEach(t => t.stop()));
+      acquired?.getTracks().forEach(t => t.stop());
+      setPhase("intro");
+    } finally { startRef.current = false; setStarting(false); }
   };
 
   const startCamera = useCallback(async () => {
@@ -268,7 +318,8 @@ export default function SmartCapture() {
     if (!v.videoWidth || !v.videoHeight) return null;   // stream not ready yet
     const c = document.createElement("canvas");
     c.width = v.videoWidth; c.height = v.videoHeight;
-    const ctx = c.getContext("2d")!;
+    const ctx = c.getContext("2d");
+    if (!ctx) return null;
     if (facingRef.current === "user") {
       // Front camera preview is mirrored — save what the user actually sees.
       ctx.translate(c.width, 0);
@@ -278,64 +329,9 @@ export default function SmartCapture() {
     return await new Promise<Blob | null>((res) => c.toBlob((b) => res(b), "image/jpeg", 0.92));
   };
 
-  const handleFilePicked = async (file: File) => {
+  const handleFilePicked = (file: File) => {
     if (!sessionId) return;
-    await processAndUpload(file);
-  };
-
-  /**
-   * Z prvního záběru vytvoří miniaturu na FIXNÍM přednastaveném pozadí.
-   * 1) snímek se nahraje do storage (kvůli výřezu potřebuje Remove.bg URL)
-   * 2) edge funkce `remove-background` vrátí PNG s alfou (žádné AI pozadí)
-   * 3) canvas složí výřez na totožné pozadí (deterministická geometrie)
-   * 4) výsledek se nahraje a uloží do metadat relace jako `thumbnail_url`
-   * Pokud výřez selže, použije se snímek přímo (uživatel fotil do reálného pozadí).
-   */
-  const buildThumbnail = async (frame: Blob, sid: string) => {
-    setThumbBusy(true);
-    try {
-      const srcPath = `${sid}/thumb-src-${Date.now()}.jpg`;
-      const up = await supabase.storage.from("smart-capture")
-        .upload(srcPath, frame, { contentType: "image/jpeg", upsert: true });
-      if (up.error) throw up.error;
-      const { data: pub } = supabase.storage.from("smart-capture").getPublicUrl(srcPath);
-
-      let thumb: Blob | null = null;
-      try {
-        const { data, error } = await supabase.functions.invoke("remove-background", {
-          body: { imageUrl: pub.publicUrl },
-        });
-        if (error) throw error;
-        const png = data instanceof Blob ? data : new Blob([data as BlobPart], { type: "image/png" });
-        thumb = await composeThumbnail(png, { dealerMode });
-      } catch (cutErr) {
-        console.warn("[thumbnail] cutout failed, using raw frame", cutErr);
-        thumb = await frameToThumbnail(frame);
-      }
-
-      const thumbPath = `${sid}/thumbnail.jpg`;
-      const upT = await supabase.storage.from("smart-capture")
-        .upload(thumbPath, thumb, { contentType: "image/jpeg", upsert: true });
-      if (upT.error) throw upT.error;
-      const { data: pubT } = supabase.storage.from("smart-capture").getPublicUrl(thumbPath);
-      const url = `${pubT.publicUrl}?v=${Date.now()}`;
-      setThumbnailUrl(url);
-
-      await updateSession.mutateAsync({
-        id: sid,
-        updates: {
-          metadata: {
-            ...((session as { metadata?: Record<string, unknown> })?.metadata ?? {}),
-            thumbnail_url: url,
-          },
-        },
-      });
-      toast({ title: "Miniatura připravena", description: "Použije se pouze v nabídce vozů, v detailu nikoli." });
-    } catch (e) {
-      toast({ title: "Miniatura se nevytvořila", description: String(e), variant: "destructive" });
-    } finally {
-      setThumbBusy(false);
-    }
+    acceptPhoto(file, currentStepIdx);
   };
 
   const handleShot = async () => {
@@ -348,153 +344,73 @@ export default function SmartCapture() {
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
       // Kontrola snímku — teprve „Použít fotografii“ ho uloží.
-      setPending({ blob, url: URL.createObjectURL(blob), stepIdx: currentStepIdx });
+      const preview = { blob, url: URL.createObjectURL(blob), stepIdx: currentStepIdx };
+      pendingRef.current = preview; setPending(preview); setPendingTip(undefined);
+      const token = ++pendingToken.current;
+      void computeBlurScore(blob).then(score => {
+        if (token === pendingToken.current && score < 35) setPendingTip("Fotka vypadá mírně rozmazaná");
+      }).catch(() => undefined);
     } finally {
-      setTimeout(() => { shootingRef.current = false; }, 200);
+      shootingRef.current = false;
     }
   };
 
-  /** „Použít fotografii“ — upload běží na pozadí, uživatel pokračuje dál. */
+  const advance = (stepIdx: number, skipped: boolean) => {
+    saveProgress(advanceProgress(progressRef.current, stepIdx, skipped));
+    if (completionStep.current !== null) {
+      completionStep.current = null; stopCamera(); setPhase("review");
+    } else if (stepIdx < totalSteps - 1) setCurrentStepIdx(stepIdx + 1);
+    else { stopCamera(); setPhase("review"); }
+  };
+
+  const acceptPhoto = (blob: Blob, stepIdx: number) => {
+    if (!sessionId) return;
+    shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
+    enqueuePhoto({ sessionId, blob, shotType: SHOT_SEQUENCE[stepIdx].type,
+      shotIndex: shotIndexRef.current++, autoProcess: settings?.auto_image_processing !== "off", aiEnabled });
+    advance(stepIdx, false);
+  };
+
   const acceptPending = () => {
     if (!pending || !sessionId) return;
+    shootingRef.current = true;
     const { blob, url, stepIdx } = pending;
-    setPending(null);
-    URL.revokeObjectURL(url);
-    if (stepIdx < totalSteps - 1) setCurrentStepIdx(stepIdx + 1);
-    void processAndUpload(blob, stepIdx);
-    if (stepIdx === 0 && thumbComposeEnabled && !thumbBusy) void buildThumbnail(blob, sessionId);
+    pendingToken.current++; pendingRef.current = null; setPending(null); setPendingTip(undefined); URL.revokeObjectURL(url);
+    acceptPhoto(blob, stepIdx);
+    setTimeout(() => { shootingRef.current = false; }, 0);
   };
 
-  /** „Vyfotit znovu“ — snímek se zahodí, kamera zůstává připravená. */
+  useEffect(() => () => { if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url); }, []);
+
   const retakePending = () => {
-    setPending((p) => { if (p) URL.revokeObjectURL(p.url); return null; });
+    pendingToken.current++; pendingRef.current = null; setPendingTip(undefined);
+    setPending(p => { if (p) URL.revokeObjectURL(p.url); return null; });
   };
 
-  // Cleanup posledního náhledu při odchodu z obrazovky (žádné visící Blob URL).
-  useEffect(() => () => { setPending((p) => { if (p) URL.revokeObjectURL(p.url); return null; }); }, []);
-
-
-
-
-  const processAndUpload = async (input: Blob | File, stepIdx?: number) => {
+  const skipStep = () => {
     if (!sessionId) return;
-    // Claim a unique shot index up-front — parallel uploads used to reuse
-    // photos.length and produce duplicate ordering.
-    shotIndexRef.current = Math.max(shotIndexRef.current, photos.length);
-    const myIndex = shotIndexRef.current++;
-    setQueueCount((n) => n + 1);
-    setLastAnalysis(null);
-
-    try {
-      const autoProcess = !settings || (settings as { auto_image_processing?: string }).auto_image_processing !== "off";
-
-      // ⚡ Paralelně: processing + blur score (oba potřebují bitmap, sdílejí cache prohlížeče)
-      const processedPromise = autoProcess
-        ? processImage(input)
-        : Promise.resolve({ blob: input as Blob, width: 0, height: 0 });
-
-      const { blob: processed, width, height } = await processedPromise;
-
-      // ⚡ Blur score paralelně s případnou AI analýzou + uploadem
-      const blurPromise = computeBlurScore(processed).catch(() => 50);
-
-      // AI analyze — non-blocking pro UI; pokud je vypnuto, přeskoč úplně
-      let aiPromise: Promise<AnalysisResult> = Promise.resolve({});
-      if (aiEnabled) {
-        aiPromise = (async () => {
-          try {
-            const b64 = await fileToBase64(processed);
-            const { data, error } = await supabase.functions.invoke("smart-capture-analyze", {
-              body: { imageBase64: b64 },
-            });
-            return !error && data ? (data as AnalysisResult) : {};
-          } catch { return {}; }
-        })();
-      }
-
-      const [blurScore, ai] = await Promise.all([blurPromise, aiPromise]);
-      setLastAnalysis(ai);
-
-      const fallbackType = SHOT_SEQUENCE[stepIdx ?? currentStepIdx]?.type ?? "unknown";
-      const detectedType = (ai.shot_type as ShotType) || fallbackType;
-      const score = ai.quality_score ?? Math.round((blurScore + 60) / 2);
-      const isMain = detectedType === "predni-pravy-roh" && !photos.some((p) => (p as { is_main: boolean }).is_main);
-
-      await uploadPhoto.mutateAsync({
-        sessionId,
-        shotType: detectedType,
-        shotIndex: myIndex,
-        originalBlob: input,
-        processedBlob: processed,
-        width, height,
-        quality: { blur: blurScore, ai },
-        qualityScore: score,
-        aiClassification: ai as Record<string, unknown>,
-        isMain,
-      });
-    } catch (e) {
-      toast({ title: "Nahrání selhalo", description: String(e), variant: "destructive" });
-    } finally {
-      setQueueCount((n) => Math.max(0, n - 1));
-    }
+    retakePending(); advance(currentStepIdx, true);
   };
 
-  // VIN scan
-  const handleVinScan = async (file?: File) => {
+  const leaveCamera = () => { retakePending(); stopCamera(); setPhase("review"); };
+
+  const finishToReview = () => {
     if (!sessionId) return;
-    let blob: Blob | null = file ?? null;
-    if (!blob) blob = await captureFromVideo();
-    if (!blob) return;
-    setVinScanning(true);
-    try {
-      const b64 = await fileToBase64(blob);
-      const { data } = await supabase.functions.invoke("smart-capture-vin-ocr", { body: { imageBase64: b64 } });
-      const vin = (data as { vin?: string })?.vin ?? "";
-      if (vin && vin.length >= 11) {
-        setVinValue(vin);
-        toast({ title: "VIN rozpoznán", description: vin });
-        // VIN decode
-        const { data: dec } = await supabase.functions.invoke("vin-decode", { body: { vin } });
-        await updateSession.mutateAsync({
-          id: sessionId,
-          updates: { vin, decoded_data: (dec as Record<string, unknown>)?.decoded ?? {} },
-        });
-      } else {
-        toast({ title: "VIN nečitelný", description: "Zkuste přiblížit nebo zadat ručně." });
-      }
-    } catch (e) {
-      toast({ title: "OCR selhal", description: String(e), variant: "destructive" });
-    } finally { setVinScanning(false); }
-  };
-
-  const finishToReview = async () => {
-    stopCamera();
-    if (sessionId) {
-      const avgScore = photos.length
-        ? Math.round(photos.reduce((s, p) => s + ((p as { quality_score: number }).quality_score || 0), 0) / photos.length)
-        : 0;
-      const has360 = photos.filter((p) => {
-        const t = (p as { shot_type: string }).shot_type;
-        return t.includes("roh") || t.includes("bok") || t.includes("cast");
-      }).length >= 6;
-      await updateSession.mutateAsync({
-        id: sessionId,
-        updates: { quality_score: avgScore, has_360: has360, status: "review" },
-      });
-    }
-    setPhase("review");
+    leaveCamera();
+    updateSession.mutate({ id: sessionId, updates: { status: "review" } }, {
+      onError: e => toast({ title: "Stav relace se neuložil", description: String(e), variant: "destructive" }),
+    });
   };
 
   // ===== Voice control =====
   const handleVoiceCommand = useCallback((cmd: VoiceCommand) => {
     if (phase !== "capturing") {
-      if (cmd === "done" && phase === "vin") finishToReview();
       return;
     }
     switch (cmd) {
       // Při kontrole snímku plní hlas roli tlačítek Použít / Vyfotit znovu.
       case "shot": if (pending) acceptPending(); else void handleShot(); break;
-      case "next": setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1)); break;
+      case "next": skipStep(); break;
       case "prev": setCurrentStepIdx((i) => Math.max(0, i - 1)); break;
       case "retake": {
         if (pending) { retakePending(); break; }
@@ -506,7 +422,7 @@ export default function SmartCapture() {
         }
         break;
       }
-      case "vin": setPhase("vin"); break;
+      case "vin": break;
       case "done": finishToReview(); break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -529,13 +445,13 @@ export default function SmartCapture() {
   useEffect(() => {
     const v = voiceRef.current;
     if (!v || !v.isSupported) return;
-    if (phase === "capturing" && voiceEnabledSetting) {
-      v.start(); setVoiceActive(true);
+    if (phase === "capturing" && voiceEnabledSetting && !mobile) {
+      v.start();
     } else if (!dictating) {
-      v.stop(); setVoiceActive(false);
+      v.stop();
     }
     return () => { if (phase !== "capturing" && !dictating) v.stop(); };
-  }, [phase, voiceEnabledSetting, dictating]);
+  }, [phase, voiceEnabledSetting, dictating, mobile]);
 
   // ===== Horizon (gyroscope) =====
   useEffect(() => {
@@ -552,16 +468,24 @@ export default function SmartCapture() {
 
 
 
+  useEffect(() => {
+    if (mobile || phase !== "review" || !session || progressError || progressSaving) return;
+    const next = readProgress(session.metadata);
+    progressRef.current = next; setProgress(next);
+  }, [session, mobile, phase, progressError, progressSaving]);
+
+  const infoSessionRef = useRef<string>();
   // Prefill vehicle info from VIN-decoded data + saved session metadata
   useEffect(() => {
-    if (!session) return;
+    if (!session || infoSessionRef.current === session.id) return;
+    infoSessionRef.current = session.id;
     const decoded = ((session as { decoded_data?: Record<string, unknown> }).decoded_data ?? {}) as Record<string, unknown>;
     const meta = ((session as { metadata?: Record<string, unknown> }).metadata ?? {}) as Record<string, unknown>;
     const savedInfo = (meta.vehicle_info ?? {}) as Partial<VehicleInfo>;
     if (typeof meta.thumbnail_url === "string") setThumbnailUrl(meta.thumbnail_url);
 
-    setVehicleInfo((cur) => {
-      const next: VehicleInfo = { ...cur, ...savedInfo };
+    setVehicleInfo(() => {
+      const next: VehicleInfo = { brand: "", model: "", ...savedInfo };
       if (!next.brand && decoded.make) next.brand = String(decoded.make);
       if (!next.model && decoded.model) next.model = String(decoded.model);
       if (!next.year && decoded.year) next.year = String(decoded.year);
@@ -583,8 +507,18 @@ export default function SmartCapture() {
     setVehicleInfo((s) => ({ ...s, [k]: v }));
   };
 
-  const handleExportZip = async (opts?: { skipInfo?: boolean }) => {
+  const saveVehicleInfo = async () => {
     if (!sessionId) return;
+    await metadataChain.current;
+    const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sessionId).single();
+    if (error) throw error;
+    const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+    await updateSession.mutateAsync({ id: sessionId, updates: { metadata: { ...metadata, vehicle_info: vehicleInfo } } });
+  };
+
+  const handleExportZip = async (opts?: { skipInfo?: boolean }) => {
+    if (!sessionId || queued.some(p => p.status !== "done")) return;
+    await metadataChain.current;
     const skipInfo = !!opts?.skipInfo;
     if (!skipInfo && !requiredInfoFilled) {
       toast({
@@ -596,13 +530,12 @@ export default function SmartCapture() {
     }
     setBusy(true);
     try {
-      // Persist info into session metadata so příště je předvyplněno
-      await updateSession.mutateAsync({
-        id: sessionId,
-        updates: { metadata: { ...(session as { metadata?: Record<string, unknown> })?.metadata, vehicle_info: vehicleInfo } },
-      });
+      await saveVehicleInfo();
+      const fresh = await refetchPhotos();
+      if (fresh.error) throw fresh.error;
+      const exportPhotos = fresh.data ?? [];
 
-      const items: ExportPhoto[] = photos.map((p, i) => {
+      const items: ExportPhoto[] = exportPhotos.map((p, i) => {
         const row = p as {
           shot_type: ShotType; original_url: string; processed_url: string;
           created_at?: string;
@@ -640,548 +573,148 @@ export default function SmartCapture() {
     /* 100dvh + safe-area: na iPhonu (dynamický toolbar Safari, notch, home indicator)
        je `fixed inset-0` samo o sobě nespolehlivé — obsah se schovával pod lištu. */
     <div
-      className="fixed inset-0 bg-gradient-to-b from-zinc-950 via-black to-zinc-950 text-white z-50 flex flex-col overflow-hidden"
+      className="fixed inset-0 bg-background text-foreground z-[100] flex flex-col overflow-hidden"
       style={{ height: "100dvh", width: "100vw", minHeight: "100dvh" }}
     >
-      {/* Header — hidden while capturing (full-screen camera) */}
-      {phase !== "capturing" && (
-      <header
-        className="flex items-center justify-between px-4 py-3 border-b border-white/5 shrink-0 backdrop-blur-xl bg-black/40"
-        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}
-      >
+      {phase !== "capturing" && <header className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 bg-background"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <Button size="icon" variant="ghost" onClick={() => { stopCamera(); navigate("/admin"); }} aria-label="Zavřít Smart Capture"><X size={20} /></Button>
+        <div className="flex items-center gap-2 text-sm"><Camera size={16} /> Smart Capture <span className="text-muted-foreground">{photos.length ? `· ${photos.length}` : ""}</span></div>
+        <Button variant="secondary" size="sm" onClick={() => { stopCamera(); navigate("/admin"); }}>Zavřít</Button>
+      </header>}
 
-
-        <button onClick={() => { stopCamera(); navigate("/admin"); }}
-          className="p-2 rounded-full hover:bg-white/10 transition-colors">
-          <X size={20} />
-        </button>
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <div className="w-6 h-6 rounded-md bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center shadow-lg shadow-blue-500/30">
-            <Sparkles size={12} />
-          </div>
-          Smart Capture
-          {photos.length > 0 && <span className="text-white/50 tabular-nums">· {photos.length}</span>}
-          {queueCount > 0 && (
-            <span className="ml-1 inline-flex items-center gap-1 text-[10px] text-blue-300 bg-blue-500/15 px-2 py-0.5 rounded-full">
-              <Loader2 size={10} className="animate-spin" /> {queueCount}
-            </span>
-          )}
-        </div>
-        <button onClick={() => {
-            if (phase === "review") { stopCamera(); navigate("/admin"); }
-            else { finishToReview(); }
-          }}
-          disabled={phase !== "review" && photos.length === 0}
-          className="text-sm px-4 py-1.5 rounded-full bg-white text-black font-medium disabled:opacity-30 hover:bg-white/90 transition">
-          {phase === "review" ? "Zavřít" : "Hotovo"}
-        </button>
-      </header>
-      )}
-
-
-      {/* Intro */}
       {phase === "intro" && (
-        <div className="flex-1 flex flex-col items-center justify-center p-6 text-center">
-          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-6">
-            <Camera size={36} />
+        <div className="flex-1 overflow-y-auto p-6 bg-background text-foreground">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-2xl font-heading mb-6">Smart Capture</h1>
+            <Button size="lg" onClick={handleStart} disabled={starting}>
+              {starting ? <Loader2 className="animate-spin" /> : <Camera />} Nové focení
+            </Button>
+            {!mobile && <section className="mt-8">
+              <h2 className="text-lg mb-3">Relace</h2>
+              {sessions.length === 0 && <p className="text-muted-foreground">Zatím žádné relace</p>}
+              <div className="divide-y divide-border">{sessions.map(row => {
+                const meta = row.metadata as Record<string, unknown> | null;
+                const info = meta?.vehicle_info as VehicleInfo | undefined;
+                return <Button key={row.id} variant="ghost" className="w-full h-auto justify-between py-4" onClick={() => {
+                  stopCamera(); setSessionId(row.id); setSearchParams({ session: row.id }); setPhase("review");
+                }}>
+                  <span>{[info?.brand, info?.model].filter(Boolean).join(" ") || row.vin || "Bez identifikace"}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString("cs-CZ")}</span>
+                </Button>;
+              })}</div>
+            </section>}
           </div>
-          <h1 className="text-3xl font-light mb-3">Připraveni na focení</h1>
-          <p className="text-white/70 max-w-sm mb-2">
-            Inteligentní průvodce vás povede ideálním pořadím záběrů. Můžete kdykoliv pokračovat svým způsobem.
-          </p>
-          <p className="text-white/40 text-sm mb-6 flex items-center gap-2">
-            <Shield size={14} /> Existující inzeráty zůstanou nedotčené.
-          </p>
-
-          {/* Voice / Horizon legenda */}
-          {(voiceEnabledSetting || horizonEnabledSetting) && (
-            <div className="max-w-sm w-full mb-6 rounded-2xl bg-white/5 border border-white/10 p-4 text-left text-sm">
-              {voiceEnabledSetting && (
-                <>
-                  <div className="flex items-center gap-2 font-medium mb-2">
-                    <Mic size={14} className="text-emerald-400" /> Hlasové ovládání
-                    {voiceUnsupported && <span className="text-[10px] text-amber-300 ml-auto">prohlížeč nepodporuje</span>}
-                  </div>
-                  <ul className="text-white/70 text-xs space-y-1 mb-3">
-                    <li>„<b>vyfotit</b>" / „<b>foť</b>" — pořídí snímek</li>
-                    <li>„<b>další</b>" — přejde na další krok</li>
-                    <li>„<b>zpět</b>" — vrátí se o krok zpět</li>
-                    <li>„<b>přefotit</b>" — smaže poslední foto a opakuje</li>
-                    <li>„<b>VIN</b>" — přepne na VIN scan</li>
-                    <li>„<b>hotovo</b>" — ukončí focení</li>
-                  </ul>
-                  <p className="text-[10px] text-white/40 mb-3">Po startu poslouchá na pozadí. Lze vypnout v nastavení Smart Capture.</p>
-                </>
-              )}
-              {horizonEnabledSetting && (
-                <div className="flex items-center gap-2 text-xs text-white/70">
-                  <Compass size={14} className="text-blue-400" />
-                  Auto-rovnání horizontu (gyroskop) je aktivní.
-                </div>
-              )}
-            </div>
-          )}
-
-          <Button size="lg" onClick={handleStart} disabled={busy}
-            className="bg-white text-black hover:bg-white/90 px-10 py-6 text-lg rounded-full">
-            {busy ? <Loader2 className="animate-spin" /> : <><Camera className="mr-2" size={20} />Spustit Smart Capture</>}
-          </Button>
         </div>
       )}
 
-      {/* Capturing — 100% full-screen native-style camera */}
       {phase === "capturing" && (
-        <div className="absolute inset-0 bg-black overflow-hidden">
-          {/* Preview — celý displej, plné zorné pole objektivu.
-              object-contain = žádný digitální zoom, žádný ořez, žádná deformace.
-              Skutečný poměr stran čteme z videoWidth/videoHeight, ne z CSS. */}
-          <video
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-            style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }}
-            onLoadedMetadata={(e) => {
-              const v = e.currentTarget;
-              if (v.videoWidth && v.videoHeight) setVideoAspect(v.videoWidth / v.videoHeight);
-            }}
-            playsInline muted autoPlay
-          />
-
-          {/* DEALER MODE — průhledné vodítko pro vůz (pouze overlay, nikdy neovlivní snímek) */}
-          {dealerMode && stream && !cameraError && !pending && (() => {
-            const g = guideForShot(currentStep?.type, currentStep?.category);
-            const gw = frameBox.width * g.width;
-            const gh = frameBox.height * g.height;
-            const gl = frameBox.left + frameBox.width * g.centerX - gw / 2;
-            const gt = frameBox.top + frameBox.height * g.centerY - gh / 2;
-            return (
-              <div className="pointer-events-none absolute inset-0 z-20">
-                <div
-                  className="absolute rounded-xl ring-2 ring-amber-300/70"
-                  style={{ left: gl, top: gt, width: gw, height: gh, boxShadow: "0 0 0 9999px rgba(0,0,0,0.18)" }}
-                >
-                  {/* Rohové značky pro rychlé zaměření */}
-                  <span className="absolute -top-px -left-px w-6 h-6 border-t-2 border-l-2 border-amber-200 rounded-tl-xl" />
-                  <span className="absolute -top-px -right-px w-6 h-6 border-t-2 border-r-2 border-amber-200 rounded-tr-xl" />
-                  <span className="absolute -bottom-px -left-px w-6 h-6 border-b-2 border-l-2 border-amber-200 rounded-bl-xl" />
-                  <span className="absolute -bottom-px -right-px w-6 h-6 border-b-2 border-r-2 border-amber-200 rounded-br-xl" />
-                </div>
-                <div
-                  className="absolute text-[11px] text-amber-100 bg-black/50 backdrop-blur px-2.5 py-1 rounded-full whitespace-nowrap max-w-[90vw] truncate"
-                  style={{ left: frameBox.left + frameBox.width / 2, top: gt + gh + 8, transform: "translateX(-50%)" }}
-                >
-                  {Math.abs(horizonAngle) > 4 ? "Narovnejte telefon" : g.hint}
-                </div>
-              </div>
-            );
+        <div className="absolute inset-0 bg-background overflow-hidden text-foreground">
+          <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted autoPlay
+            style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }} />
+          {dealerMode && stream && !pending && (() => {
+            const guide = guideForShot(currentStep?.type, currentStep?.category);
+            return <div className="pointer-events-none absolute border border-primary/70 rounded-md" style={{
+              left: `${(guide.centerX - guide.width / 2) * 100}%`, top: `${(guide.centerY - guide.height / 2) * 100}%`,
+              width: `${guide.width * 100}%`, height: `${guide.height * 100}%`,
+            }} />;
           })()}
-
-
-          {/* Přednastavené pozadí pro MINIATURU — vidíte ho už při focení
-              prvního záběru a vozidlo do něj „zaparkujete". */}
-          {thumbOverlayEnabled && thumbOverlayOn && currentStepIdx === 0 && stream && !cameraError && (
-            <div className="pointer-events-none absolute inset-0 z-10">
-              <div
-                className="absolute inset-0"
-                style={{
-                  backgroundImage: `url(${CAPTURE_BG_URL})`,
-                  backgroundSize: "contain",
-                  backgroundPosition: "center",
-                  backgroundRepeat: "no-repeat",
-                  opacity: 0.5,
-                }}
-              />
-              {/* Vodítka: středová osa + linie kol (asfalt) + rámec vozidla */}
-              <div className="absolute inset-y-0 left-1/2 w-px bg-emerald-300/50" />
-              <div className="absolute inset-x-0 h-px bg-emerald-300/70" style={{ top: `${THUMB_PLACEMENT.wheelLineRatio * 100}%` }} />
-              <div
-                className="absolute border border-dashed border-emerald-300/60 rounded-md"
-                style={{
-                  left: `${(1 - THUMB_PLACEMENT.widthRatio) * 50}%`,
-                  width: `${THUMB_PLACEMENT.widthRatio * 100}%`,
-                  top: `${(THUMB_PLACEMENT.wheelLineRatio - THUMB_PLACEMENT.maxHeightRatio) * 100}%`,
-                  height: `${THUMB_PLACEMENT.maxHeightRatio * 100}%`,
-                }}
-              />
+          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${-horizonAngle}deg)` }} /></div>}
+          {gridEnabled && stream && <div className="pointer-events-none absolute inset-0">
+            <div className="absolute inset-y-0 left-1/3 w-px bg-border/40" /><div className="absolute inset-y-0 left-2/3 w-px bg-border/40" />
+            <div className="absolute inset-x-0 top-1/3 h-px bg-border/40" /><div className="absolute inset-x-0 top-2/3 h-px bg-border/40" />
+          </div>}
+          <div className="absolute top-0 inset-x-0 z-20 flex items-start justify-between gap-3 p-3"
+            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+            <Button size="icon" variant="secondary" onClick={leaveCamera} aria-label="Ukončit focení"><X /></Button>
+            <div className="bg-background/85 rounded-md px-3 py-2 text-center min-w-0">
+              <div className="text-sm font-semibold">{currentStepIdx + 1} / {totalSteps} · {currentStep?.label}</div>
+              <div className="text-xs text-muted-foreground mt-1 max-w-sm">{currentStep?.hint}</div>
             </div>
-          )}
-
-
-          {/* Composition grid (rule of thirds) */}
-          {gridEnabled && stream && !cameraError && (
-            <div className="pointer-events-none absolute inset-0">
-              <div className="absolute inset-y-0 left-1/3 w-px bg-white/15" />
-              <div className="absolute inset-y-0 left-2/3 w-px bg-white/15" />
-              <div className="absolute inset-x-0 top-1/3 h-px bg-white/15" />
-              <div className="absolute inset-x-0 top-2/3 h-px bg-white/15" />
-            </div>
-          )}
-
-          {/* Horizon level guide — only the guide rotates, the preview stays put */}
-          {horizonEnabledSetting && stream && !cameraError && (
-            <div className="pointer-events-none absolute inset-0 flex items-center justify-center">
-              <div className={`h-px transition-colors ${Math.abs(horizonAngle) < 0.5 ? "bg-emerald-400/80 w-44" : "bg-white/40 w-32"}`}
-                style={{ transform: `rotate(${-horizonAngle}deg)` }} />
-              <div className="absolute w-2 h-2 rounded-full bg-white/70" />
-            </div>
-          )}
-
-          {/* Top bar — floating glass (nad overlayem pozadí, respektuje notch) */}
-          <div
-            className={`absolute top-0 inset-x-0 z-40 flex items-center justify-between gap-3 ${landscapeMode ? "px-4 pt-2" : "px-4 pt-4"}`}
-            style={{
-              paddingTop: landscapeMode ? "max(0.5rem, env(safe-area-inset-top))" : "max(1rem, env(safe-area-inset-top))",
-              paddingLeft: "max(1rem, env(safe-area-inset-left))",
-              paddingRight: "max(1rem, env(safe-area-inset-right))",
-            }}
-          >
-
-            <button onClick={() => { stopCamera(); navigate("/admin"); }}
-              className="w-10 h-10 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition">
-              <X size={18} />
-            </button>
-
-            <div className="flex items-center gap-2">
-              {queueCount > 0 && (
-                <span className="inline-flex items-center gap-1 text-[10px] text-blue-200 bg-blue-500/25 backdrop-blur-xl ring-1 ring-blue-300/30 px-2.5 py-1 rounded-full">
-                  <Loader2 size={10} className="animate-spin" /> {queueCount}
-                </span>
-              )}
-              {voiceEnabledSetting && (
-                <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full backdrop-blur-xl text-[10px] font-medium ring-1 ${
-                  voiceActive ? "bg-emerald-500/25 ring-emerald-300/40 text-emerald-100" : "bg-black/40 ring-white/15 text-white/60"
-                }`}>
-                  {voiceActive ? <Mic size={11} /> : <MicOff size={11} />} hlas
-                </span>
-              )}
-              {horizonEnabledSetting && Math.abs(horizonAngle) > 0.5 && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 text-[10px] text-white/80 tabular-nums">
-                  <Compass size={11} /> {horizonAngle > 0 ? "+" : ""}{horizonAngle.toFixed(0)}°
-                </span>
-              )}
-              {dealerMode && (
-                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/20 backdrop-blur-xl ring-1 ring-amber-300/40 text-[10px] text-amber-100">
-                  <Shield size={11} /> dealer
-                </span>
-              )}
-              <span className="px-2.5 py-1 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 text-[10px] tabular-nums text-white/80">
-                {currentStepIdx + 1} / {totalSteps}
-              </span>
-
-            </div>
-
-            <button onClick={finishToReview} disabled={photos.length === 0}
-              className="text-xs px-4 py-2 rounded-full bg-white text-black font-semibold disabled:opacity-30 hover:bg-white/90 transition">
-              Hotovo
-            </button>
+            <Button size="icon" variant="secondary" onClick={copyLink} title="Zkopírovat odkaz" aria-label="Zkopírovat odkaz"><Copy /></Button>
           </div>
-
-          {/* Instruction card — floating glass */}
-          {currentStep && stream && !cameraError && (
-            <div className={`absolute ${landscapeMode ? "top-16 left-4 max-w-xs" : "top-20 left-4 right-4"} flex items-start gap-3 bg-black/45 backdrop-blur-2xl ring-1 ring-white/15 rounded-2xl p-3 shadow-2xl`}>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-400 to-violet-500 flex items-center justify-center text-white text-sm font-bold shrink-0 shadow-lg shadow-blue-500/40 tabular-nums">
-                {currentStepIdx + 1}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-sm font-semibold tracking-tight">{currentStep.label}</div>
-                <div className="text-xs text-white/70 mt-0.5 leading-relaxed">{currentStep.hint}</div>
-              </div>
+          {progressError && <Button variant="secondary" size="sm" className="absolute top-24 left-3 z-20" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          {!stream && !cameraError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin" /></div>}
+          {cameraError && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-background/90">
+            <AlertCircle /><p>{cameraError}</p>
+            <Button onClick={startCamera}><RotateCcw /> Zkusit znovu</Button>
+            <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}><ImageIcon /> Nahrát fotografii</Button>
+          </div>}
+          <input ref={fallbackUploadRef} type="file" accept="image/*" className="hidden" onChange={e => {
+            const file = e.target.files?.[0]; if (file) handleFilePicked(file); e.target.value = "";
+          }} />
+          <div className={`absolute z-20 ${landscapeMode ? "right-3 top-1/2 -translate-y-1/2 flex-col" : "bottom-28 inset-x-0 justify-center"} flex items-center gap-4`}>
+            <Button variant="secondary" onClick={skipStep}><SkipForward size={16} /> Přeskočit</Button>
+            <Button size="icon" onClick={handleShot} disabled={!stream || !sessionId || !!pending} aria-label="Vyfotit"
+              className="w-20 h-20 rounded-full border-4 border-border touch-manipulation"><Camera size={32} /></Button>
+          </div>
+          {[...queued].reverse().find(p => p.tip)?.tip && !pending && <p className={`absolute ${landscapeMode ? "bottom-28 left-3 max-w-xs" : "bottom-52 left-3 right-3"} bg-background/90 text-muted-foreground text-xs rounded-md px-3 py-2`}>{[...queued].reverse().find(p => p.tip)?.tip}</p>}
+          <div className={`absolute bottom-0 z-20 bg-background/75 px-3 ${landscapeMode ? "left-0 right-40" : "inset-x-0"}`}
+            style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+            <CaptureFilmstrip queue={queued} photos={photos} />
+          </div>
+          {pending && <div className="absolute inset-0 z-30 bg-background flex flex-col">
+            <img src={pending.url} alt="Náhled pořízené fotografie" className="w-full flex-1 min-h-0 object-contain" />
+            {pendingTip && <p className="text-sm text-center px-4 py-2 text-muted-foreground">{pendingTip}</p>}
+            <div className="flex flex-wrap justify-center gap-3 p-4 shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+              <Button variant="secondary" onClick={retakePending}><RotateCcw size={17} /> Vyfotit znovu</Button>
+              <Button onClick={acceptPending}><Check size={17} /> Použít fotografii</Button>
             </div>
-          )}
-
-          {/* Last analysis tip */}
-          {lastAnalysis?.tip && stream && (
-            <div className={`absolute ${landscapeMode ? "bottom-28 left-4 max-w-sm" : "bottom-48 left-4 right-4"} bg-gradient-to-r from-emerald-400 to-emerald-500 text-black rounded-xl px-3 py-2 text-sm flex items-center gap-2 shadow-xl animate-in slide-in-from-bottom-2 fade-in duration-300`}>
-              <Sparkles size={14} /> {lastAnalysis.tip}
-            </div>
-          )}
-
-          {/* Waiting-for-camera placeholder */}
-          {!stream && !cameraError && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-white/70">
-              <Loader2 className="animate-spin" size={28} />
-              <div className="text-xs">Aktivuji kameru…</div>
-              <div className="text-[11px] text-white/40">Pokud se objeví dotaz, povolte přístup ke kameře.</div>
-            </div>
-          )}
-
-          {/* Camera error fallback */}
-          {cameraError && (
-            <div className="absolute inset-0 bg-black/85 flex flex-col items-center justify-center px-6 text-center z-20">
-              <div className="w-14 h-14 rounded-full bg-red-500/20 flex items-center justify-center mb-3">
-                <AlertCircle className="text-red-400" size={26} />
-              </div>
-              <h3 className="text-lg font-medium mb-1">Nepodařilo se aktivovat kameru</h3>
-              <p className="text-sm text-white/60 max-w-xs mb-5">{cameraError}</p>
-              <div className="flex flex-col gap-2 w-full max-w-xs">
-                <Button onClick={startCamera} className="bg-white text-black hover:bg-white/90">
-                  <RotateCcw size={16} className="mr-2" /> Zkusit znovu
-                </Button>
-                <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}
-                  className="border-white/20 bg-transparent">
-                  <ImageIcon size={16} className="mr-2" /> Nahrát fotografie ručně
-                </Button>
-                <input ref={fallbackUploadRef} type="file" accept="image/*" multiple className="hidden"
-                  onChange={async (e) => {
-                    const files = Array.from(e.target.files ?? []);
-                    e.target.value = "";
-                    for (const f of files) await handleFilePicked(f);
-                  }} />
-              </div>
-            </div>
-          )}
-
-          {/* Hidden gallery input (shared by both layouts) */}
-          <input ref={fileInputRef} type="file" accept="image/*" capture="environment" className="hidden"
-            onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFilePicked(f); e.target.value = ""; }} />
-
-          {landscapeMode ? (
-            <>
-              {/* LEFT column — navigation + secondary controls (kept away from the shutter) */}
-              <div className="absolute left-0 inset-y-0 w-24 flex flex-col items-center justify-center gap-3 pointer-events-none z-30"
-                style={{ paddingLeft: "env(safe-area-inset-left)" }}>
-                <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
-                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 hover:bg-black/60 transition"
-                  title="Předchozí">
-                  <ChevronLeft size={20} />
-                </button>
-                <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
-                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
-                  title="Přeskočit">
-                  <ChevronRight size={20} />
-                </button>
-                <button onClick={() => setPhase("vin")}
-                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
-                  title="VIN scan">
-                  <ScanLine size={18} />
-                </button>
-                <button onClick={() => fileInputRef.current?.click()}
-                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center hover:bg-black/60 transition"
-                  title="Z galerie">
-                  <ImageIcon size={18} />
-                </button>
-                <button onClick={switchCamera} disabled={switching}
-                  className="pointer-events-auto w-12 h-12 rounded-full bg-black/40 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-40 hover:bg-black/60 transition"
-                  title="Přepnout kameru">
-                  {switching ? <Loader2 size={18} className="animate-spin" /> : <SwitchCamera size={18} />}
-                </button>
-              </div>
-
-              {/* RIGHT column — POUZE spoušť; nic jiného tap nesebere.
-                  onPointerUp + onClick (guardované shootingRef) = spolehlivé i v iOS landscape,
-                  kde se click u pravého okraje občas zahodí. */}
-              <div className="absolute right-0 inset-y-0 w-28 flex items-center justify-center pointer-events-none z-50"
-                style={{ paddingRight: "max(0.5rem, env(safe-area-inset-right))" }}>
-                <button
-                  onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
-                  disabled={!stream || switching || !!pending}
-                  style={{ touchAction: "manipulation" }}
-                  className="pointer-events-auto relative w-[78px] h-[78px] rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
-                  title="Vyfotit" aria-label="Vyfotit">
-                  <span className="absolute inset-2 rounded-full bg-white" />
-                </button>
-              </div>
-
-
-
-              {/* BOTTOM filmstrip */}
-              {photos.length > 0 && (
-                <div className="absolute bottom-0 left-24 right-28 px-4 pb-3 z-20"
-                  style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}>
-                  <div className="flex gap-2 overflow-x-auto pb-1">
-                    {photos.map((p) => {
-                      const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
-                      return (
-                        <div key={row.id} className="relative shrink-0">
-                          <img src={row.processed_url} alt={row.shot_type}
-                            className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/25" />
-                          <span className="absolute -top-1 -right-1 text-[9px] bg-black/80 backdrop-blur rounded-full px-1.5 py-0.5">
-                            {row.quality_score}%
-                          </span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            /* PORTRAIT — floating bottom console */
-            <div className="absolute bottom-0 inset-x-0 z-20 px-4 pb-5 pt-4 bg-gradient-to-t from-black via-black/80 to-transparent"
-              style={{ paddingBottom: "max(1.25rem, env(safe-area-inset-bottom))" }}>
-              {photos.length > 0 && (
-                <div className="flex gap-2 overflow-x-auto pb-3">
-                  {photos.map((p) => {
-                    const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
-                    return (
-                      <div key={row.id} className="relative shrink-0">
-                        <img src={row.processed_url} alt={row.shot_type}
-                          className="w-14 h-14 rounded-xl object-cover ring-1 ring-white/25" />
-                        <span className="absolute -top-1 -right-1 text-[9px] bg-black/80 backdrop-blur rounded-full px-1.5 py-0.5">
-                          {row.quality_score}%
-                        </span>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-
-              <Progress value={((currentStepIdx + 1) / totalSteps) * 100} className="h-1 mb-4 bg-white/10" />
-
-              <div className="flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <button onClick={() => fileInputRef.current?.click()}
-                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="Z galerie" aria-label="Z galerie">
-                    <ImageIcon size={19} />
-                  </button>
-                  <button onClick={() => setCurrentStepIdx((i) => Math.max(0, i - 1))} disabled={currentStepIdx === 0}
-                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-30 transition"
-                    title="Předchozí" aria-label="Předchozí">
-                    <ChevronLeft size={19} />
-                  </button>
-                </div>
-
-                <button
-                  onPointerUp={(e) => { e.preventDefault(); handleShot(); }}
-                  disabled={!stream || switching || !!pending}
-                  style={{ touchAction: "manipulation" }}
-                  className="relative w-20 h-20 shrink-0 rounded-full bg-white/20 backdrop-blur-xl ring-2 ring-white/70 active:scale-90 transition-transform disabled:opacity-40 shadow-[0_0_40px_rgba(255,255,255,0.25)]"
-                  title="Vyfotit" aria-label="Vyfotit">
-                  <span className="absolute inset-2 rounded-full bg-white" />
-                </button>
-
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setCurrentStepIdx((i) => Math.min(totalSteps - 1, i + 1))}
-                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="Přeskočit" aria-label="Přeskočit">
-                    <ChevronRight size={19} />
-                  </button>
-                  <button onClick={switchCamera} disabled={switching}
-                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center disabled:opacity-40 transition"
-                    title="Přepnout kameru" aria-label="Přepnout kameru">
-                    {switching ? <Loader2 size={18} className="animate-spin" /> : <SwitchCamera size={18} />}
-                  </button>
-                  <button onClick={() => setPhase("vin")}
-                    className="w-11 h-11 rounded-2xl bg-white/10 hover:bg-white/15 backdrop-blur-xl ring-1 ring-white/15 flex items-center justify-center transition"
-                    title="VIN scan" aria-label="VIN scan">
-                    <ScanLine size={19} />
-                  </button>
-                </div>
-              </div>
-            </div>
-          )}
-
-
-          {/* KONTROLA SNÍMKU — kamera běží dál, žádná reinicializace streamu */}
-          {pending && (
-            <div className="absolute inset-0 z-[60] bg-black/95 flex flex-col">
-              <img src={pending.url} alt="Náhled pořízené fotografie"
-                className="absolute inset-0 w-full h-full object-contain" />
-              <div
-                className={`absolute z-10 ${landscapeMode ? "right-0 inset-y-0 w-40 flex-col justify-center" : "bottom-0 inset-x-0 flex-row"} flex items-center gap-3 p-4 bg-black/50 backdrop-blur-xl`}
-                style={{
-                  paddingBottom: landscapeMode ? undefined : "max(1.25rem, env(safe-area-inset-bottom))",
-                  paddingRight: "max(1rem, env(safe-area-inset-right))",
-                  paddingLeft: "max(1rem, env(safe-area-inset-left))",
-                }}
-              >
-                <button onPointerUp={(e) => { e.preventDefault(); retakePending(); }} onClick={retakePending}
-                  style={{ touchAction: "manipulation" }}
-                  className="flex-1 w-full min-h-[52px] rounded-2xl bg-white/10 ring-1 ring-white/25 text-sm font-medium flex items-center justify-center gap-2 active:scale-95 transition">
-                  <RotateCcw size={17} /> Vyfotit znovu
-                </button>
-                <button onPointerUp={(e) => { e.preventDefault(); acceptPending(); }} onClick={acceptPending}
-                  style={{ touchAction: "manipulation" }}
-                  className="flex-1 w-full min-h-[52px] rounded-2xl bg-white text-black text-sm font-semibold flex items-center justify-center gap-2 active:scale-95 transition">
-                  <Check size={17} /> Použít fotografii
-                </button>
-              </div>
-            </div>
-          )}
-
-          {/* ⚡ Shutter flash */}
-          {shutterFlash && (
-            <div className="absolute inset-0 bg-white pointer-events-none animate-in fade-in duration-75" style={{ animationDirection: "alternate" }} />
-          )}
-
+          </div>}
+          {shutterFlash && <div className="absolute inset-0 bg-foreground/30 pointer-events-none" />}
         </div>
       )}
 
-
-      {/* VIN phase */}
-      {phase === "vin" && (
-        <div className="flex-1 flex flex-col p-6">
-          <h2 className="text-2xl font-light mb-2">Naskenujte VIN</h2>
-          <p className="text-white/60 text-sm mb-6">Štítek bývá ve dveřích řidiče, pod kapotou nebo na čelním skle.</p>
-
-          <div className="relative aspect-video bg-white/5 rounded-2xl overflow-hidden mb-4 flex items-center justify-center">
-            {stream ? <video ref={videoRef} className="w-full h-full object-contain" playsInline muted />
-              : <div className="text-white/40 text-sm">Kamera neaktivní — použijte galerii</div>}
-            {vinScanning && <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-              <Loader2 className="animate-spin" />
-            </div>}
-          </div>
-
-          <div className="flex gap-2 mb-4">
-            <Button onClick={() => handleVinScan()} disabled={vinScanning || !stream} className="flex-1 bg-white text-black">
-              <ScanLine className="mr-2" size={16} /> Scan VIN
-            </Button>
-            <label className="flex-1">
-              <input type="file" accept="image/*" capture="environment" className="hidden"
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleVinScan(f); }} />
-              <span className="flex items-center justify-center w-full h-10 rounded-md bg-white/10 cursor-pointer text-sm">
-                <ImageIcon className="mr-2" size={16} /> Z galerie
-              </span>
-            </label>
-          </div>
-
-          <input
-            type="text"
-            placeholder="…nebo zadejte VIN ručně"
-            value={vinValue}
-            onChange={(e) => setVinValue(e.target.value.toUpperCase())}
-            className="w-full bg-white/10 rounded-lg px-3 py-3 mb-3 font-mono tracking-wider"
-            maxLength={17}
-          />
-
-          {(session as { decoded_data?: { name?: string } })?.decoded_data?.name && (
-            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-xl p-3 mb-4 text-sm">
-              <div className="flex items-center gap-2 text-emerald-300 mb-1">
-                <Check size={14} /> Vozidlo identifikováno
-              </div>
-              <div className="text-white/80">{String((session as unknown as { decoded_data?: { name?: string } })?.decoded_data?.name ?? "")}</div>
-            </div>
-          )}
-
-          <div className="mt-auto flex gap-2">
-            <Button variant="outline" onClick={() => setPhase("capturing")} className="flex-1 border-white/20 bg-transparent">
-              Zpět k focení
-            </Button>
-            <Button onClick={async () => {
-              if (vinValue && vinValue !== (session as { vin?: string })?.vin) {
-                await updateSession.mutateAsync({ id: sessionId!, updates: { vin: vinValue } });
-              }
-              finishToReview();
-            }} className="flex-1 bg-white text-black">
-              Dokončit <ChevronRight size={16} />
-            </Button>
+      {sessionId && sessionLoading && phase !== "capturing" && <div className="p-6 text-center"><Loader2 className="animate-spin mx-auto" /></div>}
+      {sessionId && !sessionLoading && (sessionError || !session) && phase !== "capturing" && <div className="p-6 text-center text-foreground bg-background">
+        <p>Relaci nelze otevřít. Zkontrolujte odkaz a přihlášení.</p>
+        <Button variant="outline" className="mt-3" onClick={() => { setSessionId(undefined); setSearchParams({}); setPhase("intro"); }}>Seznam relací</Button>
+      </div>}
+      {phase === "review" && session && mobile && (
+        <div className="flex-1 overflow-y-auto p-4 bg-background text-foreground">
+          <h2 className="text-xl mb-4">Focení uloženo</h2>
+          <CaptureFilmstrip queue={queued} photos={photos} />
+          {queueCount > 0 && <p className="text-sm my-3">Nahrává se {queueCount} fotografií. Nechte tuto stránku otevřenou.</p>}
+          {queued.some(p => p.status === "error") && <p className="text-sm my-3 text-destructive">Některé fotografie se nenahrály. Zkuste je znovu.</p>}
+          {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          <div className="flex flex-col gap-3 mt-6">
+            <Button onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
+            <Button variant="outline" onClick={() => { setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting}><Camera /> Pokračovat ve focení</Button>
           </div>
         </div>
       )}
-
-      {/* Review */}
-      {phase === "review" && (
+      {/* Desktop review of the same session */}
+      {phase === "review" && session && !mobile && (
         <div className="flex-1 overflow-y-auto p-6">
           <div className="text-center mb-6">
             <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center mb-3">
               <Check size={28} className="text-emerald-400" />
             </div>
             <h2 className="text-2xl font-light mb-1">Galerie připravena</h2>
-            <p className="text-white/60 text-sm">📸 {photos.length} fotografií · 📊 Kvalita {(session as { quality_score?: number })?.quality_score ?? 0} %
-              {(session as { has_360?: boolean })?.has_360 && " · 🔄 360° připraveno"}
-            </p>
+            <p className="text-muted-foreground text-sm">{photos.length} fotografií · {progress.skipped_steps.length} přeskočených kroků</p>
           </div>
 
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Button variant="secondary" onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
+            <Button variant="secondary" onClick={() => { setSessionId(undefined); setSearchParams({}); setPhase("intro"); void refetchSessions(); }}><List /> Seznam relací</Button>
+          </div>
+          <CaptureFilmstrip queue={queued} photos={photos} />
+          {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
+            {SHOT_SEQUENCE.map((step, index) => {
+              if (photos.some(p => p.shot_type === step.type) || queued.some(p => p.shotType === step.type && p.status !== "error")) return null;
+              return <div key={step.type} className="border border-border bg-background text-foreground rounded-md p-3">
+                <div className="text-sm font-medium">{index + 1}. {step.label}</div>
+                <p className="text-xs text-muted-foreground my-2">{progress.skipped_steps.includes(step.type) ? "Přeskočeno" : "Chybí fotografie"}</p>
+                <Button size="sm" variant="outline" onClick={() => { completionStep.current = index; setCurrentStepIdx(index); fileInputRef.current?.click(); }}><ImageIcon size={14} /> Doplnit</Button>
+              </div>;
+            })}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) acceptPhoto(file, completionStep.current ?? currentStepIdx);
+            e.target.value = "";
+          }} />
           {/* Miniatura na přednastaveném pozadí — jen pro nabídku vozů */}
           {(thumbOverlayEnabled || thumbnailUrl) && (
             <div className="max-w-md mx-auto mb-6 bg-white/5 border border-white/10 rounded-2xl p-4">
@@ -1264,6 +797,7 @@ export default function SmartCapture() {
           </div>
 
           <div className="space-y-2 max-w-md mx-auto">
+            <Button variant="outline" className="w-full" onClick={() => void saveVehicleInfo().then(() => toast({ title: "Údaje uloženy" })).catch(e => toast({ title: "Údaje se neuložily", description: String(e), variant: "destructive" }))}><Check size={16} /> Uložit údaje</Button>
             {/* Diktování údajů hlasem */}
             {voiceEnabledSetting && !voiceUnsupported && (
               <Button
@@ -1297,7 +831,7 @@ export default function SmartCapture() {
               </Button>
             )}
 
-            <Button onClick={() => handleExportZip()} disabled={busy || photos.length === 0 || !requiredInfoFilled}
+            <Button onClick={() => handleExportZip()} disabled={busy || photos.length === 0 || !requiredInfoFilled || queued.some(p => p.status !== "done")}
               className="w-full bg-white text-black hover:bg-white/90 disabled:bg-white/30 disabled:text-white/60">
               {busy ? <Loader2 className="animate-spin mr-2" size={16} /> : <Download className="mr-2" size={16} />}
               {requiredInfoFilled
@@ -1307,7 +841,7 @@ export default function SmartCapture() {
 
             {/* Přeskočit info — dokončit i bez vyplnění */}
             {!requiredInfoFilled && (
-              <Button onClick={() => handleExportZip({ skipInfo: true })} disabled={busy || photos.length === 0}
+              <Button onClick={() => handleExportZip({ skipInfo: true })} disabled={busy || photos.length === 0 || queued.some(p => p.status !== "done")}
                 variant="outline"
                 className="w-full border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-200">
                 <SkipForward className="mr-2" size={16} /> Přeskočit údaje a exportovat ZIP
@@ -1315,7 +849,7 @@ export default function SmartCapture() {
             )}
 
             <Button variant="outline" onClick={async () => {
-              await startCamera(); setPhase("capturing");
+              setCurrentStepIdx(Math.min(19, progress.next_step)); await handleStart();
             }} className="w-full border-white/20 bg-transparent">
               <Camera className="mr-2" size={16} /> Pokračovat ve focení
             </Button>
@@ -1325,16 +859,7 @@ export default function SmartCapture() {
             </Button>
           </div>
 
-          {(session as { has_360?: boolean })?.has_360 === false && (
-            <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-sm">
-              <div className="flex items-center gap-2 text-blue-300 mb-1">
-                <AlertCircle size={14} /> 360° zatím není kompletní
-              </div>
-              <div className="text-white/70 text-xs leading-relaxed">
-                Pro 360° doporučujeme: více úhlů kolem vozidla, podobnou vzdálenost a výšku telefonu, doplnit chybějící boky.
-              </div>
-            </div>
-          )}
+
         </div>
       )}
     </div>

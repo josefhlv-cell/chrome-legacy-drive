@@ -67,10 +67,10 @@ export interface VehicleInfo {
 async function urlToBlob(url: string): Promise<Blob | null> {
   try {
     const r = await fetch(url);
-    if (!r.ok) return null;
+    if (!r.ok) throw new Error(`Fotografii nelze stáhnout (${r.status}). Zkuste export znovu.`);
     return await r.blob();
-  } catch {
-    return null;
+  } catch (error) {
+    throw error instanceof Error ? error : new Error("Fotografii nelze stáhnout. Zkuste export znovu.");
   }
 }
 
@@ -247,7 +247,7 @@ export async function buildSessionZip(
         ? await urlToBlob(p.originalUrl)
         : null);
 
-    if (!orig) continue;
+    if (!orig) throw new Error("Chybí originální fotografie. Export nebyl dokončen.");
 
     // 1) Original — beze změny
     original.file(name, orig);

@@ -1,4 +1,5 @@
 # Smart Capture
+- [x] Add safe Save and finish: preserve photos/skips for desktop, detach finished mobile session, verify new capture after reload; 20 unit tests and four authenticated browser cycles passed (upload failure, save failure, new capture after reload, PC ZIP).
 - [x] Fix crash-safe accepted-photo/progress persistence and reopening the last mobile session.
 - [x] Verify refresh/offline recovery, tab reopening, camera restart/landscape and desktop ZIP readback in four authenticated Chromium test cycles; 15 unit tests pass. Physical iPhone/Safari camera permission and OS process termination remain unverified (no physical device available).
 - [x] Soft 20-step capture with persisted skips and advisory-only AI.

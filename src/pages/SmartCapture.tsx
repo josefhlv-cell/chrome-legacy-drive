@@ -20,6 +20,7 @@ import { enqueuePhoto, photoQueue, restoreQueue, retrySessionPhotos } from "@/li
 import { advanceProgress, readProgress, type CaptureProgress } from "@/lib/smartCapture/workflow";
 import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
+import { finishCaptureSession } from "@/lib/smartCapture/finishSession";
 
 
 
@@ -32,13 +33,14 @@ export default function SmartCapture() {
   const [searchParams, setSearchParams] = useSearchParams();
 
   const lastSessionKey = user ? `capture-last-session:${user.id}` : undefined;
+  const recoveredSession = useRef<string>();
   useEffect(() => {
     if (!lastSessionKey) return;
     try {
       if (searchParams.get("session")) localStorage.setItem(lastSessionKey, searchParams.get("session") ?? "");
       else if (mobile) {
         const last = localStorage.getItem(lastSessionKey);
-        if (last) setSearchParams({ session: last }, { replace: true });
+        if (last) { recoveredSession.current = last; setSearchParams({ session: last }, { replace: true }); }
       }
     } catch { /* Storage can be disabled in private browsing. */ }
   // mobile is derived from the device, not reactive state.
@@ -59,6 +61,8 @@ export default function SmartCapture() {
   const queued = useMemo(() => allQueued.filter(p => p.sessionId === sessionId), [allQueued, sessionId]);
   const queueCount = queued.filter(p => p.status === "uploading").length;
   const [starting, setStarting] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const finishingRef = useRef(false);
   const startRef = useRef(false);
   const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia("(pointer: coarse)").matches;
   const [progress, setProgress] = useState<CaptureProgress>({ skipped_steps: [], next_step: 0 });
@@ -468,6 +472,61 @@ export default function SmartCapture() {
     });
   };
 
+  const detachSession = () => {
+    stopCamera();
+    try { if (lastSessionKey) localStorage.removeItem(lastSessionKey); } catch { /* Remote finished marker prevents auto-resume. */ }
+    recoveredSession.current = undefined;
+    initializedSession.current = undefined;
+    completionStep.current = null;
+    progressRef.current = { skipped_steps: [], next_step: 0 };
+    setProgress(progressRef.current); setCurrentStepIdx(0);
+    setSessionId(undefined); setSearchParams({}, { replace: true }); setPhase("intro");
+    void refetchSessions();
+  };
+
+  // A process termination between remote save and local detachment must not resurrect a finished capture.
+  useEffect(() => {
+    const metadata = session?.metadata as Record<string, unknown> | null;
+    if (!metadata?.capture_finished_at) return;
+    try { if (lastSessionKey && localStorage.getItem(lastSessionKey) === session?.id) localStorage.removeItem(lastSessionKey); } catch { /* Storage unavailable. */ }
+    if (recoveredSession.current === session?.id) detachSession();
+  // Only the remote finished marker changing drives recovery, not camera state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, session?.metadata, lastSessionKey]);
+
+  const handleSaveAndFinish = async () => {
+    if (!sessionId || finishingRef.current) return;
+    finishingRef.current = true; setFinishing(true);
+    const sid = sessionId;
+    try {
+      await finishCaptureSession(progressRef.current, {
+        restorePhotos: async () => { await restoreQueue(sid); retrySessionPhotos(sid); },
+        waitForPhotos: () => new Promise<void>((resolve, reject) => {
+          let unsubscribe = () => {};
+          const check = () => {
+            const pendingPhotos = photoQueue.getSnapshot().filter(p => p.sessionId === sid);
+            if (pendingPhotos.some(p => p.status === "error")) { unsubscribe(); reject(new Error("Některé fotografie se nenahrály. Zkuste Uložit a dokončit znovu.")); }
+            else if (pendingPhotos.every(p => p.status === "done")) { unsubscribe(); resolve(); }
+          };
+          unsubscribe = photoQueue.subscribe(check); check();
+        }),
+        flushProgress: () => metadataChain.current,
+        save: async (_progress, finishedAt) => {
+          const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
+          if (error) throw error;
+          const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+          await updateSession.mutateAsync({ id: sid, updates: { status: "review", metadata: { ...metadata, ...progressRef.current, capture_finished_at: finishedAt } } });
+          try { localStorage.removeItem(`capture-progress:${sid}`); } catch { /* Already saved remotely. */ }
+          setProgressError(false);
+        },
+        detach: detachSession,
+      });
+      toast({ title: "Focení uloženo a dokončeno", description: "Fotky najdete na PC v seznamu relací. Můžete začít nové focení." });
+    } catch (error) {
+      toast({ title: "Relace zatím není dokončená", description: error instanceof Error ? error.message : "Uložení se nezdařilo. Zkuste to znovu.", variant: "destructive" });
+    } finally { finishingRef.current = false; setFinishing(false); }
+  };
+
   // ===== Voice control =====
   const handleVoiceCommand = useCallback((cmd: VoiceCommand) => {
     if (phase !== "capturing") {
@@ -745,8 +804,11 @@ export default function SmartCapture() {
           {queued.some(p => p.status === "error") && <p className="text-sm my-3 text-destructive">Některé fotografie se nenahrály. Zkuste je znovu.</p>}
           {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
           <div className="flex flex-col gap-3 mt-6">
+            <Button onClick={handleSaveAndFinish} disabled={finishing}>
+              {finishing ? <Loader2 className="animate-spin" /> : <Check />} {finishing ? "Ukládám a dokončuji…" : "Uložit a dokončit"}
+            </Button>
             <Button onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
-            <Button variant="outline" onClick={() => { setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting}><Camera /> Pokračovat ve focení</Button>
+            <Button variant="outline" onClick={() => { setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting || finishing}><Camera /> Pokračovat ve focení</Button>
           </div>
         </div>
       )}

@@ -50,6 +50,23 @@ const dedupeVehicles = (rows: DbVehicle[]): DbVehicle[] => {
 };
 
 /**
+ * Po označení auta jako prodané smaže napojené Smart Capture fotky (storage + DB).
+ * Neblokující — chyba cleanupu neovlivní uložení stavu vozidla.
+ */
+const cleanupSmartCaptureForSoldVehicle = async (vehicleId: string) => {
+  try {
+    const { error } = await supabase.functions.invoke("cleanup-sold-vehicle", {
+      body: { vehicleId },
+    });
+    if (error) {
+      console.warn("[cleanup-sold-vehicle]", error.message ?? error);
+    }
+  } catch (e) {
+    console.warn("[cleanup-sold-vehicle]", e);
+  }
+};
+
+/**
  * Fetch vehicles for list views.
  * - Uses a lean column projection (no description, lpg_description, etc.)
  * - Only requests gallery rows where is_main=true → 1 image per vehicle instead of 15-20
@@ -171,9 +188,18 @@ export const useUpdateVehicle = () => {
     mutationFn: async ({ id, updates }: { id: string; updates: TablesUpdate<"vehicles"> }) => {
       const { data, error } = await supabase.from("vehicles").update(updates).eq("id", id).select().single();
       if (error) throw error;
+
+      // Po označení jako prodané smaž Smart Capture fotky (na pozadí)
+      if (updates.status === "prodano") {
+        void cleanupSmartCaptureForSoldVehicle(id);
+      }
+
       return data;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["smart-capture-sessions"] });
+    },
   });
 };
 
@@ -181,9 +207,14 @@ export const useDeleteVehicle = () => {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (id: string) => {
+      // Nejdřív Smart Capture fotky (pokud existují), pak vozidlo
+      await cleanupSmartCaptureForSoldVehicle(id);
       const { error } = await supabase.from("vehicles").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["vehicles"] });
+      qc.invalidateQueries({ queryKey: ["smart-capture-sessions"] });
+    },
   });
 };

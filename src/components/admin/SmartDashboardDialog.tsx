@@ -1,3 +1,4 @@
+import { useNavigate } from "react-router-dom";
 import { useMemo, useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ type PhotoRow = {
 };
 
 export default function SmartDashboardDialog({ open, onOpenChange, onImport }: Props) {
+  const navigate = useNavigate();
   const { toast } = useToast();
   const qc = useQueryClient();
   const { data: sessions = [], isLoading, refetch } = useSessions();
@@ -226,7 +228,8 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
                       {selected.has_360 && <Badge variant="secondary" className="text-[10px]">360° kompletní</Badge>}
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Button variant="outline" size="sm" onClick={() => { onOpenChange(false); navigate(`/admin/smart-capture?session=${selected.id}`); }}><Camera className="w-4 h-4 mr-1.5" /> Otevřít relaci / doplnit</Button>
                     <Button variant="outline" size="sm" onClick={handleZip} disabled={zipping || rows.length === 0}>
                       {zipping ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <FileArchive className="w-4 h-4 mr-1.5" />}
                       ZIP

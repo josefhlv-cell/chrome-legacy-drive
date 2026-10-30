@@ -16,7 +16,7 @@ import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
 import { guideForShot } from "@/lib/smartCapture/dealerGuide";
 import { CaptureFilmstrip } from "@/components/admin/CaptureFilmstrip";
-import { enqueuePhoto, photoQueue, restoreQueue } from "@/lib/smartCapture/photoQueue";
+import { enqueuePhoto, photoQueue, restoreQueue, retrySessionPhotos } from "@/lib/smartCapture/photoQueue";
 import { advanceProgress, readProgress, type CaptureProgress } from "@/lib/smartCapture/workflow";
 import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
@@ -35,6 +35,8 @@ export default function SmartCapture() {
   const [sessionId, setSessionId] = useState<string | undefined>(sessionIdFromUrl ?? undefined);
   useEffect(() => {
     if ((sessionIdFromUrl ?? undefined) !== sessionId) { setSessionId(sessionIdFromUrl ?? undefined); setPhase(sessionIdFromUrl ? "review" : "intro"); }
+  // URL navigation, not local session creation, drives this synchronization.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sessionIdFromUrl]);
   const createSession = useCreateSession();
   const { data: session, isLoading: sessionLoading, error: sessionError } = useSession(sessionId);
@@ -94,7 +96,7 @@ export default function SmartCapture() {
   }, [sessionId, session, saveProgress, toast]);
 
   useEffect(() => {
-    const online = () => { if (sessionId) saveProgress(progressRef.current); void refetchPhotos(); };
+    const online = () => { if (sessionId) { saveProgress(progressRef.current); retrySessionPhotos(sessionId); } void refetchPhotos(); };
     window.addEventListener("online", online);
     return () => window.removeEventListener("online", online);
   }, [sessionId, saveProgress, refetchPhotos]);
@@ -461,6 +463,12 @@ export default function SmartCapture() {
 
 
 
+  useEffect(() => {
+    if (mobile || phase !== "review" || !session || progressError) return;
+    const next = readProgress(session.metadata);
+    progressRef.current = next; setProgress(next);
+  }, [session, mobile, phase, progressError]);
+
   const infoSessionRef = useRef<string>();
   // Prefill vehicle info from VIN-decoded data + saved session metadata
   useEffect(() => {
@@ -471,7 +479,7 @@ export default function SmartCapture() {
     const savedInfo = (meta.vehicle_info ?? {}) as Partial<VehicleInfo>;
     if (typeof meta.thumbnail_url === "string") setThumbnailUrl(meta.thumbnail_url);
 
-    setVehicleInfo((cur) => {
+    setVehicleInfo(() => {
       const next: VehicleInfo = { brand: "", model: "", ...savedInfo };
       if (!next.brand && decoded.make) next.brand = String(decoded.make);
       if (!next.model && decoded.model) next.model = String(decoded.model);
@@ -599,6 +607,14 @@ export default function SmartCapture() {
         <div className="absolute inset-0 bg-background overflow-hidden text-foreground">
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted autoPlay
             style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }} />
+          {dealerMode && stream && !pending && (() => {
+            const guide = guideForShot(currentStep?.type, currentStep?.category);
+            return <div className="pointer-events-none absolute border border-primary/70 rounded-md" style={{
+              left: `${(guide.centerX - guide.width / 2) * 100}%`, top: `${(guide.centerY - guide.height / 2) * 100}%`,
+              width: `${guide.width * 100}%`, height: `${guide.height * 100}%`,
+            }} />;
+          })()}
+          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${-horizonAngle}deg)` }} /></div>}
           {gridEnabled && stream && <div className="pointer-events-none absolute inset-0">
             <div className="absolute inset-y-0 left-1/3 w-px bg-border/40" /><div className="absolute inset-y-0 left-2/3 w-px bg-border/40" />
             <div className="absolute inset-x-0 top-1/3 h-px bg-border/40" /><div className="absolute inset-x-0 top-2/3 h-px bg-border/40" />
@@ -612,6 +628,7 @@ export default function SmartCapture() {
             </div>
             <Button size="icon" variant="secondary" onClick={copyLink} title="Zkopírovat odkaz" aria-label="Zkopírovat odkaz"><Copy /></Button>
           </div>
+          {progressError && <Button variant="secondary" size="sm" className="absolute top-24 left-3 z-20" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
           {!stream && !cameraError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin" /></div>}
           {cameraError && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-background/90">
             <AlertCircle /><p>{cameraError}</p>
@@ -669,9 +686,7 @@ export default function SmartCapture() {
               <Check size={28} className="text-emerald-400" />
             </div>
             <h2 className="text-2xl font-light mb-1">Galerie připravena</h2>
-            <p className="text-white/60 text-sm">📸 {photos.length} fotografií · 📊 Kvalita {(session as { quality_score?: number })?.quality_score ?? 0} %
-              {(session as { has_360?: boolean })?.has_360 && " · 🔄 360° připraveno"}
-            </p>
+            <p className="text-muted-foreground text-sm">{photos.length} fotografií · {progress.skipped_steps.length} přeskočených kroků</p>
           </div>
 
           <div className="flex flex-wrap gap-3 mb-4">
@@ -839,16 +854,7 @@ export default function SmartCapture() {
             </Button>
           </div>
 
-          {(session as { has_360?: boolean })?.has_360 === false && (
-            <div className="mt-6 bg-blue-500/10 border border-blue-500/30 rounded-xl p-3 text-sm">
-              <div className="flex items-center gap-2 text-blue-300 mb-1">
-                <AlertCircle size={14} /> 360° zatím není kompletní
-              </div>
-              <div className="text-white/70 text-xs leading-relaxed">
-                Pro 360° doporučujeme: více úhlů kolem vozidla, podobnou vzdálenost a výšku telefonu, doplnit chybějící boky.
-              </div>
-            </div>
-          )}
+
         </div>
       )}
     </div>

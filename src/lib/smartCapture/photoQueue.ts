@@ -114,7 +114,7 @@ async function run(photo: QueuedPhoto) {
 function pump() {
   // One full-resolution job at a time bounds memory on phones.
   if (running.size) return;
-  const photo = items.find(p => p.status === "uploading" && !running.has(p.id));
+  const photo = items.find(p => p.status === "uploading" && !running.has(p.id) && !persisting.has(p.id));
   if (photo) void run(photo);
 }
 export async function enqueuePhoto(input: Omit<QueuedPhoto, "id" | "status" | "preview">) {

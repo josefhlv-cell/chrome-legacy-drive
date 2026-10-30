@@ -20,9 +20,16 @@ const emit = () => listeners.forEach(fn => fn());
 function database() {
   dbPromise ??= new Promise<IDBDatabase>((resolve, reject) => {
     const request = indexedDB.open("chdp-capture-queue", 1);
+    let expired = false;
+    const timeout = setTimeout(() => { expired = true; dbPromise = undefined; reject(new Error("Úložiště telefonu nereaguje. Zavřete ostatní karty s focením a zkuste to znovu.")); }, 10000);
     request.onupgradeneeded = () => request.result.createObjectStore("photos", { keyPath: "id" });
-    request.onsuccess = () => resolve(request.result);
-    request.onerror = () => { dbPromise = undefined; reject(request.error); };
+    request.onsuccess = () => {
+      clearTimeout(timeout);
+      if (expired) { request.result.close(); return; }
+      request.result.onversionchange = () => { request.result.close(); dbPromise = undefined; };
+      resolve(request.result);
+    };
+    request.onerror = () => { clearTimeout(timeout); if (!expired) dbPromise = undefined; reject(request.error); };
   });
   return dbPromise;
 }
@@ -30,12 +37,15 @@ async function store(photo: QueuedPhoto, remove = false) {
   const db = await database();
   await new Promise<void>((resolve, reject) => {
     const tx = db.transaction("photos", "readwrite");
+    // Abort before rejecting: never advance for a timed-out, uncommitted photograph.
+    let timedOut = false;
+    const timeout = setTimeout(() => { timedOut = true; try { tx.abort(); } catch { /* A completed transaction will settle through oncomplete. */ } }, 10000);
     const { preview: _preview, ...stored } = photo;
     if (remove) tx.objectStore("photos").delete(photo.id);
     else tx.objectStore("photos").put(stored);
-    tx.oncomplete = () => resolve();
-    tx.onerror = () => reject(tx.error);
-    tx.onabort = () => reject(tx.error);
+    tx.oncomplete = () => { clearTimeout(timeout); resolve(); };
+    tx.onerror = () => { clearTimeout(timeout); reject(tx.error); };
+    tx.onabort = () => { clearTimeout(timeout); reject(timedOut ? new Error("Uložení do telefonu trvá příliš dlouho. Zkuste fotografii uložit znovu.") : tx.error); };
   });
 }
 export async function persistQueuedPhoto(photo: QueuedPhoto) {

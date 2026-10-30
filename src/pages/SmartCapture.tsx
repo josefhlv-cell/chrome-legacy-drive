@@ -21,6 +21,7 @@ import { advanceProgress, readProgress, type CaptureProgress } from "@/lib/smart
 import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
 import { finishCaptureSession } from "@/lib/smartCapture/finishSession";
+import { captureJpeg, watchCameraReady } from "@/lib/smartCapture/captureControls";
 
 
 
@@ -169,6 +170,9 @@ export default function SmartCapture() {
   const facingRef = useRef<"environment" | "user">("environment");
   const [facing, setFacing] = useState<"environment" | "user">("environment");
   const [switching, setSwitching] = useState(false);
+  const cameraRestartRef = useRef(false);
+  const [cameraRestarting, setCameraRestarting] = useState(false);
+  const [shooting, setShooting] = useState(false);
   const shootingRef = useRef(false);
   const shotIndexRef = useRef(0);
 
@@ -249,22 +253,17 @@ export default function SmartCapture() {
     const v = videoRef.current;
     if (!v || !stream) return;
     setCameraReady(false);
-    const ready = () => {
-      if (v.videoWidth > 0 && v.videoHeight > 0 && v.readyState >= 2) { setCameraReady(true); clearTimeout(timeout); }
-    };
-    v.addEventListener("loadeddata", ready); v.addEventListener("playing", ready);
-    const timeout = setTimeout(() => {
-      if (!v.videoWidth || v.readyState < 2) setCameraError("Kamera se neprobudila. Klepněte na Zkusit znovu.");
-    }, 10000);
     try {
       v.srcObject = stream;
       const p = v.play();
       if (p && typeof p.catch === "function") p.catch(() => { /* ignore autoplay reject */ });
     } catch { /* ignore */ }
+    const stopWatching = watchCameraReady(v, () => { setCameraReady(true); setCameraError(null); },
+      () => setCameraError("Kamera se neprobudila. Klepněte na Zkusit znovu."));
     const ended = () => { setCameraReady(false); setCameraError("Kamera byla přerušena. Klepněte na Zkusit znovu."); };
     stream.getVideoTracks().forEach(t => t.addEventListener("ended", ended));
     return () => {
-      clearTimeout(timeout); v.removeEventListener("loadeddata", ready); v.removeEventListener("playing", ready);
+      stopWatching();
       stream.getVideoTracks().forEach(t => t.removeEventListener("ended", ended));
     };
   }, [stream, phase]);
@@ -340,10 +339,13 @@ export default function SmartCapture() {
   };
 
   const startCamera = useCallback(async () => {
+    if (cameraRestartRef.current) return;
+    cameraRestartRef.current = true; setCameraRestarting(true);
     stopCamera();
     setCameraError(null);
     try { setStream(await requestCamera()); }
     catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
+    finally { cameraRestartRef.current = false; setCameraRestarting(false); }
   }, [requestCamera, stopCamera]);
 
   // Switch between rear/front camera without leaving the capture UI.
@@ -387,7 +389,7 @@ export default function SmartCapture() {
       ctx.scale(-1, 1);
     }
     ctx.drawImage(v, 0, 0);
-    return await new Promise<Blob | null>((res) => c.toBlob((b) => res(b), "image/jpeg", 0.92));
+    return await captureJpeg(c);
   };
 
   const handleFilePicked = (file: File) => {
@@ -397,7 +399,7 @@ export default function SmartCapture() {
 
   const handleShot = async () => {
     if (!sessionId || busy || switching || pending || shootingRef.current || !cameraReady) return;
-    shootingRef.current = true;
+    shootingRef.current = true; setShooting(true);
     try {
       // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms).
       const blob = await captureFromVideo();
@@ -411,8 +413,10 @@ export default function SmartCapture() {
       void computeBlurScore(blob).then(score => {
         if (token === pendingToken.current && score < 35) setPendingTip("Fotka vypadá mírně rozmazaná");
       }).catch(() => undefined);
+    } catch (error) {
+      toast({ title: "Snímek se nepodařilo pořídit", description: error instanceof Error ? error.message : "Zkuste spoušť znovu.", variant: "destructive" });
     } finally {
-      shootingRef.current = false;
+      shootingRef.current = false; setShooting(false);
     }
   };
 
@@ -458,7 +462,7 @@ export default function SmartCapture() {
   };
 
   const skipStep = () => {
-    if (!sessionId || acceptingRef.current) return;
+    if (!sessionId || acceptingRef.current || shootingRef.current) return;
     retakePending(); advance(currentStepIdx, true);
   };
 
@@ -752,7 +756,7 @@ export default function SmartCapture() {
           </div>}
           <div className="absolute top-0 inset-x-0 z-20 flex items-start justify-between gap-3 p-3"
             style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
-            <Button size="icon" variant="secondary" onClick={leaveCamera} aria-label="Ukončit focení"><X /></Button>
+            <Button size="icon" variant="secondary" onClick={leaveCamera} disabled={accepting || shooting} aria-label="Ukončit focení"><X /></Button>
             <div className="bg-background/85 rounded-md px-3 py-2 text-center min-w-0">
               <div className="text-sm font-semibold">{currentStepIdx + 1} / {totalSteps} · {currentStep?.label}</div>
               <div className="text-xs text-muted-foreground mt-1 max-w-sm">{currentStep?.hint}</div>
@@ -763,16 +767,16 @@ export default function SmartCapture() {
           {!stream && !cameraError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin" /></div>}
           {cameraError && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-background/90">
             <AlertCircle /><p>{cameraError}</p>
-            <Button onClick={startCamera}><RotateCcw /> Zkusit znovu</Button>
+            <Button onClick={startCamera} disabled={cameraRestarting}>{cameraRestarting ? <Loader2 className="animate-spin" /> : <RotateCcw />} {cameraRestarting ? "Otevírám kameru…" : "Zkusit znovu"}</Button>
             <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}><ImageIcon /> Nahrát fotografii</Button>
           </div>}
           <input ref={fallbackUploadRef} type="file" accept="image/*" className="hidden" onChange={e => {
             const file = e.target.files?.[0]; if (file) handleFilePicked(file); e.target.value = "";
           }} />
           <div className={`absolute z-20 ${landscapeMode ? "right-3 top-1/2 -translate-y-1/2 flex-col" : "bottom-28 inset-x-0 justify-center"} flex items-center gap-4`}>
-            <Button variant="secondary" onClick={skipStep}><SkipForward size={16} /> Přeskočit</Button>
-            <Button size="icon" onClick={handleShot} disabled={!stream || !cameraReady || !sessionId || !!pending} aria-label="Vyfotit"
-              className="w-20 h-20 rounded-full border-4 border-border touch-manipulation"><Camera size={32} /></Button>
+            <Button variant="secondary" onClick={skipStep} disabled={accepting || shooting} className="touch-manipulation"><SkipForward size={16} /> Přeskočit</Button>
+            <Button size="icon" onClick={handleShot} disabled={!stream || !cameraReady || !sessionId || !!pending || shooting || switching || accepting} aria-label="Vyfotit"
+              className="w-20 h-20 rounded-full border-4 border-border touch-manipulation">{shooting ? <Loader2 className="animate-spin" size={32} /> : <Camera size={32} />}</Button>
           </div>
           {[...queued].reverse().find(p => p.tip)?.tip && !pending && <p className={`absolute ${landscapeMode ? "bottom-28 left-3 max-w-xs" : "bottom-52 left-3 right-3"} bg-background/90 text-muted-foreground text-xs rounded-md px-3 py-2`}>{[...queued].reverse().find(p => p.tip)?.tip}</p>}
           <div className={`absolute bottom-0 z-20 bg-background/75 px-3 ${landscapeMode ? "left-0 right-40" : "inset-x-0"}`}
@@ -784,7 +788,7 @@ export default function SmartCapture() {
             {pendingTip && <p className="text-sm text-center px-4 py-2 text-muted-foreground">{pendingTip}</p>}
             <div className="flex flex-wrap justify-center gap-3 p-4 shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               <Button variant="secondary" onClick={retakePending} disabled={accepting}><RotateCcw size={17} /> Vyfotit znovu</Button>
-              <Button onClick={acceptPending} disabled={accepting}>{accepting ? <Loader2 className="animate-spin" size={17} /> : <Check size={17} />} Použít fotografii</Button>
+              <Button onClick={acceptPending} disabled={accepting} className="touch-manipulation">{accepting ? <Loader2 className="animate-spin" size={17} /> : <Check size={17} />} {accepting ? "Ukládám do telefonu…" : "Použít fotografii"}</Button>
             </div>
           </div>}
           {shutterFlash && <div className="absolute inset-0 bg-foreground/30 pointer-events-none" />}

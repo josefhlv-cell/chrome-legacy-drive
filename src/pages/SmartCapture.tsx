@@ -100,10 +100,14 @@ export default function SmartCapture() {
 
   const copyLink = async () => {
     if (!sessionId) return;
-    try {
-      await navigator.clipboard.writeText(`${window.location.origin}/admin/smart-capture?session=${sessionId}`);
-      toast({ title: "Odkaz zkopírován" });
-    } catch { toast({ title: "Odkaz nelze zkopírovat", description: "Zkopírujte adresu z adresního řádku.", variant: "destructive" }); }
+    const url = `${window.location.origin}/admin/smart-capture?session=${sessionId}`;
+    const ok = await copyTextToClipboard(url);
+    if (ok) {
+      toast({ title: "Odkaz zkopírován", description: "Otevřete ho na počítači pro dokončení a export." });
+    } else {
+      // Never leave the button dead: show the link so it can be copied manually.
+      toast({ title: "Zkopírujte odkaz ručně", description: url, duration: 15000 });
+    }
   };
 
   useEffect(() => {

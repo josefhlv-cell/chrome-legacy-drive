@@ -450,7 +450,7 @@ export default function SmartCapture() {
   };
 
   const acceptPending = () => {
-    if (!pending || !sessionId || shootingRef.current) return;
+    if (!pending || !sessionId) return;
     shootingRef.current = true;
     const { blob, url, stepIdx } = pending;
     setPending(null); URL.revokeObjectURL(url);

@@ -26,4 +26,7 @@ describe("guided capture rules", () => {
   it("restores skipped shots and last-step completion from metadata", () => {
     expect(readProgress({ skipped_steps: ["vin-za-oknem", "bad"], next_step: 20 })).toEqual({ skipped_steps: ["vin-za-oknem"], next_step: 20 });
   });
+  it("supplementing an earlier skipped step preserves completed sequence progress", () => {
+    expect(advanceProgress({ skipped_steps: ["leva-predni"], next_step: 20 }, 1, false)).toEqual({ skipped_steps: [], next_step: 20 });
+  });
 });

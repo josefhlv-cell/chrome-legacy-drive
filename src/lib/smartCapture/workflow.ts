@@ -15,7 +15,7 @@ export function advanceProgress(progress: CaptureProgress, index: number, skippe
   const type = SHOT_SEQUENCE[index]?.type;
   if (!type) return progress;
   const remaining = progress.skipped_steps.filter(t => t !== type);
-  return { skipped_steps: skipped ? [...remaining, type] : remaining, next_step: index + 1 };
+  return { skipped_steps: skipped ? [...remaining, type] : remaining, next_step: Math.max(progress.next_step, index + 1) };
 }
 
 export const isMainShot = (type: string) => type === "prava-predni";

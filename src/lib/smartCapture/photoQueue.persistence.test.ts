@@ -1,4 +1,5 @@
 import "fake-indexeddb/auto";
+import { Blob as NativeBlob } from "node:buffer";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
@@ -11,6 +12,7 @@ vi.mock("./imageProcessing", () => ({ processImage: () => new Promise(() => {}) 
 describe("durable acceptance boundary", () => {
   it("commits the accepted blob and progress before resolving, without waiting for upload", async () => {
     vi.stubGlobal("URL", { createObjectURL: () => "blob:test", revokeObjectURL: vi.fn() });
+    vi.stubGlobal("Blob", NativeBlob);
     const queue = await import("./photoQueue");
     const accepted = await queue.enqueuePhoto({ sessionId: "session", blob: new Blob(["accepted-photo"]), shotType: "prava-predni", shotIndex: 0, autoProcess: true, aiEnabled: false, progress: { skipped_steps: ["leva-predni"], next_step: 2 } });
     const request = indexedDB.open("chdp-capture-queue", 1);

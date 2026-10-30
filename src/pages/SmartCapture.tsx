@@ -114,7 +114,7 @@ export default function SmartCapture() {
     void restoreQueue(sessionId).then(stored => {
       const latest = stored?.filter(p => p.progress).sort((a, b) => b.shotIndex - a.shotIndex)[0]?.progress;
       // Photo and its progress are one atomic record if the page died before saveProgress.
-      if (latest && (!checkpoint || latest.next_step > progressRef.current.next_step)) {
+      if (latest && latest.next_step > progressRef.current.next_step) {
         saveProgress(latest); setCurrentStepIdx(Math.min(19, latest.next_step));
       }
     }).catch(() => toast({ title: "Místní frontu se nepodařilo obnovit", variant: "destructive" }));

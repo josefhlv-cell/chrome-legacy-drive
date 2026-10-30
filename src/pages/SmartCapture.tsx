@@ -31,6 +31,19 @@ export default function SmartCapture() {
   const { user, loading: authLoading } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
 
+  const lastSessionKey = user ? `capture-last-session:${user.id}` : undefined;
+  useEffect(() => {
+    if (!lastSessionKey) return;
+    try {
+      if (searchParams.get("session")) localStorage.setItem(lastSessionKey, searchParams.get("session") ?? "");
+      else if (mobile) {
+        const last = localStorage.getItem(lastSessionKey);
+        if (last) setSearchParams({ session: last }, { replace: true });
+      }
+    } catch { /* Storage can be disabled in private browsing. */ }
+  // mobile is derived from the device, not reactive state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastSessionKey, searchParams, setSearchParams]);
   const sessionIdFromUrl = searchParams.get("session");
   const [sessionId, setSessionId] = useState<string | undefined>(sessionIdFromUrl ?? undefined);
   useEffect(() => {
@@ -92,12 +105,19 @@ export default function SmartCapture() {
     if (!sessionId || !session || initializedSession.current === sessionId) return;
     initializedSession.current = sessionId;
     let next = readProgress(session.metadata);
-    const checkpoint = localStorage.getItem(`capture-progress:${sessionId}`);
+    let checkpoint: string | null = null;
+    try { checkpoint = localStorage.getItem(`capture-progress:${sessionId}`); } catch { /* Recover from durable photo records below. */ }
     if (checkpoint) { try { next = readProgress(JSON.parse(checkpoint)); saveProgress(next); } catch { /* invalid checkpoint */ } }
     progressRef.current = next; setProgress(next);
     setCurrentStepIdx(Math.min(19, next.next_step));
     setPhase("review");
-    void restoreQueue(sessionId).catch(() => toast({ title: "Místní frontu se nepodařilo obnovit", variant: "destructive" }));
+    void restoreQueue(sessionId).then(stored => {
+      const latest = stored?.filter(p => p.progress).sort((a, b) => b.shotIndex - a.shotIndex)[0]?.progress;
+      // Photo and its progress are one atomic record if the page died before saveProgress.
+      if (latest && latest.next_step > progressRef.current.next_step) {
+        saveProgress(latest); setCurrentStepIdx(Math.min(19, latest.next_step));
+      }
+    }).catch(() => toast({ title: "Místní frontu se nepodařilo obnovit", variant: "destructive" }));
   }, [sessionId, session, saveProgress, toast]);
 
   useEffect(() => {
@@ -121,6 +141,11 @@ export default function SmartCapture() {
   const [phase, setPhase] = useState<Phase>("intro");
   const [currentStepIdx, setCurrentStepIdx] = useState(0);
   const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cameraGeneration = useRef(0);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const acceptingRef = useRef(false);
   const [busy, setBusy] = useState(false);
   const [shutterFlash, setShutterFlash] = useState(false);
   /** Právě pořízený snímek — čeká na „Použít fotografii“ / „Vyfotit znovu“.
@@ -219,25 +244,56 @@ export default function SmartCapture() {
   useEffect(() => {
     const v = videoRef.current;
     if (!v || !stream) return;
+    setCameraReady(false);
+    const ready = () => {
+      if (v.videoWidth > 0 && v.videoHeight > 0 && v.readyState >= 2) { setCameraReady(true); clearTimeout(timeout); }
+    };
+    v.addEventListener("loadeddata", ready); v.addEventListener("playing", ready);
+    const timeout = setTimeout(() => {
+      if (!v.videoWidth || v.readyState < 2) setCameraError("Kamera se neprobudila. Klepněte na Zkusit znovu.");
+    }, 10000);
     try {
       v.srcObject = stream;
       const p = v.play();
       if (p && typeof p.catch === "function") p.catch(() => { /* ignore autoplay reject */ });
     } catch { /* ignore */ }
+    const ended = () => { setCameraReady(false); setCameraError("Kamera byla přerušena. Klepněte na Zkusit znovu."); };
+    stream.getVideoTracks().forEach(t => t.addEventListener("ended", ended));
+    return () => {
+      clearTimeout(timeout); v.removeEventListener("loadeddata", ready); v.removeEventListener("playing", ready);
+      stream.getVideoTracks().forEach(t => t.removeEventListener("ended", ended));
+    };
   }, [stream, phase]);
 
   const stopCamera = useCallback(() => {
-    setStream((prev) => { prev?.getTracks().forEach((t) => t.stop()); return null; });
+    cameraGeneration.current++;
+    streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null;
+    setCameraReady(false); setStream(null);
   }, []);
 
   useEffect(() => () => { stopCamera(); }, [stopCamera]);
+  useEffect(() => {
+    const hidden = () => {
+      if (document.visibilityState === "hidden" && phase === "capturing") {
+        stopCamera(); setCameraError("Kamera byla pozastavena. Klepněte na Zkusit znovu.");
+      }
+    };
+    const hide = () => { if (phase === "capturing") { stopCamera(); setCameraError("Kamera byla pozastavena. Klepněte na Zkusit znovu."); } };
+    document.addEventListener("visibilitychange", hidden); window.addEventListener("pagehide", hide);
+    return () => { document.removeEventListener("visibilitychange", hidden); window.removeEventListener("pagehide", hide); };
+  }, [phase, stopCamera]);
 
   // Gesture-safe camera request — must be the FIRST await after the user click
   // on iOS Safari, otherwise the permission prompt is silently dropped.
   // Nejširší zadní objektiv, plný senzor (4:3), zoom 1× — bez digitálního přiblížení.
   const wideDeviceRef = useRef<string | null>(null);
   const requestCamera = useCallback(async (mode: "environment" | "user" = facingRef.current): Promise<MediaStream> => {
+    const generation = ++cameraGeneration.current;
     const stream = await openCamera(mode, mode === "environment" ? wideDeviceRef.current : null);
+    if (generation !== cameraGeneration.current) {
+      stream.getTracks().forEach(t => t.stop()); throw new Error("Otevření kamery bylo přerušeno. Zkuste to znovu.");
+    }
+    streamRef.current = stream;
     // Labely objektivů jsou dostupné až po přidělení oprávnění → doplň cache pro další start.
     if (mode === "environment" && !wideDeviceRef.current) {
       resetCameraCache();
@@ -280,10 +336,11 @@ export default function SmartCapture() {
   };
 
   const startCamera = useCallback(async () => {
+    stopCamera();
     setCameraError(null);
     try { setStream(await requestCamera()); }
     catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
-  }, [requestCamera]);
+  }, [requestCamera, stopCamera]);
 
   // Switch between rear/front camera without leaving the capture UI.
   // Guarded — a second tap while the new stream is being acquired used to flip
@@ -331,11 +388,11 @@ export default function SmartCapture() {
 
   const handleFilePicked = (file: File) => {
     if (!sessionId) return;
-    acceptPhoto(file, currentStepIdx);
+    void acceptPhoto(file, currentStepIdx);
   };
 
   const handleShot = async () => {
-    if (!sessionId || busy || switching || pending || shootingRef.current) return;
+    if (!sessionId || busy || switching || pending || shootingRef.current || !cameraReady) return;
     shootingRef.current = true;
     try {
       // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms).
@@ -363,36 +420,45 @@ export default function SmartCapture() {
     else { stopCamera(); setPhase("review"); }
   };
 
-  const acceptPhoto = (blob: Blob, stepIdx: number) => {
-    if (!sessionId) return;
+  const acceptPhoto = async (blob: Blob, stepIdx: number) => {
+    if (!sessionId || acceptingRef.current) return false;
+    acceptingRef.current = true; setAccepting(true);
+    try {
     shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
-    enqueuePhoto({ sessionId, blob, shotType: SHOT_SEQUENCE[stepIdx].type,
+    await enqueuePhoto({ sessionId, blob, shotType: SHOT_SEQUENCE[stepIdx].type,
+      progress: advanceProgress(progressRef.current, stepIdx, false),
       shotIndex: shotIndexRef.current++, autoProcess: settings?.auto_image_processing !== "off", aiEnabled });
     advance(stepIdx, false);
+    return true;
+    } catch (e) {
+      toast({ title: "Fotografii se nepodařilo uložit v telefonu", description: "Snímek zůstává v náhledu. Uvolněte místo a zkuste Použít fotografii znovu.", variant: "destructive" });
+      return false;
+    } finally { acceptingRef.current = false; setAccepting(false); }
   };
 
-  const acceptPending = () => {
-    if (!pending || !sessionId) return;
+  const acceptPending = async () => {
+    if (!pending || !sessionId || acceptingRef.current) return;
     shootingRef.current = true;
     const { blob, url, stepIdx } = pending;
+    if (!await acceptPhoto(blob, stepIdx)) { shootingRef.current = false; return; }
     pendingToken.current++; pendingRef.current = null; setPending(null); setPendingTip(undefined); URL.revokeObjectURL(url);
-    acceptPhoto(blob, stepIdx);
     setTimeout(() => { shootingRef.current = false; }, 0);
   };
 
   useEffect(() => () => { if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url); }, []);
 
   const retakePending = () => {
+    if (acceptingRef.current) return;
     pendingToken.current++; pendingRef.current = null; setPendingTip(undefined);
     setPending(p => { if (p) URL.revokeObjectURL(p.url); return null; });
   };
 
   const skipStep = () => {
-    if (!sessionId) return;
+    if (!sessionId || acceptingRef.current) return;
     retakePending(); advance(currentStepIdx, true);
   };
 
-  const leaveCamera = () => { retakePending(); stopCamera(); setPhase("review"); };
+  const leaveCamera = () => { if (acceptingRef.current) return; retakePending(); stopCamera(); setPhase("review"); };
 
   const finishToReview = () => {
     if (!sessionId) return;
@@ -471,6 +537,7 @@ export default function SmartCapture() {
   useEffect(() => {
     if (mobile || phase !== "review" || !session || progressError || progressSaving) return;
     const next = readProgress(session.metadata);
+    if (next.next_step < progressRef.current.next_step) return;
     progressRef.current = next; setProgress(next);
   }, [session, mobile, phase, progressError, progressSaving]);
 
@@ -645,7 +712,7 @@ export default function SmartCapture() {
           }} />
           <div className={`absolute z-20 ${landscapeMode ? "right-3 top-1/2 -translate-y-1/2 flex-col" : "bottom-28 inset-x-0 justify-center"} flex items-center gap-4`}>
             <Button variant="secondary" onClick={skipStep}><SkipForward size={16} /> Přeskočit</Button>
-            <Button size="icon" onClick={handleShot} disabled={!stream || !sessionId || !!pending} aria-label="Vyfotit"
+            <Button size="icon" onClick={handleShot} disabled={!stream || !cameraReady || !sessionId || !!pending} aria-label="Vyfotit"
               className="w-20 h-20 rounded-full border-4 border-border touch-manipulation"><Camera size={32} /></Button>
           </div>
           {[...queued].reverse().find(p => p.tip)?.tip && !pending && <p className={`absolute ${landscapeMode ? "bottom-28 left-3 max-w-xs" : "bottom-52 left-3 right-3"} bg-background/90 text-muted-foreground text-xs rounded-md px-3 py-2`}>{[...queued].reverse().find(p => p.tip)?.tip}</p>}
@@ -657,8 +724,8 @@ export default function SmartCapture() {
             <img src={pending.url} alt="Náhled pořízené fotografie" className="w-full flex-1 min-h-0 object-contain" />
             {pendingTip && <p className="text-sm text-center px-4 py-2 text-muted-foreground">{pendingTip}</p>}
             <div className="flex flex-wrap justify-center gap-3 p-4 shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
-              <Button variant="secondary" onClick={retakePending}><RotateCcw size={17} /> Vyfotit znovu</Button>
-              <Button onClick={acceptPending}><Check size={17} /> Použít fotografii</Button>
+              <Button variant="secondary" onClick={retakePending} disabled={accepting}><RotateCcw size={17} /> Vyfotit znovu</Button>
+              <Button onClick={acceptPending} disabled={accepting}>{accepting ? <Loader2 className="animate-spin" size={17} /> : <Check size={17} />} Použít fotografii</Button>
             </div>
           </div>}
           {shutterFlash && <div className="absolute inset-0 bg-foreground/30 pointer-events-none" />}
@@ -712,7 +779,7 @@ export default function SmartCapture() {
           </div>
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => {
             const file = e.target.files?.[0];
-            if (file) acceptPhoto(file, completionStep.current ?? currentStepIdx);
+            if (file) void acceptPhoto(file, completionStep.current ?? currentStepIdx);
             e.target.value = "";
           }} />
           {/* Miniatura na přednastaveném pozadí — jen pro nabídku vozů */}

@@ -219,7 +219,7 @@ export const openCamera = async (
     ...base,
 
     facingMode: {
-      ideal: "environment",
+      ideal: facing,
     },
   });
 

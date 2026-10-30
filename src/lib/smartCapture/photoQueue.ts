@@ -1,17 +1,19 @@
 import { supabase } from "@/integrations/supabase/client";
 import { computeBlurScore, fileToBase64, processImage } from "./imageProcessing";
-import { isMainShot, qualityTip } from "./workflow";
+import { isMainShot, qualityTip, type CaptureProgress } from "./workflow";
 import type { ShotType } from "./types";
 
 export type QueuedPhoto = {
   id: string; sessionId: string; shotType: ShotType; shotIndex: number;
   blob: Blob; preview: string; status: "uploading" | "done" | "error";
   autoProcess: boolean; aiEnabled: boolean; error?: string; tip?: string;
+  progress?: CaptureProgress;
 };
 type StoredPhoto = Omit<QueuedPhoto, "preview">;
 let items: QueuedPhoto[] = [];
 const listeners = new Set<() => void>();
 const running = new Set<string>();
+const persisting = new Set<string>();
 let dbPromise: Promise<IDBDatabase> | undefined;
 const emit = () => listeners.forEach(fn => fn());
 
@@ -35,6 +37,9 @@ async function store(photo: QueuedPhoto, remove = false) {
     tx.onerror = () => reject(tx.error);
     tx.onabort = () => reject(tx.error);
   });
+}
+export async function persistQueuedPhoto(photo: QueuedPhoto) {
+  await store(photo);
 }
 function change(id: string, patch: Partial<QueuedPhoto>) {
   items = items.map(p => p.id === id ? { ...p, ...patch } : p);
@@ -109,15 +114,21 @@ async function run(photo: QueuedPhoto) {
 function pump() {
   // One full-resolution job at a time bounds memory on phones.
   if (running.size) return;
-  const photo = items.find(p => p.status === "uploading" && !running.has(p.id));
+  const photo = items.find(p => p.status === "uploading" && !running.has(p.id) && !persisting.has(p.id));
   if (photo) void run(photo);
 }
-export function enqueuePhoto(input: Omit<QueuedPhoto, "id" | "status" | "preview">) {
+export async function enqueuePhoto(input: Omit<QueuedPhoto, "id" | "status" | "preview">) {
   const photo: QueuedPhoto = { ...input, id: crypto.randomUUID(), preview: URL.createObjectURL(input.blob), status: "uploading" };
+  persisting.add(photo.id);
   items = [...items, photo]; emit();
-  // Persist every accepted photo immediately, including jobs waiting behind another upload.
-  void store(photo).then(pump).catch(e => change(photo.id, { status: "error", error: String(e) }));
-  return photo;
+  try {
+    // The acceptance boundary is the completed local transaction, NEVER network/AI.
+    await persistQueuedPhoto(photo);
+    return photo;
+  } catch (e) {
+    items = items.filter(p => p.id !== photo.id); URL.revokeObjectURL(photo.preview); emit();
+    throw e;
+  } finally { persisting.delete(photo.id); pump(); }
 }
 export function retryPhoto(id: string) {
   change(id, { status: "uploading", error: undefined }); pump();
@@ -136,8 +147,9 @@ export async function restoreQueue(sessionId: string) {
   const { data: session, error } = await supabase.from("smart_capture_sessions").select("id").eq("id", sessionId).eq("user_id", user.id).maybeSingle();
   if (error || !session) return;
   const fresh = stored.filter(p => p.sessionId === sessionId && !items.some(i => i.id === p.id));
-  items = [...items, ...fresh.map(p => ({ ...p, preview: URL.createObjectURL(p.blob) }))];
+  items = [...items, ...fresh.map(p => ({ ...p, status: "uploading" as const, error: undefined, preview: URL.createObjectURL(p.blob) }))];
   emit(); pump();
+  return stored.filter(p => p.sessionId === sessionId);
 }
 export const photoQueue = {
   subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },

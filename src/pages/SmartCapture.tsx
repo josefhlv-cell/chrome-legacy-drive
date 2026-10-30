@@ -21,6 +21,7 @@ import { advanceProgress, readProgress, type CaptureProgress } from "@/lib/smart
 import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
 import { finishCaptureSession } from "@/lib/smartCapture/finishSession";
+import { copyTextToClipboard } from "@/lib/smartCapture/clipboard";
 import { captureJpeg, watchCameraReady } from "@/lib/smartCapture/captureControls";
 
 

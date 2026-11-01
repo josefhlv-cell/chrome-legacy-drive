@@ -769,7 +769,9 @@ async function reviewShowroomWithAi(sourceDataUrl: string, compositeDataUrl: str
   const text = typeof raw === "string" ? raw : Array.isArray(raw)
     ? raw.map((part: any) => part?.text ?? "").join("")
     : "";
-  const jsonText = text.match(/\\{[\\s\\S]*\\}/)?.[0];
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+  const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? text.slice(jsonStart, jsonEnd + 1) : "";
   if (!jsonText) throw new Error("AI visual review returned no valid JSON");
   const parsed = JSON.parse(jsonText);
   const score = Math.max(0, Math.min(100, Number(parsed.score) || 0));

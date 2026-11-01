@@ -4,14 +4,14 @@
 // READ ONLY: never generate, never mutate at runtime.
 // ============================================================================
 
-export const CAMERA_VERSION = "camera-v1";
-export const BACKGROUND_VERSION = "background-v4";
+export const CAMERA_VERSION = "camera-v2-clean-wall";
+export const BACKGROUND_VERSION = "background-v5-clean-wall";
 export const PLACEMENT_VERSION = "placement-v2";
 export const LIGHTING_VERSION = "lighting-v2";
 export const GROUND_VERSION = "ground-v4";
 
-export const CANVAS_W = 1920;
-export const CANVAS_H = 1080;
+export const CANVAS_W = 1536;
+export const CANVAS_H = 968;
 
 /** Locked camera (camera.json). */
 export const CAMERA = {
@@ -20,17 +20,17 @@ export const CAMERA = {
   pitch_deg: -1.8,
   yaw_deg: 0,
   roll_deg: 0,
-  horizon_y: 713,
+  horizon_y: 852,
   jpeg_quality: 94,
 } as const;
 
 /** Ground plane (ground_plane.json). */
 export const GROUND = {
-  wheelLineY: 1015,
-  anchorX: 960,
-  usableMinX: 210,
-  usableMaxX: 1710,
-  wallFloorSeamY: 713,
+  wheelLineY: 908,
+  anchorX: 768,
+  usableMinX: 168,
+  usableMaxX: 1368,
+  wallFloorSeamY: 852,
   ambientReachRatio: 0.11,
   contactReachRatio: 0.022,
   ambientOpacity: 0.30,
@@ -40,11 +40,12 @@ export const GROUND = {
 
 /** Reserved wall artwork. A vehicle is never allowed to enter this zone. */
 export const LOGO_SAFE_ZONE = {
-  minX: 1520,
-  maxX: 1900,
-  minY: 20,
-  maxY: 340,
-  clearancePx: 18,
+  // The replacement background has a clean wall with no logo or artwork.
+  minX: 0,
+  maxX: 0,
+  minY: 0,
+  maxY: 0,
+  clearancePx: 0,
 } as const;
 
 export type VehicleClass =

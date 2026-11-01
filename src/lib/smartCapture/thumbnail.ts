@@ -1,10 +1,10 @@
 /**
  * Smart Capture — "miniatura na přednastaveném pozadí".
  *
- * Uživatel vidí při focení prvního záběru vložené pozadí (overlay v hledáčku)
- * a vyfotí do něj vozidlo. Výsledná fotka se pak deterministicky složí na
- * TOTOŽNÉ pozadí (žádné AI generování pozadí) a použije se POUZE jako
- * miniatura v nabídce vozů — v detailu vozidla se nezobrazuje.
+ * Uživatel vidí při focení vložené pozadí (overlay v hledáčku).
+ * Když je pozadí zapnuté, snímek se při uložení složí na totéž pozadí
+ * (object-contain, shodné s hledáčkem). Miniatura v nabídce vozů dále
+ * používá composeThumbnail s výřezem.
  */
 import captureBg from "@/assets/capture-bg.jpg.asset.json";
 
@@ -33,13 +33,13 @@ export const THUMB_PLACEMENT = {
 /**
  * DEALER MODE — normalizace: každé vozidlo má IDENTICKÉ měřítko a kompozici.
  * Výška vozidla je vždy stejná (nezávisle na jeho proporcích), takže spodní
- * odsazení, střed i vertikální zarovnání jsou u všech fotek totožné.
+ * odazení, střed i vertikální zarovnání jsou u všech fotek totožné.
  * Žádné roztahování, žádná perspektivní deformace — pouze jednotné měřítko.
  */
 export const DEALER_PLACEMENT = {
   /** Fixní podíl výšky plátna, který vozidlo vždy zaujme. */
   heightRatio: 0.46,
-  /** Bezpečnostní strop šířky (širokoúhlé vozy se nesmí dotknout okrajů). */
+  /** Bezpečnostní strop šířky (širokoúhé vozy se nesmí dotknout okrajů). */
   maxWidthRatio: 0.72,
   wheelLineRatio: THUMB_PLACEMENT.wheelLineRatio,
   centerXRatio: THUMB_PLACEMENT.centerXRatio,
@@ -90,6 +90,40 @@ const trimAlpha = (img: HTMLImageElement) => {
 
 const canvasToJpeg = (canvas: HTMLCanvasElement, quality: number): Promise<Blob> =>
   new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/jpeg", quality));
+
+/**
+ * Složí snímek z foťáku na showroom pozadí (object-contain).
+ * Odpovídá hledáčku: celá fotka je vidět, pozadí vyplní zbylé okraje.
+ * Výstup má rozměr pozadí (nebo aspoň 16:9 master).
+ */
+export const composePhotoOnBackground = async (
+  photo: Blob,
+  bgUrl: string = CAPTURE_BG_URL,
+): Promise<Blob> => {
+  const [bg, frame] = await Promise.all([loadImage(bgUrl), blobToImage(photo)]);
+  const outW = bg.naturalWidth || THUMB_W;
+  const outH = bg.naturalHeight || THUMB_H;
+
+  const canvas = document.createElement("canvas");
+  canvas.width = outW;
+  canvas.height = outH;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("Plátno pro pozadí se nevytvořilo.");
+
+  ctx.drawImage(bg, 0, 0, outW, outH);
+
+  // object-contain: celá fotka se vejde, bez ořezu, vycentrovaná.
+  const scale = Math.min(outW / frame.naturalWidth, outH / frame.naturalHeight);
+  const w = frame.naturalWidth * scale;
+  const h = frame.naturalHeight * scale;
+  const dx = (outW - w) / 2;
+  const dy = (outH - h) / 2;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = "high";
+  ctx.drawImage(frame, dx, dy, w, h);
+
+  return await canvasToJpeg(canvas, 0.92);
+};
 
 /**
  * Složí miniaturu: pozadí (fixní asset) + výřez vozidla (PNG s alfou),

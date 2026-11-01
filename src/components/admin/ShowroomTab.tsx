@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import JSZip from "jszip";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useVehicles, type DbVehicle } from "@/hooks/useVehicles";
 import {
@@ -323,7 +323,7 @@ export default function ShowroomTab() {
                 <button onClick={() => refetch()} className="outline-button inline-flex items-center gap-2 text-xs">
                   <RefreshCw className="w-3.5 h-3.5" /> Obnovit stav
                 </button>
-                <button onClick={downloadZip} disabled={downloading || !images?.some((img) => img.showroom_url)} className="outline-button inline-flex items-center gap-2 text-xs">
+                <button onClick={downloadZip} disabled={downloading || !selectedMain?.showroom_url} className="outline-button inline-flex items-center gap-2 text-xs">
                   {downloading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Download className="w-3.5 h-3.5" />} Stáhnout titulní showroom + originální galerii
                 </button>
               </div>

@@ -3,7 +3,7 @@
 // It regenerates composites but NEVER publishes them (showroom_applied_at
 // is left untouched), so nothing changes on the public site.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { createAdminClient, runShowroom, isCurrentTemplate, type AdminClient } from "../_shared/showroomPipeline.ts";
+import { createAdminClient, type AdminClient } from "../_shared/showroomPipeline.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",

@@ -17,6 +17,7 @@ import {
   Square,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { pickPrimaryImage } from "@/lib/showroomPrimary";
 const showroomBg = "/assets/showroom/master_showroom_background.webp";
 
 const SHOWROOM_LIMIT = 6;
@@ -148,7 +149,7 @@ export default function ShowroomTab() {
 
   const selectedMain = useMemo(() => {
     const list = images ?? [];
-    return list.find((img) => img.is_main) ?? list[0] ?? null;
+    return pickPrimaryImage(list);
   }, [images]);
 
   const setMode = useMutation({
@@ -247,10 +248,10 @@ export default function ShowroomTab() {
       .order("sort_order", { ascending: true })
         .order("id", { ascending: true });
     if (error) throw error;
-    const rows = data ?? [];
-    const targets = mode === "main" ? rows.filter((d) => d.is_main).slice(0, 1) : rows.slice(0, SHOWROOM_LIMIT);
-    if (targets.length === 0 && rows.length > 0) targets.push(rows[0]);
-    return targets;
+    // Only the primary photo is ever processed — never additional exterior shots.
+    void mode;
+    const primary = pickPrimaryImage(data ?? []);
+    return primary ? [primary] : [];
   };
 
   const generateForVehicle = async (vehicleId: string, mode: ShowroomMode, applyAfter = true) => {
@@ -353,15 +354,6 @@ export default function ShowroomTab() {
               Produkční režim pro jednotné fotografie před budovou Chrysler Pardubice. Originály zůstávají uložené samostatně a showroom verze se použije pouze po ručním zapnutí.
             </p>
           </div>
-          <button
-            onClick={bulkApply}
-            disabled={bulkBusy}
-            className="chrome-button inline-flex items-center gap-2 text-sm"
-            title="Zpracuje vybrané vozy, nebo všechny vozy se zapnutým režimem"
-          >
-            {bulkBusy ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
-            Hromadně aplikovat
-          </button>
         </div>
         {bulkBusy && (
           <div className="mt-4">
@@ -383,82 +375,20 @@ export default function ShowroomTab() {
         <div className="bg-card border border-border rounded-lg p-3 max-h-[720px] overflow-y-auto">
           <div className="flex items-center justify-between mb-2 px-1 gap-2 flex-wrap">
             <div className="text-xs font-semibold text-muted-foreground uppercase">Vozidla</div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  const all = vehicles ?? [];
-                  const allSelected = all.length > 0 && all.every((v: any) => checkedVehicleIds.has(v.id));
-                  if (allSelected) setCheckedVehicleIds(new Set());
-                  else setCheckedVehicleIds(new Set(all.map((v: any) => v.id)));
-                }}
-                className="text-[10px] inline-flex items-center gap-1 text-muted-foreground hover:text-primary"
-              >
-                {(vehicles ?? []).length > 0 && (vehicles ?? []).every((v: any) => checkedVehicleIds.has(v.id))
-                  ? <><CheckSquare className="w-3 h-3" /> odznačit vše</>
-                  : <><Square className="w-3 h-3" /> označit vše</>}
-              </button>
-              <button
-                type="button"
-                onClick={() => setCheckedVehicleIds(new Set())}
-                className="text-[10px] text-muted-foreground hover:text-primary"
-              >
-                vyčistit
-              </button>
-            </div>
           </div>
-          {checkedVehicleIds.size > 0 && (
-            <div className="mb-2 px-1 flex flex-wrap gap-1.5">
-              <button
-                type="button"
-                onClick={bulkApply}
-                disabled={bulkBusy}
-                className="text-[10px] px-2 py-1 rounded-md bg-primary text-primary-foreground inline-flex items-center gap-1 disabled:opacity-50"
-              >
-                <Sparkles className="w-3 h-3" /> Generovat ({checkedVehicleIds.size})
-              </button>
-              <button
-                type="button"
-                disabled={bulkBusy}
-                onClick={async () => {
-                  if (!confirm(`Obnovit originály u ${checkedVehicleIds.size} označených vozů? Showroom se vypne.`)) return;
-                  setBulkBusy(true);
-                  setQueueProgress({ done: 0, total: checkedVehicleIds.size });
-                  try {
-                    const ids = Array.from(checkedVehicleIds);
-                    for (let i = 0; i < ids.length; i += 1) {
-                      try {
-                        await supabase.functions.invoke("showroom-apply", { body: { vehicleId: ids[i], action: "restore_vehicle" } });
-                      } catch { /* continue */ }
-                      setQueueProgress({ done: i + 1, total: ids.length });
-                    }
-                    toast({ title: `Originály obnoveny u ${ids.length} vozů` });
-                    qc.invalidateQueries({ queryKey: ["vehicles"] });
-                    refetch();
-                  } finally { setBulkBusy(false); }
-                }}
-                className="text-[10px] px-2 py-1 rounded-md border border-border hover:bg-secondary inline-flex items-center gap-1 disabled:opacity-50"
-              >
-                <RotateCcw className="w-3 h-3" /> Obnovit originály
-              </button>
-            </div>
-          )}
           <div className="space-y-1">
             {(vehicles ?? []).map((v: any) => {
               const checked = checkedVehicleIds.has(v.id);
               return (
                 <div key={v.id} className={`rounded-md border transition-colors ${selectedId === v.id ? "bg-primary/10 border-primary" : "border-border hover:bg-secondary"}`}>
                   <div className="flex items-center gap-1 p-1">
-                    <button type="button" onClick={() => toggleChecked(v.id)} className="p-1 text-muted-foreground hover:text-primary" title="Vybrat pro hromadnou aplikaci">
-                      {checked ? <CheckSquare className="w-4 h-4" /> : <Square className="w-4 h-4" />}
-                    </button>
                     <button onClick={() => setSelectedId(v.id)} className="flex-1 text-left px-2 py-1.5 text-sm flex items-center justify-between gap-2">
                       <div className="min-w-0">
                         <div className="truncate font-medium">{v.name}</div>
                         <div className="text-[10px] text-muted-foreground">{v.year} · {v.inventory_number || "—"}</div>
                       </div>
                       <span className={`text-[10px] px-2 py-0.5 rounded-full shrink-0 ${v.showroom_mode === "off" || !v.showroom_mode ? "bg-muted text-muted-foreground" : "bg-primary/15 text-primary"}`}>
-                        {v.showroom_mode === "exterior" ? "Více" : v.showroom_mode === "main" ? "Titulní" : "OFF"}
+                        {v.showroom_mode && v.showroom_mode !== "off" ? "Titulní" : "OFF"}
                       </span>
                     </button>
                   </div>
@@ -479,13 +409,13 @@ export default function ShowroomTab() {
                   <p className="text-xs text-muted-foreground">VIN: {(selected as any).vin || "—"}</p>
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
-                  {(["off", "main", "exterior"] as const).map((m) => (
+                  {(["off", "main"] as const).map((m) => (
                     <button
                       key={m}
                       onClick={() => updateMode(selected.id, m)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${((selected as any).showroom_mode ?? "off") === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}
+                      className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${(((selected as any).showroom_mode ?? "off") === "off" ? "off" : "main") === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}
                     >
-                      {m === "off" ? "OFF" : m === "main" ? "Pouze titulní foto" : "Více exteriérových fotek"}
+                      {m === "off" ? "OFF" : "Pouze titulní foto"}
                     </button>
                   ))}
                 </div>
@@ -509,9 +439,6 @@ export default function ShowroomTab() {
               <div className="flex gap-2 flex-wrap">
                 <button onClick={() => generateForVehicle(selected.id, "main", true)} className="chrome-button inline-flex items-center gap-2 text-xs" disabled={busyIds.size > 0 || bulkBusy}>
                   <Wand2 className="w-3.5 h-3.5" /> Vygenerovat a zapnout titulní
-                </button>
-                <button onClick={() => generateForVehicle(selected.id, "exterior", true)} className="chrome-button inline-flex items-center gap-2 text-xs" disabled={busyIds.size > 0 || bulkBusy}>
-                  <Sparkles className="w-3.5 h-3.5" /> Vygenerovat exteriér (max {SHOWROOM_LIMIT})
                 </button>
                 <button onClick={() => restoreVehicle(selected.id)} className="outline-button inline-flex items-center gap-2 text-xs" disabled={bulkBusy}>
                   <RotateCcw className="w-3.5 h-3.5" /> Obnovit originální fotografie

@@ -28,7 +28,1295 @@ import { captureFullStill } from "@/lib/smartCapture/stillCapture";
 import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
 import { CAPTURE_BG_URL } from "@/lib/smartCapture/thumbnail";
 
-// FILE TRUNCATED - NEED FULL CONTENT
+const SHOWROOM_BG = "/assets/showroom/master_showroom_background.webp";
+const BG_PREF_KEY = "capture-show-background";
+
+function readBgPref(): boolean | null {
+  try {
+    const value = localStorage.getItem(BG_PREF_KEY);
+    if (value === "1") return true;
+    if (value === "0") return false;
+  } catch { /* Private mode has no storage. */ }
+  return null;
+}
+
+
+
+type Phase = "intro" | "capturing" | "review";
+
 export default function SmartCapture() {
-  return <div className="p-8 text-center">SmartCapture se obnovuje… spusťte: git checkout 67e3c2e981fd8b505df8880e054cce3abe40745d -- src/pages/SmartCapture.tsx</div>;
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { user, loading: authLoading } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+
+  const lastSessionKey = user ? `capture-last-session:${user.id}` : undefined;
+  const recoveredSession = useRef<string>();
+  useEffect(() => {
+    if (!lastSessionKey) return;
+    try {
+      if (searchParams.get("session")) localStorage.setItem(lastSessionKey, searchParams.get("session") ?? "");
+      else if (mobile) {
+        const last = localStorage.getItem(lastSessionKey);
+        if (last) { recoveredSession.current = last; setSearchParams({ session: last }, { replace: true }); }
+      }
+    } catch { /* Storage can be disabled in private browsing. */ }
+  // mobile is derived from the device, not reactive state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lastSessionKey, searchParams, setSearchParams]);
+  const sessionIdFromUrl = searchParams.get("session");
+  const [sessionId, setSessionId] = useState<string | undefined>(sessionIdFromUrl ?? undefined);
+  useEffect(() => {
+    if ((sessionIdFromUrl ?? undefined) !== sessionId) { setSessionId(sessionIdFromUrl ?? undefined); setPhase(sessionIdFromUrl ? "review" : "intro"); }
+  // URL navigation, not local session creation, drives this synchronization.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionIdFromUrl]);
+  const createSession = useCreateSession();
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useSession(sessionId);
+  const { data: sessions = [], refetch: refetchSessions } = useSessions();
+  const { data: photos = [], refetch: refetchPhotos } = useSessionPhotos(sessionId);
+  const allQueued = useSyncExternalStore(photoQueue.subscribe, photoQueue.getSnapshot);
+  const queued = useMemo(() => allQueued.filter(p => p.sessionId === sessionId), [allQueued, sessionId]);
+  const queueCount = queued.filter(p => p.status === "uploading").length;
+  const [starting, setStarting] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [shotIntent, setShotIntent] = useState<null | "fix" | "fill">(null);
+  const finishingRef = useRef(false);
+  const startRef = useRef(false);
+  const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia("(pointer: coarse)").matches;
+  const [progress, setProgress] = useState<CaptureProgress>({ skipped_steps: [], next_step: 0 });
+  const progressRef = useRef(progress);
+  const metadataChain = useRef<Promise<unknown>>(Promise.resolve());
+  const [progressError, setProgressError] = useState(false);
+  const [progressSaving, setProgressSaving] = useState(false);
+  const progressWrites = useRef(0);
+  const initializedSession = useRef<string>();
+  const completionStep = useRef<number | null>(null);
+
+  const saveProgress = useCallback((next: CaptureProgress, sid = sessionId) => {
+    if (!sid) return;
+    progressRef.current = next; setProgress(next);
+    try { localStorage.setItem(`capture-progress:${sid}`, JSON.stringify(next)); } catch { /* Remote saving still proceeds. */ }
+    progressWrites.current++; setProgressSaving(true);
+    metadataChain.current = metadataChain.current.catch(() => undefined).then(async () => {
+      const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
+      if (error) throw error;
+      const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+      const result = await supabase.from("smart_capture_sessions").update({ metadata: { ...metadata, ...next } }).eq("id", sid);
+      if (result.error) throw result.error;
+      // Only remove the local checkpoint when it is still the same revision.
+      if (localStorage.getItem(`capture-progress:${sid}`) === JSON.stringify(next)) localStorage.removeItem(`capture-progress:${sid}`);
+      setProgressError(false);
+    }).catch(() => {
+      setProgressError(true);
+      toast({ title: "Průběh zatím uložen jen v tomto zařízení", description: "Zkuste uložení znovu před otevřením na PC.", variant: "destructive" });
+    }).finally(() => {
+      progressWrites.current = Math.max(0, progressWrites.current - 1);
+      setProgressSaving(progressWrites.current > 0);
+    });
+  }, [sessionId, toast]);
+
+  const copyLink = async () => {
+    if (!sessionId) return;
+    const url = `${window.location.origin}/admin/smart-capture?session=${sessionId}`;
+    const ok = await copyTextToClipboard(url);
+    if (ok) {
+      toast({ title: "Odkaz zkopírován", description: "Otevřete ho na počítači pro dokončení a export." });
+    } else {
+      // Never leave the button dead: show the link so it can be copied manually.
+      toast({ title: "Zkopírujte odkaz ručně", description: url, duration: 15000 });
+    }
+  };
+
+  useEffect(() => {
+    if (!sessionId || !session || initializedSession.current === sessionId) return;
+    initializedSession.current = sessionId;
+    let next = readProgress(session.metadata);
+    let checkpoint: string | null = null;
+    try { checkpoint = localStorage.getItem(`capture-progress:${sessionId}`); } catch { /* Recover from durable photo records below. */ }
+    if (checkpoint) { try { next = readProgress(JSON.parse(checkpoint)); saveProgress(next); } catch { /* invalid checkpoint */ } }
+    progressRef.current = next; setProgress(next);
+    setCurrentStepIdx(Math.min(19, next.next_step));
+    setPhase("review");
+    void restoreQueue(sessionId).then(stored => {
+      const latest = stored?.filter(p => p.progress).sort((a, b) => b.shotIndex - a.shotIndex)[0]?.progress;
+      // Photo and its progress are one atomic record if the page died before saveProgress.
+      if (latest && latest.next_step > progressRef.current.next_step) {
+        saveProgress(latest); setCurrentStepIdx(Math.min(19, latest.next_step));
+      }
+    }).catch(() => toast({ title: "Místní frontu se nepodařilo obnovit", variant: "destructive" }));
+  }, [sessionId, session, saveProgress, toast]);
+
+  useEffect(() => {
+    const online = () => { if (sessionId) { saveProgress(progressRef.current); retrySessionPhotos(sessionId); } void refetchPhotos(); };
+    window.addEventListener("online", online);
+    return () => window.removeEventListener("online", online);
+  }, [sessionId, saveProgress, refetchPhotos]);
+
+  useEffect(() => { if (sessionId && queueCount === 0) void refetchPhotos(); }, [sessionId, queueCount, refetchPhotos]);
+  useEffect(() => {
+    const guard = (event: BeforeUnloadEvent) => {
+      if (queued.some(p => p.status !== "done") || progressError || progressSaving) { event.preventDefault(); event.returnValue = ""; }
+    };
+    window.addEventListener("beforeunload", guard);
+    return () => window.removeEventListener("beforeunload", guard);
+  }, [queued, progressError, progressSaving]);
+  const deletePhoto = useDeleteSessionPhoto();
+  const updateSession = useUpdateSession();
+  const { data: settings } = useSmartCaptureSettings();
+
+  const [phase, setPhase] = useState<Phase>("intro");
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const cameraGeneration = useRef(0);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [accepting, setAccepting] = useState(false);
+  const acceptingRef = useRef(false);
+  const [busy, setBusy] = useState(false);
+  const [shutterFlash, setShutterFlash] = useState(false);
+  /** Právě pořízený snímek — čeká na „Použít fotografii“ / „Vyfotit znovu“.
+   *  Kamera přitom BĚŽÍ dál (žádná reinicializace MediaStreamu). */
+  const [pending, setPending] = useState<{ blob: Blob; url: string; stepIdx: number } | null>(null);
+  /** Skutečný poměr stran streamu — zjištěn z videoWidth/videoHeight, ne z CSS. */
+  const [cameraError, setCameraError] = useState<string | null>(null);
+  const [pendingTip, setPendingTip] = useState<string>();
+  const pendingToken = useRef(0);
+  const pendingRef = useRef<{ url: string } | null>(null);
+  const [vehicleInfo, setVehicleInfo] = useState<VehicleInfo>({
+    brand: "", model: "", year: "", vin: "", mileage: "",
+    price: "", fuel: "", transmission: "", color: "", power: "",
+    description: "",
+  });
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const facingRef = useRef<"environment" | "user">("environment");
+  const [facing, setFacing] = useState<"environment" | "user">("environment");
+  const [switching, setSwitching] = useState(false);
+  const cameraRestartRef = useRef(false);
+  const [cameraRestarting, setCameraRestarting] = useState(false);
+  const [shooting, setShooting] = useState(false);
+  const shootingRef = useRef(false);
+  const shotIndexRef = useRef(0);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const fallbackUploadRef = useRef<HTMLInputElement>(null);
+
+  // Voice + horizon
+  const voiceEnabledSetting = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { voice_control?: string }).voice_control !== "off";
+  }, [settings]);
+  const horizonEnabledSetting = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { horizon_auto_level?: string }).horizon_auto_level !== "off";
+  }, [settings]);
+  const landscapeEnabled = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { landscape_capture?: string }).landscape_capture !== "off";
+  }, [settings]);
+  const gridEnabled = useMemo(() => {
+    if (!settings) return true;
+    return (settings as { grid_overlay?: string }).grid_overlay !== "off";
+  }, [settings]);
+  /**
+   * Pozadí v hledáčku. Zapnutí je na telefonu a uloží se do zařízení,
+   * takže se při dalším focení ukáže hned — bez čekání na fotku.
+   * Nastavení "on" / "suggest" ho zapne, dokud si ho uživatel sám nevypne.
+   */
+  const [showBackground, setShowBackground] = useState(() => readBgPref() === true);
+  const [bgSrc, setBgSrc] = useState(CAPTURE_BG_URL);
+  useEffect(() => {
+    if (readBgPref() !== null || !settings) return;
+    const mode = (settings as { thumbnail_background?: string }).thumbnail_background;
+    if (mode === "on" || mode === "suggest") setShowBackground(true);
+  }, [settings]);
+  useEffect(() => {
+    const preload = new Image();
+    preload.src = CAPTURE_BG_URL;
+  }, []);
+  const thumbOverlayEnabled = showBackground;
+  /** Dealer Mode — jednotné měřítko a kompozice u všech vozidel (default OFF). */
+  const dealerMode = useMemo(() => !!(settings as { dealer_mode?: boolean })?.dealer_mode, [settings]);
+
+  const thumbBusy = false;
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+
+
+  /** Skutečné rozměry viewportu (ne CSS odhad) — přepočítají se i po otočení. */
+  const [viewport, setViewport] = useState(() => ({
+    w: typeof window !== "undefined" ? window.innerWidth : 0,
+    h: typeof window !== "undefined" ? window.innerHeight : 0,
+  }));
+  const isLandscape = viewport.w > viewport.h;
+  useEffect(() => {
+    const onResize = () => setViewport({ w: window.innerWidth, h: window.innerHeight });
+    window.addEventListener("resize", onResize);
+    window.addEventListener("orientationchange", onResize);
+    const so = (window.screen as unknown as { orientation?: EventTarget })?.orientation;
+    so?.addEventListener?.("change", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("orientationchange", onResize);
+      so?.removeEventListener?.("change", onResize);
+    };
+  }, []);
+  const landscapeMode = isLandscape && landscapeEnabled;
+
+
+  const [voiceUnsupported, setVoiceUnsupported] = useState(false);
+  const [dictating, setDictating] = useState(false);
+
+  const [horizonAngle, setHorizonAngle] = useState(0);
+  const horizonAngleRef = useRef(0);
+  const [vinNote, setVinNote] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
+  const voiceRef = useRef<ReturnType<typeof createVoiceController> | null>(null);
+  const horizonRef = useRef<ReturnType<typeof createHorizonController> | null>(null);
+
+  // Admin gate
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  useEffect(() => {
+    if (authLoading) return;
+    if (!user) { navigate("/admin"); return; }
+    supabase.from("user_roles").select("role").eq("user_id", user.id).eq("role", "admin").maybeSingle()
+      .then(({ data }) => setIsAdmin(!!data));
+  }, [user, authLoading, navigate]);
+
+  // Attach stream to video as soon as element + stream are ready. NEVER await play()
+  // — on iOS Safari it can hang indefinitely, causing the "stuck loader" bug.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v || !stream) return;
+    setCameraReady(false);
+    try {
+      v.srcObject = stream;
+      const p = v.play();
+      if (p && typeof p.catch === "function") p.catch(() => { /* ignore autoplay reject */ });
+    } catch { /* ignore */ }
+    const stopWatching = watchCameraReady(v, () => { setCameraReady(true); setCameraError(null); },
+      () => setCameraError("Kamera se neprobudila. Klepněte na Zkusit znovu."));
+    const ended = () => { setCameraReady(false); setCameraError("Kamera byla přerušena. Klepněte na Zkusit znovu."); };
+    stream.getVideoTracks().forEach(t => t.addEventListener("ended", ended));
+    return () => {
+      stopWatching();
+      stream.getVideoTracks().forEach(t => t.removeEventListener("ended", ended));
+    };
+  }, [stream, phase]);
+
+  const stopCamera = useCallback(() => {
+    cameraGeneration.current++;
+    streamRef.current?.getTracks().forEach(t => t.stop()); streamRef.current = null;
+    setCameraReady(false); setStream(null);
+  }, []);
+
+  useEffect(() => () => { stopCamera(); }, [stopCamera]);
+  useEffect(() => {
+    const hidden = () => {
+      if (document.visibilityState === "hidden" && phase === "capturing") {
+        stopCamera(); setCameraError("Kamera byla pozastavena. Klepněte na Zkusit znovu.");
+      }
+    };
+    const hide = () => { if (phase === "capturing") { stopCamera(); setCameraError("Kamera byla pozastavena. Klepněte na Zkusit znovu."); } };
+    document.addEventListener("visibilitychange", hidden); window.addEventListener("pagehide", hide);
+    return () => { document.removeEventListener("visibilitychange", hidden); window.removeEventListener("pagehide", hide); };
+  }, [phase, stopCamera]);
+
+  // Gesture-safe camera request — must be the FIRST await after the user click
+  // on iOS Safari, otherwise the permission prompt is silently dropped.
+  // Nejširší zadní objektiv, plný senzor (4:3), zoom 1× — bez digitálního přiblížení.
+  const wideDeviceRef = useRef<string | null>(null);
+  const requestCamera = useCallback(async (mode: "environment" | "user" = facingRef.current): Promise<MediaStream> => {
+    const generation = ++cameraGeneration.current;
+    const stream = await openCamera(mode, mode === "environment" ? wideDeviceRef.current : null);
+    if (generation !== cameraGeneration.current) {
+      stream.getTracks().forEach(t => t.stop()); throw new Error("Otevření kamery bylo přerušeno. Zkuste to znovu.");
+    }
+    streamRef.current = stream;
+    // Labely objektivů jsou dostupné až po přidělení oprávnění → doplň cache pro další start.
+    if (mode === "environment" && !wideDeviceRef.current) {
+      resetCameraCache();
+      void findWidestRearCamera().then((id) => { wideDeviceRef.current = id; });
+    }
+    return stream;
+  }, []);
+
+  // ⚡ Předehřátí: seznam objektivů zjistíme dopředu, aby start kamery byl okamžitý.
+  useEffect(() => {
+    void findWidestRearCamera().then((id) => { wideDeviceRef.current = id; });
+  }, []);
+
+
+  // Request camera inside the click gesture, but enable capture only after a valid session.
+  const handleStart = async () => {
+    if (startRef.current || (sessionId && !session)) return;
+    startRef.current = true; setStarting(true); setCameraError(null);
+    let acquired: MediaStream | undefined;
+    const cameraPromise = requestCamera().then(value => { acquired = value; return value; }).catch(e => {
+      setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); return undefined;
+    });
+    try {
+      if (!sessionId) {
+        const created = await createSession.mutateAsync();
+        initializedSession.current = created.id;
+        setSessionId(created.id); setSearchParams({ session: created.id });
+        progressRef.current = { skipped_steps: [], next_step: 0 }; setProgress(progressRef.current);
+        setCurrentStepIdx(0); void refetchSessions();
+      }
+      const camera = await cameraPromise;
+      if (camera) setStream(camera);
+      setPhase("capturing");
+    } catch (e) {
+      toast({ title: "Relace se nevytvořila", description: String(e), variant: "destructive" });
+      void cameraPromise.then(value => value?.getTracks().forEach(t => t.stop()));
+      acquired?.getTracks().forEach(t => t.stop());
+      setPhase("intro");
+    } finally { startRef.current = false; setStarting(false); }
+  };
+
+  const startCamera = useCallback(async () => {
+    if (cameraRestartRef.current) return;
+    cameraRestartRef.current = true; setCameraRestarting(true);
+    stopCamera();
+    setCameraError(null);
+    try { setStream(await requestCamera()); }
+    catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
+    finally { cameraRestartRef.current = false; setCameraRestarting(false); }
+  }, [requestCamera, stopCamera]);
+
+  // Switch between rear/front camera without leaving the capture UI.
+  // Guarded — a second tap while the new stream is being acquired used to flip
+  // the camera twice (and on iOS could hijack a shutter tap).
+  const switchCamera = useCallback(async () => {
+    if (switching || shootingRef.current) return;
+    setSwitching(true);
+    const next = facingRef.current === "environment" ? "user" : "environment";
+    facingRef.current = next;
+    setFacing(next);
+    stopCamera();
+    try { setStream(await requestCamera(next)); }
+    catch (e) { setCameraError(e instanceof Error ? e.message : "Kamera nedostupná"); }
+    finally { setSwitching(false); }
+  }, [requestCamera, stopCamera, switching]);
+
+
+
+  const currentStep = SHOT_SEQUENCE[currentStepIdx];
+  const totalSteps = SHOT_SEQUENCE.length;
+
+  const aiEnabled = useMemo(() => {
+    if (!settings) return true;
+    if ((settings as { safe_mode?: boolean }).safe_mode) return false;
+    return (settings as { ai_quality_check?: string }).ai_quality_check !== "off";
+  }, [settings]);
+  const safeMode = !!(settings as { safe_mode?: boolean } | undefined)?.safe_mode;
+  const autoProcess = !safeMode && (!settings || (settings as { auto_image_processing?: string }).auto_image_processing !== "off");
+  const horizonMode = ((settings as { horizon_auto_level?: string } | undefined)?.horizon_auto_level) ?? "on";
+  const horizonBake = !safeMode && horizonEnabledSetting && horizonMode === "on";
+  const vinToolsOn = !settings
+    || (settings as { vin_scan_enabled?: string }).vin_scan_enabled !== "off"
+    || (settings as { vin_ocr?: string }).vin_ocr !== "off";
+
+  useEffect(() => { horizonAngleRef.current = horizonAngle; }, [horizonAngle]);
+
+  const stageForReview = (blob: Blob, stepIdx: number) => {
+    if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url);
+    const preview = { blob, url: URL.createObjectURL(blob), stepIdx };
+    pendingRef.current = preview;
+    setPending(preview);
+    setPendingTip(undefined);
+    const token = ++pendingToken.current;
+    void computeBlurScore(blob).then(score => {
+      if (token === pendingToken.current && score < 35) setPendingTip("Fotka vypadá mírně rozmazaná");
+    }).catch(() => undefined);
+  };
+
+  const handleFilePicked = (file: File) => {
+    if (!sessionId || acceptingRef.current) return;
+    stageForReview(file, currentStepIdx);
+  };
+
+  const handleShot = async () => {
+    if (!sessionId || !videoRef.current || !stream || busy || switching || pending || shootingRef.current || !cameraReady) return;
+    shootingRef.current = true; setShooting(true);
+    try {
+      const blob = await captureFullStill({
+        video: videoRef.current,
+        stream,
+        mirror: facingRef.current === "user",
+        levelDegrees: horizonBake ? horizonAngleRef.current : 0,
+      });
+      setShutterFlash(true);
+      setTimeout(() => setShutterFlash(false), 120);
+      stageForReview(blob, currentStepIdx);
+    } catch (error) {
+      toast({ title: "Snímek se nepodařilo pořídit", description: error instanceof Error ? error.message : "Zkuste spoušť znovu.", variant: "destructive" });
+    } finally {
+      shootingRef.current = false; setShooting(false);
+    }
+  };
+
+  const advance = (stepIdx: number, skipped: boolean) => {
+    saveProgress(advanceProgress(progressRef.current, stepIdx, skipped));
+    if (completionStep.current !== null) {
+      completionStep.current = null; setShotIntent(null); stopCamera(); setPhase("review");
+    } else if (stepIdx < totalSteps - 1) setCurrentStepIdx(stepIdx + 1);
+    else { stopCamera(); setPhase("review"); }
+  };
+
+  const rememberVin = (sid: string, vin: string, decoded: Record<string, unknown>, nextInfo: VehicleInfo) => {
+    setVehicleInfo(nextInfo);
+    setVinNote(vin);
+    metadataChain.current = metadataChain.current.catch(() => undefined).then(async () => {
+      const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
+      if (error) throw error;
+      const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+      const result = await supabase.from("smart_capture_sessions").update({
+        vin,
+        decoded_data: decoded,
+        metadata: { ...metadata, vehicle_info: nextInfo },
+      }).eq("id", sid);
+      if (result.error) throw result.error;
+    }).catch(() => {
+      toast({ title: "VIN je přečtené, ale nepodařilo se ho uložit", description: "Doplňte ho v údajích vozu.", variant: "destructive" });
+    });
+  };
+
+  const readVinFromPhoto = (blob: Blob, stepIdx: number, sid: string) => {
+    const shot = SHOT_SEQUENCE[stepIdx];
+    if (!shot || !isVinShot(shot.type) || !vinToolsOn) return;
+    const autofill = !settings || (settings as { vin_autofill?: string }).vin_autofill !== "off";
+    setVinNote("Čtu VIN…");
+    void (async () => {
+      try {
+        const imageBase64 = await fileToBase64(blob);
+        const ocr = await supabase.functions.invoke("smart-capture-vin-ocr", { body: { imageBase64 } });
+        if (ocr.error) throw ocr.error;
+        const vin = vinFromOcr(ocr.data as { vin?: string; confidence?: number });
+        if (!vin) {
+          setVinNote(null);
+          toast({ title: "VIN se nepodařilo přečíst", description: "Doplňte ho ručně v údajích vozu." });
+          return;
+        }
+        let decoded: Record<string, unknown> = {};
+        if (autofill) {
+          const dec = await supabase.functions.invoke("vin-decode", { body: { vin } });
+          if (!dec.error) decoded = (dec.data?.decoded ?? {}) as Record<string, unknown>;
+        }
+        const filled = captureImportMeta({ ...vehicleInfo, vin }, decoded, vin);
+        rememberVin(sid, vin, decoded, {
+          ...vehicleInfo,
+          vin,
+          brand: vehicleInfo.brand || filled.brand || "",
+          model: vehicleInfo.model || filled.model || "",
+          year: vehicleInfo.year || (filled.year ? String(filled.year) : ""),
+          fuel: vehicleInfo.fuel || filled.fuel || "",
+          transmission: vehicleInfo.transmission || filled.transmission || "",
+          power: vehicleInfo.power || filled.power || "",
+        });
+        toast({ title: "VIN přečteno", description: [vin, filled.brand, filled.model].filter(Boolean).join(" · ") });
+      } catch (error) {
+        setVinNote(null);
+        toast({ title: "Čtení VIN selhalo", description: error instanceof Error ? error.message : "Zkuste záběr VIN znovu.", variant: "destructive" });
+      }
+    })();
+  };
+
+  const acceptPhoto = async (blob: Blob, stepIdx: number) => {
+    if (!sessionId || acceptingRef.current) return false;
+    acceptingRef.current = true; setAccepting(true);
+    try {
+    const shotType = SHOT_SEQUENCE[stepIdx].type;
+    const replacing = completionStep.current === stepIdx;
+    if (replacing) {
+      await discardQueuedPhotos(sessionId, shotType);
+      const removed = await supabase.from("smart_capture_photos").delete().eq("session_id", sessionId).eq("shot_type", shotType);
+      if (removed.error) throw removed.error;
+    }
+    shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
+    await enqueuePhoto({ sessionId, blob, shotType,
+      progress: advanceProgress(progressRef.current, stepIdx, false),
+      shotIndex: shotIndexRef.current++, autoProcess, aiEnabled });
+    readVinFromPhoto(blob, stepIdx, sessionId);
+    advance(stepIdx, false);
+    return true;
+    } catch (e) {
+      toast({ title: "Fotografii se nepodařilo uložit v telefonu", description: "Snímek zůstává v náhledu. Uvolněte místo a zkuste Použít fotografii znovu.", variant: "destructive" });
+      return false;
+    } finally { acceptingRef.current = false; setAccepting(false); }
+  };
+
+  const acceptPending = async () => {
+    if (!pending || !sessionId || acceptingRef.current) return;
+    shootingRef.current = true;
+    const { blob, url, stepIdx } = pending;
+    if (!await acceptPhoto(blob, stepIdx)) { shootingRef.current = false; return; }
+    pendingToken.current++; pendingRef.current = null; setPending(null); setPendingTip(undefined); URL.revokeObjectURL(url);
+    setTimeout(() => { shootingRef.current = false; }, 0);
+  };
+
+  useEffect(() => () => { if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url); }, []);
+
+  const retakePending = () => {
+    if (acceptingRef.current) return;
+    pendingToken.current++; pendingRef.current = null; setPendingTip(undefined);
+    setPending(p => { if (p) URL.revokeObjectURL(p.url); return null; });
+  };
+
+  const skipStep = () => {
+    if (!sessionId || acceptingRef.current || shootingRef.current) return;
+    retakePending();
+    if (completionStep.current !== null) {
+      const fixing = completionStep.current;
+      completionStep.current = null;
+      setShotIntent(null);
+      const type = SHOT_SEQUENCE[fixing]?.type;
+      const hasPhoto = !!type && (
+        photos.some(p => p.shot_type === type) ||
+        queued.some(p => p.shotType === type && p.status !== "error")
+      );
+      if (!hasPhoto) saveProgress(advanceProgress(progressRef.current, fixing, true));
+      stopCamera();
+      setPhase("review");
+      return;
+    }
+    advance(currentStepIdx, true);
+  };
+
+  const leaveCamera = () => {
+    if (acceptingRef.current) return;
+    retakePending();
+    completionStep.current = null;
+    setShotIntent(null);
+    stopCamera();
+    setPhase("review");
+  };
+
+  const finishToReview = () => {
+    if (!sessionId) return;
+    leaveCamera();
+    updateSession.mutate({ id: sessionId, updates: { status: "review" } }, {
+      onError: e => toast({ title: "Stav relace se neuložil", description: String(e), variant: "destructive" }),
+    });
+  };
+
+  const detachSession = () => {
+    stopCamera();
+    try { if (lastSessionKey) localStorage.removeItem(lastSessionKey); } catch { /* Remote finished marker prevents auto-resume. */ }
+    recoveredSession.current = undefined;
+    initializedSession.current = undefined;
+    completionStep.current = null;
+    progressRef.current = { skipped_steps: [], next_step: 0 };
+    setProgress(progressRef.current); setCurrentStepIdx(0);
+    setSessionId(undefined); setSearchParams({}, { replace: true }); setPhase("intro");
+    setConfirmDiscard(false); setShotIntent(null);
+    void refetchSessions();
+  };
+
+  const openShot = (index: number, intent: "fix" | "fill") => {
+    if (startRef.current || finishingRef.current || discarding) return;
+    completionStep.current = index;
+    setShotIntent(intent);
+    setCurrentStepIdx(index);
+    void handleStart();
+  };
+
+  const discardCurrentWork = async () => {
+    if (!sessionId || discarding || finishingRef.current) return;
+    const sid = sessionId;
+    setDiscarding(true);
+    try {
+      stopCamera();
+      await discardQueuedPhotos(sid);
+      const photosRemoved = await supabase.from("smart_capture_photos").delete().eq("session_id", sid);
+      if (photosRemoved.error) throw photosRemoved.error;
+      const removed = await supabase.from("smart_capture_sessions").delete().eq("id", sid);
+      if (removed.error) {
+        const retryPhotos = await supabase.from("smart_capture_photos").delete().eq("session_id", sid);
+        if (retryPhotos.error) throw retryPhotos.error;
+        const retry = await supabase.from("smart_capture_sessions").delete().eq("id", sid);
+        if (retry.error) throw retry.error;
+      }
+      try { localStorage.removeItem(`capture-progress:${sid}`); } catch { /* detach clears the resume pointer */ }
+      detachSession();
+      toast({ title: "Focení smazáno", description: "Aktuální práce je pryč. Můžete začít nové focení od začátku." });
+    } catch (error) {
+      toast({ title: "Focení se nepodařilo smazat", description: error instanceof Error ? error.message : "Zkuste to znovu.", variant: "destructive" });
+    } finally { setDiscarding(false); }
+  };
+
+  // A process termination between remote save and local detachment must not resurrect a finished capture.
+  useEffect(() => {
+    const metadata = session?.metadata as Record<string, unknown> | null;
+    if (!metadata?.capture_finished_at) return;
+    try { if (lastSessionKey && localStorage.getItem(lastSessionKey) === session?.id) localStorage.removeItem(lastSessionKey); } catch { /* Storage unavailable. */ }
+    if (recoveredSession.current === session?.id) detachSession();
+  // Only the remote finished marker changing drives recovery, not camera state.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session?.id, session?.metadata, lastSessionKey]);
+
+  const handleSaveAndFinish = async () => {
+    if (!sessionId || finishingRef.current) return;
+    finishingRef.current = true; setFinishing(true);
+    const sid = sessionId;
+    try {
+      await finishCaptureSession(progressRef.current, {
+        restorePhotos: async () => { await restoreQueue(sid); retrySessionPhotos(sid); },
+        waitForPhotos: () => new Promise<void>((resolve, reject) => {
+          let unsubscribe = () => {};
+          const check = () => {
+            const pendingPhotos = photoQueue.getSnapshot().filter(p => p.sessionId === sid);
+            if (pendingPhotos.some(p => p.status === "error")) { unsubscribe(); reject(new Error("Některé fotografie se nenahrály. Zkuste Uložit a dokončit znovu.")); }
+            else if (pendingPhotos.every(p => p.status === "done")) { unsubscribe(); resolve(); }
+          };
+          unsubscribe = photoQueue.subscribe(check); check();
+        }),
+        flushProgress: () => metadataChain.current,
+        save: async (_progress, finishedAt) => {
+          const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
+          if (error) throw error;
+          const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+          await updateSession.mutateAsync({ id: sid, updates: { status: "review", metadata: { ...metadata, ...progressRef.current, capture_finished_at: finishedAt } } });
+          try { localStorage.removeItem(`capture-progress:${sid}`); } catch { /* Already saved remotely. */ }
+          setProgressError(false);
+        },
+        detach: detachSession,
+      });
+      toast({ title: "Focení uloženo a dokončeno", description: "Fotky najdete na PC v seznamu relací. Můžete začít nové focení." });
+    } catch (error) {
+      toast({ title: "Relace zatím není dokončená", description: error instanceof Error ? error.message : "Uložení se nezdařilo. Zkuste to znovu.", variant: "destructive" });
+    } finally { finishingRef.current = false; setFinishing(false); }
+  };
+
+  // ===== Voice control =====
+  const handleVoiceCommand = useCallback((cmd: VoiceCommand) => {
+    if (phase !== "capturing") {
+      return;
+    }
+    switch (cmd) {
+      // Při kontrole snímku plní hlas roli tlačítek Použít / Vyfotit znovu.
+      case "shot": if (pending) acceptPending(); else void handleShot(); break;
+      case "next": skipStep(); break;
+      case "prev": setCurrentStepIdx((i) => Math.max(0, i - 1)); break;
+      case "retake": {
+        if (pending) { retakePending(); break; }
+
+        const last = photos[photos.length - 1] as { id: string } | undefined;
+        if (last && sessionId) {
+          deletePhoto.mutate({ id: last.id, sessionId });
+          setCurrentStepIdx((i) => Math.max(0, i - 1));
+        }
+        break;
+      }
+      case "vin": {
+        if (pending) break;
+        const vinStep = SHOT_SEQUENCE.findIndex((step) => isVinShot(step.type));
+        if (vinStep >= 0) setCurrentStepIdx(vinStep);
+        break;
+      }
+      case "done": finishToReview(); break;
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, photos, sessionId, totalSteps, pending]);
+
+  // Init voice controller once
+  useEffect(() => {
+    if (voiceRef.current) return;
+    const v = createVoiceController();
+    voiceRef.current = v;
+    if (!v.isSupported) setVoiceUnsupported(true);
+  }, []);
+
+  // Always feed latest handler into voice controller
+  useEffect(() => {
+    voiceRef.current?.setHandler((cmd) => handleVoiceCommand(cmd));
+  }, [handleVoiceCommand]);
+
+  // Auto-start voice when capturing & enabled; stop on unmount/leave
+  useEffect(() => {
+    const v = voiceRef.current;
+    if (!v || !v.isSupported) return;
+    if (phase === "capturing" && voiceEnabledSetting && !mobile) {
+      v.start();
+    } else if (!dictating) {
+      v.stop();
+    }
+    return () => { if (phase !== "capturing" && !dictating) v.stop(); };
+  }, [phase, voiceEnabledSetting, dictating, mobile]);
+
+  // ===== Horizon (gyroscope) =====
+  useEffect(() => {
+    if (!horizonEnabledSetting || phase !== "capturing") {
+      horizonRef.current?.stop(); horizonRef.current = null;
+      setHorizonAngle(0);
+      return;
+    }
+    const h = createHorizonController(setHorizonAngle);
+    horizonRef.current = h;
+    void h.start();
+    return () => { h.stop(); horizonRef.current = null; };
+  }, [horizonEnabledSetting, phase]);
+
+
+
+  useEffect(() => {
+    if (mobile || phase !== "review" || !session || progressError || progressSaving) return;
+    const next = readProgress(session.metadata);
+    if (next.next_step < progressRef.current.next_step) return;
+    progressRef.current = next; setProgress(next);
+  }, [session, mobile, phase, progressError, progressSaving]);
+
+  const infoSessionRef = useRef<string>();
+  // Prefill vehicle info from VIN-decoded data + saved session metadata
+  useEffect(() => {
+    if (!session || infoSessionRef.current === session.id) return;
+    infoSessionRef.current = session.id;
+    const decoded = ((session as { decoded_data?: Record<string, unknown> }).decoded_data ?? {}) as Record<string, unknown>;
+    const meta = ((session as { metadata?: Record<string, unknown> }).metadata ?? {}) as Record<string, unknown>;
+    const savedInfo = (meta.vehicle_info ?? {}) as Partial<VehicleInfo>;
+    if (typeof meta.thumbnail_url === "string") setThumbnailUrl(meta.thumbnail_url);
+
+    setVehicleInfo(() => {
+      const next: VehicleInfo = { brand: "", model: "", ...savedInfo };
+      if (!next.brand && decoded.make) next.brand = String(decoded.make);
+      if (!next.model && decoded.model) next.model = String(decoded.model);
+      if (!next.year && decoded.year) next.year = String(decoded.year);
+      if (!next.vin && (session as { vin?: string }).vin) next.vin = (session as { vin?: string }).vin ?? "";
+      if (!next.fuel && decoded.fuel) next.fuel = String(decoded.fuel);
+      if (!next.transmission && decoded.transmission) next.transmission = String(decoded.transmission);
+      if (!next.color && decoded.color) next.color = String(decoded.color);
+      if (!next.power && decoded.power) next.power = String(decoded.power);
+      return next;
+    });
+  }, [session]);
+
+  const requiredInfoFilled = useMemo(() => {
+    const req: (keyof VehicleInfo)[] = ["brand", "model", "year", "mileage", "price", "description"];
+    return req.every((k) => String(vehicleInfo[k] ?? "").trim().length > 0);
+  }, [vehicleInfo]);
+
+  const updateInfoField = (k: keyof VehicleInfo, v: string) => {
+    setVehicleInfo((s) => ({ ...s, [k]: v }));
+  };
+
+  const saveVehicleInfo = async () => {
+    if (!sessionId) return;
+    await metadataChain.current;
+    const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sessionId).single();
+    if (error) throw error;
+    const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+    await updateSession.mutateAsync({ id: sessionId, updates: { metadata: { ...metadata, vehicle_info: vehicleInfo } } });
+  };
+
+  const handlePublishListing = async () => {
+    if (!sessionId || publishing) return;
+    if (queued.some((photo) => photo.status !== "done")) {
+      toast({ title: "Počkejte na nahrání fotek", description: "Inzerát se zakládá až z kompletní sady.", variant: "destructive" });
+      return;
+    }
+    setPublishing(true);
+    try {
+      await saveVehicleInfo();
+      const fresh = await refetchPhotos();
+      if (fresh.error) throw fresh.error;
+      const rows = fresh.data ?? photos;
+      const result = await publishCaptureListing({
+        sessionId,
+        info: vehicleInfo,
+        decoded: (session as { decoded_data?: Record<string, unknown> } | null | undefined)?.decoded_data,
+        sessionVin: (session as { vin?: string } | null | undefined)?.vin,
+        alreadyPublishedId: (session as { published_vehicle_id?: string | null } | null | undefined)?.published_vehicle_id,
+        photos: rows.map((photo) => {
+          const row = photo as { original_url?: string; processed_url?: string; is_main?: boolean; shot_type: string };
+          return { url: row.original_url || row.processed_url || "", isMain: !!row.is_main, shotType: row.shot_type };
+        }),
+      });
+      await updateSession.mutateAsync({ id: sessionId, updates: { published_vehicle_id: result.vehicleId } });
+      toast({
+        title: result.created ? "Inzerát vytvořen" : "Inzerát už z tohoto focení existuje",
+        description: result.created ? "Údaje a plné fotky jsou ve vozidlech." : "Nový se nezakládal.",
+      });
+    } catch (error) {
+      toast({ title: "Inzerát se nevytvořil", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+    } finally { setPublishing(false); }
+  };
+
+  const handleExportZip = async (opts?: { skipInfo?: boolean }) => {
+    if (!sessionId || queued.some(p => p.status !== "done")) return;
+    await metadataChain.current;
+    const skipInfo = !!opts?.skipInfo;
+    if (!skipInfo && !requiredInfoFilled) {
+      toast({
+        title: "Vyplňte informace o voze",
+        description: "Před exportem musí být vyplněna značka, model, rok, najezd, cena a popis — nebo použijte tlačítko Přeskočit.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setBusy(true);
+    try {
+      await saveVehicleInfo();
+      const fresh = await refetchPhotos();
+      if (fresh.error) throw fresh.error;
+      const exportPhotos = fresh.data ?? [];
+
+      const items: ExportPhoto[] = exportPhotos.map((p, i) => {
+        const row = p as {
+          shot_type: ShotType; original_url: string; processed_url: string;
+          created_at?: string;
+        };
+        return {
+          shotType: row.shot_type, index: i,
+          originalUrl: row.original_url, processedUrl: row.processed_url,
+          // Skutečné datum pořízení → součást názvu souboru v ZIPu.
+          capturedAt: row.created_at ?? null,
+        };
+      });
+      const zip = await buildSessionZip(items, vehicleInfo);
+      const safe = (s: string) => s.replace(/[^a-zA-Z0-9-]/g, "");
+      downloadBlob(zip, `${safe(vehicleInfo.brand)}-${safe(vehicleInfo.model)}-${new Date().toISOString().slice(0, 10)}.zip`);
+      toast({ title: "Export hotov", description: "ZIP obsahuje original, inzertní (1MB), web + info.txt." });
+    } catch (e) {
+      toast({ title: "Export selhal", description: String(e), variant: "destructive" });
+    } finally { setBusy(false); }
+  };
+
+  // === RENDER ===
+
+  const toggleBackground = () => {
+    setShowBackground((on) => {
+      const next = !on;
+      try { localStorage.setItem(BG_PREF_KEY, next ? "1" : "0"); } catch { /* Preference stays for this visit. */ }
+      return next;
+    });
+  };
+
+  const backgroundPreview = showBackground ? (
+    <img
+      src={bgSrc}
+      alt="Pozadí showroomu"
+      className="w-full rounded-lg object-cover max-h-52"
+      onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }}
+    />
+  ) : null;
+
+  if (authLoading || isAdmin === null) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">
+      <Loader2 className="animate-spin" />
+    </div>;
+  }
+  if (!isAdmin) {
+    return <div className="min-h-screen bg-black flex items-center justify-center text-white">
+      Přístup pouze pro administrátory.
+    </div>;
+  }
+
+  const shotRows = SHOT_SEQUENCE.map((step, index) => {
+    const queuedShot = [...queued].reverse().find(p => p.shotType === step.type && p.status !== "error");
+    const saved = [...photos].reverse().find(p => p.shot_type === step.type);
+    const skipped = progress.skipped_steps.includes(step.type);
+    const hasShot = !!(queuedShot || saved);
+    if (!hasShot && !skipped && index >= progress.next_step) return null;
+    const preview = queuedShot?.preview || saved?.processed_url;
+    return (
+      <div key={step.type} className="flex items-center gap-3 rounded-lg border border-border bg-background p-2">
+        {preview
+          ? <img src={preview} alt="" className="w-16 h-12 rounded-md object-cover shrink-0" />
+          : <div className="w-16 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground shrink-0"><Camera size={16} /></div>}
+        <div className="min-w-0 flex-1 text-left">
+          <div className="text-sm font-medium truncate">{index + 1}. {step.label}</div>
+          <div className="text-xs text-muted-foreground">{hasShot ? (queuedShot?.status === "uploading" ? "Nahrává se" : "Hotovo") : skipped ? "Přeskočeno" : "Chybí"}</div>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          {!mobile && (
+            <Button size="sm" variant="ghost" aria-label={`Nahrát ${step.label}`} onClick={() => { if (fileInputRef.current) fileInputRef.current.dataset.step = String(index); fileInputRef.current?.click(); }} disabled={starting || finishing || discarding}>
+              <ImageIcon size={14} />
+            </Button>
+          )}
+          <Button size="sm" variant={hasShot ? "secondary" : "default"} onClick={() => openShot(index, hasShot ? "fix" : "fill")} disabled={starting || finishing || discarding || accepting}>
+            {hasShot ? <RotateCcw size={14} /> : <Camera size={14} />} {hasShot ? "Opravit" : "Vyfotit"}
+          </Button>
+        </div>
+      </div>
+    );
+  }).filter((row) => row !== null);
+
+  const shotEditor = (
+    <div className="mt-5">
+      <h3 className="text-sm font-medium mb-2">Opravit záběr nebo vyfotit přeskočený</h3>
+      {shotRows.length === 0
+        ? <p className="text-sm text-muted-foreground">Až nějaký záběr vyfotíte nebo přeskočíte, tady ho půjde opravit.</p>
+        : <div className="flex flex-col gap-2">{shotRows}</div>}
+    </div>
+  );
+
+  const discardControl = confirmDiscard ? (
+    <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 p-3">
+      <p className="text-sm">Smazat všechny fotky tohoto focení? Nepůjde je vrátit a začnete úplně od začátku.</p>
+      <Button variant="destructive" onClick={() => void discardCurrentWork()} disabled={discarding || finishing}>
+        {discarding ? <Loader2 className="animate-spin" /> : <Trash2 />} {discarding ? "Mažu focení…" : "Ano, smazat a začít znovu"}
+      </Button>
+      <Button variant="outline" onClick={() => setConfirmDiscard(false)} disabled={discarding}>Zpět</Button>
+    </div>
+  ) : (
+    <Button variant="outline" className="border-destructive/60 text-destructive hover:text-destructive" onClick={() => setConfirmDiscard(true)} disabled={discarding || finishing || starting}>
+      <Trash2 /> Smazat focení a začít znovu
+    </Button>
+  );
+
+  return (
+    /* 100dvh + safe-area: na iPhonu (dynamický toolbar Safari, notch, home indicator)
+       je `fixed inset-0` samo o sobě nespolehlivé — obsah se schovával pod lištu. */
+    <div
+      className="fixed inset-0 bg-background text-foreground z-[100] flex flex-col overflow-hidden"
+      style={{ height: "100dvh", width: "100vw", minHeight: "100dvh" }}
+    >
+      {phase !== "capturing" && <header className="flex items-center justify-between px-4 py-3 border-b border-border shrink-0 bg-background"
+        style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <Button size="icon" variant="ghost" onClick={() => { stopCamera(); navigate("/admin"); }} aria-label="Zavřít Smart Capture"><X size={20} /></Button>
+        <div className="flex items-center gap-2 text-sm"><Camera size={16} /> Smart Capture <span className="text-muted-foreground">{photos.length ? `· ${photos.length}` : ""}</span></div>
+        <Button variant="secondary" size="sm" onClick={() => { stopCamera(); navigate("/admin"); }}>Zavřít</Button>
+      </header>}
+
+      {phase === "intro" && (
+        <div className="flex-1 overflow-y-auto p-6 bg-background text-foreground">
+          <div className="max-w-3xl mx-auto">
+            <h1 className="text-2xl font-heading mb-6">Smart Capture</h1>
+            <Button size="lg" onClick={handleStart} disabled={starting}>
+              {starting ? <Loader2 className="animate-spin" /> : <Camera />} Nové focení
+            </Button>
+            <div className="mt-6 max-w-md rounded-xl border border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium">Pozadí v hledáčku</div>
+                  <p className="text-xs text-muted-foreground">Po zapnutí se showroom ukáže hned, ještě před vyfocením.</p>
+                </div>
+                <Button variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
+                  <ImageIcon /> {showBackground ? "Zapnuto" : "Zapnout"}
+                </Button>
+              </div>
+              {backgroundPreview && <div className="mt-3">{backgroundPreview}</div>}
+            </div>
+            {!mobile && <section className="mt-8">
+              <h2 className="text-lg mb-3">Relace</h2>
+              {sessions.length === 0 && <p className="text-muted-foreground">Zatím žádné relace</p>}
+              <div className="divide-y divide-border">{sessions.map(row => {
+                const meta = row.metadata as Record<string, unknown> | null;
+                const info = meta?.vehicle_info as VehicleInfo | undefined;
+                return <Button key={row.id} variant="ghost" className="w-full h-auto justify-between py-4" onClick={() => {
+                  stopCamera(); setSessionId(row.id); setSearchParams({ session: row.id }); setPhase("review");
+                }}>
+                  <span>{[info?.brand, info?.model].filter(Boolean).join(" ") || row.vin || "Bez identifikace"}</span>
+                  <span className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleString("cs-CZ")}</span>
+                </Button>;
+              })}</div>
+            </section>}
+          </div>
+        </div>
+      )}
+
+      {phase === "capturing" && (
+        <div className="absolute inset-0 bg-background overflow-hidden text-foreground">
+          <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted autoPlay
+            style={{ transform: [facing === "user" ? "scaleX(-1)" : "", horizonBake ? `rotate(${-horizonAngle}deg)` : ""].filter(Boolean).join(" ") || undefined }} />
+          {showBackground && (
+            <img
+              src={bgSrc}
+              alt=""
+              className="pointer-events-none absolute inset-0 z-[5] h-full w-full object-contain"
+              style={{ opacity: stream && !pending ? 0.58 : 0.92 }}
+              onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }}
+            />
+          )}
+          {dealerMode && stream && !pending && (() => {
+            const guide = guideForShot(currentStep?.type, currentStep?.category);
+            return <div className="pointer-events-none absolute z-[6] border border-primary/70 rounded-md" style={{
+              left: `${(guide.centerX - guide.width / 2) * 100}%`, top: `${(guide.centerY - guide.height / 2) * 100}%`,
+              width: `${guide.width * 100}%`, height: `${guide.height * 100}%`,
+            }} />;
+          })()}
+          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 z-[6] flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${horizonBake ? 0 : -horizonAngle}deg)` }} /></div>}
+          {gridEnabled && stream && <div className="pointer-events-none absolute inset-0 z-[6]">
+            <div className="absolute inset-y-0 left-1/3 w-px bg-border/40" /><div className="absolute inset-y-0 left-2/3 w-px bg-border/40" />
+            <div className="absolute inset-x-0 top-1/3 h-px bg-border/40" /><div className="absolute inset-x-0 top-2/3 h-px bg-border/40" />
+          </div>}
+          <div className="absolute top-0 inset-x-0 z-20 flex items-start justify-between gap-3 p-3"
+            style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+            <Button size="icon" variant="secondary" onClick={leaveCamera} disabled={accepting || shooting} aria-label="Ukončit focení"><X /></Button>
+            <div className="bg-background/85 rounded-md px-3 py-2 text-center min-w-0">
+              <div className="text-sm font-semibold">{shotIntent === "fix" ? "Oprava · " : shotIntent === "fill" ? "Nový záběr · " : ""}{currentStepIdx + 1} / {totalSteps} · {currentStep?.label}</div>
+              <div className="text-xs text-muted-foreground mt-1 max-w-sm">{currentStep?.hint}</div>
+              {safeMode && <div className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">Safe mode — fotka se neupravuje</div>}
+              {vinNote && <div className="text-[11px] mt-1">{vinNote}</div>}
+            </div>
+            <Button size="icon" variant="secondary" onClick={copyLink} title="Zkopírovat odkaz" aria-label="Zkopírovat odkaz"><Copy /></Button>
+          </div>
+          <div className={`absolute z-20 ${landscapeMode ? "left-3 top-24" : "top-20 inset-x-0"} flex justify-center`}
+            style={landscapeMode ? undefined : { top: "max(5rem, calc(env(safe-area-inset-top) + 4.25rem))" }}>
+            <Button size="sm" variant={showBackground ? "default" : "secondary"} onClick={toggleBackground} className="touch-manipulation shadow-md">
+              <ImageIcon size={14} /> {showBackground ? "Pozadí zapnuto" : "Zapnout pozadí"}
+            </Button>
+          </div>
+          {progressError && <Button variant="secondary" size="sm" className="absolute top-24 left-3 z-20" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          {!stream && !cameraError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin" /></div>}
+          {cameraError && <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-6 text-center bg-background/90">
+            <AlertCircle /><p>{cameraError}</p>
+            <Button onClick={startCamera} disabled={cameraRestarting}>{cameraRestarting ? <Loader2 className="animate-spin" /> : <RotateCcw />} {cameraRestarting ? "Otevírám kameru…" : "Zkusit znovu"}</Button>
+            <Button variant="outline" onClick={() => fallbackUploadRef.current?.click()}><ImageIcon /> Nahrát fotografii</Button>
+          </div>}
+          <input ref={fallbackUploadRef} type="file" accept="image/*" className="hidden" onChange={e => {
+            const file = e.target.files?.[0]; if (file) handleFilePicked(file); e.target.value = "";
+          }} />
+          <div className={`absolute z-20 ${landscapeMode ? "right-3 top-1/2 -translate-y-1/2 flex-col" : "bottom-28 inset-x-0 justify-center"} flex items-center gap-4`}>
+            <Button variant="secondary" onClick={shotIntent ? leaveCamera : skipStep} disabled={accepting || shooting} className="touch-manipulation">{shotIntent ? <ChevronLeft size={16} /> : <SkipForward size={16} />} {shotIntent ? "Zpět bez změny" : "Přeskočit"}</Button>
+            <Button size="icon" onClick={handleShot} disabled={!stream || !cameraReady || !sessionId || !!pending || shooting || switching || accepting} aria-label="Vyfotit"
+              className="w-20 h-20 rounded-full border-4 border-border touch-manipulation">{shooting ? <Loader2 className="animate-spin" size={32} /> : <Camera size={32} />}</Button>
+          </div>
+          {[...queued].reverse().find(p => p.tip)?.tip && !pending && <p className={`absolute ${landscapeMode ? "bottom-28 left-3 max-w-xs" : "bottom-52 left-3 right-3"} bg-background/90 text-muted-foreground text-xs rounded-md px-3 py-2`}>{[...queued].reverse().find(p => p.tip)?.tip}</p>}
+          <div className={`absolute bottom-0 z-20 bg-background/75 px-3 ${landscapeMode ? "left-0 right-40" : "inset-x-0"}`}
+            style={{ paddingBottom: "max(0.5rem, env(safe-area-inset-bottom))" }}>
+            <CaptureFilmstrip queue={queued} photos={photos} />
+          </div>
+          {pending && <div className="absolute inset-0 z-30 bg-background flex flex-col">
+            <img src={pending.url} alt="Náhled pořízené fotografie" className="w-full flex-1 min-h-0 object-contain" />
+            {pendingTip && <p className="text-sm text-center px-4 py-2 text-muted-foreground">{pendingTip}</p>}
+            {isVinShot(SHOT_SEQUENCE[pending.stepIdx]?.type ?? "") && (
+              <p className="text-sm text-center px-4 pb-1 text-muted-foreground">Po potvrzení se z fotky přečte VIN a doplní se údaje inzerátu.</p>
+            )}
+            <div className="flex flex-wrap justify-center gap-3 p-4 shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
+              <Button variant="secondary" onClick={retakePending} disabled={accepting}><RotateCcw size={17} /> Vyfotit znovu</Button>
+              <Button onClick={acceptPending} disabled={accepting} className="touch-manipulation">{accepting ? <Loader2 className="animate-spin" size={17} /> : <Check size={17} />} {accepting ? "Ukládám do telefonu…" : "Použít fotografii"}</Button>
+            </div>
+          </div>}
+          {shutterFlash && <div className="absolute inset-0 bg-foreground/30 pointer-events-none" />}
+        </div>
+      )}
+
+      {sessionId && sessionLoading && phase !== "capturing" && <div className="p-6 text-center"><Loader2 className="animate-spin mx-auto" /></div>}
+      {sessionId && !sessionLoading && (sessionError || !session) && phase !== "capturing" && <div className="p-6 text-center text-foreground bg-background">
+        <p>Relaci nelze otevřít. Zkontrolujte odkaz a přihlášení.</p>
+        <Button variant="outline" className="mt-3" onClick={() => { setSessionId(undefined); setSearchParams({}); setPhase("intro"); }}>Seznam relací</Button>
+      </div>}
+      {phase === "review" && session && mobile && (
+        <div className="flex-1 overflow-y-auto p-4 bg-background text-foreground">
+          <h2 className="text-xl mb-4">Focení uloženo</h2>
+          <CaptureFilmstrip queue={queued} photos={photos} />
+          <div className="mt-4 rounded-xl border border-border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">Pozadí v hledáčku</div>
+                <p className="text-xs text-muted-foreground">Zapne se hned a zůstane i při dalším focení.</p>
+              </div>
+              <Button size="sm" variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
+                <ImageIcon size={14} /> {showBackground ? "Zapnuto" : "Zapnout"}
+              </Button>
+            </div>
+            {backgroundPreview && <div className="mt-3">{backgroundPreview}</div>}
+          </div>
+          {queueCount > 0 && <p className="text-sm my-3">Nahrává se {queueCount} fotografií. Nechte tuto stránku otevřenou.</p>}
+          {queued.some(p => p.status === "error") && <p className="text-sm my-3 text-destructive">Některé fotografie se nenahrály. Zkuste je znovu.</p>}
+          {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          {shotEditor}
+          <div className="flex flex-col gap-3 mt-6">
+            <Button onClick={handleSaveAndFinish} disabled={finishing || discarding}>
+              {finishing ? <Loader2 className="animate-spin" /> : <Check />} {finishing ? "Ukládám a dokončuji…" : "Uložit a dokončit"}
+            </Button>
+            <Button variant="secondary" onClick={() => void handlePublishListing()} disabled={publishing || finishing || discarding || queued.some(p => p.status !== "done")}>
+              {publishing ? <Loader2 className="animate-spin" /> : <Sparkles />} {publishing ? "Zakládám inzerát…" : "Převést do inzerátu"}
+            </Button>
+            <Button onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
+            <Button variant="outline" onClick={() => { completionStep.current = null; setShotIntent(null); setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting || finishing || discarding}><Camera /> Pokračovat ve focení</Button>
+            {discardControl}
+          </div>
+        </div>
+      )}
+      {/* Desktop review of the same session */}
+      {phase === "review" && session && !mobile && (
+        <div className="flex-1 overflow-y-auto p-6">
+          <div className="text-center mb-6">
+            <div className="w-16 h-16 mx-auto rounded-full bg-emerald-500/20 flex items-center justify-center mb-3">
+              <Check size={28} className="text-emerald-400" />
+            </div>
+            <h2 className="text-2xl font-light mb-1">Galerie připravena</h2>
+            <p className="text-muted-foreground text-sm">{photos.length} fotografií · {progress.skipped_steps.length} přeskočených kroků</p>
+          </div>
+
+          <div className="flex flex-wrap gap-3 mb-4">
+            <Button variant="secondary" onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
+            <Button variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}><ImageIcon /> {showBackground ? "Pozadí zapnuto" : "Zapnout pozadí"}</Button>
+            <Button variant="secondary" onClick={() => { setSessionId(undefined); setSearchParams({}); setPhase("intro"); void refetchSessions(); }}><List /> Seznam relací</Button>
+          </div>
+          <CaptureFilmstrip queue={queued} photos={photos} />
+          {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          {shotEditor}
+          <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => {
+            const file = e.target.files?.[0];
+            const step = Number(e.currentTarget.dataset.step);
+            if (file && Number.isInteger(step) && step >= 0 && step < SHOT_SEQUENCE.length) {
+              completionStep.current = step;
+              void acceptPhoto(file, step);
+            }
+            e.currentTarget.value = "";
+          }} />
+          {/* Miniatura na přednastaveném pozadí — jen pro nabídku vozů */}
+          {(thumbOverlayEnabled || thumbnailUrl) && (
+            <div className="max-w-md mx-auto mb-6 bg-white/5 border border-white/10 rounded-2xl p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-medium">Miniatura pro nabídku vozů</h3>
+                {thumbBusy && <span className="text-[11px] text-blue-300 flex items-center gap-1"><Loader2 size={11} className="animate-spin" /> skládám…</span>}
+              </div>
+              {thumbnailUrl ? (
+                <>
+                  <img src={thumbnailUrl} alt="Miniatura vozidla na showroom pozadí"
+                    className="w-full aspect-video object-cover rounded-xl ring-1 ring-white/15" />
+                  <p className="text-[11px] text-white/50 mt-2">
+                    Použije se pouze jako miniatura v nabídce vozů — v detailu vozidla se nezobrazuje.
+                  </p>
+                </>
+              ) : showBackground ? (
+                <>
+                  <img src={bgSrc} alt="Pozadí showroomu" className="w-full aspect-video object-cover rounded-xl ring-1 ring-white/15" onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }} />
+                  <p className="text-[11px] text-white/50 mt-2">Pozadí je zapnuté a v hledáčku se ukáže hned.</p>
+                </>
+              ) : (
+                <p className="text-xs text-white/50">
+                  Miniatura se vytvoří z prvního záběru pořízeného s vloženým pozadím.
+                </p>
+              )}
+            </div>
+          )}
+
+
+
+          {/* Gallery */}
+          <div className="grid grid-cols-3 gap-2 mb-6">
+            {photos.map((p) => {
+              const row = p as { id: string; processed_url: string; shot_type: string; quality_score: number };
+              return (
+                <div key={row.id} className="relative aspect-square rounded-lg overflow-hidden group bg-white/5">
+                  <img src={row.processed_url} alt={row.shot_type} className="w-full h-full object-cover" loading="lazy" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 transition flex items-end p-1.5">
+                    <span className="text-[10px] truncate">{SHOT_LABEL_MAP[row.shot_type as ShotType] ?? row.shot_type}</span>
+                  </div>
+                  <button onClick={() => sessionId && deletePhoto.mutate({ id: row.id, sessionId })}
+                    className="absolute top-1 right-1 bg-black/70 rounded-full p-1 opacity-0 group-hover:opacity-100">
+                    <X size={12} />
+                  </button>
+                  <span className="absolute top-1 left-1 bg-black/70 text-[9px] px-1.5 py-0.5 rounded">
+                    {row.quality_score}%
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Informace o voze — povinné pro export */}
+          <div className="max-w-md mx-auto mb-4 bg-white/5 border border-white/10 rounded-2xl p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-medium">Informace o voze</h3>
+              <span className={`text-[11px] px-2 py-0.5 rounded-full ${requiredInfoFilled ? "bg-emerald-500/20 text-emerald-300" : "bg-amber-500/20 text-amber-300"}`}>
+                {requiredInfoFilled ? "Vyplněno" : "Povinné pro export"}
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              {([
+                ["brand", "Značka *"], ["model", "Model *"],
+                ["year", "Rok *"], ["mileage", "Najezd (km) *"],
+                ["price", "Cena (Kč) *"], ["vin", "VIN"],
+                ["fuel", "Palivo"], ["transmission", "Převodovka"],
+                ["color", "Barva"], ["power", "Výkon"],
+              ] as [keyof VehicleInfo, string][]).map(([k, label]) => (
+                <input
+                  key={k}
+                  placeholder={label}
+                  value={String(vehicleInfo[k] ?? "")}
+                  onChange={(e) => updateInfoField(k, e.target.value)}
+                  className="bg-white/10 rounded-md px-2.5 py-2 text-sm placeholder:text-white/40 outline-none focus:ring-1 focus:ring-white/30"
+                />
+              ))}
+            </div>
+            <textarea
+              placeholder="Popis vozu * (bude vložen do info.txt v ZIP)"
+              value={vehicleInfo.description ?? ""}
+              onChange={(e) => updateInfoField("description", e.target.value)}
+              rows={4}
+              className="w-full mt-2 bg-white/10 rounded-md px-2.5 py-2 text-sm placeholder:text-white/40 outline-none focus:ring-1 focus:ring-white/30 resize-none"
+            />
+          </div>
+
+          <div className="space-y-2 max-w-md mx-auto">
+            <Button variant="outline" className="w-full" onClick={() => void saveVehicleInfo().then(() => toast({ title: "Údaje uloženy" })).catch(e => toast({ title: "Údaje se neuložily", description: String(e), variant: "destructive" }))}><Check size={16} /> Uložit údaje</Button>
+            <Button className="w-full" onClick={() => void handlePublishListing()} disabled={publishing || photos.length === 0 || queued.some(p => p.status !== "done")}>
+              {publishing ? <Loader2 className="animate-spin mr-2" size={16} /> : <Sparkles className="mr-2" size={16} />}
+              {publishing ? "Zakládám inzerát…" : "Převést údaje a fotky do inzerátu"}
+            </Button>
+            {/* Diktování údajů hlasem */}
+            {voiceEnabledSetting && !voiceUnsupported && (
+              <Button
+                variant="outline"
+                onClick={() => {
+                  const v = voiceRef.current; if (!v) return;
+                  if (dictating) {
+                    v.setDictationHandler(null);
+                    v.stop();
+                    setDictating(false);
+                    toast({ title: "Diktování ukončeno" });
+                  } else {
+                    v.setDictationHandler((text) => {
+                      const parsed = parseDictation(text);
+                      if (Object.keys(parsed).length === 0) {
+                        // Nothing structured — push to description
+                        setVehicleInfo((s) => ({ ...s, description: ((s.description ?? "") + " " + text).trim() }));
+                      } else {
+                        setVehicleInfo((s) => ({ ...s, ...parsed }));
+                      }
+                      toast({ title: "Zaznamenáno", description: text });
+                    });
+                    v.start();
+                    setDictating(true);
+                    toast({ title: "Diktování spuštěno", description: "Např.: značka Škoda, model Octavia, rok 2018, najezd 120000, cena 250000, nafta automat." });
+                  }
+                }}
+                className={`w-full border-white/20 bg-transparent ${dictating ? "ring-2 ring-emerald-400/60" : ""}`}>
+                {dictating ? <MicOff className="mr-2" size={16} /> : <Mic className="mr-2" size={16} />}
+                {dictating ? "Zastavit diktování" : "Nadiktovat údaje o voze"}
+              </Button>
+            )}
+
+            <Button onClick={() => handleExportZip()} disabled={busy || photos.length === 0 || !requiredInfoFilled || queued.some(p => p.status !== "done")}
+              className="w-full bg-white text-black hover:bg-white/90 disabled:bg-white/30 disabled:text-white/60">
+              {busy ? <Loader2 className="animate-spin mr-2" size={16} /> : <Download className="mr-2" size={16} />}
+              {requiredInfoFilled
+                ? "Exportovat ZIP (original + inzertní 1MB + web + info.txt)"
+                : "Vyplňte povinné údaje o voze"}
+            </Button>
+
+            {/* Přeskočit info — dokončit i bez vyplnění */}
+            {!requiredInfoFilled && (
+              <Button onClick={() => handleExportZip({ skipInfo: true })} disabled={busy || photos.length === 0 || queued.some(p => p.status !== "done")}
+                variant="outline"
+                className="w-full border-amber-400/40 bg-amber-500/10 hover:bg-amber-500/20 text-amber-200">
+                <SkipForward className="mr-2" size={16} /> Přeskočit údaje a exportovat ZIP
+              </Button>
+            )}
+
+            <Button variant="outline" onClick={async () => {
+              completionStep.current = null; setShotIntent(null);
+              setCurrentStepIdx(Math.min(19, progress.next_step)); await handleStart();
+            }} className="w-full border-white/20 bg-transparent" disabled={starting || finishing || discarding}>
+              <Camera className="mr-2" size={16} /> Pokračovat ve focení
+            </Button>
+            {discardControl}
+            <Button variant="outline" onClick={() => navigate("/admin")}
+              className="w-full border-white/20 bg-transparent">
+              Zavřít
+            </Button>
+          </div>
+
+
+        </div>
+      )}
+    </div>
+  );
 }

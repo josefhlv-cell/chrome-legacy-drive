@@ -487,7 +487,7 @@ const VehiclesTab = () => {
         // Nikdy nepřepisuje image_url ani záznamy vehicle_images.
         if (vehicleId && newShowroomPhoto) {
           try {
-            const extension = newShowroomPhoto.name.split(".").pop()?.toLowerCase() || "jpg";
+            const extension = newShowroomPhoto.type === "image/png" ? "png" : newShowroomPhoto.type === "image/webp" ? "webp" : "jpg";
             const path = `${vehicleId}_showroom_${Date.now()}.${extension}`;
             const { error: uploadError } = await supabase.storage
               .from("vehicles")

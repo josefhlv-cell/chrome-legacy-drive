@@ -315,6 +315,8 @@ const VehiclesTab = () => {
   const [showNew, setShowNew] = useState(false);
   const [newData, setNewData] = useState<TablesInsert<"vehicles">>(emptyVehicle);
   const [newPhotos, setNewPhotos] = useState<BufferedPhoto[]>([]);
+  const [newShowroomPhoto, setNewShowroomPhoto] = useState<File | null>(null);
+  const [newShowroomPreview, setNewShowroomPreview] = useState<string | null>(null);
   const [showSmartDashboard, setShowSmartDashboard] = useState(false);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
   const [printVehicleId, setPrintVehicleId] = useState<string | null>(null);
@@ -459,7 +461,6 @@ const VehiclesTab = () => {
     createVehicle.mutate(newData, {
       onSuccess: async (created: any) => {
         const vehicleId = created?.id;
-        const showroomMode = (newData as any).showroom_mode as "off" | "main" | "exterior" | undefined;
         const createdImgIds: string[] = [];
         if (vehicleId && newPhotos.length) {
           setUploadingFor(vehicleId);
@@ -482,29 +483,33 @@ const VehiclesTab = () => {
           toast({ title: "Vůz přidán" });
         }
 
-        // Auto-trigger Showroom Background pokud je zapnuto
-        if (vehicleId && showroomMode && showroomMode !== "off" && createdImgIds.length > 0) {
-          toast({ title: "Generuji showroom pozadí…", description: "AI úprava titulní fotky" });
-          (async () => {
-            try {
-              const mainIdx = newPhotos.findIndex((p) => p.isMain);
-              const targetIds = showroomMode === "exterior"
-                ? createdImgIds.slice(0, 6)
-                : [createdImgIds[mainIdx >= 0 ? mainIdx : 0]];
-              for (const imgId of targetIds) {
-                const { data, error } = await supabase.functions.invoke("showroom-generate", { body: { imageId: imgId } });
-                if (error || (data as any)?.error) throw new Error((data as any)?.error || error?.message);
-                await supabase.functions.invoke("showroom-apply", { body: { imageId: imgId, action: "apply" } });
-              }
-              toast({ title: "Showroom pozadí aplikováno" });
-            } catch (e: any) {
-              toast({ title: "Showroom selhal", description: e?.message || "Neznámá chyba", variant: "destructive" });
-            }
-          })();
+        // Samostatná showroom fotografie se ukládá mimo galerii vozidla.
+        // Nikdy nepřepisuje image_url ani záznamy vehicle_images.
+        if (vehicleId && newShowroomPhoto) {
+          try {
+            const extension = newShowroomPhoto.name.split(".").pop()?.toLowerCase() || "jpg";
+            const path = `${vehicleId}_showroom_${Date.now()}.${extension}`;
+            const { error: uploadError } = await supabase.storage
+              .from("vehicles")
+              .upload(path, newShowroomPhoto, { upsert: true, contentType: newShowroomPhoto.type });
+            if (uploadError) throw uploadError;
+            const { data: publicData } = supabase.storage.from("vehicles").getPublicUrl(path);
+            const { error: updateError } = await supabase
+              .from("vehicles")
+              .update({ showroom_image_url: publicData.publicUrl })
+              .eq("id", vehicleId);
+            if (updateError) throw updateError;
+            toast({ title: "Showroom fotografie uložena", description: "Použije se pouze jako hlavní fotografie v detailu nabídky." });
+          } catch (e: any) {
+            toast({ title: "Vůz uložen, showroom fotografie se nenahrála", description: e?.message || "Neznámá chyba", variant: "destructive" });
+          }
         }
 
         newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
         setNewPhotos([]);
+        if (newShowroomPreview) URL.revokeObjectURL(newShowroomPreview);
+        setNewShowroomPhoto(null);
+        setNewShowroomPreview(null);
         setShowNew(false);
         setNewData(emptyVehicle);
       },
@@ -769,40 +774,70 @@ const VehiclesTab = () => {
               <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
                 <div className="flex items-center gap-2">
                   <Camera className="w-4 h-4 text-primary" />
-                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Fotografie vozidla</label>
-                  <span className="text-[10px] text-muted-foreground">drag &amp; drop · multi-upload · auto-úprava</span>
+                  <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Běžné fotografie vozidla</label>
+                  <span className="text-[10px] text-muted-foreground">Galerie a původní titulní fotka karty</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <label
-                    className="inline-flex items-center gap-2 px-3 py-1.5 rounded-md border border-border text-xs cursor-pointer hover:bg-secondary"
-                    title="Po uložení vozu se vytvoří separátní AI showroom varianta pouze pro úvodní fotografii"
-                  >
-                    <Switch
-                      checked={(newData as any).showroom_mode && (newData as any).showroom_mode !== "off"}
-                      onCheckedChange={(v) => setNewData({ ...newData, showroom_mode: v ? "main" : "off" } as any)}
-                    />
-                    <Sparkles className="w-3.5 h-3.5 text-primary" />
-                    <span>Pozadí Chrysler.cz</span>
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => setShowSmartDashboard(true)}
-                    className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
-                    title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
-                  >
-                    <Sparkles className="w-3.5 h-3.5" />
-                    Smart Dashboard
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowSmartDashboard(true)}
+                  className="chrome-button inline-flex items-center gap-1.5 text-xs !px-3 !py-1.5"
+                  title="Otevřít Smart Dashboard — fotky z mobilu, import jedním kliknutím"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  Smart Dashboard
+                </button>
               </div>
               <NewVehiclePhotoUploader
                 photos={newPhotos}
                 onChange={setNewPhotos}
                 onLaunchSmartCapture={() => window.open("/admin/smart-capture", "_blank")}
               />
-              <p className="text-[11px] text-muted-foreground mt-2">
-                Použít showroom background pro úvodní fotografii vozu
-              </p>
+              <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                <div className="flex flex-wrap items-start justify-between gap-3">
+                  <div className="flex items-start gap-2">
+                    <ImagePlus className="w-5 h-5 text-primary mt-0.5" />
+                    <div>
+                      <label className="text-xs font-semibold text-foreground uppercase tracking-wider">Samostatná showroom fotografie</label>
+                      <p className="text-xs text-muted-foreground mt-1">Použije se pouze jako hlavní fotografie v detailu nabídky. Galerie i karta vozu zůstanou beze změny.</p>
+                    </div>
+                  </div>
+                  <label className="chrome-button inline-flex items-center gap-2 text-xs cursor-pointer">
+                    <Upload className="w-3.5 h-3.5" />
+                    {newShowroomPhoto ? "Změnit showroom foto" : "Vybrat showroom foto"}
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0] ?? null;
+                        e.currentTarget.value = "";
+                        if (!file) return;
+                        if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 25 * 1024 * 1024) {
+                          toast({ title: "Neplatný soubor", description: "Použij JPG, PNG nebo WebP do 25 MB.", variant: "destructive" });
+                          return;
+                        }
+                        if (newShowroomPreview) URL.revokeObjectURL(newShowroomPreview);
+                        setNewShowroomPhoto(file);
+                        setNewShowroomPreview(URL.createObjectURL(file));
+                      }}
+                    />
+                  </label>
+                </div>
+                {newShowroomPreview && (
+                  <div className="mt-3 flex items-center gap-3">
+                    <img src={newShowroomPreview} alt="Náhled showroom fotografie" className="h-24 w-36 rounded-lg border border-border object-cover bg-background" />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium text-foreground truncate">{newShowroomPhoto?.name}</p>
+                      <p className="text-xs text-muted-foreground">Oddělená od běžné galerie vozidla</p>
+                      <button type="button" onClick={() => {
+                        if (newShowroomPreview) URL.revokeObjectURL(newShowroomPreview);
+                        setNewShowroomPhoto(null);
+                        setNewShowroomPreview(null);
+                      }} className="mt-2 text-xs text-destructive hover:underline">Odebrat showroom fotografii</button>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
             <TipCarsFields
               data={newData as any}
@@ -831,6 +866,9 @@ const VehiclesTab = () => {
               <button onClick={() => {
                 newPhotos.forEach((p) => URL.revokeObjectURL(p.previewUrl));
                 setNewPhotos([]);
+                if (newShowroomPreview) URL.revokeObjectURL(newShowroomPreview);
+                setNewShowroomPhoto(null);
+                setNewShowroomPreview(null);
                 setShowNew(false); setNewData(emptyVehicle);
               }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
             </div>

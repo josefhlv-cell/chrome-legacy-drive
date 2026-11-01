@@ -8,7 +8,11 @@
  */
 import captureBg from "@/assets/capture-bg.jpg.asset.json";
 
-export const CAPTURE_BG_URL = captureBg.url;
+/** Produkční showroom pozadí — veřejná cesta (L5E interní URL na live webu často selže). */
+export const CAPTURE_BG_URL = "/assets/showroom/master_showroom_background.webp";
+
+/** Interní asset (Lovable) — záloha, pokud by se veřejná cesta změnila. */
+export const CAPTURE_BG_ASSET_URL = captureBg.url as string;
 
 /** Výstupní rozměr miniatury (16:9, shodné s masterem pozadí). */
 export const THUMB_W = 1600;
@@ -100,7 +104,14 @@ export const composePhotoOnBackground = async (
   photo: Blob,
   bgUrl: string = CAPTURE_BG_URL,
 ): Promise<Blob> => {
-  const [bg, frame] = await Promise.all([loadImage(bgUrl), blobToImage(photo)]);
+  let bg: HTMLImageElement;
+  try {
+    bg = await loadImage(bgUrl);
+  } catch {
+    // Fallback na interní asset, pokud veřejná cesta není dostupná (dev/Lovable).
+    bg = await loadImage(CAPTURE_BG_ASSET_URL);
+  }
+  const frame = await blobToImage(photo);
   const outW = bg.naturalWidth || THUMB_W;
   const outH = bg.naturalHeight || THUMB_H;
 
@@ -126,12 +137,15 @@ export const composePhotoOnBackground = async (
 };
 
 /**
- * Složí miniaturu: pozadí (fixní asset) + výřez vozidla (PNG s alfou),
+ * Složí miniaturu: pozadí (pevní asset) + výřez vozidla (PNG s alfou),
  * včetně kontaktního stínu.
  * V Dealer Mode je měřítko i kompozice u všech vozidel identická.
  */
 export const composeThumbnail = async (cutoutPng: Blob, opts: ComposeOptions = {}): Promise<Blob> => {
-  const [bg, cutRaw] = await Promise.all([loadImage(CAPTURE_BG_URL), blobToImage(cutoutPng)]);
+  let bg: HTMLImageElement;
+  try { bg = await loadImage(CAPTURE_BG_URL); }
+  catch { bg = await loadImage(CAPTURE_BG_ASSET_URL); }
+  const cutRaw = await blobToImage(cutoutPng);
   const trimmed = trimAlpha(cutRaw);
   const aspect = trimmed.w / trimmed.h;
 

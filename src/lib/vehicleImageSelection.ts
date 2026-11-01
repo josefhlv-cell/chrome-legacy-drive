@@ -1,3 +1,5 @@
+import { getPublicVehicleImageUrl, type ShowroomImageLike } from "@/lib/showroomImage";
+
 
 
 export const dedupeImageUrls = (urls: Array<string | null | undefined>) =>

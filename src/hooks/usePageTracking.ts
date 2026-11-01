@@ -7,9 +7,11 @@ const SESSION_KEY = "analytics_session_id";
 const ENTRY_REF_KEY = "analytics_entry_referrer";
 const UTM_KEY = "analytics_utm";
 
-/** Horní strop doby na stránce (30 min). Karta nechaná otevřená přes noc dřív
- *  zapsala desítky tisíc sekund a rozbila průměrnou dobu návštěvy. */
+/** Horní strop doby na stránce (30 min). */
 const MAX_TIME_ON_PAGE = 30 * 60;
+
+/** Po tolika ms na stránce zapíšeme hit i bez odchodu (mobilní Safari často nepálí pagehide). */
+const ENGAGE_MS = 1200;
 
 function getSessionId(): string {
   let id = sessionStorage.getItem(SESSION_KEY);
@@ -20,7 +22,6 @@ function getSessionId(): string {
   return id;
 }
 
-/** Original external referrer of the session (never our own domain). */
 function getEntryReferrer(): string {
   const stored = sessionStorage.getItem(ENTRY_REF_KEY);
   if (stored !== null) return stored;
@@ -52,16 +53,6 @@ function getUtm(): Utm {
   return utm;
 }
 
-/**
- * OPRAVY (audit):
- * 1) Duplicitní zápisy: dřív mohl `pagehide` i `visibilitychange` proběhnout
- *    pro stejnou stránku, a navíc StrictMode/rychlá navigace spouštěly efekt
- *    dvakrát. Nově drží modul globální set `writtenKeys` (session+path+start),
- *    takže každý pobyt na stránce se zapíše právě jednou.
- * 2) time_on_page je zastropovaný na 30 minut (viz MAX_TIME_ON_PAGE).
- * 3) Bot filtr je centralizovaný v isBotUserAgent() a pokrývá i headless
- *    prohlížeče, scrapery a náhledové roboty sociálních sítí.
- */
 const writtenKeys = new Set<string>();
 
 export function usePageTracking() {
@@ -87,43 +78,53 @@ export function usePageTracking() {
       const raw = Math.round((Date.now() - startedAt) / 1000);
       const timeOnPage = Math.min(MAX_TIME_ON_PAGE, Math.max(0, raw));
 
-      void supabase.from("page_views").insert({
-        session_id: sessionId,
-        visitor_id: visitorId,
-        is_new_visitor: isNew,
-        path,
-        referrer: entryReferrer,
-        entry_referrer: entryReferrer,
-        utm_source: utm.source || null,
-        utm_medium: utm.medium || null,
-        utm_campaign: utm.campaign || null,
-        time_on_page: timeOnPage,
-        screen_width: window.innerWidth,
-        screen_height: window.innerHeight,
-        is_bounce: exit && pageCount.current <= 1,
-        exit_page: exit,
-      });
+      void supabase
+        .from("page_views")
+        .insert({
+          session_id: sessionId,
+          visitor_id: visitorId,
+          is_new_visitor: isNew,
+          path,
+          referrer: entryReferrer,
+          entry_referrer: entryReferrer,
+          utm_source: utm.source || null,
+          utm_medium: utm.medium || null,
+          utm_campaign: utm.campaign || null,
+          time_on_page: timeOnPage,
+          screen_width: window.innerWidth,
+          screen_height: window.innerHeight,
+          is_bounce: exit && pageCount.current <= 1,
+          exit_page: exit,
+        })
+        .then(({ error }) => {
+          if (error) {
+            console.warn("[analytics] page_views insert failed", error.message);
+          }
+        });
     };
 
-    // Record time spent on the previous page when navigating within the SPA
     if (lastPath.current && lastPath.current !== location.pathname) {
       send(lastPath.current, startTime.current, false);
     }
 
-    // Reset timer for the new page
     const startedAt = Date.now();
     startTime.current = startedAt;
     lastPath.current = location.pathname;
     pageCount.current += 1;
 
-    // pagehide + visibilitychange are far more reliable than beforeunload
-    // (iOS Safari / Android Chrome never fire beforeunload on tab close).
+    const engageTimer = window.setTimeout(() => {
+      send(location.pathname, startedAt, false);
+    }, ENGAGE_MS);
+
     const flush = () => send(location.pathname, startedAt, true);
-    const onVisibility = () => { if (document.visibilityState === "hidden") flush(); };
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
 
     window.addEventListener("pagehide", flush);
     document.addEventListener("visibilitychange", onVisibility);
     return () => {
+      window.clearTimeout(engageTimer);
       window.removeEventListener("pagehide", flush);
       document.removeEventListener("visibilitychange", onVisibility);
     };

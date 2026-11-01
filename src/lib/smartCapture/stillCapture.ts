@@ -1,4 +1,15 @@
 import { inscribedSize } from "./captureMath";
+import { CAPTURE_BG_URL, composePhotoOnBackground } from "./thumbnail";
+
+const BG_PREF_KEY = "capture-show-background";
+
+function backgroundEnabled(): boolean {
+  try {
+    return localStorage.getItem(BG_PREF_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
 
 type PhotoCapture = {
   takePhoto?: () => Promise<Blob>;
@@ -55,11 +66,22 @@ export async function jpegFromSource(
   });
 }
 
+async function maybeComposeBackground(blob: Blob): Promise<Blob> {
+  if (!backgroundEnabled()) return blob;
+  try {
+    return await composePhotoOnBackground(blob, CAPTURE_BG_URL);
+  } catch {
+    // Snímek bez pozadí je lepší než ztráta foťáku.
+    return blob;
+  }
+}
+
 /**
  * Full camera still.
  * ImageCapture.takePhoto() is the sensor photo (not the letterboxed preview).
  * The video frame is only a fallback, still at videoWidth × videoHeight.
  * An untouched JPEG is returned when no mirror or leveling is required.
+ * When showroom background is enabled (localStorage), the still is composed onto it.
  */
 export async function captureFullStill(args: {
   video: HTMLVideoElement;
@@ -75,10 +97,11 @@ export async function captureFullStill(args: {
     try {
       const photo = await withTimeout(capture.takePhoto(), 8000);
       if (photo && photo.size > 8000) {
-        if (!args.mirror && !level) return photo;
+        if (!args.mirror && !level) return maybeComposeBackground(photo);
         const bitmap = await createImageBitmap(photo);
         try {
-          return await jpegFromSource(bitmap, bitmap.width, bitmap.height, args.mirror, args.levelDegrees);
+          const framed = await jpegFromSource(bitmap, bitmap.width, bitmap.height, args.mirror, args.levelDegrees);
+          return maybeComposeBackground(framed);
         } finally { bitmap.close(); }
       }
     } catch { /* The preview frame is still a full video frame, not a screen crop. */ }
@@ -88,7 +111,8 @@ export async function captureFullStill(args: {
     try {
       const frame = await withTimeout(capture.grabFrame(), 4000);
       try {
-        return await jpegFromSource(frame, frame.width, frame.height, args.mirror, args.levelDegrees);
+        const framed = await jpegFromSource(frame, frame.width, frame.height, args.mirror, args.levelDegrees);
+        return maybeComposeBackground(framed);
       } finally { frame.close(); }
     } catch { /* video element */ }
   }
@@ -96,5 +120,6 @@ export async function captureFullStill(args: {
   const width = args.video.videoWidth;
   const height = args.video.videoHeight;
   if (!width || !height) throw new Error("Kamera ještě nemá obraz. Zkuste spoušť znovu.");
-  return jpegFromSource(args.video, width, height, args.mirror, args.levelDegrees);
+  const framed = await jpegFromSource(args.video, width, height, args.mirror, args.levelDegrees);
+  return maybeComposeBackground(framed);
 }

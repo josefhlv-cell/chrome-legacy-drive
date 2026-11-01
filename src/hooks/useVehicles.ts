@@ -19,7 +19,7 @@ const LIST_COLUMNS =
 
 // Fallback when a vehicle has no rows in vehicle_images yet — left join variant.
 const LIST_COLUMNS_LEFT =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,showroom_image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
 
 // Admin needs FULL row data (description, engine, transmission, power, color,
 // lpg_description, carfax_url, video_id, etc.) so the edit form is pre-filled.

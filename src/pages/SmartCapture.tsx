@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback, useMemo, useSyncExternalStore } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle, Mic, MicOff, SkipForward, Compass, SwitchCamera, ChevronLeft } from "lucide-react";
+import { Camera, X, Check, RotateCcw, Sparkles, ChevronRight, Loader2, ScanLine, Image as ImageIcon, Download, Shield, AlertCircle, Mic, MicOff, SkipForward, Compass, SwitchCamera, ChevronLeft, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { useAuth } from "@/hooks/useAuth";
@@ -16,7 +16,7 @@ import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
 import { guideForShot } from "@/lib/smartCapture/dealerGuide";
 import { CaptureFilmstrip } from "@/components/admin/CaptureFilmstrip";
-import { enqueuePhoto, photoQueue, restoreQueue, retrySessionPhotos } from "@/lib/smartCapture/photoQueue";
+import { enqueuePhoto, photoQueue, restoreQueue, retrySessionPhotos, discardQueuedPhotos } from "@/lib/smartCapture/photoQueue";
 import { advanceProgress, readProgress, type CaptureProgress } from "@/lib/smartCapture/workflow";
 import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
@@ -67,6 +67,9 @@ export default function SmartCapture() {
   const queueCount = queued.filter(p => p.status === "uploading").length;
   const [starting, setStarting] = useState(false);
   const [finishing, setFinishing] = useState(false);
+  const [discarding, setDiscarding] = useState(false);
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  const [shotIntent, setShotIntent] = useState<null | "fix" | "fill">(null);
   const finishingRef = useRef(false);
   const startRef = useRef(false);
   const mobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent) || window.matchMedia("(pointer: coarse)").matches;
@@ -434,7 +437,7 @@ export default function SmartCapture() {
   const advance = (stepIdx: number, skipped: boolean) => {
     saveProgress(advanceProgress(progressRef.current, stepIdx, skipped));
     if (completionStep.current !== null) {
-      completionStep.current = null; stopCamera(); setPhase("review");
+      completionStep.current = null; setShotIntent(null); stopCamera(); setPhase("review");
     } else if (stepIdx < totalSteps - 1) setCurrentStepIdx(stepIdx + 1);
     else { stopCamera(); setPhase("review"); }
   };
@@ -501,8 +504,15 @@ export default function SmartCapture() {
     if (!sessionId || acceptingRef.current) return false;
     acceptingRef.current = true; setAccepting(true);
     try {
+    const shotType = SHOT_SEQUENCE[stepIdx].type;
+    const replacing = completionStep.current === stepIdx;
+    if (replacing) {
+      await discardQueuedPhotos(sessionId, shotType);
+      const removed = await supabase.from("smart_capture_photos").delete().eq("session_id", sessionId).eq("shot_type", shotType);
+      if (removed.error) throw removed.error;
+    }
     shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
-    await enqueuePhoto({ sessionId, blob, shotType: SHOT_SEQUENCE[stepIdx].type,
+    await enqueuePhoto({ sessionId, blob, shotType,
       progress: advanceProgress(progressRef.current, stepIdx, false),
       shotIndex: shotIndexRef.current++, autoProcess, aiEnabled });
     readVinFromPhoto(blob, stepIdx, sessionId);
@@ -533,10 +543,32 @@ export default function SmartCapture() {
 
   const skipStep = () => {
     if (!sessionId || acceptingRef.current || shootingRef.current) return;
-    retakePending(); advance(currentStepIdx, true);
+    retakePending();
+    if (completionStep.current !== null) {
+      const fixing = completionStep.current;
+      completionStep.current = null;
+      setShotIntent(null);
+      const type = SHOT_SEQUENCE[fixing]?.type;
+      const hasPhoto = !!type && (
+        photos.some(p => p.shot_type === type) ||
+        queued.some(p => p.shotType === type && p.status !== "error")
+      );
+      if (!hasPhoto) saveProgress(advanceProgress(progressRef.current, fixing, true));
+      stopCamera();
+      setPhase("review");
+      return;
+    }
+    advance(currentStepIdx, true);
   };
 
-  const leaveCamera = () => { if (acceptingRef.current) return; retakePending(); stopCamera(); setPhase("review"); };
+  const leaveCamera = () => {
+    if (acceptingRef.current) return;
+    retakePending();
+    completionStep.current = null;
+    setShotIntent(null);
+    stopCamera();
+    setPhase("review");
+  };
 
   const finishToReview = () => {
     if (!sessionId) return;
@@ -555,7 +587,40 @@ export default function SmartCapture() {
     progressRef.current = { skipped_steps: [], next_step: 0 };
     setProgress(progressRef.current); setCurrentStepIdx(0);
     setSessionId(undefined); setSearchParams({}, { replace: true }); setPhase("intro");
+    setConfirmDiscard(false); setShotIntent(null);
     void refetchSessions();
+  };
+
+  const openShot = (index: number, intent: "fix" | "fill") => {
+    if (startRef.current || finishingRef.current || discarding) return;
+    completionStep.current = index;
+    setShotIntent(intent);
+    setCurrentStepIdx(index);
+    void handleStart();
+  };
+
+  const discardCurrentWork = async () => {
+    if (!sessionId || discarding || finishingRef.current) return;
+    const sid = sessionId;
+    setDiscarding(true);
+    try {
+      stopCamera();
+      await discardQueuedPhotos(sid);
+      const photosRemoved = await supabase.from("smart_capture_photos").delete().eq("session_id", sid);
+      if (photosRemoved.error) throw photosRemoved.error;
+      const removed = await supabase.from("smart_capture_sessions").delete().eq("id", sid);
+      if (removed.error) {
+        const retryPhotos = await supabase.from("smart_capture_photos").delete().eq("session_id", sid);
+        if (retryPhotos.error) throw retryPhotos.error;
+        const retry = await supabase.from("smart_capture_sessions").delete().eq("id", sid);
+        if (retry.error) throw retry.error;
+      }
+      try { localStorage.removeItem(`capture-progress:${sid}`); } catch { /* detach clears the resume pointer */ }
+      detachSession();
+      toast({ title: "Focení smazáno", description: "Aktuální práce je pryč. Můžete začít nové focení od začátku." });
+    } catch (error) {
+      toast({ title: "Focení se nepodařilo smazat", description: error instanceof Error ? error.message : "Zkuste to znovu.", variant: "destructive" });
+    } finally { setDiscarding(false); }
   };
 
   // A process termination between remote save and local detachment must not resurrect a finished capture.
@@ -807,6 +872,59 @@ export default function SmartCapture() {
     </div>;
   }
 
+  const shotRows = SHOT_SEQUENCE.map((step, index) => {
+    const queuedShot = [...queued].reverse().find(p => p.shotType === step.type && p.status !== "error");
+    const saved = [...photos].reverse().find(p => p.shot_type === step.type);
+    const skipped = progress.skipped_steps.includes(step.type);
+    const hasShot = !!(queuedShot || saved);
+    if (!hasShot && !skipped && index >= progress.next_step) return null;
+    const preview = queuedShot?.preview || saved?.processed_url;
+    return (
+      <div key={step.type} className="flex items-center gap-3 rounded-lg border border-border bg-background p-2">
+        {preview
+          ? <img src={preview} alt="" className="w-16 h-12 rounded-md object-cover shrink-0" />
+          : <div className="w-16 h-12 rounded-md bg-muted flex items-center justify-center text-muted-foreground shrink-0"><Camera size={16} /></div>}
+        <div className="min-w-0 flex-1 text-left">
+          <div className="text-sm font-medium truncate">{index + 1}. {step.label}</div>
+          <div className="text-xs text-muted-foreground">{hasShot ? (queuedShot?.status === "uploading" ? "Nahrává se" : "Hotovo") : skipped ? "Přeskočeno" : "Chybí"}</div>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          {!mobile && (
+            <Button size="sm" variant="ghost" aria-label={`Nahrát ${step.label}`} onClick={() => { if (fileInputRef.current) fileInputRef.current.dataset.step = String(index); fileInputRef.current?.click(); }} disabled={starting || finishing || discarding}>
+              <ImageIcon size={14} />
+            </Button>
+          )}
+          <Button size="sm" variant={hasShot ? "secondary" : "default"} onClick={() => openShot(index, hasShot ? "fix" : "fill")} disabled={starting || finishing || discarding || accepting}>
+            {hasShot ? <RotateCcw size={14} /> : <Camera size={14} />} {hasShot ? "Opravit" : "Vyfotit"}
+          </Button>
+        </div>
+      </div>
+    );
+  }).filter((row) => row !== null);
+
+  const shotEditor = (
+    <div className="mt-5">
+      <h3 className="text-sm font-medium mb-2">Opravit záběr nebo vyfotit přeskočený</h3>
+      {shotRows.length === 0
+        ? <p className="text-sm text-muted-foreground">Až nějaký záběr vyfotíte nebo přeskočíte, tady ho půjde opravit.</p>
+        : <div className="flex flex-col gap-2">{shotRows}</div>}
+    </div>
+  );
+
+  const discardControl = confirmDiscard ? (
+    <div className="flex flex-col gap-2 rounded-lg border border-destructive/40 p-3">
+      <p className="text-sm">Smazat všechny fotky tohoto focení? Nepůjde je vrátit a začnete úplně od začátku.</p>
+      <Button variant="destructive" onClick={() => void discardCurrentWork()} disabled={discarding || finishing}>
+        {discarding ? <Loader2 className="animate-spin" /> : <Trash2 />} {discarding ? "Mažu focení…" : "Ano, smazat a začít znovu"}
+      </Button>
+      <Button variant="outline" onClick={() => setConfirmDiscard(false)} disabled={discarding}>Zpět</Button>
+    </div>
+  ) : (
+    <Button variant="outline" className="border-destructive/60 text-destructive hover:text-destructive" onClick={() => setConfirmDiscard(true)} disabled={discarding || finishing || starting}>
+      <Trash2 /> Smazat focení a začít znovu
+    </Button>
+  );
+
   return (
     /* 100dvh + safe-area: na iPhonu (dynamický toolbar Safari, notch, home indicator)
        je `fixed inset-0` samo o sobě nespolehlivé — obsah se schovával pod lištu. */
@@ -866,7 +984,7 @@ export default function SmartCapture() {
             style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
             <Button size="icon" variant="secondary" onClick={leaveCamera} disabled={accepting || shooting} aria-label="Ukončit focení"><X /></Button>
             <div className="bg-background/85 rounded-md px-3 py-2 text-center min-w-0">
-              <div className="text-sm font-semibold">{currentStepIdx + 1} / {totalSteps} · {currentStep?.label}</div>
+              <div className="text-sm font-semibold">{shotIntent === "fix" ? "Oprava · " : shotIntent === "fill" ? "Nový záběr · " : ""}{currentStepIdx + 1} / {totalSteps} · {currentStep?.label}</div>
               <div className="text-xs text-muted-foreground mt-1 max-w-sm">{currentStep?.hint}</div>
               {safeMode && <div className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">Safe mode — fotka se neupravuje</div>}
               {vinNote && <div className="text-[11px] mt-1">{vinNote}</div>}
@@ -884,7 +1002,7 @@ export default function SmartCapture() {
             const file = e.target.files?.[0]; if (file) handleFilePicked(file); e.target.value = "";
           }} />
           <div className={`absolute z-20 ${landscapeMode ? "right-3 top-1/2 -translate-y-1/2 flex-col" : "bottom-28 inset-x-0 justify-center"} flex items-center gap-4`}>
-            <Button variant="secondary" onClick={skipStep} disabled={accepting || shooting} className="touch-manipulation"><SkipForward size={16} /> Přeskočit</Button>
+            <Button variant="secondary" onClick={shotIntent ? leaveCamera : skipStep} disabled={accepting || shooting} className="touch-manipulation">{shotIntent ? <ChevronLeft size={16} /> : <SkipForward size={16} />} {shotIntent ? "Zpět bez změny" : "Přeskočit"}</Button>
             <Button size="icon" onClick={handleShot} disabled={!stream || !cameraReady || !sessionId || !!pending || shooting || switching || accepting} aria-label="Vyfotit"
               className="w-20 h-20 rounded-full border-4 border-border touch-manipulation">{shooting ? <Loader2 className="animate-spin" size={32} /> : <Camera size={32} />}</Button>
           </div>
@@ -920,15 +1038,17 @@ export default function SmartCapture() {
           {queueCount > 0 && <p className="text-sm my-3">Nahrává se {queueCount} fotografií. Nechte tuto stránku otevřenou.</p>}
           {queued.some(p => p.status === "error") && <p className="text-sm my-3 text-destructive">Některé fotografie se nenahrály. Zkuste je znovu.</p>}
           {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
+          {shotEditor}
           <div className="flex flex-col gap-3 mt-6">
-            <Button onClick={handleSaveAndFinish} disabled={finishing}>
+            <Button onClick={handleSaveAndFinish} disabled={finishing || discarding}>
               {finishing ? <Loader2 className="animate-spin" /> : <Check />} {finishing ? "Ukládám a dokončuji…" : "Uložit a dokončit"}
             </Button>
-            <Button variant="secondary" onClick={() => void handlePublishListing()} disabled={publishing || finishing || queued.some(p => p.status !== "done")}>
+            <Button variant="secondary" onClick={() => void handlePublishListing()} disabled={publishing || finishing || discarding || queued.some(p => p.status !== "done")}>
               {publishing ? <Loader2 className="animate-spin" /> : <Sparkles />} {publishing ? "Zakládám inzerát…" : "Převést do inzerátu"}
             </Button>
             <Button onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
-            <Button variant="outline" onClick={() => { setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting || finishing}><Camera /> Pokračovat ve focení</Button>
+            <Button variant="outline" onClick={() => { completionStep.current = null; setShotIntent(null); setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting || finishing || discarding}><Camera /> Pokračovat ve focení</Button>
+            {discardControl}
           </div>
         </div>
       )}
@@ -949,20 +1069,15 @@ export default function SmartCapture() {
           </div>
           <CaptureFilmstrip queue={queued} photos={photos} />
           {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-            {SHOT_SEQUENCE.map((step, index) => {
-              if (photos.some(p => p.shot_type === step.type) || queued.some(p => p.shotType === step.type && p.status !== "error")) return null;
-              return <div key={step.type} className="border border-border bg-background text-foreground rounded-md p-3">
-                <div className="text-sm font-medium">{index + 1}. {step.label}</div>
-                <p className="text-xs text-muted-foreground my-2">{progress.skipped_steps.includes(step.type) ? "Přeskočeno" : "Chybí fotografie"}</p>
-                <Button size="sm" variant="outline" onClick={() => { completionStep.current = index; setCurrentStepIdx(index); fileInputRef.current?.click(); }}><ImageIcon size={14} /> Doplnit</Button>
-              </div>;
-            })}
-          </div>
+          {shotEditor}
           <input ref={fileInputRef} type="file" accept="image/*" className="hidden" onChange={e => {
             const file = e.target.files?.[0];
-            if (file) void acceptPhoto(file, completionStep.current ?? currentStepIdx);
-            e.target.value = "";
+            const step = Number(e.currentTarget.dataset.step);
+            if (file && Number.isInteger(step) && step >= 0 && step < SHOT_SEQUENCE.length) {
+              completionStep.current = step;
+              void acceptPhoto(file, step);
+            }
+            e.currentTarget.value = "";
           }} />
           {/* Miniatura na přednastaveném pozadí — jen pro nabídku vozů */}
           {(thumbOverlayEnabled || thumbnailUrl) && (
@@ -1102,10 +1217,12 @@ export default function SmartCapture() {
             )}
 
             <Button variant="outline" onClick={async () => {
+              completionStep.current = null; setShotIntent(null);
               setCurrentStepIdx(Math.min(19, progress.next_step)); await handleStart();
-            }} className="w-full border-white/20 bg-transparent">
+            }} className="w-full border-white/20 bg-transparent" disabled={starting || finishing || discarding}>
               <Camera className="mr-2" size={16} /> Pokračovat ve focení
             </Button>
+            {discardControl}
             <Button variant="outline" onClick={() => navigate("/admin")}
               className="w-full border-white/20 bg-transparent">
               Zavřít

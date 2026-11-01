@@ -14,6 +14,7 @@ let items: QueuedPhoto[] = [];
 const listeners = new Set<() => void>();
 const running = new Set<string>();
 const persisting = new Set<string>();
+const dropped = new Set<string>();
 let dbPromise: Promise<IDBDatabase> | undefined;
 const emit = () => listeners.forEach(fn => fn());
 
@@ -57,6 +58,7 @@ function change(id: string, patch: Partial<QueuedPhoto>) {
 }
 
 export async function uploadCapturePhoto(photo: QueuedPhoto) {
+  if (dropped.has(photo.id)) return;
   const processed = photo.autoProcess ? await processImage(photo.blob) : { blob: photo.blob, width: 0, height: 0 };
   const base = `${photo.sessionId}/${photo.id}_${photo.shotIndex}_${photo.shotType}`;
   const originalPath = `${base}_orig.jpg`, processedPath = `${base}_web.jpg`;
@@ -66,6 +68,7 @@ export async function uploadCapturePhoto(photo: QueuedPhoto) {
     bucket.upload(processedPath, processed.blob, { contentType: "image/jpeg", upsert: true }),
   ]);
   for (const result of results) if (result.error) throw result.error;
+  if (dropped.has(photo.id)) return;
   const { error } = await supabase.from("smart_capture_photos").upsert({
     id: photo.id, session_id: photo.sessionId, shot_type: photo.shotType, shot_index: photo.shotIndex,
     original_url: bucket.getPublicUrl(originalPath).data.publicUrl,
@@ -73,6 +76,10 @@ export async function uploadCapturePhoto(photo: QueuedPhoto) {
     width: processed.width, height: processed.height, is_main: isMainShot(photo.shotType),
   }, { onConflict: "id" });
   if (error) throw error;
+  if (dropped.has(photo.id)) {
+    await supabase.from("smart_capture_photos").delete().eq("id", photo.id);
+    return;
+  }
   // Advisory enrichment must never hold up upload or turn a saved photo into an error.
   if (photo.aiEnabled) void (async () => {
     try {
@@ -102,8 +109,11 @@ async function run(photo: QueuedPhoto) {
   running.add(photo.id);
   change(photo.id, { status: "uploading", error: undefined });
   try {
+    if (dropped.has(photo.id)) return;
     await store({ ...photo, status: "uploading" });
+    if (dropped.has(photo.id)) { await store(photo, true).catch(() => undefined); return; }
     await uploadCapturePhoto(photo);
+    if (dropped.has(photo.id)) { await store(photo, true).catch(() => undefined); return; }
     change(photo.id, { status: "done" });
     // A local cleanup error must not turn a successfully saved photo into failure.
     await store(photo, true).catch(() => undefined);
@@ -114,6 +124,7 @@ async function run(photo: QueuedPhoto) {
       change(photo.id, { preview: publicUrl, blob: new Blob() });
     }
   } catch (e) {
+    if (dropped.has(photo.id)) { await store(photo, true).catch(() => undefined); return; }
     change(photo.id, { status: "error", error: e instanceof Error ? e.message : String(e) });
     await store({ ...photo, status: "error" }).catch(() => undefined);
   } finally {
@@ -146,6 +157,18 @@ export function retryPhoto(id: string) {
 export function retrySessionPhotos(sessionId: string) {
   for (const photo of items) if (photo.sessionId === sessionId && photo.status === "error") retryPhoto(photo.id);
 }
+/** Drop queued shots for a session, or one shot type when replacing a single frame. */
+export async function discardQueuedPhotos(sessionId: string, shotType?: ShotType) {
+  const drop = items.filter(p => p.sessionId === sessionId && (!shotType || p.shotType === shotType));
+  for (const photo of drop) dropped.add(photo.id);
+  if (!drop.length) return;
+  items = items.filter(p => !drop.some(d => d.id === p.id));
+  emit();
+  await Promise.all(drop.map(async photo => {
+    if (photo.preview.startsWith("blob:")) URL.revokeObjectURL(photo.preview);
+    await store(photo, true).catch(() => undefined);
+  }));
+}
 export async function restoreQueue(sessionId: string) {
   const db = await database();
   const stored = await new Promise<StoredPhoto[]>((resolve, reject) => {
@@ -156,7 +179,9 @@ export async function restoreQueue(sessionId: string) {
   if (!user) return;
   const { data: session, error } = await supabase.from("smart_capture_sessions").select("id").eq("id", sessionId).eq("user_id", user.id).maybeSingle();
   if (error || !session) return;
-  const fresh = stored.filter(p => p.sessionId === sessionId && !items.some(i => i.id === p.id));
+  const owned = stored.filter(p => p.sessionId === sessionId);
+  await Promise.all(owned.filter(p => dropped.has(p.id)).map(p => store({ ...p, preview: "" }, true).catch(() => undefined)));
+  const fresh = owned.filter(p => !dropped.has(p.id) && !items.some(i => i.id === p.id));
   items = [...items, ...fresh.map(p => ({ ...p, status: "uploading" as const, error: undefined, preview: URL.createObjectURL(p.blob) }))];
   emit(); pump();
   return stored.filter(p => p.sessionId === sessionId);

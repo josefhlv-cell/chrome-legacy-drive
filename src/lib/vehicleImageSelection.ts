@@ -13,6 +13,8 @@ export const VEHICLE_IMAGE_PLACEHOLDER = "/vehicle-placeholder.svg";
 
 type VehicleLike = {
   /** Miniatura z Smart Capture — POUZE pro kartu v nabídce, ne pro detail. */
+  /** Admin-published showroom composite — listing card only. */
+  showroom_image_url?: string | null;
   thumbnail_url?: string | null;
   image_url?: string | null;
   vehicle_images?: Array<ShowroomImageLike & { is_main?: boolean; sort_order?: number }> | null;
@@ -37,6 +39,7 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
   const primary = sorted[0];
   const primaryShowroom = primary && primary.showroom_url ? getPublicVehicleImageUrl(primary) : "";
   const candidates = dedupeImageUrls([
+    isUsableImageUrl(vehicle.showroom_image_url) ? vehicle.showroom_image_url : null,
     primaryShowroom && primaryShowroom !== primary?.image_url ? primaryShowroom : null,
     vehicle.thumbnail_url,
     ...sorted.map((img) => img.image_url),

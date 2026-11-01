@@ -113,10 +113,6 @@ const VehicleDetail = () => {
       return value.length > 0 && !value.includes("chrysler-pardubice.cz");
     };
 
-    const showroomImage = isUsable(vehicle?.showroom_image_url)
-      ? String(vehicle.showroom_image_url).trim()
-      : "";
-
     if (vehicleImages && vehicleImages.length > 0) {
       const fromGallery = Array.from(
         new Set(
@@ -125,11 +121,9 @@ const VehicleDetail = () => {
             .filter(isUsable),
         ),
       );
-      const offerImages = Array.from(new Set([showroomImage, ...fromGallery].filter(Boolean)));
-      if (offerImages.length > 0) return offerImages;
+      if (fromGallery.length > 0) return fromGallery;
     }
 
-    if (showroomImage) return [showroomImage];
     if (isUsable(vehicle?.image_url)) return [vehicle.image_url.trim()];
     return [];
   }, [vehicleImages, vehicle]);

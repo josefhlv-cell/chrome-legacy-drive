@@ -13,14 +13,15 @@ type VehicleLike = {
   /** Miniatura z Smart Capture — POUZE pro kartu v nabídce, ne pro detail. */
   thumbnail_url?: string | null;
   image_url?: string | null;
-  vehicle_images?: Array<{ image_url?: string | null; is_main?: boolean; sort_order?: number }> | null;
+  vehicle_images?: Array<ShowroomImageLike & { is_main?: boolean; sort_order?: number }> | null;
 };
 
 /**
  * Single source of truth for "the one photo that represents a vehicle".
  *
- * Catalogue card keeps the original vehicle-photo logic. A separate showroom
- * offer image is intentionally never read here.
+ * Catalogue card: ONLY the primary photo (is_main → lowest sort_order) may be
+ * replaced by its admin-published, current-template showroom composite.
+ * Every other photo, and the detail gallery, always stay original.
  * Main image first, then lowest sort_order, then the flat `image_url` column.
  * Returns "" when nothing usable exists so callers can fall back to the placeholder.
  */
@@ -31,7 +32,10 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
     return (a.sort_order ?? 0) - (b.sort_order ?? 0);
   });
 
+  const primary = sorted[0];
+  const primaryShowroom = primary && primary.showroom_url ? getPublicVehicleImageUrl(primary) : "";
   const candidates = dedupeImageUrls([
+    primaryShowroom && primaryShowroom !== primary?.image_url ? primaryShowroom : null,
     vehicle.thumbnail_url,
     ...sorted.map((img) => img.image_url),
     vehicle.image_url,

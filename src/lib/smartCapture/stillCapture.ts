@@ -3,7 +3,8 @@ import { CAPTURE_BG_URL, composePhotoOnBackground } from "./thumbnail";
 
 const BG_PREF_KEY = "capture-show-background";
 
-function backgroundEnabled(): boolean {
+function backgroundEnabled(explicit?: boolean): boolean {
+  if (typeof explicit === "boolean") return explicit;
   try {
     return localStorage.getItem(BG_PREF_KEY) === "1";
   } catch {
@@ -66,8 +67,8 @@ export async function jpegFromSource(
   });
 }
 
-async function maybeComposeBackground(blob: Blob): Promise<Blob> {
-  if (!backgroundEnabled()) return blob;
+async function maybeComposeBackground(blob: Blob, composeBackground?: boolean): Promise<Blob> {
+  if (!backgroundEnabled(composeBackground)) return blob;
   try {
     return await composePhotoOnBackground(blob, CAPTURE_BG_URL);
   } catch {
@@ -81,27 +82,31 @@ async function maybeComposeBackground(blob: Blob): Promise<Blob> {
  * ImageCapture.takePhoto() is the sensor photo (not the letterboxed preview).
  * The video frame is only a fallback, still at videoWidth × videoHeight.
  * An untouched JPEG is returned when no mirror or leveling is required.
- * When showroom background is enabled (localStorage), the still is composed onto it.
+ * When composeBackground is true (or localStorage capture-show-background=1),
+ * the still is composed onto the showroom background and that JPEG is returned.
  */
 export async function captureFullStill(args: {
   video: HTMLVideoElement;
   stream: MediaStream;
   mirror: boolean;
   levelDegrees: number;
+  /** Explicit UI toggle — preferred over localStorage alone. */
+  composeBackground?: boolean;
 }): Promise<Blob> {
   const track = args.stream.getVideoTracks()[0];
   const capture = track && track.readyState === "live" ? imageCapture(track) : null;
   const level = Math.abs(args.levelDegrees) >= 0.8;
+  const compose = args.composeBackground;
 
   if (capture?.takePhoto) {
     try {
       const photo = await withTimeout(capture.takePhoto(), 8000);
       if (photo && photo.size > 8000) {
-        if (!args.mirror && !level) return maybeComposeBackground(photo);
+        if (!args.mirror && !level) return maybeComposeBackground(photo, compose);
         const bitmap = await createImageBitmap(photo);
         try {
           const framed = await jpegFromSource(bitmap, bitmap.width, bitmap.height, args.mirror, args.levelDegrees);
-          return maybeComposeBackground(framed);
+          return maybeComposeBackground(framed, compose);
         } finally { bitmap.close(); }
       }
     } catch { /* The preview frame is still a full video frame, not a screen crop. */ }
@@ -112,7 +117,7 @@ export async function captureFullStill(args: {
       const frame = await withTimeout(capture.grabFrame(), 4000);
       try {
         const framed = await jpegFromSource(frame, frame.width, frame.height, args.mirror, args.levelDegrees);
-        return maybeComposeBackground(framed);
+        return maybeComposeBackground(framed, compose);
       } finally { frame.close(); }
     } catch { /* video element */ }
   }
@@ -121,5 +126,5 @@ export async function captureFullStill(args: {
   const height = args.video.videoHeight;
   if (!width || !height) throw new Error("Kamera ještě nemá obraz. Zkuste spoušť znovu.");
   const framed = await jpegFromSource(args.video, width, height, args.mirror, args.levelDegrees);
-  return maybeComposeBackground(framed);
+  return maybeComposeBackground(framed, compose);
 }

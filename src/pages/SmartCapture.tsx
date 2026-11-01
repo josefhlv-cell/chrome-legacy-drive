@@ -10,7 +10,7 @@ import {
   useUpdateSession, useDeleteSessionPhoto, useSmartCaptureSettings,
 } from "@/hooks/useSmartCapture";
 import { SHOT_SEQUENCE, SHOT_LABEL_MAP, type ShotType } from "@/lib/smartCapture/types";
-import { computeBlurScore } from "@/lib/smartCapture/imageProcessing";
+import { computeBlurScore, fileToBase64 } from "@/lib/smartCapture/imageProcessing";
 import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
 import { createVoiceController, parseDictation, type VoiceCommand } from "@/lib/smartCapture/voiceControl";
 import { createHorizonController } from "@/lib/smartCapture/horizonLevel";
@@ -22,7 +22,10 @@ import { Copy, List } from "lucide-react";
 import { openCamera, findWidestRearCamera, resetCameraCache } from "@/lib/smartCapture/camera";
 import { finishCaptureSession } from "@/lib/smartCapture/finishSession";
 import { copyTextToClipboard } from "@/lib/smartCapture/clipboard";
-import { captureJpeg, watchCameraReady } from "@/lib/smartCapture/captureControls";
+import { watchCameraReady } from "@/lib/smartCapture/captureControls";
+import { captureImportMeta, isVinShot, vinFromOcr } from "@/lib/smartCapture/captureMath";
+import { captureFullStill } from "@/lib/smartCapture/stillCapture";
+import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
 
 
 
@@ -240,6 +243,9 @@ export default function SmartCapture() {
   const [dictating, setDictating] = useState(false);
 
   const [horizonAngle, setHorizonAngle] = useState(0);
+  const horizonAngleRef = useRef(0);
+  const [vinNote, setVinNote] = useState<string | null>(null);
+  const [publishing, setPublishing] = useState(false);
   const voiceRef = useRef<ReturnType<typeof createVoiceController> | null>(null);
   const horizonRef = useRef<ReturnType<typeof createHorizonController> | null>(null);
 
@@ -378,46 +384,46 @@ export default function SmartCapture() {
     if ((settings as { safe_mode?: boolean }).safe_mode) return false;
     return (settings as { ai_quality_check?: string }).ai_quality_check !== "off";
   }, [settings]);
+  const safeMode = !!(settings as { safe_mode?: boolean } | undefined)?.safe_mode;
+  const autoProcess = !safeMode && (!settings || (settings as { auto_image_processing?: string }).auto_image_processing !== "off");
+  const horizonMode = ((settings as { horizon_auto_level?: string } | undefined)?.horizon_auto_level) ?? "on";
+  const horizonBake = !safeMode && horizonEnabledSetting && horizonMode === "on";
+  const vinToolsOn = !settings
+    || (settings as { vin_scan_enabled?: string }).vin_scan_enabled !== "off"
+    || (settings as { vin_ocr?: string }).vin_ocr !== "off";
 
-  // Capture from video
-  const captureFromVideo = async (): Promise<Blob | null> => {
-    if (!videoRef.current || !stream) return null;
-    const v = videoRef.current;
-    if (!v.videoWidth || !v.videoHeight) return null;   // stream not ready yet
-    const c = document.createElement("canvas");
-    c.width = v.videoWidth; c.height = v.videoHeight;
-    const ctx = c.getContext("2d");
-    if (!ctx) return null;
-    if (facingRef.current === "user") {
-      // Front camera preview is mirrored — save what the user actually sees.
-      ctx.translate(c.width, 0);
-      ctx.scale(-1, 1);
-    }
-    ctx.drawImage(v, 0, 0);
-    return await captureJpeg(c);
+  useEffect(() => { horizonAngleRef.current = horizonAngle; }, [horizonAngle]);
+
+  const stageForReview = (blob: Blob, stepIdx: number) => {
+    if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url);
+    const preview = { blob, url: URL.createObjectURL(blob), stepIdx };
+    pendingRef.current = preview;
+    setPending(preview);
+    setPendingTip(undefined);
+    const token = ++pendingToken.current;
+    void computeBlurScore(blob).then(score => {
+      if (token === pendingToken.current && score < 35) setPendingTip("Fotka vypadá mírně rozmazaná");
+    }).catch(() => undefined);
   };
 
   const handleFilePicked = (file: File) => {
-    if (!sessionId) return;
-    void acceptPhoto(file, currentStepIdx);
+    if (!sessionId || acceptingRef.current) return;
+    stageForReview(file, currentStepIdx);
   };
 
   const handleShot = async () => {
-    if (!sessionId || busy || switching || pending || shootingRef.current || !cameraReady) return;
+    if (!sessionId || !videoRef.current || !stream || busy || switching || pending || shootingRef.current || !cameraReady) return;
     shootingRef.current = true; setShooting(true);
     try {
-      // ⚡ Mikro-blok jen na zachycení snímku z videa (~20 ms).
-      const blob = await captureFromVideo();
-      if (!blob) { toast({ title: "Nelze pořídit snímek", description: "Kamera ještě není připravená, zkuste to znovu.", variant: "destructive" }); return; }
+      const blob = await captureFullStill({
+        video: videoRef.current,
+        stream,
+        mirror: facingRef.current === "user",
+        levelDegrees: horizonBake ? horizonAngleRef.current : 0,
+      });
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
-      // Kontrola snímku — teprve „Použít fotografii“ ho uloží.
-      const preview = { blob, url: URL.createObjectURL(blob), stepIdx: currentStepIdx };
-      pendingRef.current = preview; setPending(preview); setPendingTip(undefined);
-      const token = ++pendingToken.current;
-      void computeBlurScore(blob).then(score => {
-        if (token === pendingToken.current && score < 35) setPendingTip("Fotka vypadá mírně rozmazaná");
-      }).catch(() => undefined);
+      stageForReview(blob, currentStepIdx);
     } catch (error) {
       toast({ title: "Snímek se nepodařilo pořídit", description: error instanceof Error ? error.message : "Zkuste spoušť znovu.", variant: "destructive" });
     } finally {
@@ -433,6 +439,64 @@ export default function SmartCapture() {
     else { stopCamera(); setPhase("review"); }
   };
 
+  const rememberVin = (sid: string, vin: string, decoded: Record<string, unknown>, nextInfo: VehicleInfo) => {
+    setVehicleInfo(nextInfo);
+    setVinNote(vin);
+    metadataChain.current = metadataChain.current.catch(() => undefined).then(async () => {
+      const { data, error } = await supabase.from("smart_capture_sessions").select("metadata").eq("id", sid).single();
+      if (error) throw error;
+      const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
+      const result = await supabase.from("smart_capture_sessions").update({
+        vin,
+        decoded_data: decoded,
+        metadata: { ...metadata, vehicle_info: nextInfo },
+      }).eq("id", sid);
+      if (result.error) throw result.error;
+    }).catch(() => {
+      toast({ title: "VIN je přečtené, ale nepodařilo se ho uložit", description: "Doplňte ho v údajích vozu.", variant: "destructive" });
+    });
+  };
+
+  const readVinFromPhoto = (blob: Blob, stepIdx: number, sid: string) => {
+    const shot = SHOT_SEQUENCE[stepIdx];
+    if (!shot || !isVinShot(shot.type) || !vinToolsOn) return;
+    const autofill = !settings || (settings as { vin_autofill?: string }).vin_autofill !== "off";
+    setVinNote("Čtu VIN…");
+    void (async () => {
+      try {
+        const imageBase64 = await fileToBase64(blob);
+        const ocr = await supabase.functions.invoke("smart-capture-vin-ocr", { body: { imageBase64 } });
+        if (ocr.error) throw ocr.error;
+        const vin = vinFromOcr(ocr.data as { vin?: string; confidence?: number });
+        if (!vin) {
+          setVinNote(null);
+          toast({ title: "VIN se nepodařilo přečíst", description: "Doplňte ho ručně v údajích vozu." });
+          return;
+        }
+        let decoded: Record<string, unknown> = {};
+        if (autofill) {
+          const dec = await supabase.functions.invoke("vin-decode", { body: { vin } });
+          if (!dec.error) decoded = (dec.data?.decoded ?? {}) as Record<string, unknown>;
+        }
+        const filled = captureImportMeta({ ...vehicleInfo, vin }, decoded, vin);
+        rememberVin(sid, vin, decoded, {
+          ...vehicleInfo,
+          vin,
+          brand: vehicleInfo.brand || filled.brand || "",
+          model: vehicleInfo.model || filled.model || "",
+          year: vehicleInfo.year || (filled.year ? String(filled.year) : ""),
+          fuel: vehicleInfo.fuel || filled.fuel || "",
+          transmission: vehicleInfo.transmission || filled.transmission || "",
+          power: vehicleInfo.power || filled.power || "",
+        });
+        toast({ title: "VIN přečteno", description: [vin, filled.brand, filled.model].filter(Boolean).join(" · ") });
+      } catch (error) {
+        setVinNote(null);
+        toast({ title: "Čtení VIN selhalo", description: error instanceof Error ? error.message : "Zkuste záběr VIN znovu.", variant: "destructive" });
+      }
+    })();
+  };
+
   const acceptPhoto = async (blob: Blob, stepIdx: number) => {
     if (!sessionId || acceptingRef.current) return false;
     acceptingRef.current = true; setAccepting(true);
@@ -440,7 +504,8 @@ export default function SmartCapture() {
     shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
     await enqueuePhoto({ sessionId, blob, shotType: SHOT_SEQUENCE[stepIdx].type,
       progress: advanceProgress(progressRef.current, stepIdx, false),
-      shotIndex: shotIndexRef.current++, autoProcess: settings?.auto_image_processing !== "off", aiEnabled });
+      shotIndex: shotIndexRef.current++, autoProcess, aiEnabled });
+    readVinFromPhoto(blob, stepIdx, sessionId);
     advance(stepIdx, false);
     return true;
     } catch (e) {
@@ -556,7 +621,12 @@ export default function SmartCapture() {
         }
         break;
       }
-      case "vin": break;
+      case "vin": {
+        if (pending) break;
+        const vinStep = SHOT_SEQUENCE.findIndex((step) => isVinShot(step.type));
+        if (vinStep >= 0) setCurrentStepIdx(vinStep);
+        break;
+      }
       case "done": finishToReview(); break;
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -649,6 +719,39 @@ export default function SmartCapture() {
     if (error) throw error;
     const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
     await updateSession.mutateAsync({ id: sessionId, updates: { metadata: { ...metadata, vehicle_info: vehicleInfo } } });
+  };
+
+  const handlePublishListing = async () => {
+    if (!sessionId || publishing) return;
+    if (queued.some((photo) => photo.status !== "done")) {
+      toast({ title: "Počkejte na nahrání fotek", description: "Inzerát se zakládá až z kompletní sady.", variant: "destructive" });
+      return;
+    }
+    setPublishing(true);
+    try {
+      await saveVehicleInfo();
+      const fresh = await refetchPhotos();
+      if (fresh.error) throw fresh.error;
+      const rows = fresh.data ?? photos;
+      const result = await publishCaptureListing({
+        sessionId,
+        info: vehicleInfo,
+        decoded: (session as { decoded_data?: Record<string, unknown> } | null | undefined)?.decoded_data,
+        sessionVin: (session as { vin?: string } | null | undefined)?.vin,
+        alreadyPublishedId: (session as { published_vehicle_id?: string | null } | null | undefined)?.published_vehicle_id,
+        photos: rows.map((photo) => {
+          const row = photo as { original_url?: string; processed_url?: string; is_main?: boolean; shot_type: string };
+          return { url: row.original_url || row.processed_url || "", isMain: !!row.is_main, shotType: row.shot_type };
+        }),
+      });
+      await updateSession.mutateAsync({ id: sessionId, updates: { published_vehicle_id: result.vehicleId } });
+      toast({
+        title: result.created ? "Inzerát vytvořen" : "Inzerát už z tohoto focení existuje",
+        description: result.created ? "Údaje a plné fotky jsou ve vozidlech." : "Nový se nezakládal.",
+      });
+    } catch (error) {
+      toast({ title: "Inzerát se nevytvořil", description: error instanceof Error ? error.message : String(error), variant: "destructive" });
+    } finally { setPublishing(false); }
   };
 
   const handleExportZip = async (opts?: { skipInfo?: boolean }) => {
@@ -746,7 +849,7 @@ export default function SmartCapture() {
       {phase === "capturing" && (
         <div className="absolute inset-0 bg-background overflow-hidden text-foreground">
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted autoPlay
-            style={{ transform: facing === "user" ? "scaleX(-1)" : undefined }} />
+            style={{ transform: [facing === "user" ? "scaleX(-1)" : "", horizonBake ? `rotate(${-horizonAngle}deg)` : ""].filter(Boolean).join(" ") || undefined }} />
           {dealerMode && stream && !pending && (() => {
             const guide = guideForShot(currentStep?.type, currentStep?.category);
             return <div className="pointer-events-none absolute border border-primary/70 rounded-md" style={{
@@ -754,7 +857,7 @@ export default function SmartCapture() {
               width: `${guide.width * 100}%`, height: `${guide.height * 100}%`,
             }} />;
           })()}
-          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${-horizonAngle}deg)` }} /></div>}
+          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${horizonBake ? 0 : -horizonAngle}deg)` }} /></div>}
           {gridEnabled && stream && <div className="pointer-events-none absolute inset-0">
             <div className="absolute inset-y-0 left-1/3 w-px bg-border/40" /><div className="absolute inset-y-0 left-2/3 w-px bg-border/40" />
             <div className="absolute inset-x-0 top-1/3 h-px bg-border/40" /><div className="absolute inset-x-0 top-2/3 h-px bg-border/40" />
@@ -765,6 +868,8 @@ export default function SmartCapture() {
             <div className="bg-background/85 rounded-md px-3 py-2 text-center min-w-0">
               <div className="text-sm font-semibold">{currentStepIdx + 1} / {totalSteps} · {currentStep?.label}</div>
               <div className="text-xs text-muted-foreground mt-1 max-w-sm">{currentStep?.hint}</div>
+              {safeMode && <div className="text-[11px] text-amber-700 dark:text-amber-300 mt-1">Safe mode — fotka se neupravuje</div>}
+              {vinNote && <div className="text-[11px] mt-1">{vinNote}</div>}
             </div>
             <Button size="icon" variant="secondary" onClick={copyLink} title="Zkopírovat odkaz" aria-label="Zkopírovat odkaz"><Copy /></Button>
           </div>
@@ -791,6 +896,9 @@ export default function SmartCapture() {
           {pending && <div className="absolute inset-0 z-30 bg-background flex flex-col">
             <img src={pending.url} alt="Náhled pořízené fotografie" className="w-full flex-1 min-h-0 object-contain" />
             {pendingTip && <p className="text-sm text-center px-4 py-2 text-muted-foreground">{pendingTip}</p>}
+            {isVinShot(SHOT_SEQUENCE[pending.stepIdx]?.type ?? "") && (
+              <p className="text-sm text-center px-4 pb-1 text-muted-foreground">Po potvrzení se z fotky přečte VIN a doplní se údaje inzerátu.</p>
+            )}
             <div className="flex flex-wrap justify-center gap-3 p-4 shrink-0" style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}>
               <Button variant="secondary" onClick={retakePending} disabled={accepting}><RotateCcw size={17} /> Vyfotit znovu</Button>
               <Button onClick={acceptPending} disabled={accepting} className="touch-manipulation">{accepting ? <Loader2 className="animate-spin" size={17} /> : <Check size={17} />} {accepting ? "Ukládám do telefonu…" : "Použít fotografii"}</Button>
@@ -815,6 +923,9 @@ export default function SmartCapture() {
           <div className="flex flex-col gap-3 mt-6">
             <Button onClick={handleSaveAndFinish} disabled={finishing}>
               {finishing ? <Loader2 className="animate-spin" /> : <Check />} {finishing ? "Ukládám a dokončuji…" : "Uložit a dokončit"}
+            </Button>
+            <Button variant="secondary" onClick={() => void handlePublishListing()} disabled={publishing || finishing || queued.some(p => p.status !== "done")}>
+              {publishing ? <Loader2 className="animate-spin" /> : <Sparkles />} {publishing ? "Zakládám inzerát…" : "Převést do inzerátu"}
             </Button>
             <Button onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
             <Button variant="outline" onClick={() => { setCurrentStepIdx(Math.min(19, progress.next_step)); void handleStart(); }} disabled={starting || finishing}><Camera /> Pokračovat ve focení</Button>
@@ -936,6 +1047,10 @@ export default function SmartCapture() {
 
           <div className="space-y-2 max-w-md mx-auto">
             <Button variant="outline" className="w-full" onClick={() => void saveVehicleInfo().then(() => toast({ title: "Údaje uloženy" })).catch(e => toast({ title: "Údaje se neuložily", description: String(e), variant: "destructive" }))}><Check size={16} /> Uložit údaje</Button>
+            <Button className="w-full" onClick={() => void handlePublishListing()} disabled={publishing || photos.length === 0 || queued.some(p => p.status !== "done")}>
+              {publishing ? <Loader2 className="animate-spin mr-2" size={16} /> : <Sparkles className="mr-2" size={16} />}
+              {publishing ? "Zakládám inzerát…" : "Převést údaje a fotky do inzerátu"}
+            </Button>
             {/* Diktování údajů hlasem */}
             {voiceEnabledSetting && !voiceUnsupported && (
               <Button

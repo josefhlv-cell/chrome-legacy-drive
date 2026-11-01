@@ -12,13 +12,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { buildSessionZip, downloadBlob, type ExportPhoto, type VehicleInfo } from "@/lib/smartCapture/export";
+import { captureImportMeta, type CaptureImportMeta } from "@/lib/smartCapture/captureMath";
 import type { ShotType } from "@/lib/smartCapture/types";
 import type { BufferedPhoto } from "./NewVehiclePhotoUploader";
 
 interface Props {
   open: boolean;
   onOpenChange: (v: boolean) => void;
-  onImport: (photos: BufferedPhoto[], meta: { vin?: string; brand?: string; model?: string; year?: number }) => void;
+  onImport: (photos: BufferedPhoto[], meta: CaptureImportMeta) => void;
 }
 
 type SessionRow = {
@@ -80,13 +81,9 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
           processed: true,
         });
       }
-      const decoded = (selected.decoded_data ?? {}) as { make?: string; model?: string; year?: number };
-      onImport(buffered, {
-        vin: selected.vin || undefined,
-        brand: decoded.make,
-        model: decoded.model,
-        year: decoded.year,
-      });
+      const decoded = (selected.decoded_data ?? {}) as Record<string, unknown>;
+      const info = selected.metadata?.vehicle_info ?? {};
+      onImport(buffered, captureImportMeta(info, decoded, selected.vin));
       toast({ title: `Importováno ${buffered.length} fotek` });
       onOpenChange(false);
     } catch (e) {

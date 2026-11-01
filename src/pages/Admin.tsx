@@ -848,14 +848,20 @@ const VehiclesTab = () => {
           if (v && !showNew) setShowNew(true);
         }}
         onImport={(buffered, meta) => {
-          // pokud není otevřený formulář, otevři ho
           if (!showNew) setShowNew(true);
           setNewPhotos((prev) => [...prev, ...buffered]);
           setNewData((prev) => ({
             ...prev,
             vin: prev.vin || meta.vin || "",
             name: prev.name || [meta.brand, meta.model].filter(Boolean).join(" ") || prev.name,
-            year: prev.year || meta.year || prev.year,
+            year: meta.year || prev.year,
+            mileage: prev.mileage || meta.mileage || 0,
+            price_with_vat: prev.price_with_vat || meta.price || 0,
+            fuel: meta.fuel || prev.fuel,
+            transmission: prev.transmission || meta.transmission || "",
+            power: prev.power || meta.power || "",
+            color: prev.color || meta.color || "",
+            description: prev.description || meta.description || "",
           }));
         }}
       />

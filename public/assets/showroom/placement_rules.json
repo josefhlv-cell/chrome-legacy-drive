@@ -1,14 +1,14 @@
 {
-  "version": "placement-v3",
+  "version": "placement-v4",
   "readOnly": true,
-  "note": "Calibrated to outdoor gate/asphalt background. AI never decides placement.",
+  "note": "Outdoor gate/asphalt calibration. Increased vehicle framing by approximately 20%; AI visual quality gate must approve final composite.",
   "global": {
     "align": "bottom-center",
     "anchor_x": 768,
     "wheel_line_y": 875,
     "max_rotation_deg": 1,
     "min_frame_margin_px": 24,
-    "max_car_width_ratio": 0.54,
+    "max_car_width_ratio": 0.66,
     "max_car_height_ratio": 0.4,
     "logo_safe_zone": {
       "min_x": 0,
@@ -20,7 +20,7 @@
   },
   "classes": {
     "CITY": {
-      "scale": 0.4,
+      "scale": 0.48,
       "wheelbase_ratio": 0.58,
       "ground_clearance": 0.03,
       "shadow_size": 0.9,
@@ -28,7 +28,7 @@
       "offset_y": 0
     },
     "HATCHBACK": {
-      "scale": 0.43,
+      "scale": 0.52,
       "wheelbase_ratio": 0.59,
       "ground_clearance": 0.032,
       "shadow_size": 0.92,
@@ -36,7 +36,7 @@
       "offset_y": 0
     },
     "SEDAN": {
-      "scale": 0.47,
+      "scale": 0.56,
       "wheelbase_ratio": 0.62,
       "ground_clearance": 0.03,
       "shadow_size": 1,
@@ -44,7 +44,7 @@
       "offset_y": 0
     },
     "COUPE": {
-      "scale": 0.46,
+      "scale": 0.55,
       "wheelbase_ratio": 0.61,
       "ground_clearance": 0.028,
       "shadow_size": 0.96,
@@ -52,7 +52,7 @@
       "offset_y": 0
     },
     "CABRIO": {
-      "scale": 0.46,
+      "scale": 0.55,
       "wheelbase_ratio": 0.61,
       "ground_clearance": 0.028,
       "shadow_size": 0.96,
@@ -60,7 +60,7 @@
       "offset_y": 0
     },
     "WAGON": {
-      "scale": 0.48,
+      "scale": 0.58,
       "wheelbase_ratio": 0.63,
       "ground_clearance": 0.032,
       "shadow_size": 1.02,
@@ -68,7 +68,7 @@
       "offset_y": 0
     },
     "SUV": {
-      "scale": 0.49,
+      "scale": 0.59,
       "wheelbase_ratio": 0.61,
       "ground_clearance": 0.045,
       "shadow_size": 1.05,
@@ -76,7 +76,7 @@
       "offset_y": 0
     },
     "PICKUP": {
-      "scale": 0.52,
+      "scale": 0.62,
       "wheelbase_ratio": 0.66,
       "ground_clearance": 0.05,
       "shadow_size": 1.1,
@@ -84,7 +84,7 @@
       "offset_y": 0
     },
     "VAN": {
-      "scale": 0.49,
+      "scale": 0.59,
       "wheelbase_ratio": 0.64,
       "ground_clearance": 0.04,
       "shadow_size": 1.08,

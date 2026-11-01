@@ -113,8 +113,8 @@ const VehicleDetail = () => {
       return value.length > 0 && !value.includes("chrysler-pardubice.cz");
     };
 
-    const showroomImage = isUsable((vehicle as any)?.showroom_image_url)
-      ? String((vehicle as any).showroom_image_url).trim()
+    const showroomImage = isUsable(vehicle?.showroom_image_url)
+      ? String(vehicle.showroom_image_url).trim()
       : "";
 
     if (vehicleImages && vehicleImages.length > 0) {

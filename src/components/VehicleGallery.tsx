@@ -53,7 +53,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
             key={selectedIndex}
             src={images[selectedIndex]}
             alt={`${vehicleName} - foto ${selectedIndex + 1}`}
-            className="absolute inset-0 h-full w-full object-cover object-center touch-pan-y bg-muted/30"
+            className="absolute inset-0 h-full w-full object-contain object-center touch-pan-y bg-muted/30"
             decoding="async"
             loading={selectedIndex === 0 ? "eager" : "lazy"}
             fetchPriority={selectedIndex === 0 ? "high" : "auto"}
@@ -120,7 +120,7 @@ const VehicleGallery = ({ images, vehicleName, initialIndex = 0, inventoryNumber
               <img
                 src={img}
                 alt={`${vehicleName} thumbnail ${i + 1}`}
-                className="h-12 w-16 bg-muted/40 object-cover object-center"
+                className="h-12 w-16 bg-muted/40 object-contain object-center"
                 loading="lazy"
                 decoding="async"
                 width={64}

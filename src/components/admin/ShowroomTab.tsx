@@ -13,14 +13,11 @@ import {
   Image as ImageIcon,
   Download,
   History,
-  CheckSquare,
-  Square,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { pickPrimaryImage } from "@/lib/showroomPrimary";
 const showroomBg = "/assets/showroom/master_showroom_background.webp";
 
-const SHOWROOM_LIMIT = 6;
 
 type ImgRow = {
   id: string;
@@ -130,7 +127,6 @@ export default function ShowroomTab() {
   const qc = useQueryClient();
   const { data: vehicles } = useVehicles(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checkedVehicleIds, setCheckedVehicleIds] = useState<Set<string>>(new Set());
   const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
   const [queueProgress, setQueueProgress] = useState({ done: 0, total: 0 });
@@ -268,77 +264,6 @@ export default function ShowroomTab() {
     }
   };
 
-  const bulkApply = async () => {
-    const picked = checkedVehicleIds.size > 0
-      ? (vehicles ?? []).filter((v) => checkedVehicleIds.has(v.id))
-      : (vehicles ?? []).filter((v: any) => v.showroom_mode && v.showroom_mode !== "off");
-    const list = picked.filter((v: any) => v.showroom_mode && v.showroom_mode !== "off");
-    if (list.length === 0) {
-      toast({ title: "Vyberte vozy se zapnutým showroom režimem" });
-      return;
-    }
-    setBulkBusy(true);
-    setQueueProgress({ done: 0, total: list.length });
-    try {
-      for (let i = 0; i < list.length; i += 1) {
-        const v: any = list[i];
-        // eslint-disable-next-line no-await-in-loop
-        await generateForVehicle(v.id, v.showroom_mode, true);
-        setQueueProgress({ done: i + 1, total: list.length });
-      }
-      toast({ title: `Hotovo: ${list.length} vozidel zpracováno` });
-    } finally {
-      setBulkBusy(false);
-    }
-  };
-
-  const toggleChecked = (id: string) => {
-    setCheckedVehicleIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-  };
-
-  const downloadZip = async () => {
-    if (!selected || !images?.length) return;
-    setDownloading(true);
-    try {
-      const zip = new JSZip();
-      const base = safeName((selected as any).name);
-      for (let i = 0; i < images.length; i += 1) {
-        const img = images[i];
-        const originalUrl = img.original_backup_url || img.image_url;
-        if (originalUrl) {
-          // eslint-disable-next-line no-await-in-loop
-          zip.file(`Original/${String(i + 1).padStart(2, "0")}.${fileExt(originalUrl)}`, await fetchFile(originalUrl));
-        }
-        if (img.showroom_url) {
-          // eslint-disable-next-line no-await-in-loop
-          zip.file(`Web_Showroom/${String(i + 1).padStart(2, "0")}.${fileExt(img.showroom_url)}`, await fetchFile(img.showroom_url));
-        }
-        const adUrl = img.showroom_thumb_url || img.showroom_url;
-        if (adUrl) {
-          // eslint-disable-next-line no-await-in-loop
-          zip.file(`Inzerce/${String(i + 1).padStart(2, "0")}.${fileExt(adUrl)}`, await fetchFile(adUrl));
-        }
-      }
-      const blob = await zip.generateAsync({ type: "blob" });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${base}_${new Date().toISOString().slice(0, 10)}.zip`;
-      a.click();
-      URL.revokeObjectURL(url);
-      toast({ title: "ZIP připraven ke stažení" });
-    } catch (e: any) {
-      toast({ title: "ZIP export selhal", description: e?.message, variant: "destructive" });
-    } finally {
-      setDownloading(false);
-    }
-  };
-
   const queuePct = queueProgress.total ? Math.round((queueProgress.done / queueProgress.total) * 100) : 0;
 
   return (
@@ -378,7 +303,6 @@ export default function ShowroomTab() {
           </div>
           <div className="space-y-1">
             {(vehicles ?? []).map((v: any) => {
-              const checked = checkedVehicleIds.has(v.id);
               return (
                 <div key={v.id} className={`rounded-md border transition-colors ${selectedId === v.id ? "bg-primary/10 border-primary" : "border-border hover:bg-secondary"}`}>
                   <div className="flex items-center gap-1 p-1">

@@ -264,6 +264,44 @@ export default function ShowroomTab() {
     }
   };
 
+  const downloadZip = async () => {
+    if (!selected || !images?.length) return;
+    setDownloading(true);
+    try {
+      const zip = new JSZip();
+      const base = safeName((selected as any).name);
+      for (let i = 0; i < images.length; i += 1) {
+        const img = images[i];
+        const originalUrl = img.original_backup_url || img.image_url;
+        if (originalUrl) {
+          // eslint-disable-next-line no-await-in-loop
+          zip.file(`Original/${String(i + 1).padStart(2, "0")}.${fileExt(originalUrl)}`, await fetchFile(originalUrl));
+        }
+        if (img.showroom_url) {
+          // eslint-disable-next-line no-await-in-loop
+          zip.file(`Web_Showroom/${String(i + 1).padStart(2, "0")}.${fileExt(img.showroom_url)}`, await fetchFile(img.showroom_url));
+        }
+        const adUrl = img.showroom_thumb_url || img.showroom_url;
+        if (adUrl) {
+          // eslint-disable-next-line no-await-in-loop
+          zip.file(`Inzerce/${String(i + 1).padStart(2, "0")}.${fileExt(adUrl)}`, await fetchFile(adUrl));
+        }
+      }
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${base}_${new Date().toISOString().slice(0, 10)}.zip`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast({ title: "ZIP připraven ke stažení" });
+    } catch (e: any) {
+      toast({ title: "ZIP export selhal", description: e?.message, variant: "destructive" });
+    } finally {
+      setDownloading(false);
+    }
+  };
+
   const queuePct = queueProgress.total ? Math.round((queueProgress.done / queueProgress.total) * 100) : 0;
 
   return (

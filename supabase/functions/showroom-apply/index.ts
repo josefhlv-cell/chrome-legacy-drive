@@ -31,7 +31,6 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action: "apply" | "restore" = body?.action;
     const imageId: string = body?.imageId;
-    const vehicleId: string = body?.vehicleId;
     if (!["apply", "restore"].includes(action)) return j({ error: "Bad request" }, 400);
 
 
@@ -65,7 +64,7 @@ Deno.serve(async (req) => {
         original_backup_url: backup,
         showroom_applied_at: new Date().toISOString(),
       }).eq("id", imageId);
-      if (img.is_main) await admin.from("vehicles").update({ showroom_mode: "main" }).eq("id", img.vehicle_id);
+      await admin.from("vehicles").update({ showroom_mode: "main" }).eq("id", img.vehicle_id);
       return j({ ok: true, image_url: img.showroom_url });
     }
 
@@ -76,9 +75,7 @@ Deno.serve(async (req) => {
       original_backup_url: "",
       showroom_applied_at: null,
     }).eq("id", imageId);
-    if (img.is_main) {
-      await admin.from("vehicles").update({ image_url: img.original_backup_url, showroom_mode: "off" }).eq("id", img.vehicle_id);
-    }
+    await admin.from("vehicles").update({ image_url: img.original_backup_url, showroom_mode: "off" }).eq("id", img.vehicle_id);
     return j({ ok: true, image_url: img.original_backup_url });
   } catch (e: any) {
     return j({ error: e?.message ?? "Internal" }, 500);

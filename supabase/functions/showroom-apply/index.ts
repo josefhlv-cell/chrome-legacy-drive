@@ -60,22 +60,34 @@ Deno.serve(async (req) => {
     if (action === "apply") {
       if (!img.showroom_url) return j({ error: "No showroom photo generated yet" }, 400);
       const backup = img.original_backup_url || img.image_url;
-      await admin.from("vehicle_images").update({
+      const { error: imageUpdateError } = await admin.from("vehicle_images").update({
         original_backup_url: backup,
         showroom_applied_at: new Date().toISOString(),
       }).eq("id", imageId);
-      await admin.from("vehicles").update({ showroom_mode: "main" }).eq("id", img.vehicle_id);
+      if (imageUpdateError) return j({ error: imageUpdateError.message }, 500);
+
+      const { error: vehicleUpdateError } = await admin
+        .from("vehicles").update({ showroom_mode: "main" }).eq("id", img.vehicle_id);
+      if (vehicleUpdateError) return j({ error: vehicleUpdateError.message }, 500);
+
       return j({ ok: true, image_url: img.showroom_url });
     }
 
     // restore
     if (!img.original_backup_url) return j({ error: "No backup to restore" }, 400);
-    await admin.from("vehicle_images").update({
+    const { error: restoreImageError } = await admin.from("vehicle_images").update({
       image_url: img.original_backup_url,
       original_backup_url: "",
       showroom_applied_at: null,
     }).eq("id", imageId);
-    await admin.from("vehicles").update({ image_url: img.original_backup_url, showroom_mode: "off" }).eq("id", img.vehicle_id);
+    if (restoreImageError) return j({ error: restoreImageError.message }, 500);
+
+    const { error: restoreVehicleError } = await admin
+      .from("vehicles")
+      .update({ image_url: img.original_backup_url, showroom_mode: "off" })
+      .eq("id", img.vehicle_id);
+    if (restoreVehicleError) return j({ error: restoreVehicleError.message }, 500);
+
     return j({ ok: true, image_url: img.original_backup_url });
   } catch (e: any) {
     return j({ error: e?.message ?? "Internal" }, 500);

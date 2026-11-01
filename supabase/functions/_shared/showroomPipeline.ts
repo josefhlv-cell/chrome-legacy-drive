@@ -33,7 +33,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  "https://raw.githubusercontent.com/josefhlv-cell/chrome-legacy-drive/feat/smart-capture-photo-consistency/public/assets/showroom/master_showroom_background.webp";
+  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v4.jpg`;
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
@@ -1087,71 +1087,16 @@ async function requestCutoutRemoveBg(carDataUrl: string): Promise<CutoutResult> 
 }
 
 async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
-  // Never use generative image models as a fallback: they redraw vehicle pixels
-  // and can subtly change the body, wheels, trim and camera perspective. If the
-  // true-alpha segmentation provider is unavailable, fail safely and preserve
-  // the original instead of creating a visibly inaccurate composite.
-  const rb = await requestCutoutRemoveBg(carDataUrl);
-  if (rb.ok) return rb;
-  return { ok: false, error: `${rb.error}. Generativní náhrada je záměrně vypnutá, protože mění vzhled vozidla.` };
-
-  /*for (const model of CUTOUT_MODELS) {
-    try {
-      const isOpenAI = model.startsWith("openai/");
-      const url = isOpenAI
-        ? "https://ai.gateway.lovable.dev/v1/images/generations"
-        : "https://ai.gateway.lovable.dev/v1/chat/completions";
-      const body = isOpenAI
-        ? {
-          model,
-          prompt: CUTOUT_PROMPT,
-          image: [carDataUrl],
-          size: "1536x1024",
-          n: 1,
-        }
-        : {
-          model,
-          modalities: ["image", "text"],
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: CUTOUT_PROMPT },
-              { type: "text", text: "SOURCE VEHICLE PHOTO (identity-lock the vehicle, remove only the background):" },
-              { type: "image_url", image_url: { url: carDataUrl } },
-            ],
-          }],
-        };
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Lovable-API-Key": LOVABLE_API_KEY,
-          "X-Lovable-AIG-SDK": "native-fetch",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        // 402 / 4xx on one model must not abort the chain — try the next model.
-        errors.push(`${model}: ${resp.status} ${t.slice(0, 160)}`);
-        continue;
-      }
-      const data = await resp.json();
-      const b64 = data?.data?.[0]?.b64_json;
-      const dataUrl = b64 ? `data:image/png;base64,${b64}` : extractImageDataUrl(data);
-      if (!dataUrl) {
-        errors.push(`${model}: no image in response`);
-        continue;
-      }
-      return { ok: true, dataUrl, model };
-    } catch (e: any) {
-      errors.push(`${model}: ${e?.message ?? e}`);
-    }
-  }
-  if (errors.every((e) => e.includes(": 402"))) {
-    return { ok: false, error: "AI kredity vyčerpány — doplňte kredity ve Workspace Usage" };
-  }
-  return { ok: false, error: `AI segmentation failed — ${errors.join(" | ").slice(0, 400)}` };
+  // Generative image models are intentionally not used as a fallback. They
+  // redraw the vehicle and can alter body panels, wheels, trim and perspective.
+  // A true-alpha segmentation failure must stop generation rather than save a
+  // visually inaccurate composite over the original photo.
+  const result = await requestCutoutRemoveBg(carDataUrl);
+  if (result.ok) return result;
+  return {
+    ok: false,
+    error: `${result.error}. Generativní náhrada je vypnutá, aby se nezměnil vzhled vozidla.`,
+  };
 }
 
 /** True when a cached composite was produced by the current locked template. */

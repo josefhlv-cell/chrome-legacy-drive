@@ -730,6 +730,66 @@ function validateComposite(args: {
   return { score, passed: score >= VALIDATION.minScore && checks.every((c) => c.ok || !mandatory.has(c.check)) };
 }
 
+type AiVisualReview = {
+  passed: boolean;
+  score: number;
+  car_too_small: boolean;
+  scale_multiplier: number;
+  issues: string[];
+  reason: string;
+};
+
+/** Independent vision gate; it judges the composite and never edits vehicle pixels. */
+async function reviewShowroomWithAi(sourceDataUrl: string, compositeDataUrl: string, vehicleName: string): Promise<AiVisualReview> {
+  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Authorization": "Bearer " + LOVABLE_API_KEY,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "google/gemini-2.5-flash",
+      temperature: 0,
+      max_tokens: 500,
+      messages: [{
+        role: "user",
+        content: [
+          {
+            type: "text",
+            text: "You are a strict automotive photo-compositing quality inspector. Image 1 is the untouched original vehicle photo. Image 2 is the finished showroom composite. Vehicle: " + (vehicleName || "unknown") + ". Inspect the final composite against the source. Verify: same exact vehicle and unchanged body/wheels/details; car is prominent, ideally 68-72% of frame width where perspective permits; no clipping; tyres touch asphalt with believable contact shadow; natural scale/perspective; no halos, magenta/checkerboard residue or cutout defects; clean unchanged background. Return ONLY JSON: {\"passed\":boolean,\"score\":0-100,\"car_too_small\":boolean,\"scale_multiplier\":1.0-1.18,\"issues\":[\"short issue\"],\"reason\":\"short sentence\"}. If only size is wrong, passed=false and recommend multiplier 1.08-1.18. If clipped or vehicle identity changed, passed=false and multiplier=1.0. Approve only score >=82 and no critical defects."
+          },
+          { type: "image_url", image_url: { url: sourceDataUrl, detail: "high" } },
+          { type: "image_url", image_url: { url: compositeDataUrl, detail: "high" } },
+        ],
+      }],
+    }),
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error("AI visual review failed: " + response.status + " " + body.slice(0, 180));
+  }
+  const payload = await response.json();
+  const raw = payload?.choices?.[0]?.message?.content;
+  const text = typeof raw === "string" ? raw : Array.isArray(raw)
+    ? raw.map((part: any) => part?.text ?? "").join("")
+    : "";
+  const jsonStart = text.indexOf("{");
+  const jsonEnd = text.lastIndexOf("}");
+  const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? text.slice(jsonStart, jsonEnd + 1) : "";
+  if (!jsonText) throw new Error("AI visual review returned no valid JSON");
+  const parsed = JSON.parse(jsonText);
+  const score = Math.max(0, Math.min(100, Number(parsed.score) || 0));
+  const multiplier = Math.max(1, Math.min(1.18, Number(parsed.scale_multiplier) || 1));
+  return {
+    passed: parsed.passed === true && score >= 82,
+    score,
+    car_too_small: parsed.car_too_small === true,
+    scale_multiplier: multiplier,
+    issues: Array.isArray(parsed.issues) ? parsed.issues.map((v: unknown) => String(v).slice(0, 120)).slice(0, 6) : [],
+    reason: String(parsed.reason ?? "AI visual inspection completed").slice(0, 240),
+  };
+}
+
 export type ShowroomResult =
   | {
     ok: true;
@@ -921,7 +981,7 @@ export async function runShowroom(
       const carX = Math.round(GROUND.anchorX - targetW / 2 + usedPlace.offsetX);
       const carY = Math.round(GROUND.wheelLineY + usedPlace.offsetY) - targetH;
 
-      const report = validateComposite({
+      let report = validateComposite({
         car,
         carX,
         carY,
@@ -954,6 +1014,31 @@ export async function runShowroom(
       paintFloorReflection(canvas, car, carX, carY);
       paintContactShadow(canvas, car, carX, carY, usedPlace);
       canvas.composite(car, carX, carY);
+      jpeg = await canvas.encodeJPEG(CAMERA.jpeg_quality);
+
+      const aiReview = await reviewShowroomWithAi(
+        carDataUrl,
+        toDataUrl(jpeg, "image/jpeg"),
+        String((vehicle as any)?.name ?? ""),
+      );
+      if (!aiReview.passed && aiReview.car_too_small && attempt < VALIDATION.maxAttempts && aiReview.scale_multiplier > 1.01) {
+        usedPlace = placementFromProfile(vehicleClass, {
+          ...usedPlace,
+          scale: Math.min(0.72, usedPlace.scale * aiReview.scale_multiplier),
+        });
+        await appendHistory(admin, imageId, "ai_visual_retry", "AI score " + aiReview.score + "/100 — scale correction");
+        continue;
+      }
+      report = {
+        ...report,
+        checks: [...report.checks, {
+          check: "ai_visual_quality",
+          ok: aiReview.passed,
+          detail: "score=" + aiReview.score + "/100; " + aiReview.reason + "; " + aiReview.issues.join("; "),
+        }],
+      };
+      report.score = report.checks.filter((c) => c.ok).length / report.checks.length;
+      report.passed = report.passed && aiReview.passed;
 
       validation = report;
       usedGeometry = { carX, carY, targetW, targetH };

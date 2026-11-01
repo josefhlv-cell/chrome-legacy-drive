@@ -33,7 +33,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v4.jpg`;
+  "https://raw.githubusercontent.com/josefhlv-cell/chrome-legacy-drive/feat/smart-capture-photo-consistency/public/assets/showroom/master_showroom_background.webp";
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
@@ -886,8 +886,10 @@ export async function runShowroom(
     }
     fillInteriorHoles(cutout);
     keepVehicleComponent(cutout);
-    stripGroundShadow(cutout);
-    erodeAlpha(cutout, Math.max(2, Math.round(cutout.width * 0.004)));
+    // Preserve the complete tyre/body silhouette from the real alpha mask.
+    // Ground-shadow removal and multi-pixel erosion were shaving tyre edges and
+    // underbody details, making the car look cut out and artificially floated.
+    erodeAlpha(cutout, 1);
 
     const box = alphaBounds(cutout);
     if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");
@@ -1085,15 +1087,15 @@ async function requestCutoutRemoveBg(carDataUrl: string): Promise<CutoutResult> 
 }
 
 async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
-  const errors: string[] = [];
-
-  // 1) Real segmentation first.
+  // Never use generative image models as a fallback: they redraw vehicle pixels
+  // and can subtly change the body, wheels, trim and camera perspective. If the
+  // true-alpha segmentation provider is unavailable, fail safely and preserve
+  // the original instead of creating a visibly inaccurate composite.
   const rb = await requestCutoutRemoveBg(carDataUrl);
   if (rb.ok) return rb;
-  errors.push(rb.error!);
-  console.warn("remove.bg cutout unavailable, falling back to AI segmentation:", rb.error);
+  return { ok: false, error: `${rb.error}. Generativní náhrada je záměrně vypnutá, protože mění vzhled vozidla.` };
 
-  for (const model of CUTOUT_MODELS) {
+  /*for (const model of CUTOUT_MODELS) {
     try {
       const isOpenAI = model.startsWith("openai/");
       const url = isOpenAI

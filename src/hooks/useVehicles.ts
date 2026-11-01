@@ -15,7 +15,7 @@ const UUID_REGEX =
 // Lean column set for list views — drops heavy fields like description/lpg_description/carfax_url
 // that are only needed on the detail page. Cuts JSON payload by ~70%.
 const LIST_COLUMNS =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,showroom_image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
 
 // Fallback when a vehicle has no rows in vehicle_images yet — left join variant.
 const LIST_COLUMNS_LEFT =

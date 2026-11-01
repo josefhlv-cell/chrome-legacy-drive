@@ -25,17 +25,17 @@ export type VehicleClass = "CITY" | "HATCHBACK" | "SEDAN" | "COUPE" | "CABRIO" |
 export type ClassProfile = { scale:number; wheelbase_ratio:number; ground_clearance:number; shadow_size:number; offset_x:number; offset_y:number };
 
 export const CLASS_PROFILES: Record<VehicleClass, ClassProfile> = {
- CITY:{scale:0.48,wheelbase_ratio:0.58,ground_clearance:0.030,shadow_size:0.90,offset_x:0,offset_y:0},
- HATCHBACK:{scale:0.52,wheelbase_ratio:0.59,ground_clearance:0.032,shadow_size:0.92,offset_x:0,offset_y:0},
- SEDAN:{scale:0.56,wheelbase_ratio:0.62,ground_clearance:0.030,shadow_size:1.00,offset_x:0,offset_y:0},
- COUPE:{scale:0.55,wheelbase_ratio:0.61,ground_clearance:0.028,shadow_size:0.96,offset_x:0,offset_y:0},
- CABRIO:{scale:0.55,wheelbase_ratio:0.61,ground_clearance:0.028,shadow_size:0.96,offset_x:0,offset_y:0},
- WAGON:{scale:0.58,wheelbase_ratio:0.63,ground_clearance:0.032,shadow_size:1.02,offset_x:0,offset_y:0},
- SUV:{scale:0.59,wheelbase_ratio:0.61,ground_clearance:0.045,shadow_size:1.05,offset_x:0,offset_y:0},
- PICKUP:{scale:0.62,wheelbase_ratio:0.66,ground_clearance:0.050,shadow_size:1.10,offset_x:0,offset_y:0},
- VAN:{scale:0.59,wheelbase_ratio:0.64,ground_clearance:0.040,shadow_size:1.08,offset_x:0,offset_y:0},
+ CITY:{scale:0.55,wheelbase_ratio:0.58,ground_clearance:0.030,shadow_size:0.90,offset_x:0,offset_y:0},
+ HATCHBACK:{scale:0.58,wheelbase_ratio:0.59,ground_clearance:0.032,shadow_size:0.92,offset_x:0,offset_y:0},
+ SEDAN:{scale:0.64,wheelbase_ratio:0.62,ground_clearance:0.030,shadow_size:1.00,offset_x:0,offset_y:0},
+ COUPE:{scale:0.62,wheelbase_ratio:0.61,ground_clearance:0.028,shadow_size:0.96,offset_x:0,offset_y:0},
+ CABRIO:{scale:0.62,wheelbase_ratio:0.61,ground_clearance:0.028,shadow_size:0.96,offset_x:0,offset_y:0},
+ WAGON:{scale:0.66,wheelbase_ratio:0.63,ground_clearance:0.032,shadow_size:1.02,offset_x:0,offset_y:0},
+ SUV:{scale:0.68,wheelbase_ratio:0.61,ground_clearance:0.045,shadow_size:1.05,offset_x:0,offset_y:0},
+ PICKUP:{scale:0.70,wheelbase_ratio:0.66,ground_clearance:0.050,shadow_size:1.10,offset_x:0,offset_y:0},
+ VAN:{scale:0.68,wheelbase_ratio:0.64,ground_clearance:0.040,shadow_size:1.08,offset_x:0,offset_y:0},
 };
-export const PLACEMENT_LIMITS = { maxRotationDeg:1, minFrameMarginPx:24, maxCarWidthRatio:0.66, maxCarHeightRatio:0.40 } as const;
+export const PLACEMENT_LIMITS = { maxRotationDeg:1, minFrameMarginPx:24, maxCarWidthRatio:0.72, maxCarHeightRatio:0.40 } as const;
 export const VALIDATION = { minScore:0.72, maxAttempts:2 } as const;
 export type Placement = { scale:number; offsetX:number; offsetY:number; rotationDeg:number; shadowOpacity:number; shadowBlur:number; shadowOffsetY:number };
 

@@ -17,9 +17,13 @@ type VehicleLike = {
 };
 
 /**
- * The public catalogue uses the showroom composite ONLY for the first/main
- * photo after an admin explicitly publishes it. All other gallery images stay
- * original. The vehicle detail page intentionally continues to use image_url.
+ * Single source of truth for "the one photo that represents a vehicle".
+ *
+ * Catalogue card: ONLY the primary photo (is_main → lowest sort_order) may be
+ * replaced by its admin-published, current-template showroom composite.
+ * Every other photo, and the detail gallery, always stay original.
+ * Main image first, then lowest sort_order, then the flat `image_url` column.
+ * Returns "" when nothing usable exists so callers can fall back to the placeholder.
  */
 export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): string => {
   if (!vehicle) return "";
@@ -28,14 +32,12 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
     return (a.sort_order ?? 0) - (b.sort_order ?? 0);
   });
 
-  const first = sorted[0];
-  const firstUrl = first
-    ? getPublicVehicleImageUrl(first)
-    : vehicle.image_url || "";
-
+  const primary = sorted[0];
+  const primaryShowroom = primary && primary.showroom_url ? getPublicVehicleImageUrl(primary) : "";
   const candidates = dedupeImageUrls([
-    firstUrl,
+    primaryShowroom && primaryShowroom !== primary?.image_url ? primaryShowroom : null,
     vehicle.thumbnail_url,
+    ...sorted.map((img) => img.image_url),
     vehicle.image_url,
   ]).filter(isUsableImageUrl);
 

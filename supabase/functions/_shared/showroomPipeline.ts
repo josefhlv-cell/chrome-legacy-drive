@@ -762,6 +762,24 @@ export async function runShowroom(
     .maybeSingle();
   if (imgErr || !img) return { ok: false, error: "Image not found", status: 404 };
 
+  // Showroom is intentionally limited to the vehicle's first/title photo.
+  // Prefer an explicit is_main flag; if legacy data has none, use the first
+  // image by sort_order and id. This guard also protects direct edge-function
+  // calls and background jobs from processing gallery/detail photos.
+  const { data: primaryImage, error: primaryError } = await admin
+    .from("vehicle_images")
+    .select("id")
+    .eq("vehicle_id", (img as any).vehicle_id)
+    .order("is_main", { ascending: false })
+    .order("sort_order", { ascending: true })
+    .order("id", { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (primaryError) return { ok: false, error: `Unable to determine the vehicle's first photo: ${primaryError.message}`, status: 500 };
+  if (!primaryImage || primaryImage.id !== imageId) {
+    return { ok: false, error: "Showroom lze generovat pouze pro první (titulní) fotografii vozidla.", status: 400 };
+  }
+
   // CACHE + AUTOMATIC INVALIDATION.
   // A cached composite is reused only when it was produced by the CURRENT
   // template (background / camera / placement / lighting). Anything older is

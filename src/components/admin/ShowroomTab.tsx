@@ -14,6 +14,7 @@ import {
   History,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { pickPrimaryImage } from "@/lib/showroomPrimary";
 const showroomBg = "/assets/showroom/master_showroom_background.webp";
 
 type ImgRow = {
@@ -138,7 +139,7 @@ export default function ShowroomTab() {
 
   const selectedMain = useMemo(() => {
     const list = images ?? [];
-    return list.find((img) => img.is_main) ?? list[0] ?? null;
+    return pickPrimaryImage(list);
   }, [images]);
 
 

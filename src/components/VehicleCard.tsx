@@ -45,7 +45,7 @@ const VehicleCard = ({ vehicle, index = 0 }: VehicleCardProps) => {
             <img
               src={cardImageUrl}
               alt={vehicle.name}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-contain"
               loading={isPriority ? "eager" : "lazy"}
               fetchPriority={isPriority ? "high" : "auto"}
               decoding="async"

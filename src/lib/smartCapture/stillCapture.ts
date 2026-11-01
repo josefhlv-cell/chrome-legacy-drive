@@ -1,5 +1,5 @@
 import { inscribedSize } from "./captureMath";
-import { CAPTURE_BG_URL, composePhotoOnBackground } from "./thumbnail";
+import { plantVehicleOnShowroom } from "./showroomPlant";
 
 const BG_PREF_KEY = "capture-show-background";
 
@@ -67,12 +67,16 @@ export async function jpegFromSource(
   });
 }
 
+/**
+ * Jen když je pozadí zapnuté: AI výřez vozu + zasazení na showroom.
+ * Při vypnutém pozadí vrací původní snímek beze změny.
+ */
 async function maybeComposeBackground(blob: Blob, composeBackground?: boolean): Promise<Blob> {
   if (!backgroundEnabled(composeBackground)) return blob;
   try {
-    return await composePhotoOnBackground(blob, CAPTURE_BG_URL);
+    return await plantVehicleOnShowroom(blob, { dealerMode: true });
   } catch {
-    // Snímek bez pozadí je lepší než ztráta foťáku.
+    // Snímek bez úpravy je lepší než ztráta foťáku.
     return blob;
   }
 }
@@ -81,9 +85,8 @@ async function maybeComposeBackground(blob: Blob, composeBackground?: boolean): 
  * Full camera still.
  * ImageCapture.takePhoto() is the sensor photo (not the letterboxed preview).
  * The video frame is only a fallback, still at videoWidth × videoHeight.
- * An untouched JPEG is returned when no mirror or leveling is required.
  * When composeBackground is true (or localStorage capture-show-background=1),
- * the still is composed onto the showroom background and that JPEG is returned.
+ * the vehicle is cut out (Remove.bg) and planted on the showroom background.
  */
 export async function captureFullStill(args: {
   video: HTMLVideoElement;

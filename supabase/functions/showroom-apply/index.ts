@@ -29,27 +29,11 @@ Deno.serve(async (req) => {
     if (!role) return j({ error: "Forbidden" }, 403);
 
     const body = await req.json().catch(() => ({}));
-    const action: "apply" | "restore" | "restore_vehicle" = body?.action;
+    const action: "apply" | "restore" = body?.action;
     const imageId: string = body?.imageId;
     const vehicleId: string = body?.vehicleId;
-    if (!["apply", "restore", "restore_vehicle"].includes(action)) return j({ error: "Bad request" }, 400);
+    if (!["apply", "restore"].includes(action)) return j({ error: "Bad request" }, 400);
 
-    if (action === "restore_vehicle") {
-      if (!vehicleId) return j({ error: "vehicleId required" }, 400);
-      const { data: rows } = await admin.from("vehicle_images")
-        .select("id, image_url, original_backup_url, is_main")
-        .eq("vehicle_id", vehicleId);
-      for (const row of rows ?? []) {
-        const restoredUrl = row.original_backup_url || row.image_url;
-        await admin.from("vehicle_images").update({
-          image_url: restoredUrl,
-          original_backup_url: "",
-          showroom_applied_at: null,
-        }).eq("id", row.id);
-        if (row.is_main) await admin.from("vehicles").update({ image_url: restoredUrl, showroom_mode: "off" }).eq("id", vehicleId);
-      }
-      return j({ ok: true, restored: rows?.length ?? 0 });
-    }
 
     if (!imageId) return j({ error: "imageId required" }, 400);
 
@@ -57,6 +41,22 @@ Deno.serve(async (req) => {
       .select("id, vehicle_id, image_url, showroom_url, original_backup_url, is_main")
       .eq("id", imageId).maybeSingle();
     if (!img) return j({ error: "Not found" }, 404);
+
+    // Publishing/restoring is allowed only for the first photo. This mirrors
+    // the generation guard and keeps every secondary gallery image untouched.
+    const { data: primaryImage, error: primaryError } = await admin
+      .from("vehicle_images")
+      .select("id")
+      .eq("vehicle_id", img.vehicle_id)
+      .order("is_main", { ascending: false })
+      .order("sort_order", { ascending: true })
+      .order("id", { ascending: true })
+      .limit(1)
+      .maybeSingle();
+    if (primaryError) return j({ error: primaryError.message }, 500);
+    if (!primaryImage || primaryImage.id !== imageId) {
+      return j({ error: "Showroom lze zapnout nebo obnovit pouze u první (titulní) fotografie vozidla." }, 400);
+    }
 
     if (action === "apply") {
       if (!img.showroom_url) return j({ error: "No showroom photo generated yet" }, 400);

@@ -317,6 +317,9 @@ const VehiclesTab = () => {
   const [newPhotos, setNewPhotos] = useState<BufferedPhoto[]>([]);
   const [newShowroomPhoto, setNewShowroomPhoto] = useState<File | null>(null);
   const [newShowroomPreview, setNewShowroomPreview] = useState<string | null>(null);
+  const [editShowroomPhoto, setEditShowroomPhoto] = useState<File | null>(null);
+  const [editShowroomPreview, setEditShowroomPreview] = useState<string | null>(null);
+  const [editShowroomBusy, setEditShowroomBusy] = useState(false);
   const [showSmartDashboard, setShowSmartDashboard] = useState(false);
   const [qrVehicleId, setQrVehicleId] = useState<string | null>(null);
   const [printVehicleId, setPrintVehicleId] = useState<string | null>(null);
@@ -434,14 +437,38 @@ const VehiclesTab = () => {
 
   const startEdit = (v: DbVehicle) => {
     setEditingId(v.id);
+    setEditShowroomPhoto(null);
+    setEditShowroomPreview((v as any).showroom_image_url || null);
     setEditData({ name: v.name, year: v.year, price_with_vat: v.price_with_vat, mileage: v.mileage, vin: v.vin, fuel: v.fuel, image_url: v.image_url, engine: v.engine, transmission: v.transmission, power: v.power, color: v.color, description: v.description, carfax_url: v.carfax_url, lpg_description: v.lpg_description, video_id: v.video_id, inventory_number: (v as any).inventory_number || "", showroom_mode: (v as any).showroom_mode || "off", ar_color_hex: (v as any).ar_color_hex || "", model_3d_glb: (v as any).model_3d_glb || "", model_3d_usdz: (v as any).model_3d_usdz || "" } as any);
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingId) return;
-    updateVehicle.mutate({ id: editingId, updates: editData }, {
-      onSuccess: () => { setEditingId(null); toast({ title: "Uloženo" }); },
-    });
+    setEditShowroomBusy(true);
+    try {
+      let updates: TablesUpdate<"vehicles"> = { ...editData };
+      if (editShowroomPhoto) {
+        const extension = editShowroomPhoto.type === "image/png" ? "png" : editShowroomPhoto.type === "image/webp" ? "webp" : "jpg";
+        const path = `${editingId}_showroom_${Date.now()}.${extension}`;
+        const { error: uploadError } = await supabase.storage.from("vehicles").upload(path, editShowroomPhoto, { upsert: true, contentType: editShowroomPhoto.type });
+        if (uploadError) throw uploadError;
+        const { data: publicData } = supabase.storage.from("vehicles").getPublicUrl(path);
+        updates = { ...updates, showroom_image_url: publicData.publicUrl } as TablesUpdate<"vehicles">;
+      }
+      updateVehicle.mutate({ id: editingId, updates }, {
+        onSuccess: () => {
+          setEditingId(null);
+          setEditShowroomPhoto(null);
+          setEditShowroomPreview(null);
+          toast({ title: "Uloženo", description: editShowroomPhoto ? "Showroom fotografie byla aktualizována." : undefined });
+        },
+        onError: (error: any) => toast({ title: "Uložení selhalo", description: error?.message || "Nepodařilo se uložit změny.", variant: "destructive" }),
+      });
+    } catch (error: any) {
+      toast({ title: "Showroom fotografii se nepodařilo nahrát", description: error?.message || "Neznámá chyba", variant: "destructive" });
+    } finally {
+      setEditShowroomBusy(false);
+    }
   };
 
   const handleCreate = () => {
@@ -1309,6 +1336,46 @@ const VehiclesTab = () => {
                     <InputField label="Carfax URL" value={editData.carfax_url || ""} onChange={(v) => setEditData({ ...editData, carfax_url: v })} />
                     <InputField label="LPG popis" value={editData.lpg_description || ""} onChange={(v) => setEditData({ ...editData, lpg_description: v })} />
                     <InputField label="Video ID" value={editData.video_id || ""} onChange={(v) => setEditData({ ...editData, video_id: v })} />
+                    <div className="sm:col-span-2 lg:col-span-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div className="flex items-start gap-2">
+                          <ImagePlus className="w-5 h-5 text-primary mt-0.5" />
+                          <div>
+                            <p className="text-xs font-semibold text-foreground uppercase tracking-wider">Samostatná showroom fotografie</p>
+                            <p className="text-xs text-muted-foreground mt-1">Platí pouze pro hlavní fotografii v detailu nabídky. Karta vozu a běžná galerie zůstávají beze změny.</p>
+                          </div>
+                        </div>
+                        <label className="chrome-button inline-flex items-center gap-2 text-xs cursor-pointer">
+                          <Upload className="w-3.5 h-3.5" /> {editShowroomPhoto || editShowroomPreview ? "Změnit showroom foto" : "Vybrat showroom foto"}
+                          <input type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={(e) => {
+                            const file = e.target.files?.[0] ?? null;
+                            e.currentTarget.value = "";
+                            if (!file) return;
+                            if (!["image/jpeg", "image/png", "image/webp"].includes(file.type) || file.size > 25 * 1024 * 1024) {
+                              toast({ title: "Neplatný soubor", description: "Použij JPG, PNG nebo WebP do 25 MB.", variant: "destructive" });
+                              return;
+                            }
+                            if (editShowroomPreview?.startsWith("blob:")) URL.revokeObjectURL(editShowroomPreview);
+                            setEditShowroomPhoto(file);
+                            setEditShowroomPreview(URL.createObjectURL(file));
+                          }} />
+                        </label>
+                      </div>
+                      {editShowroomPreview && (
+                        <div className="mt-3 flex items-center gap-3">
+                          <img src={editShowroomPreview} alt="Náhled showroom fotografie" className="h-24 w-36 rounded-lg border border-border object-cover bg-background" />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs text-muted-foreground">{editShowroomPhoto?.name || "Aktuální showroom fotografie"}</p>
+                            {editShowroomPhoto && <button type="button" onClick={() => {
+                              if (editShowroomPreview.startsWith("blob:")) URL.revokeObjectURL(editShowroomPreview);
+                              setEditShowroomPhoto(null);
+                              const current = (vehicles?.find((v) => v.id === vehicle.id) as any)?.showroom_image_url || null;
+                              setEditShowroomPreview(current);
+                            }} className="mt-2 text-xs text-destructive hover:underline">Vrátit původní fotografii</button>}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                     <div className="sm:col-span-2 lg:col-span-3 rounded-md border border-border bg-secondary/30 p-3 flex flex-wrap items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
                         <Sparkles className="w-4 h-4 text-primary" />
@@ -1373,8 +1440,8 @@ const VehiclesTab = () => {
                       onChange={(patch) => setEditData({ ...editData, ...patch } as any)}
                     />
                     <div className="sm:col-span-2 lg:col-span-3 flex gap-3">
-                      <button onClick={saveEdit} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> Uložit</button>
-                      <button onClick={() => setEditingId(null)} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
+                      <button onClick={saveEdit} disabled={editShowroomBusy || updateVehicle.isPending} className="chrome-button inline-flex items-center gap-2 text-sm"><Save className="w-4 h-4" /> {editShowroomBusy ? "Nahrávám..." : "Uložit"}</button>
+                      <button onClick={() => { if (editShowroomPreview?.startsWith("blob:")) URL.revokeObjectURL(editShowroomPreview); setEditShowroomPhoto(null); setEditShowroomPreview(null); setEditingId(null); }} className="outline-button inline-flex items-center gap-2 text-sm"><X className="w-4 h-4" /> Zrušit</button>
                     </div>
                   </motion.div>
                 )}

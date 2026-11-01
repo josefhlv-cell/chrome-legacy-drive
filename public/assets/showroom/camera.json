@@ -1,11 +1,11 @@
 {
-  "version": "camera-v1",
+  "version": "camera-v2",
   "readOnly": true,
-  "note": "Locked virtual camera of the master showroom. NEVER regenerate or edit \u2014 every vehicle composite must use exactly these values.",
+  "note": "Calibrated for the new outdoor sliding-gate and asphalt background.",
   "canvas": {
-    "width": 1920,
-    "height": 1080,
-    "aspect": "16:9"
+    "width": 1536,
+    "height": 968,
+    "aspect": "1536:968"
   },
   "sensor": {
     "type": "full-frame",
@@ -29,8 +29,8 @@
   },
   "perspective": {
     "type": "linear",
-    "vanishing_point_x": 960,
-    "horizon_y": 640
+    "vanishing_point_x": 768,
+    "horizon_y": 595
   },
   "output": {
     "encoding": "jpeg",

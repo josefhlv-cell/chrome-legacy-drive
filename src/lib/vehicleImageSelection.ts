@@ -1,4 +1,4 @@
-import type { ShowroomImageLike } from "@/lib/showroomImage";
+import { getPublicVehicleImageUrl, type ShowroomImageLike } from "@/lib/showroomImage";
 
 export const dedupeImageUrls = (urls: Array<string | null | undefined>) =>
   Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
@@ -19,9 +19,9 @@ type VehicleLike = {
 /**
  * Single source of truth for "the one photo that represents a vehicle".
  *
- * IMPORTANT: the public catalogue uses the ORIGINAL vehicle image_url.
- * Do not substitute showroom_url here; showroom composites can contain
- * unrelated visual layers and are intended for the admin showroom workflow.
+ * Catalogue card: ONLY the primary photo (is_main → lowest sort_order) may be
+ * replaced by its admin-published, current-template showroom composite.
+ * Every other photo, and the detail gallery, always stay original.
  * Main image first, then lowest sort_order, then the flat `image_url` column.
  * Returns "" when nothing usable exists so callers can fall back to the placeholder.
  */
@@ -32,7 +32,10 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
     return (a.sort_order ?? 0) - (b.sort_order ?? 0);
   });
 
+  const primary = sorted[0];
+  const primaryShowroom = primary && primary.showroom_url ? getPublicVehicleImageUrl(primary) : "";
   const candidates = dedupeImageUrls([
+    primaryShowroom && primaryShowroom !== primary?.image_url ? primaryShowroom : null,
     vehicle.thumbnail_url,
     ...sorted.map((img) => img.image_url),
     vehicle.image_url,

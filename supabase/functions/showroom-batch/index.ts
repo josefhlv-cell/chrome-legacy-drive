@@ -3,7 +3,7 @@
 // It regenerates composites but NEVER publishes them (showroom_applied_at
 // is left untouched), so nothing changes on the public site.
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
-import { createAdminClient, runShowroom, isCurrentTemplate, type AdminClient } from "../_shared/showroomPipeline.ts";
+import { createAdminClient, type AdminClient } from "../_shared/showroomPipeline.ts";
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -52,38 +52,10 @@ Deno.serve(async (req) => {
     if (adminOrResponse instanceof Response) return adminOrResponse;
     const admin = adminOrResponse;
 
-    const body = await req.json().catch(() => ({}));
-    let imageIds: string[] = Array.isArray(body?.imageIds)
-      ? body.imageIds.filter((v: unknown) => typeof v === "string").slice(0, 5)
-      : [];
-
-    // mode "stale": automatically pick main photos whose composite was produced
-    // by an older showroom template version and regenerate them.
-    if (body?.mode === "stale") {
-      const limit = Math.min(Number(body?.limit) || 3, 5);
-      const { data: rows } = await admin
-        .from("vehicle_images")
-        .select("id, showroom_metadata, showroom_status, showroom_url")
-        .eq("is_main", true)
-        .order("created_at", { ascending: true });
-      imageIds = (rows ?? [])
-        .filter((r: any) => !r.showroom_url || r.showroom_status !== "done" || !isCurrentTemplate(r.showroom_metadata))
-        .slice(0, limit)
-        .map((r: any) => r.id);
-      if (imageIds.length === 0) return json({ ok: true, processed: 0, remaining: 0, results: [] });
-    }
-    // Existing approved composites are protected by default. Regeneration is
-    // destructive and therefore requires an explicit admin request.
-    const force = body?.force === true;
-    if (imageIds.length === 0) return json({ error: "imageIds required" }, 400);
-
-    const results: Array<Record<string, unknown>> = [];
-    for (const id of imageIds) {
-      const r = await runShowroom(admin, id, force || body?.mode === "stale");
-      results.push({ imageId: id, ...r });
-    }
-
-    return json({ ok: true, processed: results.length, results });
+    // Bulk / automatic regeneration is intentionally disabled: showroom is
+    // generated only manually, one primary photo at a time, via showroom-generate.
+    void admin;
+    return json({ ok: true, disabled: true, processed: 0, results: [], message: "Hromadné generování showroomu je vypnuto. Použijte showroom-generate pro titulní fotografii." });
   } catch (e: any) {
     console.error("showroom-batch fatal:", e);
     return json({ error: e?.message ?? "Internal error" }, 500);

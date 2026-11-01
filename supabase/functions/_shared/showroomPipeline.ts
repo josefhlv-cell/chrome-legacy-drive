@@ -83,9 +83,14 @@ async function appendHistory(admin: AdminClient, imageId: string, event: string,
   await admin.from("vehicle_images").update({ showroom_history: next }).eq("id", imageId);
 }
 
-async function fetchBytes(url: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+async function fetchBytes(url: string, label = "image"): Promise<{ bytes: Uint8Array; contentType: string }> {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`Fetch ${url} → ${r.status}`);
+  if (!r.ok) {
+    const body = (await r.text().catch(() => "")).slice(0, 200);
+    let detail = body;
+    try { const j = JSON.parse(body); detail = [j.error, j.message].filter(Boolean).join(": ") || body; } catch { /* plain text */ }
+    throw new Error(`${label}: HTTP ${r.status}${detail ? ` (${detail})` : ""} — ${url}`);
+  }
   const contentType = r.headers.get("content-type") || "image/jpeg";
   if (!contentType.startsWith("image/")) throw new Error(`Invalid image type: ${contentType}`);
   const bytes = new Uint8Array(await r.arrayBuffer());
@@ -762,6 +767,21 @@ export async function runShowroom(
     .maybeSingle();
   if (imgErr || !img) return { ok: false, error: "Image not found", status: 404 };
 
+  // GUARD: only the vehicle's primary photo (is_main → lowest sort_order → id)
+  // may get a showroom composite. All other photos stay original.
+  const { data: siblings } = await admin
+    .from("vehicle_images")
+    .select("id, is_main, sort_order")
+    .eq("vehicle_id", (img as any).vehicle_id);
+  const primaryId = [...(siblings ?? [])].sort((a: any, b: any) => {
+    if (Boolean(a.is_main) !== Boolean(b.is_main)) return Number(Boolean(b.is_main)) - Number(Boolean(a.is_main));
+    const so = (a.sort_order ?? 0) - (b.sort_order ?? 0);
+    return so !== 0 ? so : String(a.id).localeCompare(String(b.id));
+  })[0]?.id;
+  if (primaryId !== imageId) {
+    return { ok: false, error: "Showroom lze generovat pouze pro titulní (první) fotografii vozu.", status: 409 };
+  }
+
   // CACHE + AUTOMATIC INVALIDATION.
   // A cached composite is reused only when it was produced by the CURRENT
   // template (background / camera / placement / lighting). Anything older is
@@ -833,7 +853,10 @@ export async function runShowroom(
   let bgBytes: Uint8Array;
   let carDataUrl: string;
   try {
-    const [bg, car] = await Promise.all([fetchBytes(BACKGROUND_URL), fetchBytes(sourceUrl)]);
+    const [bg, car] = await Promise.all([
+      fetchBytes(BACKGROUND_URL, "Showroom pozadí (vehicles/showroom/_assets/background-v4.jpg) nelze načíst"),
+      fetchBytes(sourceUrl, "Originální fotografii vozu nelze načíst"),
+    ]);
     bgBytes = bg.bytes;
     carDataUrl = toDataUrl(car.bytes, car.contentType);
   } catch (e: any) {

@@ -26,7 +26,7 @@ const SpareParts = lazy(() => import("./pages/SpareParts.tsx"));
 const Admin = lazy(() => import("./pages/Admin.tsx"));
 const AdminExports = lazy(() => import("./pages/AdminExports.tsx"));
 const AdminTipCars = lazy(() => import("./pages/AdminTipCars.tsx"));
-const SmartCapture = lazy(() => import("./pages/SmartCapture.tsx"));
+const SmartCapture = lazy(() => import("./pages/SmartCaptureEntry.tsx"));
 const AdminModelGenerator = lazy(() => import("./pages/AdminModelGenerator.tsx"));
 const NotFound = lazy(() => import("./pages/NotFound.tsx"));
 const PrivacyPolicy = lazy(() => import("./pages/PrivacyPolicy"));

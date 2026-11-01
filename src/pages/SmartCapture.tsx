@@ -26,6 +26,19 @@ import { watchCameraReady } from "@/lib/smartCapture/captureControls";
 import { captureImportMeta, isVinShot, vinFromOcr } from "@/lib/smartCapture/captureMath";
 import { captureFullStill } from "@/lib/smartCapture/stillCapture";
 import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
+import { CAPTURE_BG_URL } from "@/lib/smartCapture/thumbnail";
+
+const SHOWROOM_BG = "/assets/showroom/master_showroom_background.webp";
+const BG_PREF_KEY = "capture-show-background";
+
+function readBgPref(): boolean | null {
+  try {
+    const value = localStorage.getItem(BG_PREF_KEY);
+    if (value === "1") return true;
+    if (value === "0") return false;
+  } catch { /* Private mode has no storage. */ }
+  return null;
+}
 
 
 
@@ -208,12 +221,22 @@ export default function SmartCapture() {
     return (settings as { grid_overlay?: string }).grid_overlay !== "off";
   }, [settings]);
   /**
-   * Miniatura na přednastaveném pozadí (vypínatelné v nastavení Smart Capture).
-   * "off"     = úplně vypnuto
-   * "suggest" = pozadí se jen zobrazí v hledáčku jako vodítko (nic se neskládá)
-   * "on"      = navíc se z prvního záběru automaticky složí miniatura
+   * Pozadí v hledáčku. Zapnutí je na telefonu a uloží se do zařízení,
+   * takže se při dalším focení ukáže hned — bez čekání na fotku.
+   * Nastavení "on" / "suggest" ho zapne, dokud si ho uživatel sám nevypne.
    */
-  const thumbOverlayEnabled = false;
+  const [showBackground, setShowBackground] = useState(() => readBgPref() === true);
+  const [bgSrc, setBgSrc] = useState(CAPTURE_BG_URL);
+  useEffect(() => {
+    if (readBgPref() !== null || !settings) return;
+    const mode = (settings as { thumbnail_background?: string }).thumbnail_background;
+    if (mode === "on" || mode === "suggest") setShowBackground(true);
+  }, [settings]);
+  useEffect(() => {
+    const preload = new Image();
+    preload.src = CAPTURE_BG_URL;
+  }, []);
+  const thumbOverlayEnabled = showBackground;
   /** Dealer Mode — jednotné měřítko a kompozice u všech vozidel (default OFF). */
   const dealerMode = useMemo(() => !!(settings as { dealer_mode?: boolean })?.dealer_mode, [settings]);
 
@@ -861,6 +884,23 @@ export default function SmartCapture() {
 
   // === RENDER ===
 
+  const toggleBackground = () => {
+    setShowBackground((on) => {
+      const next = !on;
+      try { localStorage.setItem(BG_PREF_KEY, next ? "1" : "0"); } catch { /* Preference stays for this visit. */ }
+      return next;
+    });
+  };
+
+  const backgroundPreview = showBackground ? (
+    <img
+      src={bgSrc}
+      alt="Pozadí showroomu"
+      className="w-full rounded-lg object-cover max-h-52"
+      onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }}
+    />
+  ) : null;
+
   if (authLoading || isAdmin === null) {
     return <div className="min-h-screen bg-black flex items-center justify-center text-white">
       <Loader2 className="animate-spin" />
@@ -946,6 +986,18 @@ export default function SmartCapture() {
             <Button size="lg" onClick={handleStart} disabled={starting}>
               {starting ? <Loader2 className="animate-spin" /> : <Camera />} Nové focení
             </Button>
+            <div className="mt-6 max-w-md rounded-xl border border-border p-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <div className="font-medium">Pozadí v hledáčku</div>
+                  <p className="text-xs text-muted-foreground">Po zapnutí se showroom ukáže hned, ještě před vyfocením.</p>
+                </div>
+                <Button variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
+                  <ImageIcon /> {showBackground ? "Zapnuto" : "Zapnout"}
+                </Button>
+              </div>
+              {backgroundPreview && <div className="mt-3">{backgroundPreview}</div>}
+            </div>
             {!mobile && <section className="mt-8">
               <h2 className="text-lg mb-3">Relace</h2>
               {sessions.length === 0 && <p className="text-muted-foreground">Zatím žádné relace</p>}
@@ -968,15 +1020,24 @@ export default function SmartCapture() {
         <div className="absolute inset-0 bg-background overflow-hidden text-foreground">
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted autoPlay
             style={{ transform: [facing === "user" ? "scaleX(-1)" : "", horizonBake ? `rotate(${-horizonAngle}deg)` : ""].filter(Boolean).join(" ") || undefined }} />
+          {showBackground && (
+            <img
+              src={bgSrc}
+              alt=""
+              className="pointer-events-none absolute inset-0 z-[5] h-full w-full object-contain"
+              style={{ opacity: stream && !pending ? 0.58 : 0.92 }}
+              onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }}
+            />
+          )}
           {dealerMode && stream && !pending && (() => {
             const guide = guideForShot(currentStep?.type, currentStep?.category);
-            return <div className="pointer-events-none absolute border border-primary/70 rounded-md" style={{
+            return <div className="pointer-events-none absolute z-[6] border border-primary/70 rounded-md" style={{
               left: `${(guide.centerX - guide.width / 2) * 100}%`, top: `${(guide.centerY - guide.height / 2) * 100}%`,
               width: `${guide.width * 100}%`, height: `${guide.height * 100}%`,
             }} />;
           })()}
-          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${horizonBake ? 0 : -horizonAngle}deg)` }} /></div>}
-          {gridEnabled && stream && <div className="pointer-events-none absolute inset-0">
+          {horizonEnabledSetting && stream && <div className="pointer-events-none absolute inset-0 z-[6] flex items-center justify-center"><div className="w-32 h-px bg-primary/70" style={{ transform: `rotate(${horizonBake ? 0 : -horizonAngle}deg)` }} /></div>}
+          {gridEnabled && stream && <div className="pointer-events-none absolute inset-0 z-[6]">
             <div className="absolute inset-y-0 left-1/3 w-px bg-border/40" /><div className="absolute inset-y-0 left-2/3 w-px bg-border/40" />
             <div className="absolute inset-x-0 top-1/3 h-px bg-border/40" /><div className="absolute inset-x-0 top-2/3 h-px bg-border/40" />
           </div>}
@@ -990,6 +1051,12 @@ export default function SmartCapture() {
               {vinNote && <div className="text-[11px] mt-1">{vinNote}</div>}
             </div>
             <Button size="icon" variant="secondary" onClick={copyLink} title="Zkopírovat odkaz" aria-label="Zkopírovat odkaz"><Copy /></Button>
+          </div>
+          <div className={`absolute z-20 ${landscapeMode ? "left-3 top-24" : "top-20 inset-x-0"} flex justify-center`}
+            style={landscapeMode ? undefined : { top: "max(5rem, calc(env(safe-area-inset-top) + 4.25rem))" }}>
+            <Button size="sm" variant={showBackground ? "default" : "secondary"} onClick={toggleBackground} className="touch-manipulation shadow-md">
+              <ImageIcon size={14} /> {showBackground ? "Pozadí zapnuto" : "Zapnout pozadí"}
+            </Button>
           </div>
           {progressError && <Button variant="secondary" size="sm" className="absolute top-24 left-3 z-20" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
           {!stream && !cameraError && <div className="absolute inset-0 flex items-center justify-center"><Loader2 className="animate-spin" /></div>}
@@ -1035,6 +1102,18 @@ export default function SmartCapture() {
         <div className="flex-1 overflow-y-auto p-4 bg-background text-foreground">
           <h2 className="text-xl mb-4">Focení uloženo</h2>
           <CaptureFilmstrip queue={queued} photos={photos} />
+          <div className="mt-4 rounded-xl border border-border p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <div className="text-sm font-medium">Pozadí v hledáčku</div>
+                <p className="text-xs text-muted-foreground">Zapne se hned a zůstane i při dalším focení.</p>
+              </div>
+              <Button size="sm" variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
+                <ImageIcon size={14} /> {showBackground ? "Zapnuto" : "Zapnout"}
+              </Button>
+            </div>
+            {backgroundPreview && <div className="mt-3">{backgroundPreview}</div>}
+          </div>
           {queueCount > 0 && <p className="text-sm my-3">Nahrává se {queueCount} fotografií. Nechte tuto stránku otevřenou.</p>}
           {queued.some(p => p.status === "error") && <p className="text-sm my-3 text-destructive">Některé fotografie se nenahrály. Zkuste je znovu.</p>}
           {progressError && <Button variant="outline" onClick={() => saveProgress(progressRef.current)}>Znovu uložit průběh</Button>}
@@ -1065,6 +1144,7 @@ export default function SmartCapture() {
 
           <div className="flex flex-wrap gap-3 mb-4">
             <Button variant="secondary" onClick={copyLink}><Copy /> Zkopírovat odkaz</Button>
+            <Button variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}><ImageIcon /> {showBackground ? "Pozadí zapnuto" : "Zapnout pozadí"}</Button>
             <Button variant="secondary" onClick={() => { setSessionId(undefined); setSearchParams({}); setPhase("intro"); void refetchSessions(); }}><List /> Seznam relací</Button>
           </div>
           <CaptureFilmstrip queue={queued} photos={photos} />
@@ -1093,6 +1173,11 @@ export default function SmartCapture() {
                   <p className="text-[11px] text-white/50 mt-2">
                     Použije se pouze jako miniatura v nabídce vozů — v detailu vozidla se nezobrazuje.
                   </p>
+                </>
+              ) : showBackground ? (
+                <>
+                  <img src={bgSrc} alt="Pozadí showroomu" className="w-full aspect-video object-cover rounded-xl ring-1 ring-white/15" onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }} />
+                  <p className="text-[11px] text-white/50 mt-2">Pozadí je zapnuté a v hledáčku se ukáže hned.</p>
                 </>
               ) : (
                 <p className="text-xs text-white/50">

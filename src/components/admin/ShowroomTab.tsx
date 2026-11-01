@@ -57,8 +57,6 @@ const DEFAULT_PLACEMENT: Placement = {
   shadowOffsetY: 0,
 };
 
-type ShowroomMode = "off" | "main";
-
 const normalizeImageRow = (row: unknown): ImgRow => {
   const image = row as ImgRow;
   const rawValidation = image.showroom_validation;
@@ -143,20 +141,6 @@ export default function ShowroomTab() {
     return list.find((img) => img.is_main) ?? list[0] ?? null;
   }, [images]);
 
-  const setMode = useMutation({
-    mutationFn: async ({ id, mode }: { id: string; mode: ShowroomMode }) => {
-      const { error } = await supabase.from("vehicles").update({ showroom_mode: mode } as any).eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["vehicles"] }),
-  });
-
-  const updateMode = (id: string, mode: ShowroomMode) => {
-    setMode.mutate({ id, mode }, {
-      onSuccess: () => toast({ title: mode === "off" ? "Showroom vypnut" : "Showroom režim uložen" }),
-      onError: (e: any) => toast({ title: "Nelze uložit režim", description: e?.message, variant: "destructive" }),
-    });
-  };
 
   const callGen = async (imageId: string, force = false, withOverride = false) => {
     setBusyIds((p) => new Set(p).add(imageId));
@@ -311,17 +295,7 @@ export default function ShowroomTab() {
                   <h3 className="text-lg font-bold">{(selected as any).name}</h3>
                   <p className="text-xs text-muted-foreground">VIN: {(selected as any).vin || "—"}</p>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  {(["off", "main"] as const).map((m) => (
-                    <button
-                      key={m}
-                      onClick={() => updateMode(selected.id, m)}
-                      className={`px-3 py-1.5 rounded-md text-xs font-medium border transition-colors ${((selected as any).showroom_mode ?? "off") === m ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-secondary"}`}
-                    >
-                      {m === "off" ? "OFF" : "Pouze titulní foto"}
-                    </button>
-                  ))}
-                </div>
+
               </div>
 
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 items-start">

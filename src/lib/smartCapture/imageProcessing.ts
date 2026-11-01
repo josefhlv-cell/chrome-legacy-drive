@@ -49,11 +49,7 @@ export async function processImage(
     throw new Error("Fotografii se nepodařilo upravit.");
   }
 
-  if (ctx instanceof CanvasRenderingContext2D) {
-    ctx.filter = `brightness(${1 + o.brightness / 100}) contrast(${1 + o.contrast / 100}) saturate(${1 + o.saturation / 100})`;
-  } else {
-    ctx.filter = `brightness(${1 + o.brightness / 100}) contrast(${1 + o.contrast / 100}) saturate(${1 + o.saturation / 100})`;
-  }
+  ctx.filter = `brightness(${1 + o.brightness / 100}) contrast(${1 + o.contrast / 100}) saturate(${1 + o.saturation / 100})`;
   ctx.drawImage(bmp, 0, 0, w, h);
   bmp.close();
 

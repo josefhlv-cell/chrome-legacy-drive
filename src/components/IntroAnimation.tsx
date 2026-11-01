@@ -54,6 +54,19 @@ const IntroAnimation = () => {
     return () => window.removeEventListener("intro:replay", onReplay);
   }, []);
 
+  // Never leave visitors on a black screen if the intro video cannot load.
+  // This is especially important in iOS Safari, where media requests can stall.
+  useEffect(() => {
+    if (!show) return;
+    const fallback = window.setTimeout(() => {
+      const video = videoRef.current;
+      if (!video || video.readyState < HTMLMediaElement.HAVE_CURRENT_DATA) {
+        dismiss();
+      }
+    }, 7000);
+    return () => window.clearTimeout(fallback);
+  }, [show, dismiss]);
+
   // Force autoplay on iOS – retry until the video starts
   useEffect(() => {
     if (!show) return;
@@ -97,6 +110,7 @@ const IntroAnimation = () => {
             webkit-playsinline="true"
             preload="auto"
             onEnded={dismiss}
+            onError={dismiss}
           >
             <source src="/intro.webm" type="video/webm" />
             <source src="/intro.mp4" type="video/mp4" />

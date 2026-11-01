@@ -1,8 +1,13 @@
 import { useState, useEffect } from "react";
-import { Camera, Shield, Sparkles, Loader2, Settings as SettingsIcon } from "lucide-react";
+import { Camera, Shield, Sparkles, Loader2, Settings as SettingsIcon, Images, ExternalLink, ChevronRight, Calendar } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
-import { useSmartCaptureSettings, useUpdateSmartCaptureSettings } from "@/hooks/useSmartCapture";
+import {
+  useSmartCaptureSettings,
+  useUpdateSmartCaptureSettings,
+  useSessions,
+  useSessionPhotos,
+} from "@/hooks/useSmartCapture";
 import { useToast } from "@/hooks/use-toast";
 
 type Tri = "on" | "suggest" | "off";
@@ -41,8 +46,174 @@ const FEATURES: FeatureToggle[] = [
   { key: "landscape_capture", label: "Focení na šířku (otočený telefon)" },
   { key: "grid_overlay", label: "Kompoziční mřížka (třetiny) v hledáčku" },
   { key: "thumbnail_background", label: "Miniatura na přednastaveném pozadí (1. záběr — pouze pro nabídku vozů)" },
-
 ];
+
+function formatDate(value?: string | null) {
+  if (!value) return "—";
+  try {
+    return new Date(value).toLocaleString("cs-CZ", {
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+  } catch {
+    return value;
+  }
+}
+
+function SessionGallery() {
+  const { data: sessions = [], isLoading } = useSessions();
+  const [selectedId, setSelectedId] = useState<string | undefined>();
+  const { data: photos = [], isLoading: photosLoading } = useSessionPhotos(selectedId);
+
+  useEffect(() => {
+    if (!selectedId && sessions.length > 0) {
+      setSelectedId((sessions[0] as { id: string }).id);
+    }
+  }, [sessions, selectedId]);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-2 text-sm text-muted-foreground py-6">
+        <Loader2 className="animate-spin" size={16} /> Načítám relace…
+      </div>
+    );
+  }
+
+  if (sessions.length === 0) {
+    return (
+      <div className="rounded-xl border border-dashed p-8 text-center text-sm text-muted-foreground">
+        Zatím žádné Smart Capture relace. Spusť focení a fotky se tu objeví.
+        <div className="mt-4">
+          <a href="/admin/smart-capture" className="inline-flex items-center gap-2 text-primary hover:underline">
+            <Camera size={14} /> Spustit Smart Capture
+          </a>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-[280px_1fr]">
+      <div className="rounded-xl border bg-card overflow-hidden max-h-[520px] overflow-y-auto">
+        {sessions.map((session) => {
+          const row = session as {
+            id: string;
+            status?: string;
+            created_at?: string;
+            vin?: string;
+            published_vehicle_id?: string | null;
+          };
+          const active = selectedId === row.id;
+          return (
+            <button
+              key={row.id}
+              type="button"
+              onClick={() => setSelectedId(row.id)}
+              className={`w-full text-left px-3 py-3 border-b last:border-0 transition ${
+                active ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50"
+              }`}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-medium truncate">
+                  {row.vin || row.id.slice(0, 8)}
+                </span>
+                <ChevronRight size={14} className="shrink-0 text-muted-foreground" />
+              </div>
+              <div className="mt-1 flex items-center gap-2 text-[11px] text-muted-foreground">
+                <Calendar size={11} />
+                {formatDate(row.created_at)}
+              </div>
+              <div className="mt-1 flex flex-wrap gap-1">
+                <span className="text-[10px] px-1.5 py-0.5 rounded bg-muted">
+                  {row.status || "session"}
+                </span>
+                {row.published_vehicle_id && (
+                  <span className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-700 dark:text-emerald-300">
+                    inzerát
+                  </span>
+                )}
+              </div>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="rounded-xl border bg-card p-4 min-h-[280px]">
+        <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
+          <div>
+            <h4 className="font-medium text-sm">Fotky relace</h4>
+            <p className="text-xs text-muted-foreground">
+              {selectedId ? selectedId.slice(0, 8) + "…" : "—"}
+            </p>
+          </div>
+          {selectedId && (
+            <a
+              href={`/admin/smart-capture?session=${selectedId}`}
+              className="inline-flex items-center gap-1.5 text-xs text-primary hover:underline"
+            >
+              <ExternalLink size={12} /> Otevřít v Smart Capture
+            </a>
+          )}
+        </div>
+
+        {photosLoading ? (
+          <div className="flex items-center gap-2 text-sm text-muted-foreground py-10">
+            <Loader2 className="animate-spin" size={16} /> Načítám fotky…
+          </div>
+        ) : photos.length === 0 ? (
+          <div className="text-sm text-muted-foreground py-10 text-center">
+            V této relaci zatím nejsou nahrané fotky.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {photos.map((photo) => {
+              const row = photo as {
+                id: string;
+                processed_url?: string;
+                original_url?: string;
+                shot_type?: string;
+                shot_index?: number;
+                is_main?: boolean;
+              };
+              const src = row.processed_url || row.original_url || "";
+              return (
+                <a
+                  key={row.id}
+                  href={src || undefined}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group relative aspect-[4/3] rounded-lg overflow-hidden border bg-muted"
+                >
+                  {src ? (
+                    <img
+                      src={src}
+                      alt={row.shot_type || "foto"}
+                      className="w-full h-full object-cover transition group-hover:scale-[1.02]"
+                      loading="lazy"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                      bez náhledu
+                    </div>
+                  )}
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent px-2 py-1.5">
+                    <div className="text-[10px] text-white/95 truncate">
+                      {row.shot_type || `záběr ${row.shot_index ?? ""}`}
+                      {row.is_main ? " · titulní" : ""}
+                    </div>
+                  </div>
+                </a>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function SmartCaptureSettingsTab() {
   const { data: settings, isLoading } = useSmartCaptureSettings();
@@ -50,7 +221,9 @@ export default function SmartCaptureSettingsTab() {
   const { toast } = useToast();
   const [local, setLocal] = useState<Record<string, unknown>>({});
 
-  useEffect(() => { if (settings) setLocal(settings as Record<string, unknown>); }, [settings]);
+  useEffect(() => {
+    if (settings) setLocal(settings as Record<string, unknown>);
+  }, [settings]);
 
   const setField = (k: string, v: unknown) => {
     setLocal((s) => ({ ...s, [k]: v }));
@@ -69,18 +242,37 @@ export default function SmartCaptureSettingsTab() {
     }
   };
 
-  if (isLoading) return <div className="p-6 flex items-center gap-2"><Loader2 className="animate-spin" size={16} /> Načítám…</div>;
+  if (isLoading) {
+    return (
+      <div className="p-6 flex items-center gap-2">
+        <Loader2 className="animate-spin" size={16} /> Načítám…
+      </div>
+    );
+  }
 
   return (
-    <div className="max-w-3xl mx-auto p-6 space-y-6">
+    <div className="max-w-5xl mx-auto p-6 space-y-6">
       <div className="flex items-center gap-3">
         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white">
           <Camera size={20} />
         </div>
-        <div>
+        <div className="flex-1">
           <h2 className="text-2xl font-light">Smart Capture</h2>
-          <p className="text-sm text-muted-foreground">Inteligentní focení vozidel s AI asistencí.</p>
+          <p className="text-sm text-muted-foreground">Galerie relací, fotky a nastavení AI focení.</p>
         </div>
+        <a href="/admin/smart-capture" className="chrome-button inline-flex items-center gap-2 text-sm">
+          <Camera size={14} /> Spustit focení
+        </a>
+      </div>
+
+      {/* Gallery */}
+      <div className="rounded-xl border bg-card p-5">
+        <div className="flex items-center gap-2 mb-4">
+          <Images size={16} className="text-blue-500" />
+          <h3 className="font-medium">Galerie Smart Capture</h3>
+          <span className="text-xs text-muted-foreground ml-auto">posledních 50 relací</span>
+        </div>
+        <SessionGallery />
       </div>
 
       {/* Assistance level */}
@@ -91,13 +283,15 @@ export default function SmartCaptureSettingsTab() {
         </div>
         <div className="grid grid-cols-3 gap-2">
           {(["minimal", "recommended", "full"] as const).map((lvl) => (
-            <button key={lvl}
+            <button
+              key={lvl}
               onClick={() => setField("assistance_level", lvl)}
               className={`px-3 py-3 rounded-lg border text-sm transition ${
                 local.assistance_level === lvl
                   ? "border-primary bg-primary/10 font-medium"
                   : "border-border hover:bg-muted"
-              }`}>
+              }`}
+            >
               {lvl === "minimal" && "Minimální"}
               {lvl === "recommended" && "Doporučená"}
               {lvl === "full" && "Plná asistence"}
@@ -127,15 +321,12 @@ export default function SmartCaptureSettingsTab() {
             <Camera size={18} className="text-blue-500" />
             <div>
               <div className="font-medium">Dealer Mode</div>
-              <p className="text-xs text-muted-foreground">
-                Udržuje každé vozidlo v identickém měřítku a kompozici.
-              </p>
+              <p className="text-xs text-muted-foreground">Udržuje každé vozidlo v identickém měřítku a kompozici.</p>
             </div>
           </div>
           <Switch checked={!!local.dealer_mode} onCheckedChange={(v) => setField("dealer_mode", v)} />
         </div>
       </div>
-
 
       {/* Features grid */}
       <div className="rounded-xl border bg-card p-5">
@@ -152,15 +343,19 @@ export default function SmartCaptureSettingsTab() {
                 <div className="text-sm">{f.label}</div>
                 <div className="flex gap-1 shrink-0">
                   {(["on", "suggest", "off"] as const).map((mode) => (
-                    <button key={mode}
+                    <button
+                      key={mode}
                       onClick={() => setField(f.key, mode)}
                       className={`px-2.5 py-1 rounded text-xs transition ${
                         val === mode
-                          ? mode === "on" ? "bg-emerald-500 text-white"
-                            : mode === "suggest" ? "bg-blue-500 text-white"
-                            : "bg-muted-foreground text-background"
+                          ? mode === "on"
+                            ? "bg-emerald-500 text-white"
+                            : mode === "suggest"
+                              ? "bg-blue-500 text-white"
+                              : "bg-muted-foreground text-background"
                           : "bg-muted hover:bg-muted/70 text-muted-foreground"
-                      }`}>
+                      }`}
+                    >
                       {mode === "on" ? "✓" : mode === "suggest" ? "≈" : "✕"}
                     </button>
                   ))}

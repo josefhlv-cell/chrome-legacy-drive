@@ -83,9 +83,14 @@ async function appendHistory(admin: AdminClient, imageId: string, event: string,
   await admin.from("vehicle_images").update({ showroom_history: next }).eq("id", imageId);
 }
 
-async function fetchBytes(url: string): Promise<{ bytes: Uint8Array; contentType: string }> {
+async function fetchBytes(url: string, label = "image"): Promise<{ bytes: Uint8Array; contentType: string }> {
   const r = await fetch(url);
-  if (!r.ok) throw new Error(`Fetch ${url} → ${r.status}`);
+  if (!r.ok) {
+    const body = (await r.text().catch(() => "")).slice(0, 200);
+    let detail = body;
+    try { const j = JSON.parse(body); detail = [j.error, j.message].filter(Boolean).join(": ") || body; } catch { /* plain text */ }
+    throw new Error(`${label}: HTTP ${r.status}${detail ? ` (${detail})` : ""} — ${url}`);
+  }
   const contentType = r.headers.get("content-type") || "image/jpeg";
   if (!contentType.startsWith("image/")) throw new Error(`Invalid image type: ${contentType}`);
   const bytes = new Uint8Array(await r.arrayBuffer());
@@ -752,7 +757,7 @@ async function reviewShowroomWithAi(sourceDataUrl: string, compositeDataUrl: str
         content: [
           {
             type: "text",
-            text: "You are a strict automotive photo-compositing quality inspector. Image 1 is the untouched original vehicle photo. Image 2 is the finished showroom composite. Vehicle: " + (vehicleName || "unknown") + ". Inspect the final composite against the source. Verify: same exact vehicle and unchanged body/wheels/details; car is prominent, ideally 52-66% of frame width where perspective permits; no clipping; tyres touch asphalt with believable contact shadow; natural scale/perspective; no halos, magenta/checkerboard residue or cutout defects; clean unchanged background. Return ONLY JSON: {\"passed\":boolean,\"score\":0-100,\"car_too_small\":boolean,\"scale_multiplier\":1.0-1.18,\"issues\":[\"short issue\"],\"reason\":\"short sentence\"}. If only size is wrong, passed=false and recommend multiplier 1.08-1.18. If clipped or vehicle identity changed, passed=false and multiplier=1.0. Approve only score >=82 and no critical defects."
+            text: "You are a strict automotive photo-compositing quality inspector. Image 1 is the untouched original vehicle photo. Image 2 is the finished showroom composite. Vehicle: " + (vehicleName || "unknown") + ". Inspect the final composite against the source. Verify: same exact vehicle and unchanged body/wheels/details; car is prominent, ideally 68-72% of frame width where perspective permits; no clipping; tyres touch asphalt with believable contact shadow; natural scale/perspective; no halos, magenta/checkerboard residue or cutout defects; clean unchanged background. Return ONLY JSON: {\"passed\":boolean,\"score\":0-100,\"car_too_small\":boolean,\"scale_multiplier\":1.0-1.18,\"issues\":[\"short issue\"],\"reason\":\"short sentence\"}. If only size is wrong, passed=false and recommend multiplier 1.08-1.18. If clipped or vehicle identity changed, passed=false and multiplier=1.0. Approve only score >=82 and no critical defects."
           },
           { type: "image_url", image_url: { url: sourceDataUrl, detail: "high" } },
           { type: "image_url", image_url: { url: compositeDataUrl, detail: "high" } },
@@ -912,7 +917,10 @@ export async function runShowroom(
   let bgBytes: Uint8Array;
   let carDataUrl: string;
   try {
-    const [bg, car] = await Promise.all([fetchBytes(BACKGROUND_URL), fetchBytes(sourceUrl)]);
+    const [bg, car] = await Promise.all([
+      fetchBytes(BACKGROUND_URL, "Showroom pozadí (vehicles/showroom/_assets/background-v4.jpg) nelze načíst"),
+      fetchBytes(sourceUrl, "Originální fotografii vozu nelze načíst"),
+    ]);
     bgBytes = bg.bytes;
     carDataUrl = toDataUrl(car.bytes, car.contentType);
   } catch (e: any) {

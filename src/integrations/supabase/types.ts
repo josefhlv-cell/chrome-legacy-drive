@@ -1181,9 +1181,11 @@ export type Database = {
           name: string
           power: string
           price_with_vat: number
+          show_room_enabled: boolean
+          show_room_images: Json
           show_vat: boolean
-          showroom_mode: string
           showroom_image_url: string | null
+          showroom_mode: string
           status: Database["public"]["Enums"]["vehicle_status"]
           thumbnail_url: string | null
           tipcars_airbagy: number | null
@@ -1236,9 +1238,11 @@ export type Database = {
           name: string
           power?: string
           price_with_vat: number
+          show_room_enabled?: boolean
+          show_room_images?: Json
           show_vat?: boolean
-          showroom_mode?: string
           showroom_image_url?: string | null
+          showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
           thumbnail_url?: string | null
           tipcars_airbagy?: number | null
@@ -1291,9 +1295,11 @@ export type Database = {
           name?: string
           power?: string
           price_with_vat?: number
+          show_room_enabled?: boolean
+          show_room_images?: Json
           show_vat?: boolean
-          showroom_mode?: string
           showroom_image_url?: string | null
+          showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
           thumbnail_url?: string | null
           tipcars_airbagy?: number | null

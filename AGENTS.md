@@ -1,4 +1,5 @@
 # Architecture rules
+- Admin-uploaded Show Room photos live in vehicles.show_room_images as an ordered JSON array with a separate show_room_enabled flag; use only for public detail galleries, never vehicle_images or listing fields, to preserve original-photo behavior. Storage removals must validate the dedicated show-room/{vehicleId}/ prefix and commit metadata first; compare-and-swap prevents concurrent admin overwrites.
 - Smart Capture keeps one guided 20-shot sequence; session metadata stores skipped steps and capture progress without requiring schema changes.
 - Accepted capture photos and their progress share a durable IndexedDB record; advance only after the local transaction commits, never after network upload or advisory analysis, to survive abrupt browser closure.
 - Capture readiness is checked independently of media events; JPEG callbacks and local persistence have bounded recovery paths so stalled browser APIs cannot silently lock capture controls.

@@ -1,3 +1,8 @@
+# Show Room gallery
+- [ ] Inspect existing admin/public galleries, schema and storage permissions.
+- [ ] Add isolated persisted gallery and independent activation with safe storage removal.
+- [ ] Verify authenticated upload/reload/toggle/delete and public-only selection; run tests and inspect build result.
+
 # Smart Capture
 - [x] Fix intermittent capture/next-button locks: poll camera readiness, recover stalled JPEG/local transactions, show saving feedback; 25 tests, lint and four authenticated mobile browser cycles passed (timeout, offline next/skip, reload/retake, camera restart/finish and PC readback). Physical iPhone remains unverified.
 - [x] Add safe Save and finish: preserve photos/skips for desktop, detach finished mobile session, verify new capture after reload; 20 unit tests and four authenticated browser cycles passed (upload failure, save failure, new capture after reload, PC ZIP).

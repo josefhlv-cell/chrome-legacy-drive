@@ -25,10 +25,7 @@ const blobImage = (blob: Blob): Promise<HTMLImageElement> => {
  * Returns a separate JPEG with the vehicle cut out over the CHDP showroom.
  */
 export async function composeSmartCaptureShowroom(photo: Blob): Promise<Blob> {
-  const [{ removeBackground }, source] = await Promise.all([
-    import("@imgly/background-removal"),
-    blobImage(photo),
-  ]);
+  const { removeBackground } = await import("@imgly/background-removal");
 
   const cutout = await removeBackground(photo, {
     output: { format: "image/png", quality: 0.95 },

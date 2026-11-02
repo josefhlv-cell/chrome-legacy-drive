@@ -314,23 +314,70 @@ const VehiclesTab = () => {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [showroomBulkBusy, setShowroomBulkBusy] = useState<"tutorial" | "all" | null>(null);
-  const tutorialEnabled = Boolean(vehicles?.length) && vehicles!.every((v) => v.showroom_mode === "main");
-  const showroomAllEnabled = Boolean(vehicles?.length) && vehicles!.every((v) => Boolean((v as any).show_room_enabled));
+  // Globální přepínače se vyhodnocují jen u vozidel, která mají příslušné
+  // showroomové fotografie. Ostatní vozy vždy zůstávají na originálních fotkách.
+  const hasTutorialPhoto = (v: DbVehicle) =>
+    Boolean((v as any).showroom_image_url) ||
+    Boolean(v.vehicle_images?.some((img) => Boolean(img.showroom_url && img.showroom_applied_at)));
+  const hasShowRoomGallery = (v: DbVehicle) =>
+    Array.isArray((v as any).show_room_images) && (v as any).show_room_images.length > 0;
+  const tutorialVehicles = (vehicles ?? []).filter(hasTutorialPhoto);
+  const showroomGalleryVehicles = (vehicles ?? []).filter(hasShowRoomGallery);
+  const tutorialEnabled = tutorialVehicles.length > 0 && tutorialVehicles.every((v) => v.showroom_mode === "main");
+  const showroomAllEnabled = showroomGalleryVehicles.length > 0 && showroomGalleryVehicles.every((v) => Boolean((v as any).show_room_enabled));
 
   const setGlobalShowroomMode = async (mode: "tutorial" | "all", enabled: boolean) => {
     setShowroomBulkBusy(mode);
     try {
+      const allVehicles = vehicles ?? [];
+      const eligibleIds = new Set(
+        allVehicles
+          .filter(mode === "tutorial" ? hasTutorialPhoto : hasShowRoomGallery)
+          .map((v) => v.id),
+      );
+      // Při zapnutí aktivujeme jen auta s hotovými showroom fotkami.
+      // Při vypnutí vypneme režim všude, aby se vždy zobrazil originál.
       const updates = mode === "tutorial"
         ? { showroom_mode: enabled ? "main" : "off" }
         : { show_room_enabled: enabled };
-      const { error } = await supabase.from("vehicles").update(updates as any).not("id", "is", null);
-      if (error) throw error;
+      const targetIds = enabled
+        ? [...eligibleIds]
+        : allVehicles.map((v) => v.id);
+
+      if (enabled && targetIds.length === 0) {
+        toast({
+          title: "Žádné dostupné Show Room fotografie",
+          description: "Auta bez nahraných showroomových fotografií zůstanou beze změny a zobrazí se jejich originální fotky.",
+        });
+        return;
+      }
+
+      if (targetIds.length > 0) {
+        const { error } = await supabase
+          .from("vehicles")
+          .update((mode === "tutorial"
+            ? { showroom_mode: enabled ? "main" : "off" }
+            : { show_room_enabled: enabled }) as any)
+          .in("id", targetIds);
+        if (error) throw error;
+      }
+
+      // Při zapnutí ještě explicitně ponecháme auta bez showroom fotek vypnutá.
+      const ineligibleIds = allVehicles.filter((v) => !eligibleIds.has(v.id)).map((v) => v.id);
+      if (enabled && ineligibleIds.length > 0) {
+        const fallback = mode === "tutorial"
+          ? { showroom_mode: "off" }
+          : { show_room_enabled: false };
+        const { error } = await supabase.from("vehicles").update(fallback as any).in("id", ineligibleIds);
+        if (error) throw error;
+      }
+
       await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
       toast({
         title: enabled ? "Show Room zapnut" : "Show Room vypnut",
         description: mode === "tutorial"
-          ? "Změna se týká pouze titulní fotografie všech nabídek."
-          : "Změna se týká celé showroomové galerie ve všech detailech vozidel.",
+          ? "Showroomová titulní fotka se použije jen u aut, která ji mají nahranou. U ostatních zůstane originál."
+          : "Showroomová galerie se použije jen u aut, která ji mají nahranou. U ostatních zůstane originál.",
       });
     } catch (err: any) {
       toast({ title: "Nastavení Show Room se nepodařilo změnit", description: err?.message || "Neznámá chyba", variant: "destructive" });

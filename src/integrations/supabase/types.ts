@@ -1182,8 +1182,8 @@ export type Database = {
           power: string
           price_with_vat: number
           show_vat: boolean
-          showroom_mode: string
           showroom_image_url: string | null
+          showroom_mode: string
           status: Database["public"]["Enums"]["vehicle_status"]
           thumbnail_url: string | null
           tipcars_airbagy: number | null
@@ -1237,8 +1237,8 @@ export type Database = {
           power?: string
           price_with_vat: number
           show_vat?: boolean
-          showroom_mode?: string
           showroom_image_url?: string | null
+          showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
           thumbnail_url?: string | null
           tipcars_airbagy?: number | null
@@ -1292,8 +1292,8 @@ export type Database = {
           power?: string
           price_with_vat?: number
           show_vat?: boolean
-          showroom_mode?: string
           showroom_image_url?: string | null
+          showroom_mode?: string
           status?: Database["public"]["Enums"]["vehicle_status"]
           thumbnail_url?: string | null
           tipcars_airbagy?: number | null

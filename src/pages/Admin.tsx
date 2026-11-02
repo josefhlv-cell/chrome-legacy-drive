@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import {
   Settings, Shield, Leaf, Video, Receipt, Award, Eye, EyeOff,
@@ -311,6 +312,32 @@ const VehiclesTab = () => {
   const updateVehicle = useUpdateVehicle();
   const deleteVehicle = useDeleteVehicle();
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const [showroomBulkBusy, setShowroomBulkBusy] = useState<"tutorial" | "all" | null>(null);
+  const tutorialEnabled = Boolean(vehicles?.length) && vehicles!.every((v) => v.showroom_mode === "main");
+  const showroomAllEnabled = Boolean(vehicles?.length) && vehicles!.every((v) => Boolean((v as any).show_room_enabled));
+
+  const setGlobalShowroomMode = async (mode: "tutorial" | "all", enabled: boolean) => {
+    setShowroomBulkBusy(mode);
+    try {
+      const updates = mode === "tutorial"
+        ? { showroom_mode: enabled ? "main" : "off" }
+        : { show_room_enabled: enabled };
+      const { error } = await supabase.from("vehicles").update(updates as any).not("id", "is", null);
+      if (error) throw error;
+      await queryClient.invalidateQueries({ queryKey: ["vehicles"] });
+      toast({
+        title: enabled ? "Show Room zapnut" : "Show Room vypnut",
+        description: mode === "tutorial"
+          ? "Změna se týká pouze titulní fotografie všech nabídek."
+          : "Změna se týká celé showroomové galerie ve všech detailech vozidel.",
+      });
+    } catch (err: any) {
+      toast({ title: "Nastavení Show Room se nepodařilo změnit", description: err?.message || "Neznámá chyba", variant: "destructive" });
+    } finally {
+      setShowroomBulkBusy(null);
+    }
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editData, setEditData] = useState<TablesUpdate<"vehicles">>({});
   const [showNew, setShowNew] = useState(false);
@@ -693,8 +720,28 @@ const VehiclesTab = () => {
 
   return (
     <div>
-      <div className="flex flex-wrap justify-between items-center gap-3 mb-6">
+      <div className="mb-6 space-y-3">
         <h2 className="text-lg font-bold text-foreground uppercase tracking-wider">Správa vozidel</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="deep-card p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground">Show Room Tutorial</p>
+              <p className="text-xs text-muted-foreground">Pouze titulní fotografie v nabídce všech vozidel</p>
+              <p className={`text-[10px] font-semibold uppercase mt-1 ${tutorialEnabled ? "text-emerald-400" : "text-muted-foreground"}`}>{tutorialEnabled ? "ON" : "OFF"}</p>
+            </div>
+            <Switch checked={tutorialEnabled} disabled={!vehicles?.length || !!showroomBulkBusy} onCheckedChange={(checked) => setGlobalShowroomMode("tutorial", checked)} />
+          </div>
+          <div className="deep-card p-4 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <p className="text-sm font-bold text-foreground">Show Room All</p>
+              <p className="text-xs text-muted-foreground">Showroomové fotografie v celých galeriích vozidel</p>
+              <p className={`text-[10px] font-semibold uppercase mt-1 ${showroomAllEnabled ? "text-emerald-400" : "text-muted-foreground"}`}>{showroomAllEnabled ? "ON" : "OFF"}</p>
+            </div>
+            <Switch checked={showroomAllEnabled} disabled={!vehicles?.length || !!showroomBulkBusy} onCheckedChange={(checked) => setGlobalShowroomMode("all", checked)} />
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-wrap justify-end items-center gap-3 mb-6">
         <div className="flex items-center gap-2 flex-wrap">
           <label className="text-xs text-muted-foreground uppercase tracking-wider">Cena (Kč)</label>
           <div className="flex items-center gap-1">

@@ -1,7 +1,5 @@
 import { getPublicVehicleImageUrl, type ShowroomImageLike } from "@/lib/showroomImage";
 
-
-
 export const dedupeImageUrls = (urls: Array<string | null | undefined>) =>
   Array.from(new Set(urls.filter((url): url is string => Boolean(url))));
 
@@ -12,22 +10,21 @@ export const isUsableImageUrl = (url: string | null | undefined): url is string 
 export const VEHICLE_IMAGE_PLACEHOLDER = "/vehicle-placeholder.svg";
 
 type VehicleLike = {
-  /** Miniatura z Smart Capture — POUZE pro kartu v nabídce, ne pro detail. */
   /** Admin-published showroom composite — listing card only. */
   showroom_image_url?: string | null;
+  /** Global/per-vehicle Tutorial switch. Showroom variants are opt-in only. */
+  showroom_mode?: string | null;
+  /** Smart Capture thumbnail — listing card only, not the detail gallery. */
   thumbnail_url?: string | null;
   image_url?: string | null;
   vehicle_images?: Array<ShowroomImageLike & { is_main?: boolean; sort_order?: number }> | null;
 };
 
 /**
- * Single source of truth for "the one photo that represents a vehicle".
- *
- * Catalogue card: ONLY the primary photo (is_main → lowest sort_order) may be
- * replaced by its admin-published, current-template showroom composite.
- * Every other photo, and the detail gallery, always stay original.
- * Main image first, then lowest sort_order, then the flat `image_url` column.
- * Returns "" when nothing usable exists so callers can fall back to the placeholder.
+ * Single source of truth for the photo that represents a vehicle in catalogue cards.
+ * The showroom composite may replace the primary photo ONLY while showroom_mode is
+ * explicitly "main". When the switch is off, the original primary photo is used.
+ * Vehicles without a showroom image naturally fall back to their original photo.
  */
 export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): string => {
   if (!vehicle) return "";
@@ -37,9 +34,13 @@ export const getVehicleCardImage = (vehicle: VehicleLike | null | undefined): st
   });
 
   const primary = sorted[0];
-  const primaryShowroom = primary && primary.showroom_url ? getPublicVehicleImageUrl(primary) : "";
+  const showroomEnabled = vehicle.showroom_mode === "main";
+  const primaryShowroom = showroomEnabled && primary?.showroom_url
+    ? getPublicVehicleImageUrl(primary)
+    : "";
+
   const candidates = dedupeImageUrls([
-    isUsableImageUrl(vehicle.showroom_image_url) ? vehicle.showroom_image_url : null,
+    showroomEnabled && isUsableImageUrl(vehicle.showroom_image_url) ? vehicle.showroom_image_url : null,
     primaryShowroom && primaryShowroom !== primary?.image_url ? primaryShowroom : null,
     vehicle.thumbnail_url,
     ...sorted.map((img) => img.image_url),

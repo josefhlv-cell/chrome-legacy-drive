@@ -474,8 +474,8 @@ export default function SmartCapture() {
       const metadata = data.metadata && typeof data.metadata === "object" && !Array.isArray(data.metadata) ? data.metadata : {};
       const result = await supabase.from("smart_capture_sessions").update({
         vin,
-        decoded_data: decoded,
-        metadata: { ...metadata, vehicle_info: nextInfo },
+        decoded_data: JSON.parse(JSON.stringify(decoded)),
+        metadata: { ...metadata, vehicle_info: { ...nextInfo } },
       }).eq("id", sid);
       if (result.error) throw result.error;
     }).catch(() => {

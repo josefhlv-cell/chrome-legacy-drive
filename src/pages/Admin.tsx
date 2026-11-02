@@ -48,6 +48,7 @@ import SmartCaptureSettingsTab from "@/components/admin/SmartCaptureSettingsTab"
 import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/NewVehiclePhotoUploader";
 import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
 import ShowroomTab from "@/components/admin/ShowroomTab";
+import ShowRoomGallery from "@/components/admin/ShowRoomGallery";
 import HitSongsTab from "@/components/admin/HitSongsTab";
 import { MaraProvider, useMara } from "@/components/admin/MaraAssistant";
 import SmartPriceCheck from "@/components/admin/SmartPriceCheck";
@@ -1477,6 +1478,7 @@ const VehiclesTab = () => {
                     onSetMain={(id, url) => setMainImage.mutate({ id, vehicleId: vehicle.id, imageUrl: url })}
                   />
                 )}
+                <ShowRoomGallery vehicleId={vehicle.id} />
               </div>
             </div>
           </motion.div>

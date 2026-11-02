@@ -32,6 +32,7 @@ import {
 import { useVehicle } from "@/hooks/useVehicles";
 import { useVehicleImages } from "@/hooks/useVehicleImages";
 import { dedupeImageUrls } from "@/lib/vehicleImageSelection";
+import { readShowRoomImages, selectPublicDetailGallery } from "@/lib/showRoomGallery";
 import { useVehicleStructuredData } from "@/lib/vehicleStructuredData";
 import { useCompare } from "@/contexts/CompareContext";
 import { useFeatureFlag } from "@/hooks/useFeatureFlags";
@@ -106,7 +107,7 @@ const VehicleDetail = () => {
    *
    * We intentionally do NOT use getPublicVehicleImageUrl() here.
    */
-  const galleryUrls = useMemo(() => {
+  const originalGalleryUrls = useMemo(() => {
     const isUsable = (url: string | null | undefined): url is string => {
       if (!url) return false;
       const value = url.trim();
@@ -127,6 +128,12 @@ const VehicleDetail = () => {
     if (isUsable(vehicle?.image_url)) return [vehicle.image_url.trim()];
     return [];
   }, [vehicleImages, vehicle]);
+
+  const galleryUrls = useMemo(() => selectPublicDetailGallery(
+    originalGalleryUrls,
+    vehicle?.show_room_enabled ?? false,
+    readShowRoomImages(vehicle?.show_room_images, vehicle?.id ?? ""),
+  ), [originalGalleryUrls, vehicle]);
 
   // Inject schema.org/Vehicle JSON-LD into <head>.
   useVehicleStructuredData(vehicle, galleryUrls);
@@ -250,6 +257,7 @@ const VehicleDetail = () => {
                 <div className="relative">
 
                   <VehicleGallery
+                    key={galleryUrls.join("|")}
                     images={galleryUrls}
                     vehicleName={vehicle.name}
                     initialIndex={preferredGalleryIndex}

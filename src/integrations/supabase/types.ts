@@ -1181,6 +1181,8 @@ export type Database = {
           name: string
           power: string
           price_with_vat: number
+          show_room_enabled: boolean
+          show_room_images: Json
           show_vat: boolean
           showroom_image_url: string | null
           showroom_mode: string
@@ -1236,6 +1238,8 @@ export type Database = {
           name: string
           power?: string
           price_with_vat: number
+          show_room_enabled?: boolean
+          show_room_images?: Json
           show_vat?: boolean
           showroom_image_url?: string | null
           showroom_mode?: string
@@ -1291,6 +1295,8 @@ export type Database = {
           name?: string
           power?: string
           price_with_vat?: number
+          show_room_enabled?: boolean
+          show_room_images?: Json
           show_vat?: boolean
           showroom_image_url?: string | null
           showroom_mode?: string

@@ -28,7 +28,7 @@ import { captureFullStill } from "@/lib/smartCapture/stillCapture";
 import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
 import { composeSmartCaptureShowroom } from "@/lib/smartCapture/showroomReplacement";
 
-const SHOWROOM_BG = "/assets/showroom/master_showroom_background.webp";
+const SHOWROOM_BG = "/assets/showroom/master_showroom_background.webp?v=20261102-2";
 const BG_PREF_KEY = "capture-show-background";
 
 function readBgPref(): boolean | null {

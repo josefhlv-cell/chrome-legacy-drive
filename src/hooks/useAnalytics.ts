@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { visitWindowStart } from "@/lib/visitPeriods";
 
 interface PageView {
   id: string;
@@ -139,6 +140,21 @@ export function usePhoneClicks(days: number = 30) {
   });
 }
 
+/** Návštěvy od začátku týdne nebo měsíce, podle toho, co začalo dřív. */
+export function useRealVisits() {
+  const since = visitWindowStart().toISOString();
+  return useQuery({
+    queryKey: ["real-visits", since],
+    queryFn: () => fetchAllRows<{
+      id: string;
+      session_id: string;
+      visitor_id: string | null;
+      created_at: string;
+      path: string;
+    }>("page_views", "id, session_id, visitor_id, created_at, path", since),
+    staleTime: 60_000,
+  });
+}
 
 /**
  * OPRAVY (audit):

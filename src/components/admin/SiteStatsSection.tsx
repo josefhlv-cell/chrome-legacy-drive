@@ -7,9 +7,10 @@ import {
   BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend,
 } from "recharts";
 import {
-  useAnalytics, usePhoneClicks, computeStats, computeSiteInsights,
+  useAnalytics, usePhoneClicks, useRealVisits, computeStats, computeSiteInsights,
   computeVisitorStats, computePhoneClickStats, formatDuration,
 } from "@/hooks/useAnalytics";
+import { countRealVisits, startOfDay, startOfMonth, startOfWeek } from "@/lib/visitPeriods";
 
 const Card = ({ title, icon: Icon, children, right }: {
   title: string; icon?: any; children: React.ReactNode; right?: React.ReactNode;
@@ -50,6 +51,16 @@ export default function SiteStatsSection() {
   const [days, setDays] = useState<number>(30);
   const { data: views = [], isLoading } = useAnalytics(days);
   const { data: phoneClicks = [] } = usePhoneClicks(days);
+  const { data: periodRows = [], isLoading: periodsLoading } = useRealVisits();
+
+  const periods = useMemo(() => {
+    const now = new Date();
+    return {
+      today: countRealVisits(periodRows, startOfDay(now)),
+      week: countRealVisits(periodRows, startOfWeek(now)),
+      month: countRealVisits(periodRows, startOfMonth(now)),
+    };
+  }, [periodRows]);
 
   const stats = useMemo(() => computeStats(views), [views]);
   const insights = useMemo(() => computeSiteInsights(views), [views]);
@@ -79,6 +90,18 @@ export default function SiteStatsSection() {
       </div>
 
       {isLoading && <p className="text-sm text-muted-foreground">Načítám statistiky…</p>}
+
+      <Card title="Návštěvy" icon={Users}
+        right={<span className="text-xs text-muted-foreground">Jedno otevření webu. Administrace se nepočítá.</span>}>
+        <div className="grid grid-cols-3 gap-3">
+          <Mini icon={Clock} label="Dnes" value={periodsLoading ? "…" : periods.today.visits.toLocaleString("cs-CZ")}
+            sub={periodsLoading ? undefined : `${periods.today.people.toLocaleString("cs-CZ")} lidí`} />
+          <Mini icon={Users} label="Tento týden" value={periodsLoading ? "…" : periods.week.visits.toLocaleString("cs-CZ")}
+            sub={periodsLoading ? undefined : `${periods.week.people.toLocaleString("cs-CZ")} lidí`} />
+          <Mini icon={Repeat} label="Tento měsíc" value={periodsLoading ? "…" : periods.month.visits.toLocaleString("cs-CZ")}
+            sub={periodsLoading ? undefined : `${periods.month.people.toLocaleString("cs-CZ")} lidí`} />
+        </div>
+      </Card>
 
       {/* Summary */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">

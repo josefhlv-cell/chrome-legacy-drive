@@ -1,0 +1,38 @@
+name: Fix SmartCapture stub
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "src/pages/SmartCapture.tsx"
+      - ".github/workflows/fix-smartcapture-stub.yml"
+jobs:
+  strip-stub:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Remove trailing stub if present
+        run: |
+          python3 << 'EOF'
+          from pathlib import Path
+          p = Path("src/pages/SmartCapture.tsx")
+          t = p.read_text(encoding="utf-8")
+          idx = t.find("DOČASNÝ STUB")
+          if idx < 0:
+              print("no stub marker")
+              raise SystemExit(0)
+          start = t.rfind("/**", 0, idx)
+          if start < 0:
+              print("comment start not found")
+              raise SystemExit(0)
+          if t.count("export default function SmartCapture") < 2:
+              print("only one export, leave as-is")
+              raise SystemExit(0)
+          p.write_text(t[:start].rstrip() + "\n", encoding="utf-8")
+          print("stub removed, new size", p.stat().st_size)
+          EOF
+      - uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "Odstranění DOČASNÝ STUB ze SmartCapture.tsx"
+          file_pattern: src/pages/SmartCapture.tsx

@@ -12,6 +12,8 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
       - name: Remove trailing stub if present
         run: |
           python3 << 'EOF'
@@ -32,7 +34,14 @@ jobs:
           p.write_text(t[:start].rstrip() + "\n", encoding="utf-8")
           print("stub removed, new size", p.stat().st_size)
           EOF
-      - uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: "Odstranění DOČASNÝ STUB ze SmartCapture.tsx"
-          file_pattern: src/pages/SmartCapture.tsx
+      - name: Commit if changed
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/pages/SmartCapture.tsx
+          if git diff --staged --quiet; then
+            echo "No changes"
+          else
+            git commit -m "Odstranění DOČASNÝ STUB ze SmartCapture.tsx"
+            git push
+          fi

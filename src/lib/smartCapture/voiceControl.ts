@@ -1,31 +1,7 @@
 // Smart Capture — voice command recognition (Czech)
-// Uses Web Speech API (webkitSpeechRecognition). No external deps.
+// Web Speech API (webkitSpeechRecognition). Mobile/iOS friendly.
 
 export type VoiceCommand = "next" | "prev" | "shot" | "retake" | "vin" | "done" | "skip";
-
-const PATTERNS: Record<VoiceCommand, RegExp[]> = {
-  shot: [
-    /\b(vyfotit|vyfo[tť]|fo[tť]|fotit|cvak|cvakni|klik|teď|ted|snímek|fotka|foť to|ber)\b/i,
-  ],
-  next: [
-    /\b(další|dalsi|pokračuj|pokracuj|další krok|next|dopředu)\b/i,
-  ],
-  prev: [
-    /\b(zpět|zpet|předchozí|predchozi|back|zpátky)\b/i,
-  ],
-  retake: [
-    /\b(přefotit|prefotit|znovu|opakovat|smaž|smaz|ještě jednou|znova)\b/i,
-  ],
-  vin: [
-    /\b(vin|víín|naskenuj vin|skenuj vin|vin kód)\b/i,
-  ],
-  done: [
-    /\b(hotovo|konec|dokončit|dokoncit|finish|ukončit|končíme)\b/i,
-  ],
-  skip: [
-    /\b(přeskočit|preskocit|skip|vynechat)\b/i,
-  ],
-};
 
 export interface VoiceController {
   start: () => void;
@@ -35,13 +11,13 @@ export interface VoiceController {
   setHandler: (h: (cmd: VoiceCommand, raw: string) => void) => void;
   setDictationHandler: (h: ((text: string) => void) | null) => void;
   setStatusHandler: (h: ((listening: boolean, error?: string) => void) | null) => void;
+  setHeardHandler: (h: ((text: string) => void) | null) => void;
 }
 
 interface SRConstructor {
   new (): SpeechRecognitionLike;
 }
 
-/** Minimal SpeechRecognition shape — keep types simple for esbuild. */
 interface SpeechRecognitionLike extends EventTarget {
   lang: string;
   continuous: boolean;
@@ -65,6 +41,46 @@ interface SpeechRecognitionResultLike {
   0: { transcript: string };
 }
 
+function isIOSLike(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent || "";
+  return /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/i.test(ua) && navigator.maxTouchPoints > 1);
+}
+
+/** Strip diacritics for tolerant matching. */
+function fold(s: string): string {
+  return s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Ordered: more specific commands first where needed. */
+const COMMANDS: { cmd: VoiceCommand; keys: string[] }[] = [
+  { cmd: "shot", keys: ["vyfotit", "vyfot", "fotit", "fot", "fotka", "fotku", "cvak", "cvakni", "klik", "ted", "snimek", "ber", "fo"] },
+  { cmd: "retake", keys: ["prefotit", "prefot", "znovu", "opakovat", "smaz", "smazat", "jeste jednou", "znova"] },
+  { cmd: "skip", keys: ["preskocit", "preskoc", "skip", "vynechat"] },
+  { cmd: "next", keys: ["dalsi", "pokracuj", "next", "dopredu"] },
+  { cmd: "prev", keys: ["zpet", "predchozi", "back", "zpatky"] },
+  { cmd: "vin", keys: ["vin", "vinko", "naskenuj vin", "skenuj vin"] },
+  { cmd: "done", keys: ["hotovo", "konec", "dokoncit", "finish", "ukoncit", "koncime"] },
+];
+
+function matchCommand(raw: string): VoiceCommand | null {
+  const t = ` ${fold(raw)} `;
+  for (const { cmd, keys } of COMMANDS) {
+    for (const key of keys) {
+      if (t.includes(` ${key} `) || t.includes(` ${key}`)) return cmd;
+      // single-word exact
+      if (t.trim() === key) return cmd;
+    }
+  }
+  return null;
+}
+
 export function createVoiceController(): VoiceController {
   const w = window as unknown as {
     SpeechRecognition?: SRConstructor;
@@ -72,17 +88,24 @@ export function createVoiceController(): VoiceController {
   };
   const Ctor = w.SpeechRecognition ?? w.webkitSpeechRecognition;
   const supported = !!Ctor;
+  const ios = isIOSLike();
+
   let rec: SpeechRecognitionLike | null = null;
   let handler: ((cmd: VoiceCommand, raw: string) => void) | null = null;
   let dictation: ((text: string) => void) | null = null;
   let status: ((listening: boolean, error?: string) => void) | null = null;
+  let heard: ((text: string) => void) | null = null;
   let wantOn = false;
   let isListening = false;
   let restartTimer: ReturnType<typeof setTimeout> | null = null;
 
   const notify = (on: boolean, error?: string) => {
     isListening = on;
-    status?.(on, error);
+    try {
+      status?.(on, error);
+    } catch {
+      /* UI must not break recognition */
+    }
   };
 
   const clearRestart = () => {
@@ -92,34 +115,61 @@ export function createVoiceController(): VoiceController {
     }
   };
 
-  const matchCommand = (text: string): VoiceCommand | null => {
-    for (const [cmd, regs] of Object.entries(PATTERNS) as [VoiceCommand, RegExp[]][]) {
-      if (regs.some((re) => re.test(text))) return cmd;
-    }
-    return null;
+  const scheduleRestart = () => {
+    clearRestart();
+    if (!wantOn || !rec) return;
+    // iOS needs a slightly longer gap after each utterance
+    const delay = ios ? 400 : 250;
+    restartTimer = setTimeout(() => {
+      if (!wantOn || !rec) return;
+      try {
+        rec.start();
+      } catch {
+        // InvalidStateError if already started — ignore
+      }
+    }, delay);
   };
 
   const buildRec = () => {
     if (!Ctor) return null;
     const r = new Ctor();
     r.lang = "cs-CZ";
-    r.continuous = true;
+    // continuous=true is unreliable on iOS Safari / Chrome iOS
+    r.continuous = !ios;
     r.interimResults = false;
-    if (typeof r.maxAlternatives === "number") r.maxAlternatives = 1;
+    if (typeof r.maxAlternatives === "number") r.maxAlternatives = 3;
 
     r.onstart = () => notify(true);
 
     r.onresult = (e) => {
-      const last = e.results[e.results.length - 1];
-      if (!last?.isFinal) return;
+      const results = e.results;
+      const last = results[results.length - 1];
+      if (!last) return;
+      // Some engines mark isFinal late; accept final or last alternative
       const text = String(last[0]?.transcript ?? "").trim();
       if (!text) return;
+      if (!last.isFinal && ios) return;
+      if (!last.isFinal && !ios) return;
+
+      try {
+        heard?.(text);
+      } catch {
+        /* ignore */
+      }
+
       if (dictation) {
         dictation(text);
         return;
       }
+
       const cmd = matchCommand(text);
-      if (cmd) handler?.(cmd, text);
+      if (cmd) {
+        try {
+          handler?.(cmd, text);
+        } catch {
+          /* ignore */
+        }
+      }
     };
 
     r.onerror = (e) => {
@@ -129,22 +179,17 @@ export function createVoiceController(): VoiceController {
         notify(false, "Mikrofon nemá oprávnění");
         return;
       }
+      // no-speech / aborted: onend will restart if wantOn
       if (code === "no-speech" || code === "aborted") return;
-      notify(isListening, code);
+      if (code === "network") {
+        notify(false, "Síťová chyba rozpoznávání");
+        return;
+      }
     };
 
     r.onend = () => {
       notify(false);
-      if (!wantOn) return;
-      clearRestart();
-      restartTimer = setTimeout(() => {
-        if (!wantOn) return;
-        try {
-          r.start();
-        } catch {
-          /* already started */
-        }
-      }, 280);
+      if (wantOn) scheduleRestart();
     };
 
     return r;
@@ -154,14 +199,23 @@ export function createVoiceController(): VoiceController {
     isSupported: supported,
     listening: () => isListening,
     start: () => {
-      if (!supported) return;
+      if (!supported) {
+        notify(false, "Prohlížeč nepodporuje hlasové ovládání");
+        return;
+      }
       wantOn = true;
-      if (!rec) rec = buildRec();
+      // Rebuild instance when starting — avoids stuck state after abort
+      try {
+        rec?.abort();
+      } catch {
+        /* ignore */
+      }
+      rec = buildRec();
       clearRestart();
       try {
         rec?.start();
       } catch {
-        /* already started */
+        scheduleRestart();
       }
     },
     stop: () => {
@@ -187,10 +241,12 @@ export function createVoiceController(): VoiceController {
     setStatusHandler: (h) => {
       status = h;
     },
+    setHeardHandler: (h) => {
+      heard = h;
+    },
   };
 }
 
-/** Map command to short Czech label for toast / UI. */
 export function voiceCommandLabel(cmd: VoiceCommand): string {
   switch (cmd) {
     case "shot": return "Vyfotit";
@@ -203,7 +259,6 @@ export function voiceCommandLabel(cmd: VoiceCommand): string {
   }
 }
 
-// Parse a dictated free-form sentence into vehicle info fields.
 export function parseDictation(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   const t = " " + text.toLowerCase().replace(/[,.;]/g, " ") + " ";

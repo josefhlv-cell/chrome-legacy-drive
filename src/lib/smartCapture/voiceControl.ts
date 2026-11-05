@@ -40,6 +40,8 @@ export interface VoiceController {
 interface SRConstructor {
   new (): SpeechRecognitionLike;
 }
+
+/** Minimal SpeechRecognition shape — keep types simple for esbuild. */
 interface SpeechRecognitionLike extends EventTarget {
   lang: string;
   continuous: boolean;
@@ -48,10 +50,19 @@ interface SpeechRecognitionLike extends EventTarget {
   start(): void;
   stop(): void;
   abort(): void;
-  onresult: ((e: { results: ArrayLike<{ 0: { transcript: string }; isFinal: boolean }; length: number; resultIndex?: number }>) => void) | null;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
   onerror: ((e: { error?: string }) => void) | null;
   onend: (() => void) | null;
   onstart: (() => void) | null;
+}
+
+interface SpeechRecognitionEventLike {
+  results: ArrayLike<SpeechRecognitionResultLike>;
+}
+
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: { transcript: string };
 }
 
 export function createVoiceController(): VoiceController {
@@ -113,7 +124,6 @@ export function createVoiceController(): VoiceController {
 
     r.onerror = (e) => {
       const code = e?.error || "error";
-      // not-allowed = mic permission; aborted/no-speech are normal
       if (code === "not-allowed" || code === "service-not-allowed") {
         wantOn = false;
         notify(false, "Mikrofon nemá oprávnění");
@@ -126,7 +136,6 @@ export function createVoiceController(): VoiceController {
     r.onend = () => {
       notify(false);
       if (!wantOn) return;
-      // Brief pause before restart — stabilnější na mobilu
       clearRestart();
       restartTimer = setTimeout(() => {
         if (!wantOn) return;

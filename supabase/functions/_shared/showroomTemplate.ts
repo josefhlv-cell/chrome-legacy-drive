@@ -4,14 +4,15 @@
 // READ ONLY: never generate, never mutate at runtime.
 // ============================================================================
 
-export const CAMERA_VERSION = "camera-v2";
-export const BACKGROUND_VERSION = "background-v5";
-export const PLACEMENT_VERSION = "placement-v6";
-export const LIGHTING_VERSION = "lighting-v2";
-export const GROUND_VERSION = "ground-v5";
+export const CAMERA_VERSION = "camera-v3";
+export const BACKGROUND_VERSION = "background-v6";
+export const PLACEMENT_VERSION = "placement-v7";
+export const LIGHTING_VERSION = "lighting-v3";
+export const GROUND_VERSION = "ground-v6";
 
-export const CANVAS_W = 1536;
-export const CANVAS_H = 968;
+// Native pixels of master_showroom_background.jpg. Never stretch this plate.
+export const CANVAS_W = 1500;
+export const CANVAS_H = 846;
 
 /** Locked camera (camera.json). */
 export const CAMERA = {
@@ -20,31 +21,32 @@ export const CAMERA = {
   pitch_deg: -1.8,
   yaw_deg: 0,
   roll_deg: 0,
-  horizon_y: 595,
+  horizon_y: 296,
   jpeg_quality: 94,
 } as const;
 
 /** Ground plane (ground_plane.json). */
 export const GROUND = {
-  wheelLineY: 875,
-  anchorX: 768,
-  usableMinX: 160,
-  usableMaxX: 1376,
-  wallFloorSeamY: 595,
+  wheelLineY: 768,
+  anchorX: 750,
+  usableMinX: 90,
+  usableMaxX: 1410,
+  wallFloorSeamY: 518,
   ambientReachRatio: 0.11,
   contactReachRatio: 0.022,
   ambientOpacity: 0.30,
-  contactOpacity: 0.58,
-  reflectionOpacity: 0.14,
+  contactOpacity: 0.62,
+  reflectionOpacity: 0.18,
 } as const;
 
-/** Reserved wall artwork. A vehicle is never allowed to enter this zone. */
+/** Upper star of the wall shield. The wordmark sits lower and a 3/4 bbox
+ * crosses it without covering the artwork, so only the star is a hard keep-out. */
 export const LOGO_SAFE_ZONE = {
-  minX: 0,
-  maxX: 0,
-  minY: 0,
-  maxY: 0,
-  clearancePx: 0,
+  minX: 1168,
+  maxX: 1342,
+  minY: 118,
+  maxY: 210,
+  clearancePx: 8,
 } as const;
 
 export type VehicleClass =
@@ -76,8 +78,8 @@ export const CLASS_PROFILES: Record<VehicleClass, ClassProfile> = {
 export const PLACEMENT_LIMITS = {
   maxRotationDeg: 1,
   minFrameMarginPx: 24,
-  maxCarWidthRatio: 0.72,
-  maxCarHeightRatio: 0.40,
+  maxCarWidthRatio: 0.74,
+  maxCarHeightRatio: 0.68,
 } as const;
 
 export const VALIDATION = {

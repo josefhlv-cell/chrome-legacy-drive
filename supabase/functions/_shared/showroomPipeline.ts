@@ -3,10 +3,9 @@
 // SHOWROOM PIPELINE — shared by `showroom-generate` (single, admin UI) and
 // `showroom-batch` (bulk regeneration).
 //
-// THE ONE AND ONLY SHOWROOM BACKGROUND: a single fixed JPEG in storage.
-// The AI NEVER generates a background — it only cuts the vehicle out.
-// Placement/scale are computed mathematically, so every vehicle ends up on the
-// identical background at the identical scale.
+// THE ONE AND ONLY SHOWROOM BACKGROUND: master_showroom_background.jpg
+// (1500×846, CHDP indoor plate). The AI NEVER generates a background — it
+// only cuts the vehicle out. The plate is never stretched.
 // ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
 import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
@@ -33,7 +32,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  `${SUPABASE_URL}/storage/v1/object/public/vehicles/showroom/_assets/background-v4.jpg`;
+  "https://raw.githubusercontent.com/josefhlv-cell/chrome-legacy-drive/main/public/assets/showroom/master_showroom_background.jpg";
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
@@ -812,6 +811,19 @@ export type ShowroomResult =
  *
  * Never touches `showroom_applied_at` — publishing stays an explicit admin action.
  */
+/** The master plate is a photograph. Same pixels, or a uniform scale. Never stretch. */
+function placeBackground(bg: Image): Image {
+  if (bg.width === CANVAS_W && bg.height === CANVAS_H) return bg;
+  const sx = CANVAS_W / bg.width;
+  const sy = CANVAS_H / bg.height;
+  if (Math.abs(sx - sy) > 0.01) {
+    throw new Error(
+      `Showroom background ${bg.width}x${bg.height} does not match canvas ${CANVAS_W}x${CANVAS_H}. Refusing to stretch.`,
+    );
+  }
+  return bg.resize(CANVAS_W, CANVAS_H);
+}
+
 export async function runShowroom(
   admin: AdminClient,
   imageId: string,
@@ -914,7 +926,7 @@ export async function runShowroom(
   let carDataUrl: string;
   try {
     const [bg, car] = await Promise.all([
-      fetchBytes(BACKGROUND_URL, "Showroom pozadí (vehicles/showroom/_assets/background-v4.jpg) nelze načíst"),
+      fetchBytes(BACKGROUND_URL, "Showroom pozadí (master_showroom_background.jpg) nelze načíst"),
       fetchBytes(sourceUrl, "Originální fotografii vozu nelze načíst"),
     ]);
     bgBytes = bg.bytes;
@@ -977,7 +989,7 @@ export async function runShowroom(
       car.resize(targetW, targetH);
       featherEdges(car);
 
-      const canvas = (await Image.decode(bgBytes)).resize(CANVAS_W, CANVAS_H);
+      const canvas = placeBackground(await Image.decode(bgBytes));
       const carX = Math.round(GROUND.anchorX - targetW / 2 + usedPlace.offsetX);
       const carY = Math.round(GROUND.wheelLineY + usedPlace.offsetY) - targetH;
 
@@ -1024,7 +1036,7 @@ export async function runShowroom(
       if (!aiReview.passed && aiReview.car_too_small && attempt < VALIDATION.maxAttempts && aiReview.scale_multiplier > 1.01) {
         usedPlace = placementFromProfile(vehicleClass, {
           ...usedPlace,
-          scale: Math.min(0.72, usedPlace.scale * aiReview.scale_multiplier),
+          scale: Math.min(PLACEMENT_LIMITS.maxCarWidthRatio, usedPlace.scale * aiReview.scale_multiplier),
         });
         await appendHistory(admin, imageId, "ai_visual_retry", "AI score " + aiReview.score + "/100 — scale correction");
         continue;

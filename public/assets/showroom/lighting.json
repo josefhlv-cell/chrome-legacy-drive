@@ -1,19 +1,19 @@
 {
-  "version": "lighting-v2",
+  "version": "lighting-v3",
   "readOnly": true,
-  "note": "Lighting signature of the master showroom. Used for colour matching / anti-halo cleanup only.",
+  "note": "CHDP indoor plate: black ceiling, recessed neutral spots, white wall, polished gray floor. Match the vehicle to this light. Do not relight the plate.",
   "key_light": {
-    "type": "soft-overhead",
-    "direction_deg": 96,
+    "type": "recessed-ceiling-spots",
+    "direction_deg": 90,
     "intensity": 1,
-    "temperature_k": 5600
+    "temperature_k": 4500
   },
   "fill_light": {
-    "type": "ambient-bounce",
-    "intensity": 0.42,
-    "temperature_k": 6200
+    "type": "wall-bounce",
+    "intensity": 0.48,
+    "temperature_k": 5200
   },
-  "white_balance_k": 5800,
+  "white_balance_k": 4800,
   "exposure_ev": 0,
   "target_body_luma": {
     "min": 26,

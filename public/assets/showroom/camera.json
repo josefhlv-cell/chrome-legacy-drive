@@ -1,36 +1,24 @@
 {
-  "version": "camera-v2",
+  "version": "camera-v3",
   "readOnly": true,
-  "note": "Locked virtual camera of the master showroom. NEVER regenerate or edit — every vehicle composite must use exactly these values.",
+  "note": "The JPG is the camera. These pixels were measured on master_showroom_background.jpg. Do not rebuild the room from the written dimensions.",
   "canvas": {
-    "width": 1536,
-    "height": 968,
-    "aspect": "1536:968"
-  },
-  "sensor": {
-    "type": "full-frame",
-    "width_mm": 36,
-    "height_mm": 24
-  },
-  "lens": {
-    "focal_length_mm": 50,
-    "field_of_view_deg": 39.6,
-    "aperture": "f/8",
-    "distortion": "none"
-  },
-  "position": {
-    "height_m": 1.45,
-    "distance_m": 9.2
-  },
-  "rotation": {
-    "pitch_deg": -1.8,
-    "yaw_deg": 0,
-    "roll_deg": 0
+    "width": 1500,
+    "height": 846,
+    "aspect": "1500:846"
   },
   "perspective": {
     "type": "linear",
-    "vanishing_point_x": 768,
-    "horizon_y": 595
+    "vanishing_point_x": 750,
+    "horizon_y": 296,
+    "horizon_note": "1.45 m eye line on the 3.00 m rear wall (wall top y=59, seam y=518). Not used to warp the plate."
+  },
+  "showroom": {
+    "rear_wall_width_m": 6.6,
+    "rear_wall_height_m": 3.0,
+    "rear_wall_top_y": 59,
+    "rear_wall_seam_y": 518,
+    "wall_px_per_meter": 153
   },
   "output": {
     "encoding": "jpeg",

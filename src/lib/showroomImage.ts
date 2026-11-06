@@ -10,10 +10,10 @@
  * Keep in sync with supabase/functions/_shared/showroomTemplate.ts.
  */
 export const SHOWROOM_TEMPLATE = {
-  background: "background-v4",
-  camera: "camera-v1",
-  placement: "placement-v2",
-  lighting: "lighting-v2",
+  background: "background-v6",
+  camera: "camera-v3",
+  placement: "placement-v7",
+  lighting: "lighting-v3",
 } as const;
 
 export type ShowroomImageLike = {

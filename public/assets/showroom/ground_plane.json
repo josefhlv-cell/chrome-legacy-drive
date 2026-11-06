@@ -1,26 +1,35 @@
 {
-  "version": "ground-v5",
+  "version": "ground-v6",
   "readOnly": true,
-  "note": "Ground plane of the master showroom background (background-v4.jpg). All vehicles align to this plane.",
-  "surface": "asphalt",
-  "tyre_contact_line_y": 875,
-  "tyre_contact_line_y_ratio": 0.9039256198347108,
+  "note": "Polished concrete floor of master_showroom_background.jpg. Tyre line is the reference RAM front contact, 7 px inside the near arc of the floor circle.",
+  "surface": "polished-concrete",
+  "tyre_contact_line_y": 768,
+  "tyre_contact_line_y_ratio": 0.9078,
   "vehicle_anchor": {
-    "x": 768,
-    "y": 875,
+    "x": 750,
+    "y": 768,
     "align": "bottom-center"
   },
   "usable_span_x": {
-    "min": 160,
-    "max": 1376
+    "min": 90,
+    "max": 1410
   },
-  "wall_floor_seam_y": 595,
+  "wall_floor_seam_y": 518,
+  "display_circle": {
+    "center_x": 740,
+    "center_y": 663,
+    "far_y": 552,
+    "near_y": 775,
+    "widest_y": 664,
+    "widest_left_x": 85,
+    "widest_right_x": 1394
+  },
   "shadow": {
-    "direction_deg": 96,
+    "direction_deg": 90,
     "ambient_reach_ratio": 0.11,
     "contact_reach_ratio": 0.022,
     "ambient_opacity": 0.3,
-    "contact_opacity": 0.58,
-    "reflection_opacity": 0.14
+    "contact_opacity": 0.62,
+    "reflection_opacity": 0.18
   }
 }

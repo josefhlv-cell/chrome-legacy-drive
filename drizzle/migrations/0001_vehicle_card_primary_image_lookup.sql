@@ -1,0 +1,2 @@
+CREATE INDEX IF NOT EXISTS idx_vehicle_images_primary_lookup ON public.vehicle_images (vehicle_id, is_main DESC, sort_order ASC, id ASC);
+COMMENT ON INDEX public.idx_vehicle_images_primary_lookup IS 'Supports deterministic primary-photo lookup for public vehicle cards without reading full galleries.';

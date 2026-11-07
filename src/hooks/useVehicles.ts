@@ -12,14 +12,10 @@ export type DbVehicle = Tables<"vehicles"> & { vehicle_images?: VehicleImageReco
 const UUID_REGEX =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
-// Lean column set for list views — drops heavy fields like description/lpg_description/carfax_url
-// that are only needed on the detail page. Cuts JSON payload by ~70%.
-const LIST_COLUMNS =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,showroom_image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images!inner(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
-
-// Fallback when a vehicle has no rows in vehicle_images yet — left join variant.
+// Left join keeps vehicles without a gallery. Embedded ordering/limit below
+// selects the primary image in PostgreSQL, rather than downloading every photo.
 const LIST_COLUMNS_LEFT =
-  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,showroom_image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
+  "id,name,year,price_with_vat,mileage,vin,fuel,status,show_vat,warranty_enabled,lpg_enabled,transmission,power,engine,color,carfax_enabled,carfax_url,image_url,showroom_image_url,inventory_number,showroom_mode,updated_at,created_at,vehicle_images(id,image_url,is_main,sort_order,showroom_url,showroom_applied_at,showroom_metadata)";
 
 // Admin needs FULL row data (description, engine, transmission, power, color,
 // lpg_description, carfax_url, video_id, etc.) so the edit form is pre-filled.
@@ -69,7 +65,7 @@ const cleanupSmartCaptureForSoldVehicle = async (vehicleId: string) => {
 /**
  * Fetch vehicles for list views.
  * - Uses a lean column projection (no description, lpg_description, etc.)
- * - Only requests gallery rows where is_main=true → 1 image per vehicle instead of 15-20
+ * - Requests one primary image, with sort_order/id fallback when no is_main exists
  * - Server-side ordering by created_at DESC
  *
  * For Admin (includeHidden=true) we still fetch all images so the admin grid
@@ -89,7 +85,11 @@ export const useVehicles = (includeHidden = false) => {
         .order("created_at", { ascending: false });
 
       if (!includeHidden) {
-        query = query.neq("status", "prodano");
+        query = query.neq("status", "prodano")
+          .order("is_main", { referencedTable: "vehicle_images", ascending: false })
+          .order("sort_order", { referencedTable: "vehicle_images", ascending: true })
+          .order("id", { referencedTable: "vehicle_images", ascending: true })
+          .limit(1, { referencedTable: "vehicle_images" });
       }
 
       const { data, error } = await query;
@@ -129,6 +129,10 @@ export const useInfiniteVehicles = (pageSize = 12) => {
         .from("vehicles")
         .select(LIST_COLUMNS_LEFT)
         .neq("status", "prodano")
+        .order("is_main", { referencedTable: "vehicle_images", ascending: false })
+        .order("sort_order", { referencedTable: "vehicle_images", ascending: true })
+        .order("id", { referencedTable: "vehicle_images", ascending: true })
+        .limit(1, { referencedTable: "vehicle_images" })
         .order("created_at", { ascending: false })
         .range(from, to);
       if (error) throw error;

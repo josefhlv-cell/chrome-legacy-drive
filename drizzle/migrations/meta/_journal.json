@@ -8,6 +8,13 @@
       "when": 1793584631762,
       "tag": "0000_vehicle_show_room_gallery",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1794073948648,
+      "tag": "0001_vehicle_card_primary_image_lookup",
+      "breakpoints": true
     }
   ]
 }

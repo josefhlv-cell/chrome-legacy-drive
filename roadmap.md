@@ -1,3 +1,8 @@
+# Database performance and running credits
+- [x] Measure project usage, query plans, indexes, table sizes and scheduled work (2026-11-07; scoped requested runtime credits 5.09858, pico 41.07 instance-hours; healthy resources).
+- [x] Apply evidence-backed optimizations without deleting data or changing required freshness: unschedule disabled showroom-batch polling; select one deterministic embedded card photo and add matching index.
+- [x] Verify database plans and customer/admin readback: 23 vehicles, 448→23 embedded photos, 171022→38284 bytes; full admin gallery/reload preserved; mobile/detail checks, 48 tests and build OK. Measured credit savings require later representative usage comparison. Findings in .lovable/database-optimization.md.
+
 # Show Room gallery
 - [ ] Inspect existing admin/public galleries, schema and storage permissions.
 - [ ] Add isolated persisted gallery and independent activation with safe storage removal.

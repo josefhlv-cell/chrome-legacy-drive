@@ -1,4 +1,6 @@
 # Architecture rules
+- Public vehicle lists fetch at most one embedded vehicle_images row ordered by is_main DESC, sort_order ASC, id ASC; admin and detail galleries remain complete, avoiding full-gallery transfer for cards.
+- Do not schedule showroom-batch while bulk generation is disabled; manual primary-photo generation remains available without idle polling.
 - Admin-uploaded Show Room photos live in vehicles.show_room_images as an ordered JSON array with a separate show_room_enabled flag; use only for public detail galleries, never vehicle_images or listing fields, to preserve original-photo behavior. Storage removals must validate the dedicated show-room/{vehicleId}/ prefix and commit metadata first; compare-and-swap prevents concurrent admin overwrites.
 - Smart Capture keeps one guided 20-shot sequence; session metadata stores skipped steps and capture progress without requiring schema changes.
 - Accepted capture photos and their progress share a durable IndexedDB record; advance only after the local transaction commits, never after network upload or advisory analysis, to survive abrupt browser closure.

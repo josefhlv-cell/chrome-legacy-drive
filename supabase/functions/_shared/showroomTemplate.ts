@@ -5,7 +5,7 @@
 // ============================================================================
 
 export const CAMERA_VERSION = "camera-v3";
-export const BACKGROUND_VERSION = "background-v6";
+export const BACKGROUND_VERSION = "background-v7";
 export const PLACEMENT_VERSION = "placement-v7";
 export const LIGHTING_VERSION = "lighting-v3";
 export const GROUND_VERSION = "ground-v6";

@@ -1,8 +1,9 @@
 import { supabase } from "@/integrations/supabase/client";
 import { FunctionsHttpError } from "@supabase/supabase-js";
 import { fileToBase64 } from "./imageProcessing";
+import { SHOWROOM_BACKGROUND_URL } from "@/lib/showroomBackground";
 
-export const SMART_CAPTURE_SHOWROOM_BACKGROUND = "/assets/showroom/master_showroom_background.jpg";
+export const SMART_CAPTURE_SHOWROOM_BACKGROUND = SHOWROOM_BACKGROUND_URL;
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {

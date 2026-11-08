@@ -7,11 +7,12 @@
  * používá composeThumbnail s výřezem.
  */
 /** Produkční showroom pozadí — veřejná cesta (L5E interní URL na live webu často selže). */
-export const CAPTURE_BG_URL = "/assets/showroom/master_showroom_background.webp?v=20261102-2";
+import { SHOWROOM_BACKGROUND_URL } from "@/lib/showroomBackground";
+export const CAPTURE_BG_URL = SHOWROOM_BACKGROUND_URL;
 
 /** Výstupní rozměr miniatury (16:9, shodné s masterem pozadí). */
-export const THUMB_W = 1600;
-export const THUMB_H = 900;
+export const THUMB_W = 1920;
+export const THUMB_H = 1082;
 
 /**
  * Deterministická geometrie umístění vozidla na pozadí.

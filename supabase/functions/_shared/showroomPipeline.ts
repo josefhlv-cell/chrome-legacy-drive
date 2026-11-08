@@ -32,7 +32,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY")!;
 
 export const BACKGROUND_URL =
-  "https://raw.githubusercontent.com/josefhlv-cell/chrome-legacy-drive/main/public/assets/showroom/master_showroom_background.jpg";
+  "https://chrysler-cz.lovable.app/__l5e/assets-v1/c54c17c6-c094-4297-b5b5-c08bcf375a74/chdp-showroom-master.jpeg";
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
@@ -821,7 +821,16 @@ function placeBackground(bg: Image): Image {
       `Showroom background ${bg.width}x${bg.height} does not match canvas ${CANVAS_W}x${CANVAS_H}. Refusing to stretch.`,
     );
   }
-  return bg.resize(CANVAS_W, CANVAS_H);
+  // Preserve the uploaded image's exact proportions. At most one pixel of
+  // letterboxing is needed for the approved 1920×1082 plate on this canvas.
+  const scale = Math.min(sx, sy);
+  const width = Math.round(bg.width * scale);
+  const height = Math.round(bg.height * scale);
+  bg.resize(width, height);
+  const canvas = new Image(CANVAS_W, CANVAS_H);
+  canvas.fill(0x181818ff);
+  canvas.composite(bg, Math.floor((CANVAS_W - width) / 2), Math.floor((CANVAS_H - height) / 2));
+  return canvas;
 }
 
 export async function runShowroom(

@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { pickPrimaryImage } from "@/lib/showroomPrimary";
-const showroomBg = "/assets/showroom/master_showroom_background.webp";
+import { SHOWROOM_BACKGROUND_URL as showroomBg } from "@/lib/showroomBackground";
 
 
 type ImgRow = {
@@ -330,7 +330,7 @@ export default function ShowroomTab() {
           </div>
         )}
         <div className="mt-4 rounded-md overflow-hidden border border-border max-h-44">
-          <img src={showroomBg} alt="Referenční showroom pozadí" className="w-full h-44 object-cover" />
+          <img src={showroomBg} alt="Referenční showroom pozadí" className="w-full h-44 object-contain" />
         </div>
       </div>
 

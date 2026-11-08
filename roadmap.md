@@ -1,3 +1,7 @@
+# Single approved showroom background
+- [x] Replace frontend/edge background sources with the unchanged uploaded indoor showroom; remove five old local plates and replace the sole legacy storage background (background-v4.jpg) with identical uploaded JPEG bytes. Originals and existing composites untouched.
+- [x] Verify CDN and storage HTTP 200 and exact bytes, authenticated desktop/mobile admin preview (local CDN route fulfilled with verified bytes), old-template invalidation, 24 tests and build OK. No paid regeneration or frontend publication; edge URL change prepared in source, not manually deployed.
+
 # Database performance and running credits
 - [x] Measure project usage, query plans, indexes, table sizes and scheduled work (2026-11-07; scoped requested runtime credits 5.09858, pico 41.07 instance-hours; healthy resources).
 - [x] Apply evidence-backed optimizations without deleting data or changing required freshness: unschedule disabled showroom-batch polling; select one deterministic embedded card photo and add matching index.

@@ -10,7 +10,7 @@
  * Keep in sync with supabase/functions/_shared/showroomTemplate.ts.
  */
 export const SHOWROOM_TEMPLATE = {
-  background: "background-v6",
+  background: "background-v7",
   camera: "camera-v3",
   placement: "placement-v7",
   lighting: "lighting-v3",
@@ -24,11 +24,10 @@ export type ShowroomImageLike = {
 };
 
 export const isCurrentShowroomTemplate = (meta: unknown): boolean => {
-  // Older rows have no metadata at all — treat them as current so a published
-  // photo never disappears; the pipeline stamps versions from now on.
-  if (!meta || typeof meta !== "object") return true;
+  // Unversioned results may contain an obsolete background; use the original.
+  if (!meta || typeof meta !== "object") return false;
   const m = meta as Record<string, unknown>;
-  if (!m.background_version) return true;
+  if (!m.background_version) return false;
   return m.background_version === SHOWROOM_TEMPLATE.background
     && m.camera_version === SHOWROOM_TEMPLATE.camera
     && m.placement_version === SHOWROOM_TEMPLATE.placement

@@ -800,7 +800,7 @@ export async function runShowroom(
 
   const { data: img, error: imgErr } = await admin
     .from("vehicle_images")
-    .select("id, vehicle_id, image_url, showroom_url, original_backup_url, showroom_status, showroom_placement, showroom_metadata")
+    .select("id, vehicle_id, image_url, showroom_url, showroom_thumb_url, showroom_mask_url, showroom_generated_at, original_backup_url, showroom_status, showroom_placement, showroom_metadata")
     .eq("id", imageId)
     .maybeSingle();
   if (imgErr || !img) return { ok: false, error: "Image not found", status: 404 };
@@ -1026,7 +1026,7 @@ export async function runShowroom(
   const stamp = Date.now();
   const filename = `showroom/Web_Showroom/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
   const thumbFilename = `showroom/Inzerce/${(img as any).vehicle_id}/${imageId}_${stamp}.jpg`;
-  const maskFilename = `showroom/masks/${(img as any).vehicle_id}/${imageId}.png`;
+  const maskFilename = `showroom/masks/${(img as any).vehicle_id}/${imageId}_${stamp}.png`;
   const uploadOptions = { contentType: "image/jpeg", upsert: true, cacheControl: "31536000" };
 
   const { error: upErr } = await admin.storage.from("vehicles").upload(filename, jpeg!, uploadOptions);
@@ -1041,6 +1041,11 @@ export async function runShowroom(
   const showroomUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${filename}`;
   const thumbUrl = `${SUPABASE_URL}/storage/v1/object/public/vehicles/${thumbFilename}`;
   const maskUrl = maskPng ? `${SUPABASE_URL}/storage/v1/object/public/vehicles/${maskFilename}` : "";
+
+  // Keep every earlier preview as a separate reference version. Files are
+  // timestamped (never overwritten); their pointers are archived here so old
+  // and new previews can be compared side by side.
+  const previousVersions = buildPreviousVersions(img as any);
 
   await setImageState(admin, imageId, {
     showroom_url: showroomUrl,
@@ -1066,6 +1071,7 @@ export async function runShowroom(
       cutout_source: "lovable-ai-gateway",
       ai_role: "gpt-image-2.6-sunburst-segmentation",
       validation_score: report.score,
+      previous_versions: previousVersions,
     },
   });
   await appendHistory(
@@ -1156,4 +1162,27 @@ export function isCurrentTemplate(meta: unknown): boolean {
     && m.camera_version === CAMERA_VERSION
     && m.placement_version === PLACEMENT_VERSION
     && m.lighting_version === LIGHTING_VERSION;
+}
+
+
+/** Archive of earlier previews (newest first, max 10). Pure, no I/O. */
+export function buildPreviousVersions(img: {
+  showroom_url?: string | null;
+  showroom_thumb_url?: string | null;
+  showroom_mask_url?: string | null;
+  showroom_generated_at?: string | null;
+  showroom_metadata?: unknown;
+}): Array<Record<string, unknown>> {
+  const meta = (img.showroom_metadata ?? {}) as Record<string, unknown>;
+  const older = Array.isArray(meta.previous_versions) ? (meta.previous_versions as Array<Record<string, unknown>>) : [];
+  if (!img.showroom_url) return older.slice(0, 10);
+  const { previous_versions: _drop, ...metaWithoutHistory } = meta;
+  const current = {
+    showroom_url: img.showroom_url,
+    showroom_thumb_url: img.showroom_thumb_url ?? null,
+    showroom_mask_url: img.showroom_mask_url ?? null,
+    generated_at: img.showroom_generated_at ?? meta.generated_at ?? null,
+    metadata: metaWithoutHistory,
+  };
+  return [current, ...older.filter((v) => v.showroom_url !== img.showroom_url)].slice(0, 10);
 }

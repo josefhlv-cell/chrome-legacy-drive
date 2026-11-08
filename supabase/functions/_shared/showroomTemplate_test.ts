@@ -33,9 +33,11 @@ Deno.test("very tall cutout shrinks proportionally instead of stretching", () =>
   assert(h <= GROUND.wheelLineY - GROUND.ceilingBottomY);
 });
 
-Deno.test("Town Country is MPV, not sedan", () => {
-  assertEquals(detectVehicleClass({ name: "Chrysler Town Country 3,6 DVD StownGo kůže 2013" }), "MPV");
-  assertEquals(detectVehicleClass({ name: "Chrysler Town & Country" }), "MPV");
+Deno.test("known Chrysler/Dodge/RAM model families override conflicting imported body codes", () => {
+  assertEquals(detectVehicleClass({ name: "Chrysler Town Country 3,6 DVD StownGo kůže 2013", tipcars_karoserie_kod: "A" }), "MPV");
+  assertEquals(detectVehicleClass({ name: "Chrysler Town & Country", tipcars_karoserie_kod: "A" }), "MPV");
+  assertEquals(detectVehicleClass({ name: "Dodge RAM 1500 Bighorn", tipcars_karoserie_kod: "d" }), "PICKUP");
+  assertEquals(detectVehicleClass({ name: "RAM ProMaster", tipcars_karoserie_kod: "A" }), "VAN");
 });
 
 Deno.test("known model family overrides conflicting generic marketplace body code", () => {

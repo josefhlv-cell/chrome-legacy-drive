@@ -41,11 +41,11 @@ export const GROUND = {
   usableMaxX: 1860,
   wallFloorSeamY: 666,
   ceilingBottomY: 78,
-  ambientReachRatio: 0.12,
-  contactReachRatio: 0.03,
-  ambientOpacity: 0.36,
-  contactOpacity: 0.78,
-  reflectionOpacity: 0.18,
+  ambientReachRatio: 0.09,
+  contactReachRatio: 0.018,
+  ambientOpacity: 0.20,
+  contactOpacity: 0.52,
+  reflectionOpacity: 0.10,
 } as const;
 
 /** CHDP wall shield (whole artwork incl. wordmark). Checked per silhouette
@@ -81,10 +81,10 @@ export const CLASS_PROFILES: Record<VehicleClass, ClassProfile> = {
   COUPE:     { scale: 0.67, minScale: 0.63, maxScale: 0.71, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
   CABRIO:    { scale: 0.67, minScale: 0.63, maxScale: 0.71, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
   WAGON:     { scale: 0.72, minScale: 0.68, maxScale: 0.76, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
-  SUV:       { scale: 0.74, minScale: 0.70, maxScale: 0.78, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
-  MPV:       { scale: 0.75, minScale: 0.72, maxScale: 0.78, wheelbase_ratio: 0.64, ground_clearance: 0.038, shadow_size: 1.06, offset_x: 0, offset_y: 0 },
-  PICKUP:    { scale: 0.78, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
-  VAN:       { scale: 0.78, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
+  SUV:       { scale: 0.78, minScale: 0.70, maxScale: 0.78, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
+  MPV:       { scale: 0.78, minScale: 0.72, maxScale: 0.78, wheelbase_ratio: 0.64, ground_clearance: 0.038, shadow_size: 1.06, offset_x: 0, offset_y: 0 },
+  PICKUP:    { scale: 0.82, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
+  VAN:       { scale: 0.82, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
 };
 
 export const PLACEMENT_LIMITS = {
@@ -200,13 +200,18 @@ const matchKeywords = (text: string): VehicleClass | null => {
  * TipCars body description → vehicle name → SEDAN.
  */
 export function detectVehicleClass(vehicle: Record<string, unknown> | null | undefined): VehicleClass {
-  const code = vehicle?.["tipcars_karoserie_kod"];
-  if (typeof code === "string" && TIPCARS_BODY_CODES[code.trim()]) return TIPCARS_BODY_CODES[code.trim()];
+  const name = vehicle?.["name"];
+  // Explicit model identity wins over broad/imported portal body codes. Portal
+  // mappings are often generic or stale (e.g. Town & Country imported as sedan).
+  const knownModel = typeof name === "string" ? matchKeywords(name) : null;
+  if (knownModel) return knownModel;
+
   const desc = vehicle?.["tipcars_karoserie_popis"];
   if (typeof desc === "string" && desc.trim()) {
     const fromDesc = matchKeywords(desc);
     if (fromDesc) return fromDesc;
   }
-  const name = vehicle?.["name"];
-  return (typeof name === "string" && matchKeywords(name)) || "SEDAN";
+  const code = vehicle?.["tipcars_karoserie_kod"];
+  if (typeof code === "string" && TIPCARS_BODY_CODES[code.trim()]) return TIPCARS_BODY_CODES[code.trim()];
+  return "SEDAN";
 }

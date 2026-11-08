@@ -50,7 +50,6 @@ import NewVehiclePhotoUploader, { type BufferedPhoto } from "@/components/admin/
 import SmartDashboardDialog from "@/components/admin/SmartDashboardDialog";
 import ShowroomTab from "@/components/admin/ShowroomTab";
 import ShowRoomGallery from "@/components/admin/ShowRoomGallery";
-import VehicleShowroomGenerator from "@/components/admin/VehicleShowroomGenerator";
 import HitSongsTab from "@/components/admin/HitSongsTab";
 import { MaraProvider, useMara } from "@/components/admin/MaraAssistant";
 import SmartPriceCheck from "@/components/admin/SmartPriceCheck";
@@ -1574,7 +1573,6 @@ const VehiclesTab = () => {
                   />
                 )}
                 <ShowRoomGallery vehicleId={vehicle.id} />
-                <VehicleShowroomGenerator vehicleId={vehicle.id} />
               </div>
             </div>
           </motion.div>

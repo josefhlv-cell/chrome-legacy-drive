@@ -1,5 +1,4 @@
 # Architecture rules
-- Vehicle admin background generation reuses showroom-generate with force=false and no apply call; load photos only on expansion and keep activation separate from generation.
 - Smart Capture showroom inference uses an authenticated Lovable AI endpoint only for the main shot; retain original_url, composite only processed_url, persist attempt/result locally and claim each paid request in storage to prevent upload retries from repeating inference.
 - Bundle the installed ONNX runtime rather than externalizing its bare imports, because the browser requires resolvable runtime modules for local segmentation.
 - Public vehicle lists fetch at most one embedded vehicle_images row ordered by is_main DESC, sort_order ASC, id ASC; admin and detail galleries remain complete, avoiding full-gallery transfer for cards.

@@ -1,8 +1,3 @@
-# Vehicle admin background generation
-- [x] Add collapsed generator beside original gallery using existing primary-only endpoint, original/result previews and download without automatic activation.
-- [x] Verify authenticated desktop/mobile expansion, original/result rendering and preserved source; 15 regression tests and preview build OK. Frontend not published; no function/schema edits.
-- [ ] Successful fresh-generation verification blocked by existing deployed showroom-generate vision gate: HTTP 502, AI visual review returned no valid JSON. Existing saved result renders; reopening it makes no paid request. Backend repair/deployment is outside this frontend addition.
-
 # Database performance and running credits
 - [x] Measure project usage, query plans, indexes, table sizes and scheduled work (2026-11-07; scoped requested runtime credits 5.09858, pico 41.07 instance-hours; healthy resources).
 - [x] Apply evidence-backed optimizations without deleting data or changing required freshness: unschedule disabled showroom-batch polling; select one deterministic embedded card photo and add matching index.

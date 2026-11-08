@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   upload: vi.fn(), upsert: vi.fn(), invoke: vi.fn(), publicUrl: vi.fn(),
+  showroom: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   storage: { from: () => ({ upload: mocks.upload, getPublicUrl: mocks.publicUrl }) },
@@ -13,6 +14,7 @@ vi.mock("./imageProcessing", () => ({
   computeBlurScore: vi.fn(async () => 0), fileToBase64: vi.fn(async () => "small-image"),
 }));
 import { uploadCapturePhoto, type QueuedPhoto } from "./photoQueue";
+vi.mock("./showroomReplacement", () => ({ composeSmartCaptureShowroom: mocks.showroom }));
 
 const photo = (): QueuedPhoto => ({
   id: "photo-stable-id", sessionId: "same-session", shotType: "prava-predni", shotIndex: 0,
@@ -22,8 +24,32 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.upload.mockResolvedValue({ error: null }); mocks.upsert.mockResolvedValue({ error: null });
   mocks.publicUrl.mockImplementation(path => ({ data: { publicUrl: `https://configured-storage.test/${path}` } }));
+  mocks.showroom.mockResolvedValue(new Blob(["showroom"]));
 });
 describe("accepted photo background pipeline", () => {
+  it("preserves the original bytes and puts the local composite only in the processed file", async () => {
+    const input = { ...photo(), showroomEnabled: true };
+    await uploadCapturePhoto(input);
+    expect(mocks.upload.mock.calls[0][1]).toBe(input.blob);
+    expect(mocks.upload.mock.calls[1][1]).toBe(await mocks.showroom.mock.results[0].value);
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
+  it("never applies showroom to a non-primary capture shot", async () => {
+    await uploadCapturePhoto({ ...photo(), shotType: "leva-predni", showroomEnabled: true });
+    expect(mocks.showroom).not.toHaveBeenCalled();
+  });
+  it("leaves showroom disabled unless explicitly selected", async () => {
+    await uploadCapturePhoto(photo());
+    expect(mocks.showroom).not.toHaveBeenCalled();
+  });
+  it("saves the original when local AI fails without calling a paid fallback", async () => {
+    mocks.showroom.mockRejectedValueOnce(new Error("Model unavailable"));
+    const input = { ...photo(), showroomEnabled: true };
+    await uploadCapturePhoto(input);
+    expect(mocks.upload.mock.calls[1][1]).toBe(input.blob);
+    expect(mocks.upsert).toHaveBeenCalledOnce();
+    expect(mocks.invoke).not.toHaveBeenCalled();
+  });
   it("uses configured public URLs and current main-shot type", async () => {
     await uploadCapturePhoto(photo());
     const payload = mocks.upsert.mock.calls[0][0];

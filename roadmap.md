@@ -9,6 +9,8 @@
 - [ ] Verify authenticated upload/reload/toggle/delete and public-only selection; run tests and inspect build result.
 
 # Smart Capture
+- [x] Repair local AI showroom processing: bundled runtime, primary-only background jobs, preserved originals and fixed background.
+- [x] Test local inference, saved original/processed readback, failure recovery and build; 49 tests passed, authenticated mobile upload/reload passed; AGPL production compliance and physical iPhone performance remain unverified.
 - [x] Fix intermittent capture/next-button locks: poll camera readiness, recover stalled JPEG/local transactions, show saving feedback; 25 tests, lint and four authenticated mobile browser cycles passed (timeout, offline next/skip, reload/retake, camera restart/finish and PC readback). Physical iPhone remains unverified.
 - [x] Add safe Save and finish: preserve photos/skips for desktop, detach finished mobile session, verify new capture after reload; 20 unit tests and four authenticated browser cycles passed (upload failure, save failure, new capture after reload, PC ZIP).
 - [x] Fix crash-safe accepted-photo/progress persistence and reopening the last mobile session.

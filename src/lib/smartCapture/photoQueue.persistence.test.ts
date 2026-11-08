@@ -8,20 +8,22 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   storage: { from: () => ({ upload: () => new Promise(() => {}) }) },
 } }));
 vi.mock("./imageProcessing", () => ({ processImage: () => new Promise(() => {}) }));
+vi.mock("./showroomReplacement", () => ({ composeSmartCaptureShowroom: () => new Promise(() => {}) }));
 
 describe("durable acceptance boundary", () => {
   it("commits the accepted blob and progress before resolving, without waiting for upload", async () => {
     vi.stubGlobal("URL", { createObjectURL: () => "blob:test", revokeObjectURL: vi.fn() });
     vi.stubGlobal("Blob", NativeBlob);
     const queue = await import("./photoQueue");
-    const accepted = await queue.enqueuePhoto({ sessionId: "session", blob: new Blob(["accepted-photo"]), shotType: "prava-predni", shotIndex: 0, autoProcess: true, aiEnabled: false, progress: { skipped_steps: ["leva-predni"], next_step: 2 } });
+    const accepted = await queue.enqueuePhoto({ sessionId: "session", blob: new Blob(["accepted-photo"]), shotType: "prava-predni", shotIndex: 0, autoProcess: true, aiEnabled: false, showroomEnabled: true, progress: { skipped_steps: ["leva-predni"], next_step: 2 } });
     const request = indexedDB.open("chdp-capture-queue", 1);
     const db = await new Promise<IDBDatabase>((resolve) => { request.onsuccess = () => resolve(request.result); });
-    const stored = await new Promise<{ blob: Blob; progress: unknown }>(resolve => {
+    const stored = await new Promise<{ blob: Blob; progress: unknown; showroomEnabled: boolean }>(resolve => {
       const read = db.transaction("photos").objectStore("photos").get(accepted.id);
       read.onsuccess = () => resolve(read.result);
     });
     expect(stored.blob.size).toBe(14);
+    expect(stored.showroomEnabled).toBe(true);
     expect(stored.progress).toEqual({ skipped_steps: ["leva-predni"], next_step: 2 });
     db.close();
     // A fresh JS realm (as after closing/reopening the browser) resumes the durable job.

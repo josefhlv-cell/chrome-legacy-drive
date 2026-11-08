@@ -1,4 +1,4 @@
-import { CAPTURE_BG_URL } from "@/lib/smartCapture/thumbnail";
+export const SMART_CAPTURE_SHOWROOM_BACKGROUND = "/assets/showroom/master_showroom_background.jpg";
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
   new Promise((resolve, reject) => {
@@ -28,10 +28,13 @@ export async function composeSmartCaptureShowroom(photo: Blob): Promise<Blob> {
   const { removeBackground } = await import("@imgly/background-removal");
 
   const cutout = await removeBackground(photo, {
+    model: "isnet_fp16",
+    device: "cpu",
+    proxyToWorker: false,
     output: { format: "image/png", quality: 0.95 },
   });
   const vehicle = await blobImage(cutout);
-  const background = await loadImage(CAPTURE_BG_URL);
+  const background = await loadImage(SMART_CAPTURE_SHOWROOM_BACKGROUND);
 
   const width = background.naturalWidth || 1600;
   const height = background.naturalHeight || 900;

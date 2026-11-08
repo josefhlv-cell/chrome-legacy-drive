@@ -2,12 +2,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { computeBlurScore, fileToBase64, processImage } from "./imageProcessing";
 import { isMainShot, qualityTip, type CaptureProgress } from "./workflow";
 import type { ShotType } from "./types";
+import { composeSmartCaptureShowroom } from "./showroomReplacement";
 
 export type QueuedPhoto = {
   id: string; sessionId: string; shotType: ShotType; shotIndex: number;
   blob: Blob; preview: string; status: "uploading" | "done" | "error";
   autoProcess: boolean; aiEnabled: boolean; error?: string; tip?: string;
   progress?: CaptureProgress;
+  showroomEnabled?: boolean;
 };
 type StoredPhoto = Omit<QueuedPhoto, "preview">;
 let items: QueuedPhoto[] = [];
@@ -59,7 +61,19 @@ function change(id: string, patch: Partial<QueuedPhoto>) {
 
 export async function uploadCapturePhoto(photo: QueuedPhoto) {
   if (dropped.has(photo.id)) return;
-  const processed = photo.autoProcess ? await processImage(photo.blob) : { blob: photo.blob, width: 0, height: 0 };
+  let webSource = photo.blob;
+  // The durable camera original never becomes a composite. Local processing
+  // happens after acceptance, only for the main shot, with no paid fallback.
+  if (photo.showroomEnabled && isMainShot(photo.shotType)) {
+    change(photo.id, { tip: "Připravuji showroom v tomto zařízení…" });
+    try {
+      webSource = await composeSmartCaptureShowroom(photo.blob);
+      change(photo.id, { tip: "Showroom připraven; originál zachován." });
+    } catch (error) {
+      change(photo.id, { tip: `Showroom se nepodařil; ukládám původní fotografii. ${error instanceof Error ? error.message : ""}` });
+    }
+  }
+  const processed = photo.autoProcess ? await processImage(webSource) : { blob: webSource, width: 0, height: 0 };
   const base = `${photo.sessionId}/${photo.id}_${photo.shotIndex}_${photo.shotType}`;
   const originalPath = `${base}_orig.jpg`, processedPath = `${base}_web.jpg`;
   const bucket = supabase.storage.from("smart-capture");

@@ -1,4 +1,6 @@
 # Architecture rules
+- Smart Capture showroom inference runs locally in the durable upload queue only for the main shot; retain the camera blob as original_url, composite only processed_url, and never use a paid fallback so acceptance and originals do not depend on inference.
+- Bundle the installed ONNX runtime rather than externalizing its bare imports, because the browser requires resolvable runtime modules for local segmentation.
 - Public vehicle lists fetch at most one embedded vehicle_images row ordered by is_main DESC, sort_order ASC, id ASC; admin and detail galleries remain complete, avoiding full-gallery transfer for cards.
 - Do not schedule showroom-batch while bulk generation is disabled; manual primary-photo generation remains available without idle polling.
 - Admin-uploaded Show Room photos live in vehicles.show_room_images as an ordered JSON array with a separate show_room_enabled flag; use only for public detail galleries, never vehicle_images or listing fields, to preserve original-photo behavior. Storage removals must validate the dedicated show-room/{vehicleId}/ prefix and commit metadata first; compare-and-swap prevents concurrent admin overwrites.

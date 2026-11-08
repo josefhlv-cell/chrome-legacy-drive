@@ -26,9 +26,9 @@ import { watchCameraReady } from "@/lib/smartCapture/captureControls";
 import { captureImportMeta, isVinShot, vinFromOcr } from "@/lib/smartCapture/captureMath";
 import { captureFullStill } from "@/lib/smartCapture/stillCapture";
 import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
-import { composeSmartCaptureShowroom } from "@/lib/smartCapture/showroomReplacement";
+import { SMART_CAPTURE_SHOWROOM_BACKGROUND } from "@/lib/smartCapture/showroomReplacement";
 
-const SHOWROOM_BG = "/assets/showroom/master_showroom_background.webp?v=20261102-2";
+const SHOWROOM_BG = SMART_CAPTURE_SHOWROOM_BACKGROUND;
 const BG_PREF_KEY = "capture-show-background";
 
 function readBgPref(): boolean | null {
@@ -445,23 +445,10 @@ export default function SmartCapture() {
         mirror: facingRef.current === "user",
         levelDegrees: horizonBake ? horizonAngleRef.current : 0,
       });
-      // AI replacement runs on the captured still, not on the live camera stream.
-      let reviewBlob = cameraBlob;
-      if (showBackground) {
-        toast({ title: "Připravuji showroom", description: "AI odděluje vozidlo od původního okolí…" });
-        try {
-          reviewBlob = await composeSmartCaptureShowroom(cameraBlob);
-        } catch (error) {
-          toast({
-            title: "Showroom pozadí po vyfocení se nepodařila",
-            description: error instanceof Error ? error.message : "Původní fotografie zůstala zachována.",
-            variant: "destructive",
-          });
-        }
-      }
+      // Stage the original immediately; optional local AI runs in the durable queue.
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
-      stageForReview(reviewBlob, currentStepIdx);
+      stageForReview(cameraBlob, currentStepIdx);
     } catch (error) {
       toast({ title: "Snímek se nepodařilo pořídit", description: error instanceof Error ? error.message : "Zkuste spoušť znovu.", variant: "destructive" });
     } finally {
@@ -549,7 +536,8 @@ export default function SmartCapture() {
     shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
     await enqueuePhoto({ sessionId, blob, shotType,
       progress: advanceProgress(progressRef.current, stepIdx, false),
-      shotIndex: shotIndexRef.current++, autoProcess, aiEnabled });
+      shotIndex: shotIndexRef.current++, autoProcess, aiEnabled,
+      showroomEnabled: showBackground && !safeMode });
     readVinFromPhoto(blob, stepIdx, sessionId);
     advance(stepIdx, false);
     return true;
@@ -1022,7 +1010,7 @@ export default function SmartCapture() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="font-medium">Showroom pozadí po vyfocení</div>
-                  <p className="text-xs text-muted-foreground">Po zapnutí se přes živou kameru zobrazí průhledná vodicí vrstva showroomu. Po vyfocení AI připraví samostatnou fotografii na showroom pozadí.</p>
+                  <p className="text-xs text-muted-foreground">Titulní fotografie · originál zachován</p>
                 </div>
                 <Button variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
                   <ImageIcon /> {showBackground ? "Zapnuto" : "Zapnout"}
@@ -1052,7 +1040,7 @@ export default function SmartCapture() {
         <div className="absolute inset-0 bg-background overflow-hidden text-foreground">
           <video ref={videoRef} className="absolute inset-0 w-full h-full object-contain" playsInline muted autoPlay
             style={{ transform: [facing === "user" ? "scaleX(-1)" : "", horizonBake ? `rotate(${-horizonAngle}deg)` : ""].filter(Boolean).join(" ") || undefined }} />
-          {showBackground && !pending && (
+          {showBackground && currentStep?.type === "prava-predni" && !pending && (
             <div className="pointer-events-none absolute inset-0 z-[5] overflow-hidden" aria-label="Průhledná showroom vodicí vrstva">
               <img src={bgSrc} alt="" className="h-full w-full object-contain" style={{ opacity: 0.32 }}
                 loading="eager" decoding="async" onError={() => { if (bgSrc !== SHOWROOM_BG) setBgSrc(SHOWROOM_BG); }} />
@@ -1166,7 +1154,7 @@ export default function SmartCapture() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">Showroom pozadí po vyfocení</div>
-                <p className="text-xs text-muted-foreground">Po vyfocení AI oddělí vozidlo a vloží ho do CHDP showroomu.</p>
+                <p className="text-xs text-muted-foreground">Titulní fotografie · originál zachován</p>
               </div>
               <Button size="sm" variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
                 <ImageIcon size={14} /> {showBackground ? "Zapnuto" : "Zapnout"}

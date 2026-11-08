@@ -399,8 +399,8 @@ export default function ShowroomTab() {
               </div>
 
               <div className="flex gap-2 flex-wrap">
-                <button onClick={() => generateForVehicle(selected.id, "main", true)} className="chrome-button inline-flex items-center gap-2 text-xs" disabled={busyIds.size > 0 || bulkBusy}>
-                  <Wand2 className="w-3.5 h-3.5" /> Vygenerovat a zapnout titulní
+                <button onClick={() => generateForVehicle(selected.id, "main", false)} className="chrome-button inline-flex items-center gap-2 text-xs" disabled={busyIds.size > 0 || bulkBusy}>
+                  <Wand2 className="w-3.5 h-3.5" /> Vygenerovat náhled titulní fotografie
                 </button>
                 <button onClick={() => restoreVehicle(selected.id)} className="outline-button inline-flex items-center gap-2 text-xs" disabled={bulkBusy}>
                   <RotateCcw className="w-3.5 h-3.5" /> Obnovit originální fotografie

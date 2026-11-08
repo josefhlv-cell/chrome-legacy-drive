@@ -202,12 +202,12 @@ const matchKeywords = (text: string): VehicleClass | null => {
  * TipCars description → name → SEDAN.
  */
 const KNOWN_MODEL_CLASSES: Array<[RegExp, VehicleClass]> = [
-  [/\\b(?:chrysler\\s+)?town\\s*(?:&|and)?\\s*country\\b|\\bvoyager\\b|\\bpacifica\\b|\\b(?:grand\\s+)?caravan\\b/i, "MPV"],
-  [/\\b(?:dodge\\s+)?ram\\s*(?:1500|2500|3500)\\b|\\bdakota\\b/i, "PICKUP"],
-  [/\\bpromaster\\b/i, "VAN"],
-  [/\\bdurango\\b|\\bjourney\\b|\\bnitro\\b|\\baspen\\b|\\bhornet\\b/i, "SUV"],
-  [/\\bchallenger\\b|\\bbarracuda\\b|\\bcrossfire\\b/i, "COUPE"],
-  [/\\b300c\\b|\\bcharger\\b|\\bneon\\b|\\bstratus\\b|\\bsebring\\b|\\bavenger\\b/i, "SEDAN"],
+  [/\b(?:chrysler\s+)?town\s*(?:&|and)?\s*country\b|\bvoyager\b|\bpacifica\b|\b(?:grand\s+)?caravan\b/i, "MPV"],
+  [/\b(?:dodge\s+)?ram\s*(?:1500|2500|3500)\b|\bdakota\b/i, "PICKUP"],
+  [/\bpromaster\b/i, "VAN"],
+  [/\bdurango\b|\bjourney\b|\bnitro\b|\baspen\b|\bhornet\b/i, "SUV"],
+  [/\bchallenger\b|\bbarracuda\b|\bcrossfire\b/i, "COUPE"],
+  [/\b300c\b|\bcharger\b|\bneon\b|\bstratus\b|\bsebring\b|\bavenger\b/i, "SEDAN"],
 ];
 
 export function detectVehicleClass(vehicle: Record<string, unknown> | null | undefined): VehicleClass {

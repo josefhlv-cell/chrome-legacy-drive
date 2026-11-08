@@ -8,6 +8,7 @@
 // only cuts the vehicle out. The plate is never stretched.
 // ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
+import { detectNonExteriorShot } from "./showroomExteriorGuard.ts";
 import { Image } from "https://deno.land/x/imagescript@1.2.17/mod.ts";
 import {
   BACKGROUND_VERSION,
@@ -57,6 +58,8 @@ REPLACE WITH MAGENTA: every background pixel — floor, ground, asphalt, walls, 
 KEEP: only the vehicle itself, including its own dark under-body area, its glass and everything visible through the glass.
 
 STRICTLY FORBIDDEN: no transparency checkerboard pattern, no chequered squares, no grey/white tiles, no alpha preview pattern, no white or grey fill, no gradient, no drop shadow, no glow, no outline, no halo, no matte fringe, no text, no watermark, no border, no second copy of the car. Magenta must not appear anywhere on the vehicle itself.
+
+NOT AN EXTERIOR: if the source shows a car interior (seats, dashboard, instruments, boot/trunk), a close-up detail or a VIN plate instead of the whole vehicle from outside, return the ENTIRE image as flat pure magenta with nothing else.
 
 OUTPUT: exactly ONE image, vehicle tightly framed and perfectly level, on a flat pure magenta (#FF00FF) background, same orientation as the source.`;
 
@@ -729,65 +732,6 @@ function validateComposite(args: {
   return { score, passed: score >= VALIDATION.minScore && checks.every((c) => c.ok || !mandatory.has(c.check)) };
 }
 
-type AiVisualReview = {
-  passed: boolean;
-  score: number;
-  car_too_small: boolean;
-  scale_multiplier: number;
-  issues: string[];
-  reason: string;
-};
-
-/** Independent vision gate; it judges the composite and never edits vehicle pixels. */
-async function reviewShowroomWithAi(sourceDataUrl: string, compositeDataUrl: string, vehicleName: string): Promise<AiVisualReview> {
-  const response = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Authorization": "Bearer " + LOVABLE_API_KEY,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "google/gemini-2.5-flash",
-      temperature: 0,
-      max_tokens: 500,
-      messages: [{
-        role: "user",
-        content: [
-          {
-            type: "text",
-            text: "You are a strict automotive photo-compositing quality inspector. Image 1 is the untouched original vehicle photo. Image 2 is the finished showroom composite. Vehicle: " + (vehicleName || "unknown") + ". Inspect the final composite against the source. Verify: same exact vehicle and unchanged body/wheels/details; car is prominent, ideally 68-72% of frame width where perspective permits; no clipping; tyres touch asphalt with believable contact shadow; natural scale/perspective; no halos, magenta/checkerboard residue or cutout defects; clean unchanged background. Return ONLY JSON: {\"passed\":boolean,\"score\":0-100,\"car_too_small\":boolean,\"scale_multiplier\":1.0-1.18,\"issues\":[\"short issue\"],\"reason\":\"short sentence\"}. If only size is wrong, passed=false and recommend multiplier 1.08-1.18. If clipped or vehicle identity changed, passed=false and multiplier=1.0. Approve only score >=82 and no critical defects."
-          },
-          { type: "image_url", image_url: { url: sourceDataUrl, detail: "high" } },
-          { type: "image_url", image_url: { url: compositeDataUrl, detail: "high" } },
-        ],
-      }],
-    }),
-  });
-  if (!response.ok) {
-    const body = await response.text();
-    throw new Error("AI visual review failed: " + response.status + " " + body.slice(0, 180));
-  }
-  const payload = await response.json();
-  const raw = payload?.choices?.[0]?.message?.content;
-  const text = typeof raw === "string" ? raw : Array.isArray(raw)
-    ? raw.map((part: any) => part?.text ?? "").join("")
-    : "";
-  const jsonStart = text.indexOf("{");
-  const jsonEnd = text.lastIndexOf("}");
-  const jsonText = jsonStart >= 0 && jsonEnd > jsonStart ? text.slice(jsonStart, jsonEnd + 1) : "";
-  if (!jsonText) throw new Error("AI visual review returned no valid JSON");
-  const parsed = JSON.parse(jsonText);
-  const score = Math.max(0, Math.min(100, Number(parsed.score) || 0));
-  const multiplier = Math.max(1, Math.min(1.18, Number(parsed.scale_multiplier) || 1));
-  return {
-    passed: parsed.passed === true && score >= 82,
-    score,
-    car_too_small: parsed.car_too_small === true,
-    scale_multiplier: multiplier,
-    issues: Array.isArray(parsed.issues) ? parsed.issues.map((v: unknown) => String(v).slice(0, 120)).slice(0, 6) : [],
-    reason: String(parsed.reason ?? "AI visual inspection completed").slice(0, 240),
-  };
-}
 
 export type ShowroomResult =
   | {
@@ -895,6 +839,13 @@ export async function runShowroom(
   const sourceUrl = (img as any).original_backup_url || (img as any).image_url;
   if (!sourceUrl) return await fail("No source image", 400);
 
+  // GUARD: interior / detail / VIN shots are never treated as an exterior.
+  // Free deterministic check — runs before the paid AI request.
+  const nonExterior = detectNonExteriorShot(sourceUrl);
+  if (nonExterior) {
+    return await fail(`Titulní fotografie vypadá jako interiér/detail („${nonExterior}“). Showroom je jen pro exteriér — nastavte jako titulní exteriérovou fotku.`, 422);
+  }
+
   // ---- placement resolution: class profile → learned model profile → override
   const { data: vehicle } = await admin
     .from("vehicles")
@@ -947,8 +898,8 @@ export async function runShowroom(
   await setImageState(admin, imageId, { showroom_progress: 30 });
 
   // 2) AI does ONE job only: segment the vehicle on a magenta chroma background.
-  //    Newest OpenAI GPT Image editing model first, automatic fallback down the
-  //    chain if a model is unavailable / rejects the request.
+  //    Exactly one GPT Image 2.6 Sunburst edit per manual Admin action — no
+  //    fallback model, no automatic AI retry, no second AI review.
   const cutoutResult = await requestCutout(carDataUrl);
   if (!cutoutResult.ok) return await fail(cutoutResult.error!);
   const aiModel = cutoutResult.model!;
@@ -976,7 +927,7 @@ export async function runShowroom(
     erodeAlpha(cutout, Math.max(2, Math.round(cutout.width * 0.004)));
 
     const box = alphaBounds(cutout);
-    if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty");
+    if (!box || box.w < 40 || box.h < 20) throw new Error("Cutout is empty — fotografie zřejmě nezobrazuje celý vůz zvenku (interiér/detail); nic nebylo zveřejněno");
     const base = cutout.clone().crop(box.x, box.y, box.w, box.h);
     maskPng = await base.clone().encode(6);
 
@@ -1035,7 +986,6 @@ export async function runShowroom(
       paintFloorReflection(canvas, car, carX, carY);
       paintContactShadow(canvas, car, carX, carY, usedPlace);
       canvas.composite(car, carX, carY);
-      jpeg = await canvas.encodeJPEG(CAMERA.jpeg_quality);
 
       // Cost control: no second vision-model call. Deterministic checks run here;
       // the Admin reviews the generated preview before explicitly applying it.
@@ -1145,7 +1095,6 @@ async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
     form.append("prompt", CUTOUT_PROMPT);
     form.append("size", "auto");
     form.append("quality", "medium");
-    form.append("complexity", "low");
     form.append("output_format", "png");
     form.append("n", "1");
     form.append("image", new Blob([bytes], { type: contentType || "image/jpeg" }), "vehicle-source");

@@ -51,7 +51,7 @@ type Placement = {
 };
 
 const DEFAULT_PLACEMENT: Placement = {
-  scale: 0.46,
+  scale: 0.75,
   offsetX: 0,
   offsetY: 0,
   rotationDeg: 0,
@@ -423,7 +423,7 @@ export default function ShowroomTab() {
                   <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                       {([
-                        ["Velikost (šířka plátna)", "scale", 0.34, 0.54, 0.01],
+                        ["Velikost (šířka plátna)", "scale", 0.55, 0.82, 0.01],
                         ["Posun X (px)", "offsetX", -300, 300, 1],
                         ["Posun Y (px)", "offsetY", -160, 160, 1],
                         ["Rotace (°)", "rotationDeg", -1, 1, 0.1],

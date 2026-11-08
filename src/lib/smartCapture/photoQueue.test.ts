@@ -27,6 +27,20 @@ beforeEach(() => {
   mocks.showroom.mockResolvedValue(new Blob(["showroom"]));
 });
 describe("accepted photo background pipeline", () => {
+  it("reuses a completed paid composite on upload retry", async () => {
+    const input = { ...photo(), showroomEnabled: true };
+    mocks.upload.mockResolvedValueOnce({ error: new Error("offline") });
+    await expect(uploadCapturePhoto(input)).rejects.toThrow("offline");
+    await uploadCapturePhoto(input);
+    expect(mocks.showroom).toHaveBeenCalledTimes(1);
+    expect(mocks.upload.mock.calls[3][1]).toBe(input.showroomBlob);
+  });
+  it("never automatically replays an unknown paid AI outcome", async () => {
+    const input = { ...photo(), showroomEnabled: true, showroomAttempted: true };
+    await uploadCapturePhoto(input);
+    expect(mocks.showroom).not.toHaveBeenCalled();
+    expect(mocks.upload.mock.calls[0][1]).toBe(input.blob);
+  });
   it("preserves the original bytes and puts the local composite only in the processed file", async () => {
     const input = { ...photo(), showroomEnabled: true };
     await uploadCapturePhoto(input);

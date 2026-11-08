@@ -9,6 +9,8 @@
 - [ ] Verify authenticated upload/reload/toggle/delete and public-only selection; run tests and inspect build result.
 
 # Smart Capture
+- [x] Connect GPT Image 2.5 Sunburst through Lovable with authenticated primary-only processing, preserved originals and paid-call replay protection.
+- [x] Verify real authenticated AI output, queue retry protection, regression tests and current build; 51 tests passed, actual image edit succeeded in 31.862s for 0.106672 credits, mobile upload/reload verified. New function deployed; frontend not published.
 - [x] Repair local AI showroom processing: bundled runtime, primary-only background jobs, preserved originals and fixed background.
 - [x] Test local inference, saved original/processed readback, failure recovery and build; 49 tests passed, authenticated mobile upload/reload passed; AGPL production compliance and physical iPhone performance remain unverified.
 - [x] Fix intermittent capture/next-button locks: poll camera readiness, recover stalled JPEG/local transactions, show saving feedback; 25 tests, lint and four authenticated mobile browser cycles passed (timeout, offline next/skip, reload/retake, camera restart/finish and PC readback). Physical iPhone remains unverified.

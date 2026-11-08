@@ -1,3 +1,7 @@
+import { supabase } from "@/integrations/supabase/client";
+import { FunctionsHttpError } from "@supabase/supabase-js";
+import { fileToBase64 } from "./imageProcessing";
+
 export const SMART_CAPTURE_SHOWROOM_BACKGROUND = "/assets/showroom/master_showroom_background.jpg";
 
 const loadImage = (src: string): Promise<HTMLImageElement> =>
@@ -24,15 +28,17 @@ const blobImage = (blob: Blob): Promise<HTMLImageElement> => {
  * The original camera blob is not modified by this function.
  * Returns a separate JPEG with the vehicle cut out over the CHDP showroom.
  */
-export async function composeSmartCaptureShowroom(photo: Blob): Promise<Blob> {
-  const { removeBackground } = await import("@imgly/background-removal");
-
-  const cutout = await removeBackground(photo, {
-    model: "isnet_fp16",
-    device: "cpu",
-    proxyToWorker: false,
-    output: { format: "image/png", quality: 0.95 },
-  });
+export async function composeSmartCaptureShowroom(photo: Blob, identity: { sessionId: string; photoId: string }): Promise<Blob> {
+  const { data, error } = await supabase.functions.invoke("smart-capture-showroom", { body: {
+    ...identity, shotType: "prava-predni", imageBase64: await fileToBase64(photo),
+  } });
+  if (error) {
+    const detail = error instanceof FunctionsHttpError ? await error.context.text() : error.message;
+    throw new Error(`AI přes Lovable: ${detail}`);
+  }
+  if (typeof data?.imageBase64 !== "string") throw new Error("AI nevrátila výřez vozidla.");
+  const bytes = Uint8Array.from(atob(data.imageBase64), c => c.charCodeAt(0));
+  const cutout = new Blob([bytes], { type: "image/png" });
   const vehicle = await blobImage(cutout);
   const background = await loadImage(SMART_CAPTURE_SHOWROOM_BACKGROUND);
 

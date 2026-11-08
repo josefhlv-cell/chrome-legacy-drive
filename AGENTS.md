@@ -1,5 +1,5 @@
 # Architecture rules
-- Smart Capture showroom inference runs locally in the durable upload queue only for the main shot; retain the camera blob as original_url, composite only processed_url, and never use a paid fallback so acceptance and originals do not depend on inference.
+- Smart Capture showroom inference uses an authenticated Lovable AI endpoint only for the main shot; retain original_url, composite only processed_url, persist attempt/result locally and claim each paid request in storage to prevent upload retries from repeating inference.
 - Bundle the installed ONNX runtime rather than externalizing its bare imports, because the browser requires resolvable runtime modules for local segmentation.
 - Public vehicle lists fetch at most one embedded vehicle_images row ordered by is_main DESC, sort_order ASC, id ASC; admin and detail galleries remain complete, avoiding full-gallery transfer for cards.
 - Do not schedule showroom-batch while bulk generation is disabled; manual primary-photo generation remains available without idle polling.

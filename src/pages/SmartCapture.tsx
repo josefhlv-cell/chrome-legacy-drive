@@ -1010,7 +1010,7 @@ export default function SmartCapture() {
               <div className="flex items-center justify-between gap-3">
                 <div>
                   <div className="font-medium">Showroom pozadí po vyfocení</div>
-                  <p className="text-xs text-muted-foreground">Titulní fotografie · originál zachován</p>
+                  <p className="text-xs text-muted-foreground">Lovable AI · titulní fotografie · placeno z kreditů · originál zachován</p>
                 </div>
                 <Button variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
                   <ImageIcon /> {showBackground ? "Zapnuto" : "Zapnout"}
@@ -1154,7 +1154,7 @@ export default function SmartCapture() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <div className="text-sm font-medium">Showroom pozadí po vyfocení</div>
-                <p className="text-xs text-muted-foreground">Titulní fotografie · originál zachován</p>
+                <p className="text-xs text-muted-foreground">Lovable AI · titulní fotografie · placeno z kreditů · originál zachován</p>
               </div>
               <Button size="sm" variant={showBackground ? "default" : "secondary"} onClick={toggleBackground}>
                 <ImageIcon size={14} /> {showBackground ? "Zapnuto" : "Zapnout"}

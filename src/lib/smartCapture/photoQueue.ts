@@ -10,6 +10,8 @@ export type QueuedPhoto = {
   autoProcess: boolean; aiEnabled: boolean; error?: string; tip?: string;
   progress?: CaptureProgress;
   showroomEnabled?: boolean;
+  showroomAttempted?: boolean;
+  showroomBlob?: Blob;
 };
 type StoredPhoto = Omit<QueuedPhoto, "preview">;
 let items: QueuedPhoto[] = [];
@@ -61,14 +63,18 @@ function change(id: string, patch: Partial<QueuedPhoto>) {
 
 export async function uploadCapturePhoto(photo: QueuedPhoto) {
   if (dropped.has(photo.id)) return;
-  let webSource = photo.blob;
-  // The durable camera original never becomes a composite. Local processing
-  // happens after acceptance, only for the main shot, with no paid fallback.
-  if (photo.showroomEnabled && isMainShot(photo.shotType)) {
-    change(photo.id, { tip: "Připravuji showroom v tomto zařízení…" });
+  let webSource = photo.showroomBlob ?? photo.blob;
+  // Persist attempt BEFORE calling paid AI. Upload retries and browser recovery
+  // reuse the saved result or original, never blindly replay unknown inference.
+  if (photo.showroomEnabled && isMainShot(photo.shotType) && !photo.showroomAttempted) {
+    photo.showroomAttempted = true;
+    change(photo.id, { showroomAttempted: true, tip: "Připravuji showroom přes Lovable AI…" });
+    if (items.some(p => p.id === photo.id)) await store(photo);
     try {
-      webSource = await composeSmartCaptureShowroom(photo.blob);
-      change(photo.id, { tip: "Showroom připraven; originál zachován." });
+      webSource = await composeSmartCaptureShowroom(photo.blob, { sessionId: photo.sessionId, photoId: photo.id });
+      photo.showroomBlob = webSource;
+      change(photo.id, { showroomBlob: webSource, tip: "Showroom připraven; originál zachován." });
+      if (items.some(p => p.id === photo.id)) await store(photo);
     } catch (error) {
       change(photo.id, { tip: `Showroom se nepodařil; ukládám původní fotografii. ${error instanceof Error ? error.message : ""}` });
     }

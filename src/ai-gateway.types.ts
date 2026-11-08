@@ -1,0 +1,1 @@
+import type {} from "../supabase/functions/smart-capture-showroom/generated/models";

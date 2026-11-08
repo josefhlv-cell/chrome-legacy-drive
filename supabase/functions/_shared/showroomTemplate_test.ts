@@ -50,3 +50,8 @@ Deno.test("name fallbacks per category", () => {
   assertEquals(detectVehicleClass({ name: "Chrysler 300C" }), "SEDAN");
   assertEquals(detectVehicleClass({ name: "RAM ProMaster dodávka" }), "VAN");
 });
+
+Deno.test("stale saved placement (0.64) cannot shrink an MPV below its range", () => {
+  assertEquals(placementFromProfile("MPV", { scale: 0.64 }).scale, 0.72);
+  assertEquals(placementFromProfile("PICKUP", { scale: 0.95 }).scale, 0.82);
+});

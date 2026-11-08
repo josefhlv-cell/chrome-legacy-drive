@@ -144,7 +144,8 @@ export const placementFromProfile = (cls: VehicleClass, over?: Partial<Placement
   };
   const merged = { ...base, ...(over ?? {}) };
   return {
-    scale: clamp(merged.scale, PLACEMENT_LIMITS.minCarWidthRatio, PLACEMENT_LIMITS.maxCarWidthRatio),
+    // Saved/learned overrides can never leave the body-type range.
+    scale: clamp(merged.scale, p.minScale, p.maxScale),
     offsetX: clamp(merged.offsetX, -384, 384),
     offsetY: clamp(merged.offsetY, -200, 60),
     rotationDeg: clamp(merged.rotationDeg, -PLACEMENT_LIMITS.maxRotationDeg, PLACEMENT_LIMITS.maxRotationDeg),

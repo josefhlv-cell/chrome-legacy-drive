@@ -38,8 +38,10 @@ Deno.test("Town Country is MPV, not sedan", () => {
   assertEquals(detectVehicleClass({ name: "Chrysler Town & Country" }), "MPV");
 });
 
-Deno.test("database body type wins over the name", () => {
-  assertEquals(detectVehicleClass({ name: "Dodge RAM 1500", tipcars_karoserie_kod: "d" }), "SUV");
+Deno.test("known model family overrides conflicting generic marketplace body code", () => {
+  assertEquals(detectVehicleClass({ name: "Dodge RAM 1500", tipcars_karoserie_kod: "d" }), "PICKUP");
+  assertEquals(detectVehicleClass({ name: "Chrysler Town Country 3,6 DVD StownGo kůže 2013", tipcars_karoserie_kod: "b" }), "MPV");
+  assertEquals(detectVehicleClass({ name: "Chrysler Pacifica", tipcars_karoserie_kod: "b" }), "MPV");
   assertEquals(detectVehicleClass({ name: "Something", tipcars_karoserie_popis: "MPV" }), "MPV");
 });
 
@@ -51,7 +53,9 @@ Deno.test("name fallbacks per category", () => {
   assertEquals(detectVehicleClass({ name: "RAM ProMaster dodávka" }), "VAN");
 });
 
-Deno.test("stale saved placement (0.64) cannot shrink an MPV below its range", () => {
+Deno.test("MPV defaults to full showroom scale and stale placements cannot shrink it", () => {
+  assertEquals(placementFromProfile("MPV").scale, 0.78);
+  assertEquals(computeTargetSize(2200, 1000, placementFromProfile("MPV").scale).w, 1498);
   assertEquals(placementFromProfile("MPV", { scale: 0.64 }).scale, 0.72);
   assertEquals(placementFromProfile("PICKUP", { scale: 0.95 }).scale, 0.82);
 });

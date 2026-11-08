@@ -4,7 +4,7 @@
 // `showroom-batch` (bulk regeneration).
 //
 // THE ONE AND ONLY SHOWROOM BACKGROUND: master_showroom_background.jpg
-// (1500×846, CHDP indoor plate). The AI NEVER generates a background — it
+// (1920×1082, CHDP indoor plate). The AI NEVER generates a background — it
 // only cuts the vehicle out. The plate is never stretched.
 // ============================================================================
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7";
@@ -16,6 +16,8 @@ import {
   CAMERA_VERSION,
   CANVAS_H,
   CANVAS_W,
+  CLASS_PROFILES,
+  computeTargetSize,
   detectVehicleClass,
   GROUND,
   LIGHTING_VERSION,
@@ -37,7 +39,6 @@ export const BACKGROUND_URL =
 
 // Every geometric constant now comes from the read-only static template
 // (/public/assets/showroom/*.json, mirrored in showroomTemplate.ts).
-const MAX_CAR_HEIGHT_RATIO = PLACEMENT_LIMITS.maxCarHeightRatio;
 
 
 
@@ -677,8 +678,9 @@ function validateComposite(args: {
   targetH: number;
   keyedShare: number;
   bgUntouchedPixels: number;
+  vehicleClass: VehicleClass;
 }): ValidationReport {
-  const { car, carX, carY, targetW, targetH, keyedShare, bgUntouchedPixels } = args;
+  const { car, carX, carY, targetW, targetH, keyedShare, bgUntouchedPixels, vehicleClass } = args;
   const checks: ValidationCheck[] = [];
   const add = (check: string, ok: boolean, detail?: string) => checks.push({ check, ok, detail });
 
@@ -694,7 +696,9 @@ function validateComposite(args: {
   add("wheels_on_asphalt", Math.abs(wheelY - GROUND.wheelLineY) <= 8, `wheelY=${wheelY}`);
 
   const widthRatio = targetW / CANVAS_W;
-  add("scale_in_range", widthRatio >= 0.34 && widthRatio <= PLACEMENT_LIMITS.maxCarWidthRatio, `w=${widthRatio.toFixed(3)}`);
+  add("scale_in_range", widthRatio >= PLACEMENT_LIMITS.minCarWidthRatio && widthRatio <= PLACEMENT_LIMITS.maxCarWidthRatio, `w=${widthRatio.toFixed(3)}`);
+  const prof = CLASS_PROFILES[vehicleClass];
+  add("class_scale", widthRatio >= prof.minScale - 0.005 && widthRatio <= prof.maxScale + 0.005, `${vehicleClass} w=${widthRatio.toFixed(3)} range=${prof.minScale}-${prof.maxScale}`);
 
   // Background is only ever composited onto, never regenerated — the untouched
   // pixel count proves the master background survived.
@@ -702,12 +706,21 @@ function validateComposite(args: {
 
   // Hard exclusion zone: the vehicle must remain entirely below the CHDP wall
   // artwork. This is mandatory; a high score can never waive this check.
-  const carTop = carY;
-  const carLeft = carX;
-  const carRight = carX + targetW;
-  const overlapsLogoX = carRight > LOGO_SAFE_ZONE.minX && carLeft < LOGO_SAFE_ZONE.maxX;
-  const clearsLogo = !overlapsLogoX || carTop >= LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx;
-  add("logo_visible", clearsLogo, `carTop=${carTop} required>=${LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx}`);
+  // Checked against the real silhouette (top visible pixel per column), so the
+  // lower rear of a 3/4 view may pass beneath the shield but never cover it.
+  const required = LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx;
+  let highestInLogo = Infinity;
+  {
+    const w = car.width, h = car.height;
+    const b = car.bitmap as unknown as Uint8Array;
+    const x0 = Math.max(0, LOGO_SAFE_ZONE.minX - carX), x1 = Math.min(w - 1, LOGO_SAFE_ZONE.maxX - carX);
+    for (let x = x0; x <= x1; x++) {
+      for (let y = 0; y < h; y++) {
+        if (b[(y * w + x) * 4 + 3] > 40) { highestInLogo = Math.min(highestInLogo, carY + y); break; }
+      }
+    }
+  }
+  add("logo_visible", highestInLogo >= required, `carTopUnderLogo=${highestInLogo === Infinity ? "none" : highestInLogo} required>=${required}`);
 
   // Cut-out sanity — silhouette must be a car-shaped single blob.
   const cw = car.width, ch = car.height;
@@ -939,18 +952,14 @@ export async function runShowroom(
         try { car.rotate(-usedPlace.rotationDeg, false); } catch { /* keep unrotated */ }
       }
 
-      let targetW = Math.round(CANVAS_W * usedPlace.scale);
-      let targetH = Math.round((car.height / car.width) * targetW);
-      const maxH = Math.round(CANVAS_H * MAX_CAR_HEIGHT_RATIO);
-      if (targetH > maxH) {
-        targetH = maxH;
-        targetW = Math.round((car.width / car.height) * targetH);
-      }
+      // Proportional only: one scale factor for both axes, never a deformation.
+      const { w: targetW, h: targetH } = computeTargetSize(car.width, car.height, usedPlace.scale);
       car.resize(targetW, targetH);
       featherEdges(car);
 
       const canvas = placeBackground(await Image.decode(bgBytes));
-      const carX = Math.round(GROUND.anchorX - targetW / 2 + usedPlace.offsetX);
+      const m = PLACEMENT_LIMITS.minFrameMarginPx;
+      const carX = Math.max(m, Math.min(CANVAS_W - m - targetW, Math.round(GROUND.anchorX - targetW / 2 + usedPlace.offsetX)));
       const carY = Math.round(GROUND.wheelLineY + usedPlace.offsetY) - targetH;
 
       let report = validateComposite({
@@ -961,6 +970,7 @@ export async function runShowroom(
         targetH,
         keyedShare,
         bgUntouchedPixels: CANVAS_W * CANVAS_H - targetW * targetH,
+        vehicleClass,
       });
 
       if (!report.passed && attempt < VALIDATION.maxAttempts) {
@@ -968,14 +978,14 @@ export async function runShowroom(
         const fixed: Partial<Placement> = {};
         if (!report.checks.find((c) => c.check === "inside_frame")?.ok) {
           fixed.offsetX = 0;
-          fixed.scale = Math.min(usedPlace.scale, 0.58);
+          fixed.scale = CLASS_PROFILES[vehicleClass].minScale;
         }
         if (!report.checks.find((c) => c.check === "wheels_on_asphalt")?.ok) fixed.offsetY = 0;
-        if (!report.checks.find((c) => c.check === "scale_in_range")?.ok) fixed.scale = CLASS_FALLBACK_SCALE;
+        if (!report.checks.find((c) => c.check === "scale_in_range")?.ok) fixed.scale = CLASS_PROFILES[vehicleClass].scale;
         if (!report.checks.find((c) => c.check === "logo_visible")?.ok) {
-          const allowedHeight = GROUND.wheelLineY - LOGO_SAFE_ZONE.maxY - LOGO_SAFE_ZONE.clearancePx;
-          const correctedWidth = (car.width / car.height) * allowedHeight;
-          fixed.scale = Math.min(usedPlace.scale, correctedWidth / CANVAS_W);
+          // Slide the car left, away from the shield, before shrinking it.
+          fixed.offsetX = usedPlace.offsetX - Math.max(0, carX + targetW - LOGO_SAFE_ZONE.minX + 20);
+          fixed.scale = Math.max(CLASS_PROFILES[vehicleClass].minScale, usedPlace.scale - 0.03);
           fixed.offsetY = 0;
         }
         usedPlace = placementFromProfile(vehicleClass, { ...usedPlace, ...fixed });
@@ -1075,7 +1085,6 @@ export async function runShowroom(
   };
 }
 
-const CLASS_FALLBACK_SCALE = 0.46;
 
 
 // ============================================================================

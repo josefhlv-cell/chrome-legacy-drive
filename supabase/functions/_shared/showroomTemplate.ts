@@ -6,13 +6,15 @@
 
 export const CAMERA_VERSION = "camera-v3";
 export const BACKGROUND_VERSION = "background-v7";
-export const PLACEMENT_VERSION = "placement-v7";
+export const PLACEMENT_VERSION = "placement-v8";
 export const LIGHTING_VERSION = "lighting-v3";
-export const GROUND_VERSION = "ground-v6";
+export const GROUND_VERSION = "ground-v7";
 
-// Native pixels of master_showroom_background.jpg. Never stretch this plate.
-export const CANVAS_W = 1500;
-export const CANVAS_H = 846;
+// Native pixels of the approved CHDP master plate (chdp-showroom-master.jpeg).
+// Output = exactly these pixels. Never stretch or crop the plate. The physical
+// wall (6.60 × 3.00 m) is NOT the canvas aspect and must never drive a resize.
+export const CANVAS_W = 1920;
+export const CANVAS_H = 1082;
 
 /** Locked camera (camera.json). */
 export const CAMERA = {
@@ -21,40 +23,49 @@ export const CAMERA = {
   pitch_deg: -1.8,
   yaw_deg: 0,
   roll_deg: 0,
-  horizon_y: 296,
+  horizon_y: 379,
   jpeg_quality: 94,
 } as const;
 
-/** Ground plane (ground_plane.json). */
+/**
+ * Ground plane measured on the 1920×1082 master plate:
+ *  - wall/floor seam (baseboard) y ≈ 666
+ *  - white floor circle: x 105–1790, y 705–995, centre ≈ (948, 850)
+ * The nearest tyre (bottom of the 3/4 bbox) stands on the front arc of the
+ * circle, like the approved RAM reference.
+ */
 export const GROUND = {
-  wheelLineY: 768,
-  anchorX: 750,
-  usableMinX: 90,
-  usableMaxX: 1410,
-  wallFloorSeamY: 518,
-  ambientReachRatio: 0.11,
-  contactReachRatio: 0.022,
-  ambientOpacity: 0.30,
-  contactOpacity: 0.62,
+  wheelLineY: 985,
+  anchorX: 948,
+  usableMinX: 60,
+  usableMaxX: 1860,
+  wallFloorSeamY: 666,
+  ceilingBottomY: 78,
+  ambientReachRatio: 0.12,
+  contactReachRatio: 0.03,
+  ambientOpacity: 0.36,
+  contactOpacity: 0.78,
   reflectionOpacity: 0.18,
 } as const;
 
-/** Upper star of the wall shield. The wordmark sits lower and a 3/4 bbox
- * crosses it without covering the artwork, so only the star is a hard keep-out. */
+/** CHDP wall shield (whole artwork incl. wordmark). Checked per silhouette
+ * column, so the low rear of a 3/4 view may pass beneath it, never over it. */
 export const LOGO_SAFE_ZONE = {
-  minX: 1168,
-  maxX: 1342,
-  minY: 118,
-  maxY: 210,
-  clearancePx: 8,
+  minX: 1452,
+  maxX: 1760,
+  minY: 136,
+  maxY: 458,
+  clearancePx: 10,
 } as const;
 
 export type VehicleClass =
   | "CITY" | "HATCHBACK" | "SEDAN" | "COUPE" | "CABRIO"
-  | "WAGON" | "SUV" | "PICKUP" | "VAN";
+  | "WAGON" | "SUV" | "MPV" | "PICKUP" | "VAN";
 
 export type ClassProfile = {
-  scale: number;            // share of canvas width
+  scale: number;            // default share of canvas width
+  minScale: number;         // allowed range for this body type
+  maxScale: number;
   wheelbase_ratio: number;
   ground_clearance: number;
   shadow_size: number;
@@ -62,29 +73,51 @@ export type ClassProfile = {
   offset_y: number;
 };
 
-/** Per-class default profiles (placement_rules.json). */
+/** Per-class width share of the 1920 px canvas (approved ranges). */
 export const CLASS_PROFILES: Record<VehicleClass, ClassProfile> = {
-  CITY:      { scale: 0.55, wheelbase_ratio: 0.58, ground_clearance: 0.030, shadow_size: 0.90, offset_x: 0, offset_y: 0 },
-  HATCHBACK: { scale: 0.58, wheelbase_ratio: 0.59, ground_clearance: 0.032, shadow_size: 0.92, offset_x: 0, offset_y: 0 },
-  SEDAN:     { scale: 0.64, wheelbase_ratio: 0.62, ground_clearance: 0.030, shadow_size: 1.00, offset_x: 0, offset_y: 0 },
-  COUPE:     { scale: 0.62, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
-  CABRIO:    { scale: 0.62, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
-  WAGON:     { scale: 0.66, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
-  SUV:       { scale: 0.68, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
-  PICKUP:    { scale: 0.70, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
-  VAN:       { scale: 0.68, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
+  CITY:      { scale: 0.60, minScale: 0.55, maxScale: 0.66, wheelbase_ratio: 0.58, ground_clearance: 0.030, shadow_size: 0.90, offset_x: 0, offset_y: 0 },
+  HATCHBACK: { scale: 0.63, minScale: 0.58, maxScale: 0.69, wheelbase_ratio: 0.59, ground_clearance: 0.032, shadow_size: 0.92, offset_x: 0, offset_y: 0 },
+  SEDAN:     { scale: 0.685, minScale: 0.65, maxScale: 0.72, wheelbase_ratio: 0.62, ground_clearance: 0.030, shadow_size: 1.00, offset_x: 0, offset_y: 0 },
+  COUPE:     { scale: 0.67, minScale: 0.63, maxScale: 0.71, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
+  CABRIO:    { scale: 0.67, minScale: 0.63, maxScale: 0.71, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
+  WAGON:     { scale: 0.72, minScale: 0.68, maxScale: 0.76, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
+  SUV:       { scale: 0.74, minScale: 0.70, maxScale: 0.78, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
+  MPV:       { scale: 0.75, minScale: 0.72, maxScale: 0.78, wheelbase_ratio: 0.64, ground_clearance: 0.038, shadow_size: 1.06, offset_x: 0, offset_y: 0 },
+  PICKUP:    { scale: 0.78, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
+  VAN:       { scale: 0.78, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
 };
 
 export const PLACEMENT_LIMITS = {
   maxRotationDeg: 1,
   minFrameMarginPx: 24,
-  maxCarWidthRatio: 0.74,
-  maxCarHeightRatio: 0.68,
+  minCarWidthRatio: 0.44,
+  maxCarWidthRatio: 0.82,
+  maxCarHeightRatio: 0.80,
 } as const;
+
+/**
+ * Proportional target size. Width follows the class share; height follows the
+ * cutout's own aspect ratio. If the car would rise into the ceiling, both
+ * sides shrink together — the aspect ratio is never changed.
+ */
+export function computeTargetSize(carW: number, carH: number, scale: number) {
+  const aspect = carW / carH;
+  let w = Math.round(CANVAS_W * scale);
+  let h = Math.round(w / aspect);
+  const maxH = Math.min(
+    Math.round(CANVAS_H * PLACEMENT_LIMITS.maxCarHeightRatio),
+    GROUND.wheelLineY - GROUND.ceilingBottomY - PLACEMENT_LIMITS.minFrameMarginPx,
+  );
+  if (h > maxH) {
+    h = maxH;
+    w = Math.round(h * aspect);
+  }
+  return { w, h };
+}
 
 export const VALIDATION = {
   minScore: 0.72,
-  maxAttempts: 2,
+  maxAttempts: 3,
 } as const;
 
 /** Placement actually used for one composite. */
@@ -111,9 +144,9 @@ export const placementFromProfile = (cls: VehicleClass, over?: Partial<Placement
   };
   const merged = { ...base, ...(over ?? {}) };
   return {
-    scale: clamp(merged.scale, 0.34, PLACEMENT_LIMITS.maxCarWidthRatio),
-    offsetX: clamp(merged.offsetX, -300, 300),
-    offsetY: clamp(merged.offsetY, -160, 160),
+    scale: clamp(merged.scale, PLACEMENT_LIMITS.minCarWidthRatio, PLACEMENT_LIMITS.maxCarWidthRatio),
+    offsetX: clamp(merged.offsetX, -384, 384),
+    offsetY: clamp(merged.offsetY, -200, 60),
     rotationDeg: clamp(merged.rotationDeg, -PLACEMENT_LIMITS.maxRotationDeg, PLACEMENT_LIMITS.maxRotationDeg),
     shadowOpacity: clamp(merged.shadowOpacity, 0, 2),
     shadowBlur: clamp(merged.shadowBlur, 0.4, 2),
@@ -137,10 +170,17 @@ export const modelKey = (name: string) =>
     .slice(0, 3)
     .join("-") || "unknown";
 
+/** TipCars karoserie codes (case-sensitive). "G" (VAN) in the passenger group is a minivan. */
+const TIPCARS_BODY_CODES: Record<string, VehicleClass> = {
+  a: "HATCHBACK", w: "HATCHBACK", b: "SEDAN", A: "SEDAN", C: "CABRIO", D: "COUPE",
+  B: "WAGON", G: "MPV", c: "MPV", d: "SUV", A1: "SUV", "[": "SUV", "}": "PICKUP", A2: "VAN",
+};
+
 const CLASS_KEYWORDS: Array<[RegExp, VehicleClass]> = [
-  [/pickup|pick-up|ram 1500|ram 2500|ram 3500|dakota|gladiator/i, "PICKUP"],
-  [/van\b|voyager|pacifica|grand caravan|caravan|town & country|town and country|promaster|transit/i, "VAN"],
-  [/suv|durango|journey|nitro|compass|patriot|cherokee|renegade|wrangler|aspen|hornet/i, "SUV"],
+  [/pick[\s-]?up|ram\s*(1500|2500|3500)|dakota/i, "PICKUP"],
+  [/\bmpv\b|minivan|voyager|pacifica|caravan|town\s*(&|and)?\s*country/i, "MPV"],
+  [/dod[aá]vk|minibus|promaster|transit|sprinter|\bvan\b/i, "VAN"],
+  [/\bsuv\b|\bcuv\b|ter[eé]nn|durango|journey|nitro|aspen|hornet/i, "SUV"],
   [/kombi|wagon|estate|touring|magnum/i, "WAGON"],
   [/cabrio|kabriolet|convertible|roadster|spyder|spider/i, "CABRIO"],
   [/coupe|kupé|kupe|challenger|barracuda|crossfire/i, "COUPE"],
@@ -149,18 +189,23 @@ const CLASS_KEYWORDS: Array<[RegExp, VehicleClass]> = [
   [/city|mikro|smart|panda|500\b/i, "CITY"],
 ];
 
+const matchKeywords = (text: string): VehicleClass | null => {
+  for (const [re, cls] of CLASS_KEYWORDS) if (re.test(text)) return cls;
+  return null;
+};
+
 /**
- * Deterministic class detection from the vehicle record — no AI involved.
- * TipCars body code / description wins, the vehicle name is the fallback.
+ * Deterministic class detection — no AI. Priority: TipCars body code →
+ * TipCars body description → vehicle name → SEDAN.
  */
 export function detectVehicleClass(vehicle: Record<string, unknown> | null | undefined): VehicleClass {
-  const haystack = [
-    vehicle?.["tipcars_karoserie_popis"],
-    vehicle?.["tipcars_karoserie_kod"],
-    vehicle?.["name"],
-  ]
-    .filter((v) => typeof v === "string")
-    .join(" ");
-  for (const [re, cls] of CLASS_KEYWORDS) if (re.test(haystack)) return cls;
-  return "SEDAN";
+  const code = vehicle?.["tipcars_karoserie_kod"];
+  if (typeof code === "string" && TIPCARS_BODY_CODES[code.trim()]) return TIPCARS_BODY_CODES[code.trim()];
+  const desc = vehicle?.["tipcars_karoserie_popis"];
+  if (typeof desc === "string" && desc.trim()) {
+    const fromDesc = matchKeywords(desc);
+    if (fromDesc) return fromDesc;
+  }
+  const name = vehicle?.["name"];
+  return (typeof name === "string" && matchKeywords(name)) || "SEDAN";
 }

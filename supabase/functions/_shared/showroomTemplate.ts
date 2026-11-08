@@ -6,7 +6,7 @@
 
 export const CAMERA_VERSION = "camera-v3";
 export const BACKGROUND_VERSION = "background-v7";
-export const PLACEMENT_VERSION = "placement-v8";
+export const PLACEMENT_VERSION = "placement-v9";
 export const LIGHTING_VERSION = "lighting-v3";
 export const GROUND_VERSION = "ground-v7";
 
@@ -80,11 +80,11 @@ export const CLASS_PROFILES: Record<VehicleClass, ClassProfile> = {
   SEDAN:     { scale: 0.685, minScale: 0.65, maxScale: 0.72, wheelbase_ratio: 0.62, ground_clearance: 0.030, shadow_size: 1.00, offset_x: 0, offset_y: 0 },
   COUPE:     { scale: 0.67, minScale: 0.63, maxScale: 0.71, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
   CABRIO:    { scale: 0.67, minScale: 0.63, maxScale: 0.71, wheelbase_ratio: 0.61, ground_clearance: 0.028, shadow_size: 0.96, offset_x: 0, offset_y: 0 },
-  WAGON:     { scale: 0.72, minScale: 0.68, maxScale: 0.76, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
-  SUV:       { scale: 0.74, minScale: 0.70, maxScale: 0.78, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
-  MPV:       { scale: 0.75, minScale: 0.72, maxScale: 0.78, wheelbase_ratio: 0.64, ground_clearance: 0.038, shadow_size: 1.06, offset_x: 0, offset_y: 0 },
-  PICKUP:    { scale: 0.78, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
-  VAN:       { scale: 0.78, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
+  WAGON:     { scale: 0.76, minScale: 0.68, maxScale: 0.76, wheelbase_ratio: 0.63, ground_clearance: 0.032, shadow_size: 1.02, offset_x: 0, offset_y: 0 },
+  SUV:       { scale: 0.78, minScale: 0.70, maxScale: 0.78, wheelbase_ratio: 0.61, ground_clearance: 0.045, shadow_size: 1.05, offset_x: 0, offset_y: 0 },
+  MPV:       { scale: 0.78, minScale: 0.72, maxScale: 0.78, wheelbase_ratio: 0.64, ground_clearance: 0.038, shadow_size: 1.06, offset_x: 0, offset_y: 0 },
+  PICKUP:    { scale: 0.82, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.66, ground_clearance: 0.050, shadow_size: 1.10, offset_x: 0, offset_y: 0 },
+  VAN:       { scale: 0.82, minScale: 0.74, maxScale: 0.82, wheelbase_ratio: 0.64, ground_clearance: 0.040, shadow_size: 1.08, offset_x: 0, offset_y: 0 },
 };
 
 export const PLACEMENT_LIMITS = {
@@ -196,10 +196,24 @@ const matchKeywords = (text: string): VehicleClass | null => {
 };
 
 /**
- * Deterministic class detection — no AI. Priority: TipCars body code →
- * TipCars body description → vehicle name → SEDAN.
+ * Known model families override generic marketplace body codes. This prevents
+ * a bad/incomplete TipCars classification (e.g. Town & Country tagged as sedan)
+ * from forcing the wrong scale. Generic vehicles still use TipCars code →
+ * TipCars description → name → SEDAN.
  */
+const KNOWN_MODEL_CLASSES: Array<[RegExp, VehicleClass]> = [
+  [/\\b(?:chrysler\\s+)?town\\s*(?:&|and)?\\s*country\\b|\\bvoyager\\b|\\bpacifica\\b|\\b(?:grand\\s+)?caravan\\b/i, "MPV"],
+  [/\\b(?:dodge\\s+)?ram\\s*(?:1500|2500|3500)\\b|\\bdakota\\b/i, "PICKUP"],
+  [/\\bpromaster\\b/i, "VAN"],
+  [/\\bdurango\\b|\\bjourney\\b|\\bnitro\\b|\\baspen\\b|\\bhornet\\b/i, "SUV"],
+  [/\\bchallenger\\b|\\bbarracuda\\b|\\bcrossfire\\b/i, "COUPE"],
+  [/\\b300c\\b|\\bcharger\\b|\\bneon\\b|\\bstratus\\b|\\bsebring\\b|\\bavenger\\b/i, "SEDAN"],
+];
+
 export function detectVehicleClass(vehicle: Record<string, unknown> | null | undefined): VehicleClass {
+  const name = typeof vehicle?.["name"] === "string" ? vehicle["name"] as string : "";
+  for (const [pattern, cls] of KNOWN_MODEL_CLASSES) if (pattern.test(name)) return cls;
+
   const code = vehicle?.["tipcars_karoserie_kod"];
   if (typeof code === "string" && TIPCARS_BODY_CODES[code.trim()]) return TIPCARS_BODY_CODES[code.trim()];
   const desc = vehicle?.["tipcars_karoserie_popis"];
@@ -207,6 +221,5 @@ export function detectVehicleClass(vehicle: Record<string, unknown> | null | und
     const fromDesc = matchKeywords(desc);
     if (fromDesc) return fromDesc;
   }
-  const name = vehicle?.["name"];
-  return (typeof name === "string" && matchKeywords(name)) || "SEDAN";
+  return matchKeywords(name) || "SEDAN";
 }

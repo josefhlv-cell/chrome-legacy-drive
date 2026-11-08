@@ -1037,30 +1037,8 @@ export async function runShowroom(
       canvas.composite(car, carX, carY);
       jpeg = await canvas.encodeJPEG(CAMERA.jpeg_quality);
 
-      const aiReview = await reviewShowroomWithAi(
-        carDataUrl,
-        toDataUrl(jpeg, "image/jpeg"),
-        String((vehicle as any)?.name ?? ""),
-      );
-      if (!aiReview.passed && aiReview.car_too_small && attempt < VALIDATION.maxAttempts && aiReview.scale_multiplier > 1.01) {
-        usedPlace = placementFromProfile(vehicleClass, {
-          ...usedPlace,
-          scale: Math.min(PLACEMENT_LIMITS.maxCarWidthRatio, usedPlace.scale * aiReview.scale_multiplier),
-        });
-        await appendHistory(admin, imageId, "ai_visual_retry", "AI score " + aiReview.score + "/100 — scale correction");
-        continue;
-      }
-      report = {
-        ...report,
-        checks: [...report.checks, {
-          check: "ai_visual_quality",
-          ok: aiReview.passed,
-          detail: "score=" + aiReview.score + "/100; " + aiReview.reason + "; " + aiReview.issues.join("; "),
-        }],
-      };
-      report.score = report.checks.filter((c) => c.ok).length / report.checks.length;
-      report.passed = report.passed && aiReview.passed;
-
+      // Cost control: no second vision-model call. Deterministic checks run here;
+      // the Admin reviews the generated preview before explicitly applying it.
       validation = report;
       usedGeometry = { carX, carY, targetW, targetH };
       jpeg = await canvas.encodeJPEG(CAMERA.jpeg_quality);
@@ -1125,8 +1103,8 @@ export async function runShowroom(
       lighting_version: LIGHTING_VERSION,
       generated_at: new Date().toISOString(),
       ai_model: aiModel,
-      cutout_source: aiModel === "remove.bg" ? "remove.bg" : "ai",
-      ai_role: aiModel === "remove.bg" ? "none" : "segmentation-only",
+      cutout_source: "lovable-ai-gateway",
+      ai_role: "gpt-image-2.6-sunburst-segmentation",
       validation_score: report.score,
     },
   });
@@ -1151,116 +1129,66 @@ const CLASS_FALLBACK_SCALE = 0.46;
 
 
 // ============================================================================
-// AI SEGMENTATION — model chain
-// NOTE: OpenAI GPT Image models are NOT usable here. Through the AI Gateway they
-// only accept text-to-image (`/v1/images/generations` rejects `image`, and
-// `/v1/images/edits` is not routed), so they cannot receive the source vehicle
-// photo and would invent a different car. Only image-input capable models here.
+// AI SEGMENTATION — Lovable AI Gateway / GPT Image 2.6 Sunburst
+// One image edit per manual Admin action. No remove.bg, no model fallback,
+// no second AI review call. The master showroom plate remains deterministic.
 // ============================================================================
-const CUTOUT_MODELS = [
-  "google/gemini-3-pro-image",
-  "google/gemini-3.1-flash-image",
-] as const;
+const CUTOUT_MODEL = "openai/gpt-image-2.6-sunburst";
 
 type CutoutResult = { ok: boolean; dataUrl?: string; model?: string; error?: string };
 
-/**
- * PRIMARY cutout source: remove.bg real segmentation (true alpha channel).
- * Deterministic, no generative model touches the vehicle at all.
- */
-async function requestCutoutRemoveBg(carDataUrl: string): Promise<CutoutResult> {
-  const apiKey = Deno.env.get("REMOVE_BG_API_KEY") ?? Deno.env.get("REMOVEBG_API_KEY") ?? "";
-  if (!apiKey) return { ok: false, error: "remove.bg: missing REMOVE_BG_API_KEY" };
+async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
   try {
     const { bytes, contentType } = dataUrlToBytes(carDataUrl);
     const form = new FormData();
-    form.append("image_file", new Blob([bytes], { type: contentType || "image/jpeg" }), "car.jpg");
-    form.append("type", "car");
+    form.append("model", CUTOUT_MODEL);
+    form.append("prompt", CUTOUT_PROMPT);
     form.append("size", "auto");
-    form.append("format", "png");
-    const resp = await fetch("https://api.remove.bg/v1.0/removebg", {
+    form.append("quality", "medium");
+    form.append("complexity", "low");
+    form.append("output_format", "png");
+    form.append("n", "1");
+    form.append("image", new Blob([bytes], { type: contentType || "image/jpeg" }), "vehicle-source");
+
+    const response = await fetch("https://ai.gateway.lovable.dev/v1/images/edits", {
       method: "POST",
-      headers: { "X-Api-Key": apiKey },
+      headers: {
+        "Authorization": "Bearer " + LOVABLE_API_KEY,
+      },
       body: form,
     });
-    if (!resp.ok) {
-      const t = await resp.text();
-      return { ok: false, error: `remove.bg: ${resp.status} ${t.slice(0, 160)}` };
+
+    if (!response.ok) {
+      const body = (await response.text()).slice(0, 500);
+      const hint = response.status === 404 || response.status === 400
+        ? " Ověřte, že workspace dovoluje GPT Image 2.6 a nemá zapnutou EU inference."
+        : "";
+      return {
+        ok: false,
+        error: `Lovable GPT Image 2.6 Sunburst: HTTP ${response.status} ${body}${hint}`,
+      };
     }
-    const buf = new Uint8Array(await resp.arrayBuffer());
-    if (buf.byteLength < 5_000) return { ok: false, error: "remove.bg: empty response" };
-    return { ok: true, dataUrl: toDataUrl(buf, "image/png"), model: "remove.bg" };
+
+    const payload = await response.json();
+    const first = payload?.data?.[0];
+    if (typeof first?.b64_json === "string" && first.b64_json.length > 1000) {
+      return {
+        ok: true,
+        dataUrl: `data:image/png;base64,${first.b64_json}`,
+        model: CUTOUT_MODEL,
+      };
+    }
+    if (typeof first?.url === "string") {
+      const imageResponse = await fetch(first.url);
+      if (!imageResponse.ok) throw new Error(`Generated image download failed: HTTP ${imageResponse.status}`);
+      const output = new Uint8Array(await imageResponse.arrayBuffer());
+      if (output.byteLength < 5_000) throw new Error("Generated image is empty");
+      return { ok: true, dataUrl: toDataUrl(output, imageResponse.headers.get("content-type") || "image/png"), model: CUTOUT_MODEL };
+    }
+    return { ok: false, error: "Lovable GPT Image 2.6 nevrátil obrázek (data[0].b64_json/url chybí)." };
   } catch (e: any) {
-    return { ok: false, error: `remove.bg: ${e?.message ?? e}` };
+    return { ok: false, error: `Lovable GPT Image 2.6 request failed: ${e?.message ?? e}` };
   }
-}
-
-async function requestCutout(carDataUrl: string): Promise<CutoutResult> {
-  const errors: string[] = [];
-
-  // 1) Real segmentation first.
-  const rb = await requestCutoutRemoveBg(carDataUrl);
-  if (rb.ok) return rb;
-  errors.push(rb.error!);
-  console.warn("remove.bg cutout unavailable, falling back to AI segmentation:", rb.error);
-
-  for (const model of CUTOUT_MODELS) {
-    try {
-      const isOpenAI = model.startsWith("openai/");
-      const url = isOpenAI
-        ? "https://ai.gateway.lovable.dev/v1/images/generations"
-        : "https://ai.gateway.lovable.dev/v1/chat/completions";
-      const body = isOpenAI
-        ? {
-          model,
-          prompt: CUTOUT_PROMPT,
-          image: [carDataUrl],
-          size: "1536x1024",
-          n: 1,
-        }
-        : {
-          model,
-          modalities: ["image", "text"],
-          messages: [{
-            role: "user",
-            content: [
-              { type: "text", text: CUTOUT_PROMPT },
-              { type: "text", text: "SOURCE VEHICLE PHOTO (identity-lock the vehicle, remove only the background):" },
-              { type: "image_url", image_url: { url: carDataUrl } },
-            ],
-          }],
-        };
-      const resp = await fetch(url, {
-        method: "POST",
-        headers: {
-          "Lovable-API-Key": LOVABLE_API_KEY,
-          "X-Lovable-AIG-SDK": "native-fetch",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(body),
-      });
-      if (!resp.ok) {
-        const t = await resp.text();
-        // 402 / 4xx on one model must not abort the chain — try the next model.
-        errors.push(`${model}: ${resp.status} ${t.slice(0, 160)}`);
-        continue;
-      }
-      const data = await resp.json();
-      const b64 = data?.data?.[0]?.b64_json;
-      const dataUrl = b64 ? `data:image/png;base64,${b64}` : extractImageDataUrl(data);
-      if (!dataUrl) {
-        errors.push(`${model}: no image in response`);
-        continue;
-      }
-      return { ok: true, dataUrl, model };
-    } catch (e: any) {
-      errors.push(`${model}: ${e?.message ?? e}`);
-    }
-  }
-  if (errors.every((e) => e.includes(": 402"))) {
-    return { ok: false, error: "AI kredity vyčerpány — doplňte kredity ve Workspace Usage" };
-  }
-  return { ok: false, error: `AI segmentation failed — ${errors.join(" | ").slice(0, 400)}` };
 }
 
 /** True when a cached composite was produced by the current locked template. */

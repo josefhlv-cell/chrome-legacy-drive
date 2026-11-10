@@ -25,6 +25,7 @@ import { copyTextToClipboard } from "@/lib/smartCapture/clipboard";
 import { watchCameraReady } from "@/lib/smartCapture/captureControls";
 import { captureImportMeta, isVinShot, vinFromOcr } from "@/lib/smartCapture/captureMath";
 import { captureFullStill } from "@/lib/smartCapture/stillCapture";
+import { currentQuarterTurn, rotateJpeg, watchDeviceTurn } from "@/lib/smartCapture/deviceTurn";
 import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
 import { SMART_CAPTURE_SHOWROOM_BACKGROUND } from "@/lib/smartCapture/showroomReplacement";
 
@@ -438,13 +439,17 @@ export default function SmartCapture() {
   const handleShot = async () => {
     if (!sessionId || !videoRef.current || !stream || busy || switching || pending || shootingRef.current || !cameraReady) return;
     shootingRef.current = true; setShooting(true);
+    watchDeviceTurn();
     try {
-      const cameraBlob = await captureFullStill({
+      const turn = currentQuarterTurn();
+      const still = await captureFullStill({
         video: videoRef.current,
         stream,
         mirror: facingRef.current === "user",
-        levelDegrees: horizonBake ? horizonAngleRef.current : 0,
+        levelDegrees: horizonBake && !turn ? horizonAngleRef.current : 0,
       });
+      // Rotation lock: the page stayed portrait while the phone is sideways.
+      const cameraBlob = await rotateJpeg(still, turn).catch(() => still);
       // Stage the original immediately; optional local AI runs in the durable queue.
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
@@ -773,6 +778,7 @@ export default function SmartCapture() {
       setHorizonAngle(0);
       return;
     }
+    watchDeviceTurn();
     const h = createHorizonController(setHorizonAngle);
     horizonRef.current = h;
     void h.start();

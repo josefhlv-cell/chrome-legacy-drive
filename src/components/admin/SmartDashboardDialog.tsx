@@ -5,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
   Smartphone, Camera, Download, Trash2, Wand2, Loader2, Star, CheckCircle2,
-  ImageIcon, RefreshCw, Sparkles, FileArchive, Inbox,
+  ImageIcon, RefreshCw, Sparkles, FileArchive, Inbox, RotateCw,
 } from "lucide-react";
+import { rotateJpeg } from "@/lib/smartCapture/deviceTurn";
 import { useSessions, useSessionPhotos, useDeleteSessionPhoto } from "@/hooks/useSmartCapture";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -59,6 +60,40 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
   );
   const { data: photos = [] } = useSessionPhotos(selectedId ?? undefined);
   const rows = photos as PhotoRow[];
+  const [rotating, setRotating] = useState<string | null>(null);
+
+  /** Turns a sideways photo 90° clockwise; both original and web copy are rewritten. */
+  const handleRotate = async (r: PhotoRow) => {
+    if (!selected || rotating) return;
+    setRotating(r.id);
+    try {
+      const bucket = supabase.storage.from("smart-capture");
+      const pathOf = (url: string) => decodeURIComponent(new URL(url).pathname.split("/smart-capture/")[1] ?? "");
+      const update: { original_url?: string; processed_url?: string; width?: number; height?: number } = {};
+      const stamp = Date.now();
+      for (const key of ["original_url", "processed_url"] as const) {
+        const url = r[key];
+        if (!url) continue;
+        const path = pathOf(url);
+        if (!path.startsWith(`${selected.id}/`)) throw new Error("Neplatná cesta fotografie.");
+        const res = await fetch(`${url.split("?")[0]}?t=${stamp}`, { cache: "no-store" });
+        if (!res.ok) throw new Error("Fotografii se nepodařilo načíst.");
+        const rotated = await rotateJpeg(await res.blob(), 1);
+        const up = await bucket.upload(path, rotated, { contentType: "image/jpeg", upsert: true });
+        if (up.error) throw up.error;
+        update[key] = `${bucket.getPublicUrl(path).data.publicUrl}?v=${stamp}`;
+        if (key === "processed_url") {
+          const bmp = await createImageBitmap(rotated);
+          update.width = bmp.width; update.height = bmp.height; bmp.close();
+        }
+      }
+      const { error } = await supabase.from("smart_capture_photos").update(update).eq("id", r.id);
+      if (error) throw error;
+      await qc.invalidateQueries({ queryKey: ["smart-capture-photos", selected.id] });
+    } catch (e) {
+      toast({ title: "Otočení se nepodařilo", description: e instanceof Error ? e.message : String(e), variant: "destructive" });
+    } finally { setRotating(null); }
+  };
 
   const handleImport = async () => {
     if (!selected || rows.length === 0) return;
@@ -267,6 +302,15 @@ export default function SmartDashboardDialog({ open, onOpenChange, onImport }: P
                             <span className="flex items-center gap-0.5"><CheckCircle2 className="w-3 h-3" />{r.quality_score}</span>
                           </div>
                         </div>
+                        <button
+                          onClick={() => void handleRotate(r)}
+                          disabled={rotating !== null}
+                          className="absolute top-1.5 right-9 p-1 rounded bg-black/60 text-white"
+                          title="Otočit o 90°"
+                          aria-label="Otočit fotografii o 90°"
+                        >
+                          {rotating === r.id ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCw className="w-3.5 h-3.5" />}
+                        </button>
                         <button
                           onClick={() => {
                             if (confirm("Smazat fotku?")) deletePhoto.mutate({ id: r.id, sessionId: selected.id });

@@ -42,16 +42,30 @@ export function currentQuarterTurn(): QuarterTurn {
 }
 
 /** Rotates a JPEG by a quarter turn (losslessly in geometry, re-encoded at q 0.92). */
-export async function rotateJpeg(blob: Blob, turn: QuarterTurn): Promise<Blob> {
-  if (!turn) return blob;
+/** Long side of every catalogue photo (matches the 3200×2400 listing standard). */
+export const LISTING_LONG_SIDE = 3200;
+
+/** Output size after a quarter turn, scaled down (never up) to the listing long side. */
+export function fittedSize(width: number, height: number, turn: QuarterTurn, maxLong = LISTING_LONG_SIDE) {
+  const [w, h] = turn % 2 ? [height, width] : [width, height];
+  const scale = Math.min(1, maxLong / Math.max(w, h));
+  return { width: Math.round(w * scale), height: Math.round(h * scale), scale };
+}
+
+/** Rotates by a quarter turn and fits the photo to the listing resolution in one pass. */
+export async function rotateJpeg(blob: Blob, turn: QuarterTurn, maxLong = LISTING_LONG_SIDE): Promise<Blob> {
   const bitmap = await createImageBitmap(blob);
   try {
+    const out = fittedSize(bitmap.width, bitmap.height, turn, maxLong);
+    if (!turn && out.scale === 1) return blob;
     const canvas = document.createElement("canvas");
-    canvas.width = bitmap.height; canvas.height = bitmap.width;
+    canvas.width = out.width; canvas.height = out.height;
     const ctx = canvas.getContext("2d");
     if (!ctx) return blob;
+    ctx.imageSmoothingQuality = "high";
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate((turn * Math.PI) / 2);
+    ctx.scale(out.scale, out.scale);
     ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
     return await new Promise<Blob>((resolve, reject) =>
       canvas.toBlob(b => (b ? resolve(b) : reject(new Error("Otočení se nepodařilo."))), "image/jpeg", 0.92));

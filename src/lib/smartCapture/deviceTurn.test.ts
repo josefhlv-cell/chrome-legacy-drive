@@ -8,3 +8,13 @@ describe("quarterTurnFromTilt", () => {
   it("does nothing when the page already rotated to landscape", () => expect(quarterTurnFromTilt(0, -85, 90)).toBe(0));
   it("does nothing without sensor data", () => expect(quarterTurnFromTilt(null, null, 0)).toBe(0));
 });
+
+import { fittedSize } from "./deviceTurn";
+describe("fittedSize", () => {
+  it("fits a sideways 4032×3024 phone photo to the 3200×2400 listing size", () =>
+    expect(fittedSize(3024, 4032, 1)).toMatchObject({ width: 3200, height: 2400 }));
+  it("fits an upright 4032×3024 photo to 3200×2400", () =>
+    expect(fittedSize(4032, 3024, 0)).toMatchObject({ width: 3200, height: 2400 }));
+  it("never enlarges smaller photos", () =>
+    expect(fittedSize(1920, 1440, 0)).toMatchObject({ width: 1920, height: 1440, scale: 1 }));
+});

@@ -25,7 +25,7 @@ import { copyTextToClipboard } from "@/lib/smartCapture/clipboard";
 import { watchCameraReady } from "@/lib/smartCapture/captureControls";
 import { captureImportMeta, isVinShot, vinFromOcr } from "@/lib/smartCapture/captureMath";
 import { captureFullStill } from "@/lib/smartCapture/stillCapture";
-import { currentQuarterTurn, rotateJpeg, watchDeviceTurn } from "@/lib/smartCapture/deviceTurn";
+import { currentPhysicalTurn, currentQuarterTurn, fitJpeg, turnForStill, watchDeviceTurn } from "@/lib/smartCapture/deviceTurn";
 import { publishCaptureListing } from "@/lib/smartCapture/listingTransfer";
 import { SMART_CAPTURE_SHOWROOM_BACKGROUND } from "@/lib/smartCapture/showroomReplacement";
 
@@ -444,16 +444,17 @@ export default function SmartCapture() {
     shootingRef.current = true; setShooting(true);
     watchDeviceTurn();
     try {
-      const turn = currentQuarterTurn();
+      const physical = currentPhysicalTurn();
       const still = await captureFullStill({
         video: videoRef.current,
         stream,
         mirror: facingRef.current === "user",
-        levelDegrees: horizonBake && !turn ? horizonAngleRef.current : 0,
+        levelDegrees: horizonBake && !physical ? horizonAngleRef.current : 0,
       });
-      // Rotation lock: the page stayed portrait while the phone is sideways.
+      // Sideways phone + portrait frame (rotation lock or iOS stale stream): turn it.
       let normalization: typeof pendingNormalization.current = { normalizationVersion: 1 };
-      const cameraBlob = await rotateJpeg(still, turn).catch(() => {
+      let turn: ReturnType<typeof currentQuarterTurn> = 0;
+      const cameraBlob = await fitJpeg(still, b => (turn = turnForStill(physical, b.width, b.height))).then(r => r.blob).catch(() => {
         normalization = { normalizationVersion: 1, pendingTurn: turn };
         return still;
       });

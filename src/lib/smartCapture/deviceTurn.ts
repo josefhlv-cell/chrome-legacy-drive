@@ -41,6 +41,19 @@ export function currentQuarterTurn(): QuarterTurn {
   return quarterTurnFromTilt(last.beta, last.gamma, screenAngle());
 }
 
+/** Physical sideways tilt, ignoring whether the page UI rotated. */
+export function currentPhysicalTurn(): QuarterTurn {
+  return quarterTurnFromTilt(last.beta, last.gamma, 0);
+}
+
+/**
+ * iOS keeps delivering portrait camera frames after the UI rotates, so decide
+ * from the real still: rotate only a portrait frame taken with a sideways phone.
+ */
+export function turnForStill(physical: QuarterTurn, width: number, height: number): QuarterTurn {
+  return physical && height > width ? physical : 0;
+}
+
 /** Rotates a JPEG by a quarter turn (losslessly in geometry, re-encoded at q 0.92). */
 /** Long side of every catalogue photo (matches the 3200×2400 listing standard). */
 export const LISTING_LONG_SIDE = 3200;

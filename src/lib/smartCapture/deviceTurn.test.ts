@@ -18,3 +18,10 @@ describe("fittedSize", () => {
   it("never enlarges smaller photos", () =>
     expect(fittedSize(1920, 1440, 0)).toMatchObject({ width: 1920, height: 1440, scale: 1 }));
 });
+
+import { turnForStill } from "./deviceTurn";
+describe("turnForStill", () => {
+  it("rotates a portrait frame from a sideways phone even when UI rotated", () => expect(turnForStill(1, 2400, 3200)).toBe(1));
+  it("keeps an already landscape frame", () => expect(turnForStill(-1, 3200, 2400)).toBe(0));
+  it("keeps portrait frame from upright phone", () => expect(turnForStill(0, 2400, 3200)).toBe(0));
+});

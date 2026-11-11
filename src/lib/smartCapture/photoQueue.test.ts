@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   upload: vi.fn(), upsert: vi.fn(), invoke: vi.fn(), publicUrl: vi.fn(),
   showroom: vi.fn(),
+  normalize: vi.fn(),
 }));
 vi.mock("@/integrations/supabase/client", () => ({ supabase: {
   storage: { from: () => ({ upload: mocks.upload, getPublicUrl: mocks.publicUrl }) },
@@ -15,6 +16,7 @@ vi.mock("./imageProcessing", () => ({
 }));
 import { uploadCapturePhoto, type QueuedPhoto } from "./photoQueue";
 vi.mock("./showroomReplacement", () => ({ composeSmartCaptureShowroom: mocks.showroom }));
+vi.mock("./uploadImage", () => ({ normalizeUploadImage: mocks.normalize }));
 
 const photo = (): QueuedPhoto => ({
   id: "photo-stable-id", sessionId: "same-session", shotType: "prava-predni", shotIndex: 0,
@@ -25,8 +27,33 @@ beforeEach(() => {
   mocks.upload.mockResolvedValue({ error: null }); mocks.upsert.mockResolvedValue({ error: null });
   mocks.publicUrl.mockImplementation(path => ({ data: { publicUrl: `https://configured-storage.test/${path}` } }));
   mocks.showroom.mockResolvedValue(new Blob(["showroom"]));
+  mocks.normalize.mockImplementation(async (blob: Blob) => ({ blob, width: 3200, height: 2400 }));
 });
 describe("accepted photo background pipeline", () => {
+  it("normalizes restored legacy originals before upload and saves real dimensions with processing off", async () => {
+    const output = new Blob(["normalized"]);
+    mocks.normalize.mockResolvedValue({ blob: output, width: 3200, height: 2400 });
+    const input: QueuedPhoto = { ...photo(), autoProcess: false };
+    await uploadCapturePhoto(input);
+    expect(mocks.normalize).toHaveBeenCalledWith(expect.any(Blob), { legacy: true, pendingTurn: undefined });
+    expect(mocks.upload.mock.calls.map(call => call[1])).toEqual([output, output]);
+    expect(mocks.upsert.mock.calls[0][0]).toMatchObject({ width: 3200, height: 2400 });
+    expect(input.normalizationVersion).toBe(1);
+  });
+  it("clears saved rotation and never treats retry bytes as legacy", async () => {
+    const input: QueuedPhoto = { ...photo(), pendingTurn: -1, normalizationVersion: 1 };
+    mocks.upload.mockResolvedValueOnce({ error: new Error("offline") });
+    await expect(uploadCapturePhoto(input)).rejects.toThrow("offline");
+    await uploadCapturePhoto(input);
+    expect(mocks.normalize.mock.calls[0][1]).toEqual({ legacy: false, pendingTurn: -1 });
+    expect(mocks.normalize.mock.calls[1][1]).toEqual({ legacy: false, pendingTurn: undefined });
+  });
+  it("does not upload or call AI if normalization fails", async () => {
+    mocks.normalize.mockRejectedValueOnce(new Error("decode failed"));
+    await expect(uploadCapturePhoto({ ...photo(), showroomEnabled: true })).rejects.toThrow("decode failed");
+    expect(mocks.upload).not.toHaveBeenCalled();
+    expect(mocks.showroom).not.toHaveBeenCalled();
+  });
   it("reuses a completed paid composite on upload retry", async () => {
     const input = { ...photo(), showroomEnabled: true };
     mocks.upload.mockResolvedValueOnce({ error: new Error("offline") });

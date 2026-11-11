@@ -9,6 +9,7 @@ vi.mock("@/integrations/supabase/client", () => ({ supabase: {
 } }));
 vi.mock("./imageProcessing", () => ({ processImage: () => new Promise(() => {}) }));
 vi.mock("./showroomReplacement", () => ({ composeSmartCaptureShowroom: () => new Promise(() => {}) }));
+vi.mock("./uploadImage", () => ({ normalizeUploadImage: () => new Promise(() => {}) }));
 
 describe("durable acceptance boundary", () => {
   it("commits the accepted blob and progress before resolving, without waiting for upload", async () => {

@@ -419,7 +419,10 @@ export default function SmartCapture() {
 
   useEffect(() => { horizonAngleRef.current = horizonAngle; }, [horizonAngle]);
 
-  const stageForReview = (blob: Blob, stepIdx: number) => {
+  const pendingNormalization = useRef<{ normalizationVersion?: number; pendingTurn?: ReturnType<typeof currentQuarterTurn> }>({ normalizationVersion: 1 });
+
+  const stageForReview = (blob: Blob, stepIdx: number, normalization: typeof pendingNormalization.current = { normalizationVersion: 1 }) => {
+    pendingNormalization.current = normalization;
     if (pendingRef.current) URL.revokeObjectURL(pendingRef.current.url);
     const preview = { blob, url: URL.createObjectURL(blob), stepIdx };
     pendingRef.current = preview;
@@ -449,11 +452,15 @@ export default function SmartCapture() {
         levelDegrees: horizonBake && !turn ? horizonAngleRef.current : 0,
       });
       // Rotation lock: the page stayed portrait while the phone is sideways.
-      const cameraBlob = await rotateJpeg(still, turn).catch(() => still);
+      let normalization: typeof pendingNormalization.current = { normalizationVersion: 1 };
+      const cameraBlob = await rotateJpeg(still, turn).catch(() => {
+        normalization = { normalizationVersion: 1, pendingTurn: turn };
+        return still;
+      });
       // Stage the original immediately; optional local AI runs in the durable queue.
       setShutterFlash(true);
       setTimeout(() => setShutterFlash(false), 120);
-      stageForReview(cameraBlob, currentStepIdx);
+      stageForReview(cameraBlob, currentStepIdx, normalization);
     } catch (error) {
       toast({ title: "Snímek se nepodařilo pořídit", description: error instanceof Error ? error.message : "Zkuste spoušť znovu.", variant: "destructive" });
     } finally {
@@ -540,6 +547,7 @@ export default function SmartCapture() {
     }
     shotIndexRef.current = Math.max(shotIndexRef.current, ...photos.map(p => p.shot_index + 1), ...queued.map(p => p.shotIndex + 1));
     await enqueuePhoto({ sessionId, blob, shotType,
+      ...pendingNormalization.current,
       progress: advanceProgress(progressRef.current, stepIdx, false),
       shotIndex: shotIndexRef.current++, autoProcess, aiEnabled,
       showroomEnabled: showBackground && !safeMode });

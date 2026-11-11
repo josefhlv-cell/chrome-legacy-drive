@@ -3,6 +3,8 @@ import { computeBlurScore, fileToBase64, processImage } from "./imageProcessing"
 import { isMainShot, qualityTip, type CaptureProgress } from "./workflow";
 import type { ShotType } from "./types";
 import { composeSmartCaptureShowroom } from "./showroomReplacement";
+import { normalizeUploadImage } from "./uploadImage";
+import type { QuarterTurn } from "./deviceTurn";
 
 export type QueuedPhoto = {
   id: string; sessionId: string; shotType: ShotType; shotIndex: number;
@@ -12,6 +14,8 @@ export type QueuedPhoto = {
   showroomEnabled?: boolean;
   showroomAttempted?: boolean;
   showroomBlob?: Blob;
+  normalizationVersion?: number;
+  pendingTurn?: QuarterTurn;
 };
 type StoredPhoto = Omit<QueuedPhoto, "preview">;
 let items: QueuedPhoto[] = [];
@@ -63,6 +67,21 @@ function change(id: string, patch: Partial<QueuedPhoto>) {
 
 export async function uploadCapturePhoto(photo: QueuedPhoto) {
   if (dropped.has(photo.id)) return;
+  const normalized = await normalizeUploadImage(photo.blob, {
+    legacy: photo.normalizationVersion === undefined, pendingTurn: photo.pendingTurn,
+  });
+  photo.blob = normalized.blob;
+  photo.normalizationVersion = 1;
+  photo.pendingTurn = undefined;
+  // Commit the normalized bytes before network/AI; a retry must not rotate twice.
+  if (items.some(p => p.id === photo.id)) {
+    await store(photo);
+    const previous = items.find(p => p.id === photo.id);
+    const preview = URL.createObjectURL(photo.blob);
+    if (previous?.preview.startsWith("blob:")) URL.revokeObjectURL(previous.preview);
+    change(photo.id, { blob: photo.blob, normalizationVersion: 1, pendingTurn: undefined, preview });
+  }
+  if (dropped.has(photo.id)) return;
   let webSource = photo.showroomBlob ?? photo.blob;
   // Persist attempt BEFORE calling paid AI. Upload retries and browser recovery
   // reuse the saved result or original, never blindly replay unknown inference.
@@ -79,7 +98,9 @@ export async function uploadCapturePhoto(photo: QueuedPhoto) {
       change(photo.id, { tip: `Showroom se nepodařil; ukládám původní fotografii. ${error instanceof Error ? error.message : ""}` });
     }
   }
-  const processed = photo.autoProcess ? await processImage(webSource) : { blob: webSource, width: 0, height: 0 };
+  // Also bound saved processed/showroom copies from an older queue, even in safe mode.
+  const webImage = webSource === photo.blob ? normalized : await normalizeUploadImage(webSource, { legacy: false });
+  const processed = photo.autoProcess ? await processImage(webImage.blob) : webImage;
   const base = `${photo.sessionId}/${photo.id}_${photo.shotIndex}_${photo.shotType}`;
   const originalPath = `${base}_orig.jpg`, processedPath = `${base}_web.jpg`;
   const bucket = supabase.storage.from("smart-capture");

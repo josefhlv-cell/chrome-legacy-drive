@@ -7,6 +7,7 @@
 - Admin-uploaded Show Room photos live in vehicles.show_room_images as an ordered JSON array with a separate show_room_enabled flag; use only for public detail galleries, never vehicle_images or listing fields, to preserve original-photo behavior. Storage removals must validate the dedicated show-room/{vehicleId}/ prefix and commit metadata first; compare-and-swap prevents concurrent admin overwrites.
 - Smart Capture keeps one guided 20-shot sequence; session metadata stores skipped steps and capture progress without requiring schema changes.
 - Accepted capture photos and their progress share a durable IndexedDB record; advance only after the local transaction commits, never after network upload or advisory analysis, to survive abrupt browser closure.
+- Normalize all Smart Capture queue uploads before network/AI, including restored jobs; persist normalized bytes/version and any capture-time pending rotation to prevent double rotation on retries. Repair legacy landscape JPEGs with portrait EXIF only, rather than guessing from current phone tilt.
 - Capture readiness is checked independently of media events; JPEG callbacks and local persistence have bounded recovery paths so stalled browser APIs cannot silently lock capture controls.
 - Mobile camera tracks are stopped on page hiding and reacquired by a user gesture; stale async camera requests must stop their tracks to avoid iOS frozen previews and camera leaks.
 - Mobile Smart Capture is capture/handoff only; desktop uses the same session IDs for review, completion and export.

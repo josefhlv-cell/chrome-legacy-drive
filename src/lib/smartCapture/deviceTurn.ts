@@ -54,20 +54,32 @@ export function fittedSize(width: number, height: number, turn: QuarterTurn, max
 
 /** Rotates by a quarter turn and fits the photo to the listing resolution in one pass. */
 export async function rotateJpeg(blob: Blob, turn: QuarterTurn, maxLong = LISTING_LONG_SIDE): Promise<Blob> {
+  return (await fitJpeg(blob, () => turn, maxLong)).blob;
+}
+
+/** Decode EXIF once, rotate/resize once, and report actual upload dimensions. */
+export async function fitJpeg(blob: Blob, resolveTurn: (bitmap: ImageBitmap) => QuarterTurn, maxLong = LISTING_LONG_SIDE): Promise<{ blob: Blob; width: number; height: number }> {
   const bitmap = await createImageBitmap(blob);
   try {
+    const turn = resolveTurn(bitmap);
     const out = fittedSize(bitmap.width, bitmap.height, turn, maxLong);
-    if (!turn && out.scale === 1) return blob;
+    if (!turn && out.scale === 1) return { blob, width: out.width, height: out.height };
     const canvas = document.createElement("canvas");
     canvas.width = out.width; canvas.height = out.height;
     const ctx = canvas.getContext("2d");
-    if (!ctx) return blob;
+    if (!ctx) throw new Error("Fotografii se nepodařilo otočit a zmenšit. Zkuste odeslání znovu.");
     ctx.imageSmoothingQuality = "high";
     ctx.translate(canvas.width / 2, canvas.height / 2);
     ctx.rotate((turn * Math.PI) / 2);
     ctx.scale(out.scale, out.scale);
     ctx.drawImage(bitmap, -bitmap.width / 2, -bitmap.height / 2);
-    return await new Promise<Blob>((resolve, reject) =>
-      canvas.toBlob(b => (b ? resolve(b) : reject(new Error("Otočení se nepodařilo."))), "image/jpeg", 0.92));
+    const resized = await new Promise<Blob>((resolve, reject) => {
+      const timeout = setTimeout(() => reject(new Error("Úprava fotografie trvá příliš dlouho. Zkuste odeslání znovu.")), 15000);
+      canvas.toBlob(b => {
+        clearTimeout(timeout);
+        b ? resolve(b) : reject(new Error("Otočení se nepodařilo."));
+      }, "image/jpeg", 0.92);
+    });
+    return { blob: resized, width: out.width, height: out.height };
   } finally { bitmap.close(); }
 }

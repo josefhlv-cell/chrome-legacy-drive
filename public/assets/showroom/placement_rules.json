@@ -1,38 +1,89 @@
 {
-  "version": "placement-v7",
+  "version": "placement-v9",
   "readOnly": true,
-  "note": "CHDP indoor plate. Pickup 3/4 target is 70% of frame width with tyres on y=768, matching the reference RAM. Do not stretch the 1500×846 background.",
+  "note": "CHDP indoor plate, native 1920×1082. Per-class width ranges and tyre contact are measured on the unchanged master.",
   "global": {
     "align": "bottom-center",
-    "anchor_x": 750,
-    "wheel_line_y": 768,
+    "anchor_x": 948,
+    "wheel_line_y": 985,
     "max_rotation_deg": 1,
     "min_frame_margin_px": 24,
-    "max_car_width_ratio": 0.74,
-    "max_car_height_ratio": 0.68,
+    "max_car_width_ratio": 0.82,
+    "max_car_height_ratio": 0.8,
     "logo_safe_zone": {
-      "min_x": 1168,
-      "max_x": 1342,
-      "min_y": 118,
-      "max_y": 210,
-      "clearance_px": 8,
-      "note": "Hard keep-out is the star only. Full shield artwork is x 1139-1370, y 110-355."
+      "min_x": 1452,
+      "max_x": 1760,
+      "min_y": 136,
+      "max_y": 458,
+      "clearance_px": 10,
+      "note": "Keep the full shield artwork clear."
     }
   },
   "classes": {
-    "CITY": { "scale": 0.55, "wheelbase_ratio": 0.58, "ground_clearance": 0.03, "shadow_size": 0.9, "offset_x": 0, "offset_y": 0 },
-    "HATCHBACK": { "scale": 0.58, "wheelbase_ratio": 0.59, "ground_clearance": 0.032, "shadow_size": 0.92, "offset_x": 0, "offset_y": 0 },
-    "SEDAN": { "scale": 0.64, "wheelbase_ratio": 0.62, "ground_clearance": 0.03, "shadow_size": 1, "offset_x": 0, "offset_y": 0 },
-    "COUPE": { "scale": 0.62, "wheelbase_ratio": 0.61, "ground_clearance": 0.028, "shadow_size": 0.96, "offset_x": 0, "offset_y": 0 },
-    "CABRIO": { "scale": 0.62, "wheelbase_ratio": 0.61, "ground_clearance": 0.028, "shadow_size": 0.96, "offset_x": 0, "offset_y": 0 },
-    "WAGON": { "scale": 0.66, "wheelbase_ratio": 0.63, "ground_clearance": 0.032, "shadow_size": 1.02, "offset_x": 0, "offset_y": 0 },
-    "SUV": { "scale": 0.68, "wheelbase_ratio": 0.61, "ground_clearance": 0.045, "shadow_size": 1.05, "offset_x": 0, "offset_y": 0 },
-    "PICKUP": { "scale": 0.70, "wheelbase_ratio": 0.66, "ground_clearance": 0.05, "shadow_size": 1.1, "offset_x": 0, "offset_y": 0 },
-    "VAN": { "scale": 0.68, "wheelbase_ratio": 0.64, "ground_clearance": 0.04, "shadow_size": 1.08, "offset_x": 0, "offset_y": 0 }
+    "CITY": {
+      "scale": 0.6,
+      "min_scale": 0.55,
+      "max_scale": 0.66,
+      "shadow_size": 0.9
+    },
+    "HATCHBACK": {
+      "scale": 0.63,
+      "min_scale": 0.58,
+      "max_scale": 0.69,
+      "shadow_size": 0.92
+    },
+    "SEDAN": {
+      "scale": 0.685,
+      "min_scale": 0.65,
+      "max_scale": 0.72,
+      "shadow_size": 1
+    },
+    "COUPE": {
+      "scale": 0.67,
+      "min_scale": 0.63,
+      "max_scale": 0.71,
+      "shadow_size": 0.96
+    },
+    "CABRIO": {
+      "scale": 0.67,
+      "min_scale": 0.63,
+      "max_scale": 0.71,
+      "shadow_size": 0.96
+    },
+    "WAGON": {
+      "scale": 0.72,
+      "min_scale": 0.68,
+      "max_scale": 0.76,
+      "shadow_size": 1.02
+    },
+    "SUV": {
+      "scale": 0.74,
+      "min_scale": 0.7,
+      "max_scale": 0.78,
+      "shadow_size": 1.05
+    },
+    "MPV": {
+      "scale": 0.75,
+      "min_scale": 0.72,
+      "max_scale": 0.78,
+      "shadow_size": 1.06
+    },
+    "PICKUP": {
+      "scale": 0.78,
+      "min_scale": 0.74,
+      "max_scale": 0.82,
+      "shadow_size": 1.1
+    },
+    "VAN": {
+      "scale": 0.78,
+      "min_scale": 0.74,
+      "max_scale": 0.82,
+      "shadow_size": 1.08
+    }
   },
   "validation": {
     "min_score": 0.72,
-    "max_attempts": 2,
+    "max_attempts": 3,
     "checks": [
       "inside_frame",
       "wheels_on_asphalt",

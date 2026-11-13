@@ -1,35 +1,35 @@
 {
-  "version": "ground-v6",
+  "version": "ground-v8",
   "readOnly": true,
-  "note": "Polished concrete floor of master_showroom_background.jpg. Tyre line is the reference RAM front contact, 7 px inside the near arc of the floor circle.",
+  "note": "Polished concrete floor on the unchanged native 1920×1082 master plate. Coordinates measured on the approved master.",
   "surface": "polished-concrete",
-  "tyre_contact_line_y": 768,
-  "tyre_contact_line_y_ratio": 0.9078,
+  "tyre_contact_line_y": 985,
+  "tyre_contact_line_y_ratio": 0.9104,
   "vehicle_anchor": {
-    "x": 750,
-    "y": 768,
+    "x": 948,
+    "y": 985,
     "align": "bottom-center"
   },
   "usable_span_x": {
-    "min": 90,
-    "max": 1410
+    "min": 60,
+    "max": 1860
   },
-  "wall_floor_seam_y": 518,
+  "wall_floor_seam_y": 666,
   "display_circle": {
-    "center_x": 740,
-    "center_y": 663,
-    "far_y": 552,
-    "near_y": 775,
-    "widest_y": 664,
-    "widest_left_x": 85,
-    "widest_right_x": 1394
+    "center_x": 947,
+    "center_y": 849,
+    "far_y": 707,
+    "near_y": 992,
+    "widest_y": 850,
+    "widest_left_x": 109,
+    "widest_right_x": 1784
   },
   "shadow": {
     "direction_deg": 90,
-    "ambient_reach_ratio": 0.11,
-    "contact_reach_ratio": 0.022,
-    "ambient_opacity": 0.3,
-    "contact_opacity": 0.62,
+    "ambient_reach_ratio": 0.12,
+    "contact_reach_ratio": 0.03,
+    "ambient_opacity": 0.36,
+    "contact_opacity": 0.78,
     "reflection_opacity": 0.18
   }
 }

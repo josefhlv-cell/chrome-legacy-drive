@@ -1,0 +1,13 @@
+{
+  "name": "pacifica41-showroom",
+  "private": true,
+  "type": "module",
+  "description": "Local showroom composites for Chrysler Pacifica evidenční číslo 41. Does not upload or write the production database.",
+  "scripts": {
+    "test": "node --test geometry.test.mjs"
+  },
+  "dependencies": {
+    "@imgly/background-removal-node": "1.4.5",
+    "sharp": "0.34.4"
+  }
+}

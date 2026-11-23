@@ -15,6 +15,10 @@ import {
   CAMERA,
   CAMERA_VERSION,
   CANVAS_H,
+  checkPlacementGeometry,
+  computeCarPosition,
+  contactShadowRows,
+  silhouetteClearsLogo,
   CANVAS_W,
   CLASS_PROFILES,
   computeTargetSize,
@@ -579,7 +583,7 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     const endFade = Math.min(1, Math.max(0, Math.min(x, cw - 1 - x) / (cw * 0.06)));
 
     // 1) ambient occlusion pool (soft, wide, weak)
-    for (let d = -Math.round(ambientReach * 0.15); d <= ambientReach; d++) {
+    for (let d = 1; d <= ambientReach; d++) {
       const t = Math.abs(d) / ambientReach;
       const s = GROUND.ambientOpacity * place.shadowOpacity * Math.pow(1 - Math.min(1, t), 2.4) * endFade;
       for (let sx = -spread; sx <= spread; sx++) {
@@ -589,10 +593,10 @@ function paintContactShadow(canvas: Image, car: Image, carX: number, carY: numbe
     }
 
     // 2) hard contact band right under the tyres/rockers
-    for (let d = -2; d <= contactReach; d++) {
-      const t = Math.max(0, d) / contactReach;
+    for (const row of contactShadowRows(fy, contactReach)) {
+      const t = (row - fy) / contactReach;
       const s = GROUND.contactOpacity * place.shadowOpacity * Math.pow(1 - Math.min(1, t), 1.6) * endFade;
-      darken(carX + x, Math.round(carY + fy + d + dy), s);
+      darken(carX + x, Math.round(carY + row + dy), s);
     }
   }
 }
@@ -679,26 +683,22 @@ function validateComposite(args: {
   keyedShare: number;
   bgUntouchedPixels: number;
   vehicleClass: VehicleClass;
+  canvasW: number;
+  canvasH: number;
+  sourceW: number;
+  sourceH: number;
 }): ValidationReport {
   const { car, carX, carY, targetW, targetH, keyedShare, bgUntouchedPixels, vehicleClass } = args;
   const checks: ValidationCheck[] = [];
   const add = (check: string, ok: boolean, detail?: string) => checks.push({ check, ok, detail });
 
-  const m = PLACEMENT_LIMITS.minFrameMarginPx;
-  add(
-    "inside_frame",
-    carX >= m && carY >= m && carX + targetW <= CANVAS_W - m && carY + targetH <= CANVAS_H - m,
-    `x=${carX} y=${carY} w=${targetW} h=${targetH}`,
-  );
-
-  // Wheels must sit on the locked tyre line, not merely somewhere on asphalt.
-  const wheelY = carY + targetH;
-  add("wheels_on_asphalt", Math.abs(wheelY - GROUND.wheelLineY) <= 8, `wheelY=${wheelY}`);
-
+  for (const g of checkPlacementGeometry({
+    canvasW: args.canvasW, canvasH: args.canvasH,
+    sourceW: args.sourceW, sourceH: args.sourceH,
+    targetW, targetH, carX, carY, vehicleClass,
+  })) add(g.check, g.ok, g.detail);
   const widthRatio = targetW / CANVAS_W;
   add("scale_in_range", widthRatio >= PLACEMENT_LIMITS.minCarWidthRatio && widthRatio <= PLACEMENT_LIMITS.maxCarWidthRatio, `w=${widthRatio.toFixed(3)}`);
-  const prof = CLASS_PROFILES[vehicleClass];
-  add("class_scale", widthRatio >= prof.minScale - 0.005 && widthRatio <= prof.maxScale + 0.005, `${vehicleClass} w=${widthRatio.toFixed(3)} range=${prof.minScale}-${prof.maxScale}`);
 
   // Background is only ever composited onto, never regenerated — the untouched
   // pixel count proves the master background survived.
@@ -708,18 +708,18 @@ function validateComposite(args: {
   // artwork. This is mandatory; a high score can never waive this check.
   // Checked against the real silhouette (top visible pixel per column), so the
   // lower rear of a 3/4 view may pass beneath the shield but never cover it.
-  const required = LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx;
-  let highestInLogo = Infinity;
+  const columnTops: Array<number | null> = [];
   {
     const w = car.width, h = car.height;
     const b = car.bitmap as unknown as Uint8Array;
-    const x0 = Math.max(0, LOGO_SAFE_ZONE.minX - carX), x1 = Math.min(w - 1, LOGO_SAFE_ZONE.maxX - carX);
-    for (let x = x0; x <= x1; x++) {
-      for (let y = 0; y < h; y++) {
-        if (b[(y * w + x) * 4 + 3] > 40) { highestInLogo = Math.min(highestInLogo, carY + y); break; }
-      }
+    for (let x = 0; x < w; x++) {
+      let top: number | null = null;
+      for (let y = 0; y < h; y++) if (b[(y * w + x) * 4 + 3] > 40) { top = y; break; }
+      columnTops.push(top);
     }
   }
+  const logo = silhouetteClearsLogo(columnTops, carX, carY);
+  const highestInLogo = logo.highest, required = logo.required;
   add("logo_visible", highestInLogo >= required, `carTopUnderLogo=${highestInLogo === Infinity ? "none" : highestInLogo} required>=${required}`);
 
   // Cut-out sanity — silhouette must be a car-shaped single blob.
@@ -741,7 +741,7 @@ function validateComposite(args: {
   add("no_body_deformation", aspect > 1.1 && aspect < 4.6, `aspect=${aspect.toFixed(2)}`);
 
   const score = checks.filter((c) => c.ok).length / checks.length;
-  const mandatory = new Set(["inside_frame", "wheels_on_asphalt", "scale_in_range", "logo_visible", "no_chroma_residue", "no_body_deformation"]);
+  const mandatory = new Set(["canvas_exact", "aspect_preserved", "inside_frame", "wheels_on_asphalt", "scale_in_range", "class_scale", "logo_visible", "background_unchanged", "no_chroma_residue", "no_body_deformation"]);
   return { score, passed: score >= VALIDATION.minScore && checks.every((c) => c.ok || !mandatory.has(c.check)) };
 }
 
@@ -770,24 +770,12 @@ export type ShowroomResult =
  */
 /** The master plate is a photograph. Same pixels, or a uniform scale. Never stretch. */
 function placeBackground(bg: Image): Image {
-  if (bg.width === CANVAS_W && bg.height === CANVAS_H) return bg;
-  const sx = CANVAS_W / bg.width;
-  const sy = CANVAS_H / bg.height;
-  if (Math.abs(sx - sy) > 0.01) {
-    throw new Error(
-      `Showroom background ${bg.width}x${bg.height} does not match canvas ${CANVAS_W}x${CANVAS_H}. Refusing to stretch.`,
-    );
+  // The master is read-only and already exactly CANVAS_W×CANVAS_H. Anything
+  // else would move the circle/logo, so it is rejected — never resized.
+  if (bg.width !== CANVAS_W || bg.height !== CANVAS_H) {
+    throw new Error(`Showroom background ${bg.width}x${bg.height} is not the locked ${CANVAS_W}x${CANVAS_H} master. Refusing to resize.`);
   }
-  // Preserve the uploaded image's exact proportions. At most one pixel of
-  // letterboxing is needed for the approved 1920×1082 plate on this canvas.
-  const scale = Math.min(sx, sy);
-  const width = Math.round(bg.width * scale);
-  const height = Math.round(bg.height * scale);
-  bg.resize(width, height);
-  const canvas = new Image(CANVAS_W, CANVAS_H);
-  canvas.fill(0x181818ff);
-  canvas.composite(bg, Math.floor((CANVAS_W - width) / 2), Math.floor((CANVAS_H - height) / 2));
-  return canvas;
+  return bg;
 }
 
 export async function runShowroom(
@@ -953,14 +941,13 @@ export async function runShowroom(
       }
 
       // Proportional only: one scale factor for both axes, never a deformation.
-      const { w: targetW, h: targetH } = computeTargetSize(car.width, car.height, usedPlace.scale);
+      const sourceW = car.width, sourceH = car.height;
+      const { w: targetW, h: targetH } = computeTargetSize(sourceW, sourceH, usedPlace.scale);
       car.resize(targetW, targetH);
       featherEdges(car);
 
       const canvas = placeBackground(await Image.decode(bgBytes));
-      const m = PLACEMENT_LIMITS.minFrameMarginPx;
-      const carX = Math.max(m, Math.min(CANVAS_W - m - targetW, Math.round(GROUND.anchorX - targetW / 2 + usedPlace.offsetX)));
-      const carY = Math.round(GROUND.wheelLineY + usedPlace.offsetY) - targetH;
+      const { carX, carY } = computeCarPosition(targetW, targetH, usedPlace);
 
       let report = validateComposite({
         car,
@@ -971,6 +958,10 @@ export async function runShowroom(
         keyedShare,
         bgUntouchedPixels: CANVAS_W * CANVAS_H - targetW * targetH,
         vehicleClass,
+        canvasW: canvas.width,
+        canvasH: canvas.height,
+        sourceW: sourceW,
+        sourceH: sourceH,
       });
 
       if (!report.passed && attempt < VALIDATION.maxAttempts) {
@@ -982,9 +973,12 @@ export async function runShowroom(
         }
         if (!report.checks.find((c) => c.check === "wheels_on_asphalt")?.ok) fixed.offsetY = 0;
         if (!report.checks.find((c) => c.check === "scale_in_range")?.ok) fixed.scale = CLASS_PROFILES[vehicleClass].scale;
+        // class_scale failing because the cutout is too tall cannot be fixed
+        // without dropping below the class minimum — that is rejected, not shrunk.
         if (!report.checks.find((c) => c.check === "logo_visible")?.ok) {
           // Slide the car left, away from the shield, before shrinking it.
           fixed.offsetX = usedPlace.offsetX - Math.max(0, carX + targetW - LOGO_SAFE_ZONE.minX + 20);
+          // Never below the class minimum; if the logo still collides, reject.
           fixed.scale = Math.max(CLASS_PROFILES[vehicleClass].minScale, usedPlace.scale - 0.03);
           fixed.offsetY = 0;
         }

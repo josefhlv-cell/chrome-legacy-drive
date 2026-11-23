@@ -95,24 +95,92 @@ export const PLACEMENT_LIMITS = {
   maxCarHeightRatio: 0.80,
 } as const;
 
+/** Exact pixel width range for a class: round(min·1920) … round(max·1920). */
+export function classWidthRangePx(cls: VehicleClass) {
+  const p = CLASS_PROFILES[cls];
+  return { min: Math.round(CANVAS_W * p.minScale), max: Math.round(CANVAS_W * p.maxScale) };
+}
+
+/** Tallest car that still keeps the ceiling margin above it. */
+export const MAX_CAR_HEIGHT_PX = Math.min(
+  Math.round(CANVAS_H * PLACEMENT_LIMITS.maxCarHeightRatio),
+  GROUND.wheelLineY - GROUND.ceilingBottomY - PLACEMENT_LIMITS.minFrameMarginPx,
+);
+
 /**
- * Proportional target size. Width follows the class share; height follows the
- * cutout's own aspect ratio. If the car would rise into the ceiling, both
- * sides shrink together — the aspect ratio is never changed.
+ * Proportional target size from the REAL alpha cutout. One common scale factor
+ * for both axes. If the class width would make the car too tall, both sides
+ * shrink together — the result can then fall below the class minimum, which
+ * `checkPlacementGeometry` rejects (never silently accepted).
  */
 export function computeTargetSize(carW: number, carH: number, scale: number) {
   const aspect = carW / carH;
   let w = Math.round(CANVAS_W * scale);
   let h = Math.round(w / aspect);
-  const maxH = Math.min(
-    Math.round(CANVAS_H * PLACEMENT_LIMITS.maxCarHeightRatio),
-    GROUND.wheelLineY - GROUND.ceilingBottomY - PLACEMENT_LIMITS.minFrameMarginPx,
-  );
-  if (h > maxH) {
-    h = maxH;
+  if (h > MAX_CAR_HEIGHT_PX) {
+    h = MAX_CAR_HEIGHT_PX;
     w = Math.round(h * aspect);
   }
   return { w, h };
+}
+
+/** Bottom-centre anchor on the tyre line; clamped inside the frame margins. */
+export function computeCarPosition(targetW: number, targetH: number, place: Pick<Placement, "offsetX" | "offsetY">) {
+  const m = PLACEMENT_LIMITS.minFrameMarginPx;
+  const carX = Math.max(m, Math.min(CANVAS_W - m - targetW, Math.round(GROUND.anchorX - targetW / 2 + place.offsetX)));
+  const carY = Math.round(GROUND.wheelLineY + place.offsetY) - targetH;
+  return { carX, carY };
+}
+
+/** Lowest silhouette row hitting the logo columns must stay below the shield. */
+export function silhouetteClearsLogo(columnTops: ReadonlyArray<number | null>, carX: number, carY: number) {
+  const required = LOGO_SAFE_ZONE.maxY + LOGO_SAFE_ZONE.clearancePx;
+  let highest = Infinity;
+  const x0 = Math.max(0, LOGO_SAFE_ZONE.minX - carX);
+  const x1 = Math.min(columnTops.length - 1, LOGO_SAFE_ZONE.maxX - carX);
+  for (let x = x0; x <= x1; x++) {
+    const t = columnTops[x];
+    if (t != null) highest = Math.min(highest, carY + t);
+  }
+  return { ok: highest >= required, highest, required };
+}
+
+export type GeometryCheck = { check: string; ok: boolean; detail: string };
+
+/**
+ * Deterministic geometry gate (pure, unit-tested). Every check here is
+ * mandatory in the pipeline: canvas size, aspect preservation, frame, tyre
+ * line and the exact per-class pixel width range.
+ */
+export function checkPlacementGeometry(a: {
+  canvasW: number; canvasH: number;
+  sourceW: number; sourceH: number;
+  targetW: number; targetH: number;
+  carX: number; carY: number;
+  vehicleClass: VehicleClass;
+}): GeometryCheck[] {
+  const m = PLACEMENT_LIMITS.minFrameMarginPx;
+  const range = classWidthRangePx(a.vehicleClass);
+  const srcAspect = a.sourceW / a.sourceH, dstAspect = a.targetW / a.targetH;
+  // 1 px rounding on the shorter side is the only tolerated difference.
+  const aspectTol = 1 / Math.min(a.targetW, a.targetH) * dstAspect + 1e-9;
+  return [
+    { check: "canvas_exact", ok: a.canvasW === CANVAS_W && a.canvasH === CANVAS_H, detail: `${a.canvasW}x${a.canvasH}` },
+    { check: "aspect_preserved", ok: Math.abs(srcAspect - dstAspect) <= aspectTol, detail: `src=${srcAspect.toFixed(4)} dst=${dstAspect.toFixed(4)}` },
+    { check: "inside_frame", ok: a.carX >= m && a.carY >= m && a.carX + a.targetW <= CANVAS_W - m && a.carY + a.targetH <= CANVAS_H - m, detail: `x=${a.carX} y=${a.carY} w=${a.targetW} h=${a.targetH}` },
+    { check: "wheels_on_asphalt", ok: a.carY + a.targetH === GROUND.wheelLineY, detail: `wheelY=${a.carY + a.targetH}` },
+    { check: "class_scale", ok: a.targetW >= range.min && a.targetW <= range.max, detail: `${a.vehicleClass} w=${a.targetW}px range=${range.min}-${range.max}` },
+  ];
+}
+
+/**
+ * Contact-shadow rows for one silhouette column. Starts 1 px BELOW the lowest
+ * tyre pixel, so the shadow never darkens the tyre image itself.
+ */
+export function contactShadowRows(floorY: number, reach: number): number[] {
+  const rows: number[] = [];
+  for (let d = 1; d <= reach; d++) rows.push(floorY + d);
+  return rows;
 }
 
 export const VALIDATION = {
@@ -205,12 +273,25 @@ const KNOWN_MODEL_CLASSES: Array<[RegExp, VehicleClass]> = [
   [/\b(?:chrysler\s+)?town\s*(?:&|and)?\s*country\b|\bvoyager\b|\bpacifica\b|\b(?:grand\s+)?caravan\b/i, "MPV"],
   [/\b(?:dodge\s+)?ram\s*(?:1500|2500|3500)\b|\bdakota\b/i, "PICKUP"],
   [/\bpromaster\b/i, "VAN"],
+  [/\bmagnum\b|\b300\s?c?\b.*\b(?:touring|kombi|wagon)\b/i, "WAGON"],
   [/\bdurango\b|\bjourney\b|\bnitro\b|\baspen\b|\bhornet\b/i, "SUV"],
   [/\bchallenger\b|\bbarracuda\b|\bcrossfire\b/i, "COUPE"],
   [/\b300c\b|\bcharger\b|\bneon\b|\bstratus\b|\bsebring\b|\bavenger\b/i, "SEDAN"],
 ];
 
+const VEHICLE_CLASSES = new Set<VehicleClass>(Object.keys(CLASS_PROFILES) as VehicleClass[]);
+
+/**
+ * Precedence: 1) explicit reliable class (`vehicle_class`, only when it is a
+ * valid class — the vehicles table currently has no such column, marketplace
+ * codes are NOT treated as reliable) → 2) known model family → 3) TipCars code
+ * → 4) TipCars description → 5) name keywords → SEDAN.
+ */
 export function detectVehicleClass(vehicle: Record<string, unknown> | null | undefined): VehicleClass {
+  const explicit = vehicle?.["vehicle_class"];
+  if (typeof explicit === "string" && VEHICLE_CLASSES.has(explicit.trim().toUpperCase() as VehicleClass)) {
+    return explicit.trim().toUpperCase() as VehicleClass;
+  }
   const name = typeof vehicle?.["name"] === "string" ? vehicle["name"] as string : "";
   for (const [pattern, cls] of KNOWN_MODEL_CLASSES) if (pattern.test(name)) return cls;
 

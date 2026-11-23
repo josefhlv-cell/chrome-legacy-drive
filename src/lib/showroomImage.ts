@@ -12,7 +12,7 @@
 export const SHOWROOM_TEMPLATE = {
   background: "background-v7",
   camera: "camera-v3",
-  placement: "placement-v8",
+  placement: "placement-v9",
   lighting: "lighting-v3",
 } as const;
 

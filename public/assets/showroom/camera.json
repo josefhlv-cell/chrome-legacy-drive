@@ -1,27 +1,33 @@
 {
   "version": "camera-v3",
   "readOnly": true,
-  "note": "The JPG is the camera. These pixels were measured on master_showroom_background.jpg. Do not rebuild the room from the written dimensions.",
+  "note": "The JPG is the camera. Pixels measured on the locked 1920x1082 master chdp-showroom-master.jpeg. The 6.60 x 3.00 m wall is room data only and never drives the canvas size.",
   "canvas": {
-    "width": 1500,
-    "height": 846,
-    "aspect": "1500:846"
+    "width": 1920,
+    "height": 1082,
+    "aspect": "1920:1082"
   },
   "perspective": {
     "type": "linear",
-    "vanishing_point_x": 750,
-    "horizon_y": 296,
-    "horizon_note": "1.45 m eye line on the 3.00 m rear wall (wall top y=59, seam y=518). Not used to warp the plate."
+    "vanishing_point_x": 948,
+    "horizon_y": 379,
+    "horizon_note": "Not used to warp the plate."
   },
   "showroom": {
     "rear_wall_width_m": 6.6,
     "rear_wall_height_m": 3.0,
-    "rear_wall_top_y": 59,
-    "rear_wall_seam_y": 518,
-    "wall_px_per_meter": 153
+    "ceiling_bottom_y": 78,
+    "rear_wall_seam_y": 666
   },
   "output": {
     "encoding": "jpeg",
     "quality": 94
+  },
+  "lens": {
+    "focal_length_mm": 50,
+    "field_of_view_deg": 39.6,
+    "pitch_deg": -1.8,
+    "yaw_deg": 0,
+    "roll_deg": 0
   }
 }
